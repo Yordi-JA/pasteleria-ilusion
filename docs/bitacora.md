@@ -165,3 +165,5 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Corrección D1: la paleta es "Fresa y mermelada"; "Noche y Caramelo" y `design.md` no existen.
 - Corrección D2: el mockup es diseño en prototipos HTML, no código React; el frontend arranca en la Etapa 2.
 - Plan actualizado con el frontend en paralelo al backend.
+- La carpeta `diseno/` se renombra a `design/` y se corrigen sus rutas en la documentación (D21).
+- El 3D se presenta como complemento en el README, los objetivos, `AGENTS.md` y el libro de marca; el objetivo 3 se reformula como diseño de pedidos a medida con precio exacto (D22).

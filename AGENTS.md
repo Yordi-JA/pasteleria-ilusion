@@ -1,6 +1,6 @@
 # Pastelería Ilusión: guía para agentes
 
-Sitio de comercio electrónico de una pastelería familiar real de la Ciudad de México: catálogo, vitrina del día, rebanadas, carrito, pago, cuenta del cliente, préstamo de bases con depósito, agenda de entregas y "Diseña tu pastel", un pedido personalizado paso a paso con vista previa 3D. Todo el sitio está en español de México.
+Sitio de comercio electrónico de una pastelería familiar real de la Ciudad de México: catálogo, vitrina del día, rebanadas, carrito, pago, cuenta del cliente, préstamo de bases con depósito, agenda de entregas y "Diseña tu pastel", un pedido personalizado paso a paso con vista previa. Todo el sitio está en español de México.
 
 Este archivo es la fuente única de instrucciones para cualquier agente. `backend/AGENTS.md` y `frontend/AGENTS.md` agregan las reglas de cada carpeta. Los `CLAUDE.md` solo importan estos archivos.
 
@@ -26,8 +26,8 @@ Lee lo que aplique antes de construir.
 | Estructura de código obligatoria y patrones | [`docs/proyecto/arquitectura.md`](docs/proyecto/arquitectura.md) |
 | Por qué se decidió algo | [`docs/proyecto/decisiones.md`](docs/proyecto/decisiones.md) |
 | Qué se hizo y cuándo | [`docs/bitacora.md`](docs/bitacora.md) |
-| Tokens listos para usar | `diseno/tokens.css`, `diseno/tailwind.preset.js` |
-| Bordes de duya, flama, esqueletos, comportamiento del pastel 3D | `diseno/referencia/` |
+| Tokens listos para usar | `design/tokens.css`, `design/tailwind.preset.js` |
+| Bordes de duya, flama, esqueletos, comportamiento del pastel 3D | `design/referencia/` |
 | Logos, dibujos de línea y fuentes | `assets/` |
 
 Si dos fuentes se contradicen, gana la de mayor autoridad y avisas de la contradicción:
@@ -84,6 +84,7 @@ El diagrama, los contratos y la justificación están en [`docs/proyecto/arquite
 ## Cómo trabajar
 
 - Antes de cada pantalla, abre su fila en `docs/mapa-de-vistas.md`, mira sus capturas de escritorio y móvil y lee las reglas que le aplican.
+- El 3D es un complemento. Ponlo solo en los 8 pasos de "Diseña tu pastel" y en las vistas que enumera `docs/libro-de-marca.md` (sección "Presencia de marca"), en escritorio y en móvil como lo muestra el mockup. No lo agregues en ninguna otra vista, tampoco en la elección del pedido ni en el envío de referencia.
 - Al terminar una pantalla, compárala en el navegador contra las capturas, con la ventana a 1440 px y a 390 px, y revisa contraste y teclado. Las capturas de escritorio miden 1200 px de ancho (el ancho del contenido); los tableros del lienzo miden 1440 px.
 - Haz cambios pequeños y verificables.
 - Cuando una regla cambie, actualiza el documento que la define, no solo el código.
@@ -121,7 +122,7 @@ Aún no existen. El proyecto Django y el proyecto React se inicializan en la Eta
 | `frontend/e2e/` | Pruebas de Playwright |
 | `docs/` | Reglas de negocio, libro de marca, mapa de vistas, fotografía y bitácora |
 | `docs/proyecto/` | Documentos del proyecto: objetivos, arquitectura, plan, tecnologías, pruebas, decisiones y referencias |
-| `diseno/` | Tokens, preset de Tailwind y código de referencia |
+| `design/` | Tokens, preset de Tailwind y código de referencia |
 | `assets/` | Logos, motivos, dibujos de línea y fuentes |
 | `mockup/` | Fuente HTML del mockup y sus capturas |
 | `scripts/` | `instalar-skills.sh` |

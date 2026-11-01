@@ -1,6 +1,6 @@
 # Registro de decisiones
 
-Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D20 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026.
+Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D22 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026.
 
 ## Contenido
 
@@ -25,7 +25,7 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 - **Fecha:** 31 de octubre de 2026.
 - **Decisión:** La paleta del sitio es "Fresa y mermelada" y el documento rector visual es [`../libro-de-marca.md`](../libro-de-marca.md).
 - **Contexto:** El documento de contexto inicial hablaba de una paleta "Noche y Caramelo" y de un archivo `design.md`. Ninguno existe: es un error del documento. La paleta pasó de jamaica a durazno el 12 de octubre y a "Fresa y mermelada" el 31 de octubre ([`../bitacora.md`](../bitacora.md)).
-- **Consecuencias:** Solo se usan los tokens de `diseno/tokens.css` y `diseno/tailwind.preset.js`. "Noche y Caramelo" no se usa en ningún otro documento.
+- **Consecuencias:** Solo se usan los tokens de `design/tokens.css` y `design/tailwind.preset.js`. "Noche y Caramelo" no se usa en ningún otro documento.
 
 ### D2. El mockup es diseño; el frontend arranca en la Etapa 2
 
@@ -58,7 +58,7 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 ### D6. Vocabulario: interfaz frente a documentación técnica
 
 - **Fecha:** 1 de noviembre de 2026.
-- **Decisión:** La interfaz sigue el libro de marca: "Diseña tu pastel", nunca "cotizador", y "cotización" solo para el envío de referencia. En el código, la documentación técnica y el reporte académico sí se puede decir "cotizador 3D", que es el nombre del objetivo 3.
+- **Decisión:** La interfaz sigue el libro de marca: "Diseña tu pastel", nunca "cotizador", y "cotización" solo para el envío de referencia. En el código, la documentación técnica y el reporte académico sí se puede decir "cotizador 3D".
 - **Contexto:** El modelo previsto `Cotizaciones3D` choca con la "cotización" del envío de referencia.
 - **Consecuencias:** El choque queda abierto y se resuelve en la Etapa 2 (ver [decisiones abiertas](#decisiones-abiertas)).
 
@@ -160,11 +160,25 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 - **Contexto:** El cliente no debe poder marcar su propio pago como recibido.
 - **Consecuencias:** Un cliente que intenta registrar su pago en efectivo recibe 403 ([`pruebas.md`](pruebas.md)).
 
+### D21. La carpeta de tokens se llama `design/`
+
+- **Fecha:** 1 de noviembre de 2026.
+- **Decisión:** `diseno/` pasa a `design/`. La subcarpeta `referencia/` conserva su nombre.
+- **Contexto:** Lo pidió el equipo.
+- **Consecuencias:** Las rutas en `AGENTS.md`, `README.md`, `frontend/AGENTS.md`, [`tecnologias.md`](tecnologias.md), esta misma página y el encabezado del preset ya apuntan a `design/`.
+
+### D22. El 3D es un complemento
+
+- **Fecha:** 1 de noviembre de 2026.
+- **Decisión:** El pastel 3D (la vista previa de "Diseña tu pastel" y el gesto de marca de la sección "Presencia de marca" del libro de marca) es un complemento. No se agrega en otras vistas y la documentación no lo presenta como el centro del sitio. El objetivo específico 3 se reformula como diseño de pedidos a medida con precio exacto, con la vista previa como complemento.
+- **Contexto:** El equipo no quiere abusar del recurso.
+- **Consecuencias:** La descripción inicial, el objetivo 3 y "Qué ofrece el sitio" del README, [`objetivos.md`](objetivos.md), `AGENTS.md` y el libro de marca ya no lo anuncian. Su ubicación en el mockup y en [`../libro-de-marca.md`](../libro-de-marca.md) (sección "Presencia de marca") no cambia. El alcance técnico del objetivo 3 no se reduce: la vista previa sigue en WebGL con `react-three-fiber`. [`plan-de-trabajo.md`](plan-de-trabajo.md) conserva el nombre original del entregable. El nombre técnico "cotizador 3D" sigue permitido en código y documentación técnica (D6).
+
 ## Decisiones abiertas
 
 | Tema | Detalle | Se resuelve |
 | --- | --- | --- |
-| Tailwind v3 o v4 | El preset `diseno/tailwind.preset.js` está en formato v3 | Etapa 2 |
+| Tailwind v3 o v4 | El preset `design/tailwind.preset.js` está en formato v3 | Etapa 2 |
 | Versiones de Python y Django | Sin fijar | Etapa 2 |
 | Herramienta de compilación del frontend | Sin elegir | Etapa 2 |
 | PaaS de despliegue | Sin elegir. Debe permitir que el frontend y la API compartan sitio (D15) | Antes de la Etapa 5 |
