@@ -1,36 +1,142 @@
-# Kit de Pastelería Ilusión para Claude Code
+# Pastelería Ilusión
 
-Todo lo necesario para construir el sitio con Claude Code: reglas de negocio, libro de marca, tokens, recursos, el mockup completo con capturas y las instrucciones para el agente.
+Sitio de comercio electrónico de una pastelería familiar de la Ciudad de México: catálogo, pedidos a medida con vista previa 3D y préstamo de bases con depósito.
 
-## Cómo empezar
+## Contenido
 
-1. Copia el contenido de esta carpeta en la raíz del repositorio del proyecto (incluida la carpeta oculta `.claude/`).
-2. Instala las skills de diseño: `bash scripts/instalar-skills.sh` (requiere git).
-3. Abre Claude Code en la raíz y pega el bloque de `PROMPT_MAESTRO.md`.
+- [Qué es](#qué-es)
+- [Materia y equipo](#materia-y-equipo)
+- [Objetivos](#objetivos)
+- [Qué ofrece el sitio](#qué-ofrece-el-sitio)
+- [Stack](#stack)
+- [Arquitectura](#arquitectura)
+- [Estado por etapa](#estado-por-etapa)
+- [Estructura del repositorio](#estructura-del-repositorio)
+- [Cómo correrlo](#cómo-correrlo)
+- [Documentación](#documentación)
+- [Pendientes de la pastelería](#pendientes-de-la-pastelería)
+- [Licencias](#licencias)
 
-La primera vez, Claude Code puede pedir confirmar que confías en la carpeta; acéptalo para que cargue `CLAUDE.md`, las reglas y las skills.
+## Qué es
 
-## Qué hay aquí
+Pastelería Ilusión es una pastelería real, familiar, de la Ciudad de México. Este repositorio contiene su sitio web: los clientes consultan el catálogo y la vitrina del día, diseñan su pastel paso a paso, pagan en línea o apartan su pedido para pagar en efectivo, y la pastelería gestiona pedidos, inventario, entregas y bases prestadas desde el admin.
 
-| Carpeta o archivo | Contenido |
+Todo el sitio está en español de México.
+
+## Materia y equipo
+
+Proyecto final de Negocios Electrónicos y Desarrollo Web, semestre 2027-1, grupo 3. Universidad Nacional Autónoma de México, Facultad de Ingeniería. Profesor: Mtro. Gerardo Gabriel Carrasco Zúñiga.
+
+Equipo 02:
+
+- Jaramillo Rodríguez Leslie Citlalli
+- Jiménez Ayala Yordi Josué
+- Salas Hernández Camila Alexandra
+
+## Objetivos
+
+Objetivo general: aplicar los conceptos de la materia para desarrollar una aplicación web de comercio electrónico que digitalice las ventas, el control de inventario y la gestión de pedidos de una pastelería local.
+
+Objetivos específicos:
+
+1. Catálogo digital con precios y disponibilidad en tiempo real, para compra inmediata o apartado sin ir al local.
+2. Cotización, compra y pago en línea de uno o más pasteles o servicios, con carrito.
+3. Módulo interactivo 3D (WebGL, react-three-fiber) para previsualizar el pastel y obtener su precio exacto.
+4. Garantías digitales para el préstamo de bases: comprobantes en PostgreSQL ligados a la cuenta del cliente, con reembolso del depósito al devolver la base.
+5. Agenda de entregas sin empalmes, con fecha propuesta por el sistema o por el cliente.
+6. Cancelaciones y devoluciones claras y funcionales.
+
+El detalle y su relación con las pantallas está en [`docs/proyecto/objetivos.md`](docs/proyecto/objetivos.md).
+
+## Qué ofrece el sitio
+
+- Catálogo y vitrina del día: pasteles, rebanadas y productos de precio fijo, con existencias y disponibilidad.
+- "Diseña tu pastel" y envío de referencia: un pedido personalizado en 8 pasos con vista previa 3D y precio calculado por el servidor. Con una foto de referencia, la pastelería cotiza el pedido.
+- Préstamo de bases con depósito: cada base prestada queda registrada en la cuenta del cliente, con nota en PDF, código QR y reembolso al devolverla.
+
+## Stack
+
+| Capa | Tecnología |
 | --- | --- |
-| `CLAUDE.md` | Contexto que Claude Code carga en cada sesión: proyecto, stack, fuentes de verdad y reglas que no se negocian |
-| `.claude/rules/` | Reglas que se cargan solo al trabajar en `frontend/` o en `backend/` |
-| `PROMPT_MAESTRO.md` | El primer mensaje para Claude Code, con las fases del trabajo |
-| `docs/reglas-de-negocio.md` | Precios, límites, cálculos y pendientes de la pastelería |
-| `docs/libro-de-marca.md` | Color, tipografía, componentes, redacción y accesibilidad |
-| `docs/mapa-de-vistas.md` | Cada pantalla con su ruta sugerida, archivo fuente y capturas |
-| `docs/fotografia.md` | Cómo deben ser las fotos de producto |
-| `diseno/` | `tokens.json`, `tokens.css`, `tailwind.preset.js` y código de referencia (duya, flama, esqueletos, pastel 3D) |
-| `assets/` | Logos, dibujos de línea y fuentes |
-| `mockup/fuente/` | Las 120 vistas del mockup en HTML y el índice del lienzo |
-| `mockup/capturas/` | Captura de cada vista en escritorio (1200 px) y móvil (390 px) |
-| `scripts/instalar-skills.sh` | Instala 13 skills de diseño en `.claude/skills/` (`--todas` para instalar todo) |
+| Frontend | React, Tailwind CSS, react-three-fiber (MVVM) |
+| Backend | Django, Django REST Framework (MVT con servicios y repositorios) |
+| Base de datos | PostgreSQL |
+| Pagos | Mercado Pago y Stripe en sandbox; efectivo como pedido apartado |
+| Acceso | Google (OAuth 2.0) y correo con contraseña, con JWT |
+| Contrato de la API | OpenAPI con drf-spectacular y Swagger UI |
+| Pruebas | pytest, pytest-django y Playwright |
+
+Las versiones se fijan al inicializar Django y React en la Etapa 2. El detalle y la justificación están en [`docs/proyecto/tecnologias.md`](docs/proyecto/tecnologias.md).
+
+## Arquitectura
+
+El frontend sigue MVVM: los hooks (view-models) llevan el estado y hablan con el cliente HTTP, y las vistas solo pintan. El backend es MVT con una capa de servicios para las reglas de negocio y otra de repositorios para el acceso a datos, con los patrones Factory Method, Adapter, Strategy, Observer, Repository y Decorator. Los diagramas y las decisiones están en [`docs/proyecto/arquitectura.md`](docs/proyecto/arquitectura.md).
+
+## Estado por etapa
+
+| Etapa | Fechas (2026) | Contenido | Estado |
+| --- | --- | --- | --- |
+| 1 | 08 al 31 de octubre | Reglas de negocio, identidad visual, libro de marca, mockup y arquitectura | Completada |
+| 2 | 01 al 07 de noviembre | Backend (Django, PostgreSQL, modelos, repositorios, servicios, API en `/api/v1/`, Swagger, admin) y, en paralelo, frontend (React, Tailwind con el preset, componentes base, rutas) | En curso |
+| 3 | 08 al 14 de noviembre | Pantallas conectadas a la API, acceso, "Diseña tu pastel" con react-three-fiber | Por iniciar |
+| 4 | 15 al 21 de noviembre | Carrito, entrega y agenda, pagos, Observer, garantías de bases con nota PDF y QR, referencia, cancelaciones | Por iniciar |
+| 5 | 22 al 28 de noviembre | Pruebas con pytest y Playwright, accesibilidad, despliegue en PaaS, reporte final y referencias en APA | Por iniciar |
+
+El plan completo, con la comparación contra el plan original de 8 semanas, está en [`docs/proyecto/plan-de-trabajo.md`](docs/proyecto/plan-de-trabajo.md).
+
+## Estructura del repositorio
+
+```text
+.
+├── AGENTS.md                 # Guía para agentes (CLAUDE.md la importa)
+├── backend/
+│   ├── core_pasteleria/      # Esqueleto: models, api/, services/, repositories/
+│   └── tests/                # pytest
+├── frontend/
+│   ├── src/                  # models/, viewmodels/, views/, components/, three/
+│   └── e2e/                  # Playwright
+├── docs/
+│   ├── proyecto/             # Documentos del proyecto
+│   └── ...                   # Reglas de negocio, libro de marca, mapa de vistas, fotografía, bitácora
+├── diseno/                   # Tokens, preset de Tailwind y código de referencia
+├── assets/                   # Logos, motivos, dibujos de línea y fuentes
+├── mockup/                   # Fuente HTML del mockup y capturas
+└── scripts/                  # instalar-skills.sh
+```
+
+`backend/` y `frontend/` son hoy un esqueleto de carpetas y módulos vacíos.
+
+## Cómo correrlo
+
+Todavía no hay nada que correr. Los proyectos Django y React se inicializan en la Etapa 2; sus instrucciones de instalación y ejecución se documentan aquí cuando existan. Las variables de entorno irán en un `.env` local, que Git ignora; el repositorio solo incluirá un `.env.example` con los nombres.
+
+El mockup (`mockup/fuente/*.dc.html`) son prototipos HTML de un lienzo de diseño, no una aplicación React; sus capturas están en `mockup/capturas/`.
+
+## Documentación
+
+| Documento | Contenido |
+| --- | --- |
+| [`docs/proyecto/objetivos.md`](docs/proyecto/objetivos.md) | Objetivo general y objetivos específicos |
+| [`docs/proyecto/arquitectura.md`](docs/proyecto/arquitectura.md) | Arquitectura, estructura de código y patrones |
+| [`docs/proyecto/plan-de-trabajo.md`](docs/proyecto/plan-de-trabajo.md) | Plan original contra plan real |
+| [`docs/proyecto/tecnologias.md`](docs/proyecto/tecnologias.md) | Tecnologías, rol y justificación |
+| [`docs/proyecto/pruebas.md`](docs/proyecto/pruebas.md) | Estrategia de pruebas |
+| [`docs/proyecto/decisiones.md`](docs/proyecto/decisiones.md) | Registro de decisiones |
+| [`docs/proyecto/referencias.md`](docs/proyecto/referencias.md) | Referencias |
+| [`docs/reglas-de-negocio.md`](docs/reglas-de-negocio.md) | Precios, límites, cálculos, estados y pendientes |
+| [`docs/libro-de-marca.md`](docs/libro-de-marca.md) | Color, tipografía, componentes, redacción y accesibilidad |
+| [`docs/mapa-de-vistas.md`](docs/mapa-de-vistas.md) | Cada pantalla con su ruta, archivo fuente y capturas |
+| [`docs/fotografia.md`](docs/fotografia.md) | Cómo deben ser las fotos de producto |
+| [`docs/bitacora.md`](docs/bitacora.md) | Bitácora de trabajo |
+| [`diseno/`](diseno/) | `tokens.json`, `tokens.css`, `tailwind.preset.js` y código de referencia |
+| [`AGENTS.md`](AGENTS.md) | Instrucciones para agentes; hay otro en `backend/` y otro en `frontend/` |
 
 ## Pendientes de la pastelería
 
-Están en la sección 14 de `docs/reglas-de-negocio.md`: precio de las decoraciones fijas, repartidor, vigencia de la cotización, políticas de cambios y cancelaciones, dirección, WhatsApp y textos legales. El sitio se construye con esos datos configurables, sin inventarlos.
+Faltan datos que solo la pastelería puede dar: precio de las decoraciones fijas, repartidor, vigencia de la cotización, políticas de cambios y cancelaciones, dirección, WhatsApp y textos legales. Están en la [sección 14 de las reglas de negocio](docs/reglas-de-negocio.md#14-lista-de-pendientes). El sitio los deja configurables y visibles, sin inventarlos.
 
-## Licencias de las fuentes
+## Licencias
 
-Fraunces e Instrument Sans se distribuyen con la licencia SIL Open Font License 1.1.
+- Fraunces e Instrument Sans se distribuyen bajo la licencia SIL Open Font License 1.1. Los textos de licencia están en [`assets/fuentes/OFL-Fraunces.txt`](assets/fuentes/OFL-Fraunces.txt) y [`assets/fuentes/OFL-InstrumentSans.txt`](assets/fuentes/OFL-InstrumentSans.txt).
+- Los logos, los dibujos y la marca son de Pastelería Ilusión.
+- El repositorio no declara una licencia de uso.

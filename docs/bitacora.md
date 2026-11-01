@@ -1,8 +1,14 @@
-# Bitácora de cambios del mockup de Pastelería Ilusión
+# Bitácora del proyecto
+
+Aquí se registran los avances de todas las etapas de Pastelería Ilusión. Las decisiones se registran en [`proyecto/decisiones.md`](proyecto/decisiones.md) y el plan, en [`proyecto/plan-de-trabajo.md`](proyecto/plan-de-trabajo.md).
+
+## Etapa 1: levantamiento, identidad visual y mockup (8 al 31 de octubre)
+
+El registro detallado empieza el 12 de octubre. El kit para el desarrollo se cerró el 1 de noviembre, por eso hay entradas de ese día en esta etapa.
 
 Del 12 de octubre al 1 de noviembre de 2026. Todas las horas son de la Ciudad de México (UTC−6).
 
-## Cómo se reconstruyó
+### Cómo se reconstruyó
 
 - **Fuentes:** las tres transcripciones de la conversación (12 al 29 de octubre), la sesión actual (29 de octubre al 1 de noviembre), los números de versión de cada publicación (son marcas de tiempo exactas), la hora en el nombre de las capturas que se subieron al chat y la hora de modificación de los archivos de trabajo.
 - **Precisión de cada hora:**
@@ -14,7 +20,7 @@ Del 12 de octubre al 1 de noviembre de 2026. Todas las horas son de la Ciudad de
   - Sistema de diseño y libro de marca: https://claude.ai/artifact/D535SPvDnuaR2zQ6WXUKaR
   - Documento para la pastelería: https://claude.ai/artifact/DuAkL6j7DH6agmNjz52qq5
 
-## Resumen
+### Resumen
 
 | Fecha | Qué pasó |
 | --- | --- |
@@ -32,7 +38,7 @@ Del 12 de octubre al 1 de noviembre de 2026. Todas las horas son de la Ciudad de
 
 ---
 
-## Lunes 12 de octubre
+### Lunes 12 de octubre
 
 - **18:34** Skills de diseño instaladas para la sesión: taste-skill, awesome-design-md, emilkowalski/skills, anti-slop, ui-ux-pro-max e impeccable.
 - **≈ 18:49 a 19:11** Definiciones del proyecto: pastelería real sin identidad visual, dirección visual "Betún y duya", logo con la i de "ilusión" como vela encendida, acceso con Google, pagos en sandbox de Mercado Pago y Stripe, el sitio nunca menciona que es un proyecto escolar, las fotos de los pasteles las toma el equipo.
@@ -46,7 +52,7 @@ Del 12 de octubre al 1 de noviembre de 2026. Todas las horas son de la Ciudad de
 - **19:57** Pastel de betún en las vistas de acceso, para no perder la presencia de la marca.
 - **23:35 a 23:59** Cambio de paleta: se descarta el jamaica porque se leía como color de partido político. Se prueban Menta y merengue y Zarzamora, y se elige **Durazno**, aplicado a todas las vistas.
 
-## Martes 13 de octubre
+### Martes 13 de octubre
 
 - **00:00** Revisión de las vistas que quedaron pegadas al chocolate. Títulos nuevos: "Qué gusto verte de nuevo." y "Una cuenta para todos tus pedidos."
 - **≈ 00:07 a 00:17** "Mi cuenta": revisión con impeccable; pestañas en escritorio y menú lateral en móvil; "Datos y avisos" en una sola vista; menú de la cuenta como tablero móvil propio; barra de estado y estado "Entregado" corregidos.
@@ -58,22 +64,22 @@ Del 12 de octubre al 1 de noviembre de 2026. Todas las horas son de la Ciudad de
 - **Entre 18:12 y 23:14** Barra de navegación móvil de una fila con menú lateral, y las 14 vistas pendientes: entrega, confirmación, pago rechazado, ficha, vitrina, rebanadas, detalle del pedido, recuperar contraseña, verificar correo, bases, página no encontrada y estados vacíos.
 - **23:16** Prueba del toldo en la portada.
 
-## Miércoles 14 de octubre
+### Miércoles 14 de octubre
 
 - **11:03** Toldo en las 25 vistas, con la barra flotante separada de él.
 - **11:08** "Lo más pedido" regresa a fondo mantequilla (el durazno claro se confundía con el encabezado, 1.4:1).
 - **11:15** Prueba de la portada con pastel 3D. Después, el 3D en portada, catálogo, inicio de sesión y registro.
 
-## Entre el 14 y el 23 de octubre
+### Entre el 14 y el 23 de octubre
 
 - Sin hora registrada: las seis vistas del pedido personalizado (elegir camino, cotizador, revisión, enviar referencia, solicitud enviada y cotización lista).
 
-## Viernes 23 de octubre
+### Viernes 23 de octubre
 
 - **≈ 11:08 a 11:16** Diseño del flujo del pedido: vista previa a la izquierda y formulario por tarjetas a la derecha, con pasos plegados como resumen y dos caminos (foto de referencia o diseño propio).
 - **11:44** Pasos de tipo de pastel (tres leches, seco, envinado) y de pan con el Choco-pingüino; "pan" en lugar de "bizcocho" en todo el mockup.
 
-## Lunes 26 de octubre
+### Lunes 26 de octubre
 
 - **Tarde, antes de las 22:04** Choco-pingüino no disponible en envinado; relleno en dos niveles (base y sabor); Fresa con yogurt; sabores reales de cada base; paso de cobertura (crema pastelera, 11 colores).
 - **22:07** Anticipación real en 36 vistas: pedidos con 2 días, vitrina el mismo día.
@@ -81,7 +87,7 @@ Del 12 de octubre al 1 de noviembre de 2026. Todas las horas son de la Ciudad de
 - **22:30** Paso 1 "Tamaño y forma": molde redondo y rectangular, hasta 5 pisos, con el 3D de cada forma.
 - **23:07 a 23:09** Las 10 correcciones de la revisión antislop: enlaces sin destino, estados de carga y error, contenido inventado, teclado en el 3D, entre otras. Aparecen las vistas de conflicto, pisos, rectangular, vitrina agotada y legales.
 
-## Miércoles 28 de octubre
+### Miércoles 28 de octubre
 
 - **17:42** Horarios de la pastelería y de entrega, kilos recomendados por número de pisos, Red velvet.
 - **18:00** Catálogo y ficha con productos y precios reales.
@@ -91,7 +97,7 @@ Del 12 de octubre al 1 de noviembre de 2026. Todas las horas son de la Ciudad de
 - **18:59 a 19:04** Precios por kilo en el pedido y el pan dividido en dos grupos ("Para combinar con un relleno" y "Con relleno incluido").
 - **≈ 22:19** Oblea de $125, hasta tamaño carta, en cualquier pastel; decoraciones fijas como opciones (patrón con duya, flores, chispas).
 
-## Jueves 29 de octubre
+### Jueves 29 de octubre
 
 - **≈ 13:26 a 13:29** Respuestas de la pastelería aplicadas: un piso puede pasar de 12 kg, los kilos por piso son recomendaciones, cota en línea de 50 kg (350 personas), sí hay entrega a domicilio. El editor de la tapa (mensaje y oblea) ya está en el lienzo.
 - **≈ 13:37** Revisión de UI/UX del pedido: se propone el stepper horizontal.
@@ -106,7 +112,7 @@ Del 12 de octubre al 1 de noviembre de 2026. Todas las horas son de la Ciudad de
 
 Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: vocabulario unificado ("pedido", "base", "Diseña tu pastel"), el 3D fuera de títulos y botones, "Como en la pastelería" eliminado, textos sobreexplicativos recortados, opción elegida con fondo y borde de 2 px, ficha con tres caminos (vitrina hoy, encargar, personalizar) y sin ingredientes, y el borde de duya medido en el navegador.
 
-### Jueves 29 de octubre, noche (sesión actual)
+#### Jueves 29 de octubre, noche (sesión actual)
 
 - **23:02 a 23:05** **Vitrina sin bloque chocolate** (vitrina y vitrina agotada): productos sobre el fondo claro, sin el borde chocolate intermedio, filtros como chips, repisa en `relieve`, tarjetas de precio con borde, estado agotado en chocolate sobre claro. Regla agregada al libro de marca (23:05). La sección de vitrina de la portada se queda en chocolate por decisión del equipo.
 - **23:12** **Familia de bordes de duya** probada en la portada: conchas bajo el encabezado, perlas en cambios fuertes de color, guirnalda antes del pie. Se corrige un desplazamiento del pie de 18 px causado por márgenes negativos que se colapsaban.
@@ -114,11 +120,11 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - **≈ 23:19 a 23:22** **Tableros cortados en el lienzo** corregidos: las vistas con listas de datos se medían con una sola tarjeta. Catálogo móvil de 4,629 a 13,063 px, catálogo de 3,553 a 6,230, portada móvil de 4,616 a 5,852, portada de 3,833 a 4,226, "Mis pedidos" móvil de 2,836 a 3,165, y los dos menús abiertos. Las cuatro filas de abajo bajan unos 4,000 px con sus títulos.
 - **≈ 23:22 a 23:33** **Flama nueva del logo**: de la gota genérica a una flama con dos ondas de betún en el borde izquierdo, punta en S y núcleo inclinado (antes se descartaron versiones que parecían almendra, hoja o semilla). Aplicada en los cinco logos y el sello (23:29), el logo y el sello del mockup en 61 vistas, la vela de los pasteles 3D en 31 vistas y el dibujo de línea de la vela (23:33). Libro de marca actualizado (23:33).
 
-## Entre el 29 de octubre (23:33) y el 31 de octubre (14:10)
+### Entre el 29 de octubre (23:33) y el 31 de octubre (14:10)
 
 - Sin cambios al mockup. Lista de pendientes y exploración de paletas alternativas (Zarzamora, Fresa con yogurt y Fiesta), con revisión de contraste.
 
-## Sábado 31 de octubre
+### Sábado 31 de octubre
 
 - **14:10** Reinstalación de ui-ux-pro-max e impeccable para fundamentar la paleta. Dos propuestas en OKLCH: Durazno afinado y Fresa y mermelada.
 - **14:15 a 14:17** **Paleta Fresa y mermelada** aplicada a 124 archivos del mockup (8,115 colores reemplazados, cero textos con contraste insuficiente), logo y sello en los colores nuevos. Se detecta que la mermelada cae en la zona del guinda, restringida en `tokens.json`; el equipo decide conservarla.
@@ -130,12 +136,12 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - **≈ 19:41 a 19:42** Respuestas de la pastelería aplicadas: bases y tarifa de envío aprobadas, Choco-pingüino al mismo precio en seco y tres leches, y **el envío se cobra completo y aparte del 50%**. Fila de envío en entrega, pago, pago rechazado, procesando, confirmación, pedido apartado y detalle; se quita la fila contradictoria "Entrega: Sin costo"; notas del carrito y del pago actualizadas. `reglas-de-negocio.md` y el documento para la pastelería al día.
 - **19:55** Inicio del kit para Claude Code: 119 capturas de todas las vistas.
 
-## Domingo 1 de noviembre
+### Domingo 1 de noviembre
 
 - **11:34** **Kit para Claude Code** terminado (`ilusion-claude-code.zip`): `CLAUDE.md`, reglas por carpeta, prompt maestro, mapa de vistas, tokens en CSS y Tailwind, código de referencia, recursos, mockup y capturas, script de skills.
 - **≈ 11:45** Esta bitácora.
 
-## Pendientes al cierre
+### Pendientes al cierre
 
 - Precio de las decoraciones fijas.
 - Repartidor propio o aplicación.
@@ -143,3 +149,19 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Políticas de cambios y cancelaciones, y base dañada (texto base por preparar).
 - Dirección, WhatsApp, aviso de privacidad y términos (texto base por preparar).
 - Título "Para borrar" que quedó en el lienzo.
+
+## Etapa 2: backend, base de datos y frontend base (1 al 7 de noviembre)
+
+### Domingo 1 de noviembre: repositorio y documentación
+
+- Repositorio git inicializado para publicarse como público en GitHub (Yordi-JA/pasteleria-ilusion): https://github.com/Yordi-JA/pasteleria-ilusion. El `.gitignore` excluye secretos y datos de clientes y se reforzó en la revisión de seguridad.
+- Esqueleto de `backend/core_pasteleria` (capas `api`, `services` y `repositories`) y de `frontend/src` en MVVM (`models`, `viewmodels`, `views`, `components`, `three`), con `frontend/e2e` para las pruebas.
+- `AGENTS.md` como fuente única de instrucciones para agentes, en la raíz, `backend/` y `frontend/`; cada carpeta tiene un `CLAUDE.md` que lo importa.
+- Documentación del proyecto en `docs/proyecto/`: objetivos, arquitectura, plan de trabajo, tecnologías, pruebas, decisiones y referencias.
+- `CONTEXTO_INICIAL.md` y `PROMPT_MAESTRO.md` se absorben en `AGENTS.md` y `docs/proyecto/` y salen del árbol de trabajo; quedan en el primer commit del repositorio.
+- Revisión de calidad y de seguridad del entregable.
+- Licencias OFL de Fraunces e Instrument Sans guardadas en `assets/fuentes/`; ninguna declara un Reserved Font Name.
+- Decisiones D13 a D18 registradas en [`proyecto/decisiones.md`](proyecto/decisiones.md).
+- Corrección D1: la paleta es "Fresa y mermelada"; "Noche y Caramelo" y `design.md` no existen.
+- Corrección D2: el mockup es diseño en prototipos HTML, no código React; el frontend arranca en la Etapa 2.
+- Plan actualizado con el frontend en paralelo al backend.
