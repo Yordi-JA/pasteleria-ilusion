@@ -1,5 +1,5 @@
-// Pastelería Ilusión: preset de Tailwind generado desde diseno/tokens.json (paleta Fresa y mermelada).
-// Uso en tailwind.config.js:  presets: [require('./diseno/tailwind.preset.js')]
+// Pastelería Ilusión: preset de Tailwind generado desde design/tokens.json (paleta Fresa y mermelada).
+// Uso en tailwind.config.js:  presets: [require('./design/tailwind.preset.js')]
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   theme: {

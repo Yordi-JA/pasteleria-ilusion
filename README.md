@@ -1,6 +1,6 @@
 # Pastelería Ilusión
 
-Sitio de comercio electrónico de una pastelería familiar de la Ciudad de México: catálogo, pedidos a medida con vista previa 3D y préstamo de bases con depósito.
+Sitio de comercio electrónico de una pastelería familiar de la Ciudad de México: catálogo, pedidos a medida y préstamo de bases con depósito.
 
 ## Contenido
 
@@ -41,7 +41,7 @@ Objetivos específicos:
 
 1. Catálogo digital con precios y disponibilidad en tiempo real, para compra inmediata o apartado sin ir al local.
 2. Cotización, compra y pago en línea de uno o más pasteles o servicios, con carrito.
-3. Módulo interactivo 3D (WebGL, react-three-fiber) para previsualizar el pastel y obtener su precio exacto.
+3. Pedidos a medida ("Diseña tu pastel") con precio exacto calculado por el servidor y, como complemento, una vista previa interactiva del pastel (WebGL, react-three-fiber).
 4. Garantías digitales para el préstamo de bases: comprobantes en PostgreSQL ligados a la cuenta del cliente, con reembolso del depósito al devolver la base.
 5. Agenda de entregas sin empalmes, con fecha propuesta por el sistema o por el cliente.
 6. Cancelaciones y devoluciones claras y funcionales.
@@ -51,7 +51,7 @@ El detalle y su relación con las pantallas está en [`docs/proyecto/objetivos.m
 ## Qué ofrece el sitio
 
 - Catálogo y vitrina del día: pasteles, rebanadas y productos de precio fijo, con existencias y disponibilidad.
-- "Diseña tu pastel" y envío de referencia: un pedido personalizado en 8 pasos con vista previa 3D y precio calculado por el servidor. Con una foto de referencia, la pastelería cotiza el pedido.
+- "Diseña tu pastel" y envío de referencia: un pedido personalizado en 8 pasos, con una vista previa que se arma con cada paso y precio calculado por el servidor. Con una foto de referencia, la pastelería cotiza el pedido.
 - Préstamo de bases con depósito: cada base prestada queda registrada en la cuenta del cliente, con nota en PDF, código QR y reembolso al devolverla.
 
 ## Stack
@@ -98,7 +98,7 @@ El plan completo, con la comparación contra el plan original de 8 semanas, est�
 ├── docs/
 │   ├── proyecto/             # Documentos del proyecto
 │   └── ...                   # Reglas de negocio, libro de marca, mapa de vistas, fotografía, bitácora
-├── diseno/                   # Tokens, preset de Tailwind y código de referencia
+├── design/                   # Tokens, preset de Tailwind y código de referencia
 ├── assets/                   # Logos, motivos, dibujos de línea y fuentes
 ├── mockup/                   # Fuente HTML del mockup y capturas
 └── scripts/                  # instalar-skills.sh
@@ -128,7 +128,7 @@ El mockup (`mockup/fuente/*.dc.html`) son prototipos HTML de un lienzo de diseñ
 | [`docs/mapa-de-vistas.md`](docs/mapa-de-vistas.md) | Cada pantalla con su ruta, archivo fuente y capturas |
 | [`docs/fotografia.md`](docs/fotografia.md) | Cómo deben ser las fotos de producto |
 | [`docs/bitacora.md`](docs/bitacora.md) | Bitácora de trabajo |
-| [`diseno/`](diseno/) | `tokens.json`, `tokens.css`, `tailwind.preset.js` y código de referencia |
+| [`design/`](design/) | `tokens.json`, `tokens.css`, `tailwind.preset.js` y código de referencia |
 | [`AGENTS.md`](AGENTS.md) | Instrucciones para agentes; hay otro en `backend/` y otro en `frontend/` |
 
 ## Pendientes de la pastelería

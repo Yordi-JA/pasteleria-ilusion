@@ -15,7 +15,7 @@ Cada tecnología tiene un rol y una justificación. Las versiones no están fija
 | Tecnología | Rol en el proyecto | Justificación | Versión |
 | --- | --- | --- | --- |
 | React | Interfaz del sitio, organizada en MVVM | Componentes declarativos y hooks para los view-models; ecosistema para el 3D | Se fija en la Etapa 2 |
-| Tailwind CSS | Estilos del frontend, con los tokens de la paleta en `diseno/tailwind.preset.js` | Los tokens del libro de marca se traducen a clases sin colores sueltos | Se fija en la Etapa 2 |
+| Tailwind CSS | Estilos del frontend, con los tokens de la paleta en `design/tailwind.preset.js` | Los tokens del libro de marca se traducen a clases sin colores sueltos | Se fija en la Etapa 2 |
 | `react-three-fiber` y three.js (WebGL) | Vista previa 3D del pastel en "Diseña tu pastel" | Render declarativo de WebGL dentro de React; la escena evoluciona por etapas, de acuerdo con las capturas | Se fija en la Etapa 2 |
 | Django | Backend: ORM, admin, autenticación y migraciones | "Batteries included": el ORM y el admin dan la base de datos y la edición de precios y límites sin código extra | Se fija en la Etapa 2 |
 | Django REST Framework | API REST bajo `/api/v1/`: serializadores, paginación y throttling | Serializadores como DTOs y vistas que solo coordinan HTTP | Se fija en la Etapa 2 |
@@ -56,7 +56,7 @@ Estas decisiones se toman al inicializar el proyecto en la Etapa 2, salvo que se
 
 | Decisión | Contexto |
 | --- | --- |
-| Tailwind v3 o v4 | El preset `diseno/tailwind.preset.js` está en formato v3. Al consultarla el 1 de noviembre de 2026, la documentación oficial mostraba Tailwind v4 |
+| Tailwind v3 o v4 | El preset `design/tailwind.preset.js` está en formato v3. Al consultarla el 1 de noviembre de 2026, la documentación oficial mostraba Tailwind v4 |
 | Versiones de Python y Django | Sin fijar. Al consultarla el 1 de noviembre de 2026, la documentación oficial de Django mostraba la versión 6.1 |
 | Herramienta de compilación del frontend | Sin elegir |
 | Versión de PostgreSQL | Sin fijar. Al consultarla el 1 de noviembre de 2026, la documentación oficial mostraba la 18 como versión actual |
