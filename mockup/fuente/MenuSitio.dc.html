@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Menú del sitio en móvil</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face{font-family:"Fraunces";src:url(/_blob/076b4881db1aaa2eb43a1c5d930e7f0f) format("woff2");font-weight:100 900;font-display:swap}
+@font-face{font-family:"Instrument Sans";src:url(/_blob/017dfa8879dd179bf93a6b2e7ec1c54a) format("woff2");font-weight:400 700;font-display:swap}
+body{margin:0;background:#fff4f4}
+a{color:#5e1921}a:hover{color:#664243}
+.wrap{max-width:1200px;margin:0 auto;padding-left:24px;padding-right:24px;box-sizing:border-box}
+.duya{height:21px;position:relative;z-index:1;background:radial-gradient(circle at 16px 0,var(--c) 15px,transparent 15.5px) 0 5px/32px 16px repeat-x,linear-gradient(var(--c),var(--c)) 0 0/100% 6px no-repeat}
+input::placeholder{color:#664243;opacity:1}
+.topbar{display:flex;align-items:center;gap:32px}
+.nav{display:flex;gap:28px;flex:1 1 auto}
+.hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:40px;align-items:end}
+.hero-txt{padding-bottom:96px}
+.lema{font-size:34px}
+.h2big{font-size:56px}
+.rank{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:32px;align-items:stretch}
+.num1{font-size:200px}
+.rrow{display:grid;grid-template-columns:96px minmax(0,1fr);gap:20px;align-items:center}
+.rnum{font-size:80px}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:24px;row-gap:48px}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+.slices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px}
+.cta{display:flex;align-items:center;justify-content:space-between;gap:32px}
+.fcols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:32px}
+.cierre{font-size:56px}
+@media (max-width:960px){
+.hero{grid-template-columns:minmax(0,1fr)}
+.hero-txt{padding-bottom:16px}
+.rank{grid-template-columns:minmax(0,1fr)}
+.g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:minmax(0,1fr)}
+.slices{display:flex;overflow-x:auto;padding-bottom:8px}
+.slices>*{flex:0 0 240px}
+.cta{flex-direction:column;align-items:flex-start}
+.h2big{font-size:44px}
+.cierre{font-size:40px}
+}
+@media (max-width:600px){
+.topbar{gap:4px;padding-left:16px !important}
+.nav{display:none}
+.menu-btn{display:inline-flex !important}
+.logo-img{width:112px !important}
+.tb-wa{display:none}
+.tb-txt{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.hero-logo{display:none}
+.lema{font-size:32px}
+.h2big{font-size:38px}
+.num1{font-size:140px}
+.rrow{display:grid;grid-template-columns:72px minmax(0,1fr);gap:16px;align-items:center}
+.rnum{font-size:56px}
+.fcols{grid-template-columns:minmax(0,1fr)}
+.cierre{font-size:32px}
+}
+.toldo{height:76px;background:radial-gradient(circle at 24px 0,#fffbfb 24px,transparent 24.5px) 0 52px/96px 24px repeat-x,radial-gradient(circle at 72px 0,#ffdfdf 24px,transparent 24.5px) 0 52px/96px 24px repeat-x,repeating-linear-gradient(90deg,#fffbfb 0 48px,#ffdfdf 48px 96px) 0 0/100% 52px no-repeat;background-color:#f9c1c1;box-shadow:inset 0 3px 0 rgba(94,25,33,.12)}
+.hdr{padding-top:20px}
+@media (max-width:600px){.toldo{height:52px;background-size:64px 16px,64px 16px,100% 36px;background-position:0 36px,0 36px,0 0;background-image:radial-gradient(circle at 16px 0,#fffbfb 16px,transparent 16.5px),radial-gradient(circle at 48px 0,#ffdfdf 16px,transparent 16.5px),repeating-linear-gradient(90deg,#fffbfb 0 32px,#ffdfdf 32px 64px)}.hdr{padding-top:12px}}
+.h3d{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:24px;align-items:center}
+.escena{position:relative;height:600px;perspective:1100px;perspective-origin:50% 30%;touch-action:pan-y;cursor:grab;user-select:none}
+.escena:active{cursor:grabbing}
+.cake3d{position:absolute;left:50%;top:70%;transform-style:preserve-3d;will-change:transform}
+.cake3d div{position:absolute;left:0;top:0;transform-style:preserve-3d}
+.cake3d .face{backface-visibility:hidden}
+.cake3d .cap{border-radius:50%;backface-visibility:hidden}
+.cake3d .bead{width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:#fffbfb;box-shadow:inset -3px -4px 0 #e8cdcd;backface-visibility:hidden}
+.sombra3d{position:absolute;left:50%;top:70%;width:360px;height:54px;margin:58px 0 0 -180px;border-radius:50%;background:rgba(94,25,33,.18);filter:blur(14px)}
+.flama{width:16px;height:27px;margin:-27px 0 0 -8px;background:#d24d47;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-22.5 -71 43 72'%3E%3Cpath d='M0 0 C-11 0 -16.5 -7 -15.5 -16.5 C-21 -19.5 -21.5 -29 -14.5 -32.5 C-18.5 -37.5 -16.5 -45 -9.5 -47.5 C-6.5 -55 -1.5 -62.5 5 -70 C4 -64 7.5 -58 12 -52 C17.5 -44 19.5 -33 17.5 -21 C16 -8 9 0 0 0 Z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-22.5 -71 43 72'%3E%3Cpath d='M0 0 C-11 0 -16.5 -7 -15.5 -16.5 C-21 -19.5 -21.5 -29 -14.5 -32.5 C-18.5 -37.5 -16.5 -45 -9.5 -47.5 C-6.5 -55 -1.5 -62.5 5 -70 C4 -64 7.5 -58 12 -52 C17.5 -44 19.5 -33 17.5 -21 C16 -8 9 0 0 0 Z'/%3E%3C/svg%3E") center/contain no-repeat;transform-origin:50% 100%;animation:flama 1.4s ease-in-out infinite alternate}
+.flama::after{content:"";position:absolute;left:0;top:0;width:100%;height:100%;background:#f9c1c1;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-22.5 -71 43 72'%3E%3Cpath d='M1.5 -8.5 C-4.5 -8.5 -6 -15 -3.5 -21.5 C-1.5 -26.5 1.5 -30.5 4 -35 C6 -29.5 8 -23.5 7.5 -17 C7 -11 4.5 -8.5 1.5 -8.5 Z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-22.5 -71 43 72'%3E%3Cpath d='M1.5 -8.5 C-4.5 -8.5 -6 -15 -3.5 -21.5 C-1.5 -26.5 1.5 -30.5 4 -35 C6 -29.5 8 -23.5 7.5 -17 C7 -11 4.5 -8.5 1.5 -8.5 Z'/%3E%3C/svg%3E") center/contain no-repeat}
+@keyframes flama{from{transform:scale(1,1) rotate(-2deg)}to{transform:scale(.92,1.1) rotate(3deg)}}
+.pista{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:#664243}
+@media (prefers-reduced-motion: reduce){.flama{animation:none}}
+@media (max-width:960px){.h3d{grid-template-columns:minmax(0,1fr)}.escena{height:460px}}
+@media (max-width:600px){.escena{height:380px}.pista{display:none}}
+@media (max-width:370px){.tb-txt{font-size:12px}}
+.escena:focus-visible{outline:3px solid #5e1921;outline-offset:4px;border-radius:24px}
+.saltar{position:absolute;left:16px;top:-120px;z-index:100;background:#5e1921;color:#fffbfb;padding:12px 18px;border-radius:12px;font-weight:600;text-decoration:none;box-shadow:0 0 0 3px #f9c1c1}
+.saltar:focus{top:16px}
+main:focus{outline:none}
+footer a{display:inline-flex;align-items:center;min-height:44px}
+nav[aria-label="Ruta"] a{display:inline-flex;align-items:center;min-height:44px}
+input[type=range]{height:44px;cursor:pointer}
+.duya[data-tipo]{background:none}
+.duya[data-tipo]::before,.duya[data-tipo]::after{content:"";position:absolute;left:0;right:0;top:-1px;pointer-events:none;-webkit-mask-repeat:repeat-x;mask-repeat:repeat-x;-webkit-mask-position:0 0;mask-position:0 0}
+.duya[data-tipo]::before{background:var(--c)}
+.duya[data-tipo=concha]::before{height:31px;-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Crect width='36' height='2'/%3E%3Cpath d='M-2 0 Q 0 20 14 25 Q 31 30 38 0 Z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Crect width='36' height='2'/%3E%3Cpath d='M-2 0 Q 0 20 14 25 Q 31 30 38 0 Z'/%3E%3C/svg%3E");-webkit-mask-size:36px 30px;mask-size:36px 30px}
+.duya[data-tipo=concha]::after{height:31px;background:rgba(94,25,33,.14);-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Cg fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cpath d='M5 2 Q 8 15 17 19'/%3E%3Cpath d='M13 2 Q 16 12 26 14'/%3E%3Cpath d='M22 2 Q 25 8 32 9'/%3E%3C/g%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Cg fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cpath d='M5 2 Q 8 15 17 19'/%3E%3Cpath d='M13 2 Q 16 12 26 14'/%3E%3Cpath d='M22 2 Q 25 8 32 9'/%3E%3C/g%3E%3C/svg%3E");-webkit-mask-size:36px 30px;mask-size:36px 30px}
+.duya[data-tipo=perlas]::before{height:23px;-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Crect width='18' height='3'/%3E%3Ccircle cx='9' cy='8' r='7.5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Crect width='18' height='3'/%3E%3Ccircle cx='9' cy='8' r='7.5'/%3E%3C/svg%3E");-webkit-mask-size:18px 22px;mask-size:18px 22px}
+.duya[data-tipo=perlas]::after{height:23px;background:rgba(255,251,251,.55);-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Ccircle cx='6.5' cy='5.5' r='2.2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Ccircle cx='6.5' cy='5.5' r='2.2'/%3E%3C/svg%3E");-webkit-mask-size:18px 22px;mask-size:18px 22px}
+.duya[data-tipo=guirnalda]::before{height:41px;-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Crect width='96' height='3'/%3E%3Cpath d='M0 0 Q 48 52 96 0 Z'/%3E%3Ccircle cx='0' cy='10' r='7'/%3E%3Ccircle cx='96' cy='10' r='7'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Crect width='96' height='3'/%3E%3Cpath d='M0 0 Q 48 52 96 0 Z'/%3E%3Ccircle cx='0' cy='10' r='7'/%3E%3Ccircle cx='96' cy='10' r='7'/%3E%3C/svg%3E");-webkit-mask-size:96px 40px;mask-size:96px 40px}
+.duya[data-tipo=guirnalda]::after{height:41px;background:rgba(255,251,251,.55);-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Ccircle cx='93.5' cy='7.5' r='2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Ccircle cx='93.5' cy='7.5' r='2'/%3E%3C/svg%3E");-webkit-mask-size:96px 40px;mask-size:96px 40px}
+</style>
+</helmet>
+<div style="font-family:'Instrument Sans','Segoe UI',system-ui,sans-serif;color:#5e1921;background:#fff4f4;font-size:16px;line-height:1.6"><a class="saltar" href="#contenido">Saltar al contenido</a>
+
+<div style="background:#5e1921;color:#fffbfb;font-size:14px;line-height:1.4">
+<div class="wrap" style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 24px;padding-top:10px;padding-bottom:10px">
+<span class="tb-txt">Pedidos con 2 días de anticipación</span>
+<span class="tb-wa" style="color:#f9c1c1">WhatsApp [número]</span>
+</div>
+</div>
+
+<div class="toldo" aria-hidden="true"></div>
+<header class="hdr" style="background:#f9c1c1">
+<div class="wrap"><div class="topbar" style="background:#fffbfb;border:1px solid #ecd2d2;border-radius:24px;min-height:64px;padding:8px 12px 8px 24px;box-sizing:border-box">
+<a href="Main.dc.html" aria-label="Pastelería Ilusión, inicio" style="display:block;line-height:0"><img src="/_blob/c6797fa64a1b6cbae59d4845cf395eb0" alt="Pastelería Ilusión" class="logo-img" style="width:150px;height:auto"></a>
+<nav class="nav" aria-label="Principal"><a href="Catalogo.dc.html" style="color:#5e1921;text-decoration:none;font-weight:600;font-size:15px;padding:10px 0">Catálogo</a><a href="Vitrina.dc.html" style="color:#5e1921;text-decoration:none;font-weight:600;font-size:15px;padding:10px 0">Vitrina</a><a href="Rebanadas.dc.html" style="color:#5e1921;text-decoration:none;font-weight:600;font-size:15px;padding:10px 0">Rebanadas de hoy</a><a href="PedidoElegir.dc.html" style="color:#5e1921;text-decoration:none;font-weight:600;font-size:15px;padding:10px 0">Realizar pedido</a></nav>
+<div style="display:flex;gap:8px;margin-left:auto"><a href="Cuenta.dc.html" aria-label="Cuenta" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;color:#5e1921;border-radius:12px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 20c1.6-3.4 4.5-5 8-5s6.4 1.6 8 5"></path></svg></a><a href="Carrito.dc.html" aria-label="Carrito" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;color:#5e1921;border-radius:12px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2L5 8z"></path><path d="M9 8V6.5a3 3 0 0 1 6 0V8"></path></svg></a><button type="button" class="menu-btn" aria-label="Abrir menú" aria-expanded="true" aria-controls="menu-sitio" style="display:none;width:44px;height:44px;align-items:center;justify-content:center;border:none;border-radius:12px;background:transparent;color:#5e1921;cursor:pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button></div>
+</div></div>
+</header>
+<main id="contenido" tabindex="-1">
+
+<section style="background:#f9c1c1;color:#5e1921">
+<div class="wrap h3d" style="padding-top:32px;padding-bottom:24px"><div style="display:flex;flex-direction:column;gap:24px"><h1 style="margin:0 0 0 -8px;line-height:0"><img src="/_blob/c6797fa64a1b6cbae59d4845cf395eb0" alt="" class="hero-logo" style="width:100%;max-width:640px;height:auto"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Pastelería Ilusión</span></h1><p class="lema" style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:500;line-height:1.15;color:#5e1921">Pide un deseo. Del pastel nos encargamos.</p>
+<p style="margin:0;font-size:18px;line-height:1.6;color:#664243;max-width:520px">Pasteles artesanales para bodas, XV años y cumpleaños, y postres del día, hechos por una pastelería familiar.</p>
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:24px">
+<a href="PedidoElegir.dc.html" style="display:inline-flex;align-items:center;height:52px;padding:0 28px;border-radius:12px;background:#5e1921;color:#fffbfb;font-weight:600;font-size:16px;text-decoration:none">Realizar pedido</a>
+<a href="Vitrina.dc.html" style="color:#5e1921;font-weight:600;font-size:16px;text-underline-offset:4px">Ver la vitrina</a>
+</div><span class="pista"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 11V6.5a1.5 1.5 0 0 1 3 0V11M10 10V4.5a1.5 1.5 0 0 1 3 0V10M13 10V5.5a1.5 1.5 0 0 1 3 0V11M16 11V8.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-1a6 6 0 0 1-5-2.7L3.5 15a1.5 1.5 0 0 1 2.4-1.8L7 14.5"></path></svg>Arrastra el pastel para girarlo.</span></div><div class="escena" tabindex="0" ref="{{ escena }}" role="img" aria-label="Pastel de tres pisos que gira lentamente. Usa las flechas izquierda y derecha para girarlo"><div class="sombra3d" aria-hidden="true"></div><div class="cake3d" aria-hidden="true"></div></div></div>
+</section>
+<div class="duya" style="--c:#f9c1c1" data-tipo="concha" aria-hidden="true"></div>
+
+
+<section style="padding-top:104px;padding-bottom:80px">
+<div class="wrap" style="display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;flex-direction:column;gap:8px">
+<h2 class="h2big" style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:500;line-height:1.05;letter-spacing:-0.01em;color:#5e1921">Pasteles de la casa</h2>
+<p style="margin:0;color:#664243;font-size:18px">Combinaciones de la casa. Pídelas así o cambia lo que quieras al realizar tu pedido.</p>
+</div>
+<div class="rank">
+<article style="position:relative;background:#fffbfb;border:1px solid #ecd2d2;border-radius:24px;padding:32px;display:flex;flex-direction:column;gap:16px;margin-top:0">
+<div style="padding-top:24px"><svg viewBox="0 0 360 300" role="img" aria-label="Foto del pastel pendiente" style="width:100%;max-width:420px;height:auto;display:block;margin:0 auto"><rect x="112" y="20" width="136" height="72" rx="6" fill="#f9c1c1"></rect><rect x="72" y="92" width="216" height="88" rx="6" fill="#f9c1c1"></rect><rect x="28" y="180" width="304" height="112" rx="6" fill="#f9c1c1"></rect><text x="180" y="248" text-anchor="middle" font-size="16" fill="#664243" font-family="Instrument Sans, sans-serif">Foto del pastel</text></svg><div aria-hidden="true" style="width:56%;height:14px;margin:-10px auto 0;background:rgba(94,25,33,0.16);border-radius:50%;filter:blur(10px)"></div></div>
+<h3 style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:500;font-size:34px;line-height:1.15">{{ top.nombre }}</h3>
+<p style="margin:0;color:#664243;font-size:17px">{{ top.desc }}</p>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+<span style="font-weight:600;font-size:20px;font-variant-numeric:tabular-nums">{{ top.precio }}</span>
+<a href="Carrito.dc.html" style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 16px;border-radius:12px;border:1.5px solid #5e1921;color:#5e1921;font-weight:600;font-size:14px;text-decoration:none;white-space:nowrap">Agregar al pedido</a>
+</div>
+</article>
+<div style="display:flex;flex-direction:column">
+<sc-for list="{{ resto }}" as="p" hint-placeholder-count="3">
+<article class="rrow" style="padding:24px 0;border-bottom:1px solid #ecd2d2">
+<div><svg viewBox="0 0 200 150" role="img" aria-label="Foto del pastel pendiente" style="width:100%;height:auto;display:block"><rect x="62" y="22" width="76" height="46" rx="6" fill="#f9c1c1"></rect><rect x="32" y="68" width="136" height="72" rx="6" fill="#f9c1c1"></rect><text x="100" y="110" text-anchor="middle" font-size="12" fill="#664243" font-family="Instrument Sans, sans-serif">Foto del pastel</text></svg></div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<h3 style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:600;font-size:20px;line-height:1.3">{{ p.nombre }}</h3>
+<p style="margin:0;color:#664243;font-size:15px;line-height:1.5">{{ p.desc }}</p>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+<span style="font-weight:600;font-size:16px;font-variant-numeric:tabular-nums">{{ p.precio }}</span>
+<a href="Carrito.dc.html" style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 16px;border-radius:12px;border:1.5px solid #5e1921;color:#5e1921;font-weight:600;font-size:14px;text-decoration:none;white-space:nowrap">Agregar al pedido</a>
+</div>
+</div>
+</article>
+</sc-for>
+<a href="Catalogo.dc.html" style="margin-top:20px;font-weight:600;font-size:15px">Ver el catálogo completo</a>
+</div>
+</div>
+</div>
+</section>
+<div class="duya" style="--c:#fff4f4" data-tipo="perlas" aria-hidden="true"></div>
+
+<section style="background:#5e1921;color:#fffbfb;padding-top:80px;padding-bottom:88px;margin-top:-21px">
+
+<div class="wrap" style="display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px">
+<div style="display:flex;flex-direction:column;gap:8px">
+<h2 class="h2big" style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:500;line-height:1.05;letter-spacing:-0.01em;color:#fffbfb">Vitrina</h2>
+<p style="margin:0;color:#f9c1c1;font-size:18px">Pasteles y postres listos para llevar.</p>
+</div>
+<div role="group" aria-label="Filtrar la vitrina" style="display:flex;flex-wrap:wrap;gap:8px">
+<button type="button" aria-pressed="true" style="height:44px;padding:0 18px;border-radius:6px;border:2px solid #fffbfb;background:#ffdfdf;color:#5e1921;font:600 14px 'Instrument Sans',sans-serif">Todo</button>
+<button type="button" aria-pressed="false" style="height:44px;padding:0 18px;border-radius:6px;border:1px solid #f9c1c1;background:transparent;color:#fffbfb;font:600 14px 'Instrument Sans',sans-serif">Pasteles</button>
+<button type="button" aria-pressed="false" style="height:44px;padding:0 18px;border-radius:6px;border:1px solid #f9c1c1;background:transparent;color:#fffbfb;font:600 14px 'Instrument Sans',sans-serif">Postres</button>
+</div>
+</div>
+<div class="g4" style="padding-top:16px">
+<sc-for list="{{ vitrina }}" as="v" hint-placeholder-count="8">
+<article style="display:flex;flex-direction:column">
+<div style="padding:0 8px"><svg viewBox="0 0 200 150" role="img" aria-label="Foto del postre pendiente" style="width:100%;height:auto;display:block"><rect x="62" y="22" width="76" height="46" rx="6" fill="#f9c1c1"></rect><rect x="32" y="68" width="136" height="72" rx="6" fill="#f9c1c1"></rect><text x="100" y="110" text-anchor="middle" font-size="12" fill="#664243" font-family="Instrument Sans, sans-serif">Foto del postre</text></svg></div>
+<div aria-hidden="true" style="height:14px;margin:0 -12px;background:#fffbfb;border-radius:2px;box-shadow:0 6px 0 #230709"></div>
+<div style="margin-top:20px;background:#fffbfb;color:#5e1921;border-radius:6px;padding:12px 12px 12px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+<div style="display:flex;flex-direction:column">
+<span style="font-family:Fraunces,Georgia,serif;font-weight:600;font-size:18px;line-height:1.25">{{ v.nombre }}</span>
+<span style="font-weight:600;font-size:15px;font-variant-numeric:tabular-nums;color:#664243">{{ v.precio }}</span>
+</div>
+<a href="Carrito.dc.html" aria-label="Agregar al pedido" style="flex:0 0 auto;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border-radius:12px;background:#5e1921;color:#fffbfb"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2L5 8z"></path><path d="M9 8V6.5a3 3 0 0 1 6 0V8"></path><path d="M12 11.5v5M9.5 14h5"></path></svg></a>
+</div>
+</article>
+</sc-for>
+</div>
+<a href="Vitrina.dc.html" style="align-self:flex-start;color:#fffbfb;font-weight:600;font-size:16px;text-underline-offset:4px">Ver toda la vitrina</a>
+</div>
+</section>
+<div class="duya" style="--c:#5e1921" data-tipo="perlas" aria-hidden="true"></div>
+
+<section style="background:#fffbfb;padding-top:80px;padding-bottom:80px;margin-top:-21px">
+<div class="wrap" style="display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;align-items:center;gap:20px">
+<img src="/_blob/7a6e4470a2f1a1fab4adb9df133333ae" alt="" style="width:88px;height:88px;transform:rotate(-8deg);flex:0 0 auto">
+<div style="display:flex;flex-direction:column;gap:6px">
+<h2 class="h2big" style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:500;line-height:1.05;letter-spacing:-0.01em;color:#5e1921">Rebanadas de hoy</h2>
+<p style="margin:0;color:#664243;font-size:18px">[Fecha de hoy], hasta agotar existencias.</p>
+</div>
+</div>
+<div class="slices">
+<sc-for list="{{ rebanadas }}" as="r" hint-placeholder-count="4">
+<article style="background:#fff4f4;border:1px solid #ecd2d2;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px">
+<svg viewBox="0 0 200 120" role="img" aria-label="Foto de la rebanada pendiente" style="width:100%;height:auto;display:block"><path d="M24 84 L150 34 L178 56 L178 98 L24 112 Z" fill="#ecd2d2"></path><path d="M24 84 L150 34 L178 56 Z" fill="#fbecec"></path><text x="104" y="96" text-anchor="middle" font-size="12" fill="#664243" font-family="Instrument Sans, sans-serif">Foto de la rebanada</text></svg>
+<h3 style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:600;font-size:22px;line-height:1.25">{{ r.nombre }}</h3>
+<span style="font-weight:600;font-size:15px;font-variant-numeric:tabular-nums">{{ r.precio }}</span><span style="font-weight:600;font-size:13px;color:#664243">{{ r.quedan }}</span>
+<a href="Carrito.dc.html" style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 16px;border-radius:12px;border:1.5px solid #5e1921;color:#5e1921;font-weight:600;font-size:14px;text-decoration:none;white-space:nowrap">Agregar al pedido</a>
+</article>
+</sc-for>
+</div>
+</div>
+</section>
+<div class="duya" style="--c:#fffbfb" data-tipo="guirnalda" aria-hidden="true"></div>
+
+
+
+</main>
+<footer style="background:#5e1921;color:#fffbfb;padding-top:72px;padding-bottom:32px;margin-top:-21px">
+<div class="wrap" style="display:flex;flex-direction:column;gap:48px">
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:24px">
+<img src="/_blob/7a6e4470a2f1a1fab4adb9df133333ae" alt="" style="width:96px;height:96px;flex:0 0 auto">
+<p class="cierre" style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:500;line-height:1.1;color:#fffbfb;flex:1 1 320px">Pide un deseo. Del pastel nos encargamos.</p>
+</div>
+<div class="fcols" style="border-top:1px solid #664243;padding-top:32px">
+<div style="display:flex;flex-direction:column;gap:8px">
+<h3 style="margin:0 0 4px;font-size:14px;font-weight:600;color:#fffbfb">Visítanos</h3>
+<span style="color:#f9c1c1">[Dirección de la pastelería]</span>
+<span style="color:#f9c1c1">Todos los días, de 10:00 a 22:30</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<h3 style="margin:0 0 4px;font-size:14px;font-weight:600;color:#fffbfb">Pedidos</h3>
+<span style="color:#f9c1c1">WhatsApp [número]</span>
+<a href="https://wa.me/52[número]" style="color:#fffbfb;font-weight:600;text-underline-offset:4px">Escribir por WhatsApp</a>
+</div>
+<nav aria-label="Pie de página" style="display:flex;flex-direction:column;gap:8px">
+<h3 style="margin:0 0 4px;font-size:14px;font-weight:600;color:#fffbfb">La pastelería</h3>
+<a href="Catalogo.dc.html" style="color:#f9c1c1;text-decoration:none">Catálogo</a>
+<a href="Vitrina.dc.html" style="color:#f9c1c1;text-decoration:none">Vitrina</a>
+<a href="Rebanadas.dc.html" style="color:#f9c1c1;text-decoration:none">Rebanadas de hoy</a>
+<a href="BasesInfo.dc.html" style="color:#f9c1c1;text-decoration:none">Bases en préstamo</a>
+<a href="PedidoElegir.dc.html" style="color:#f9c1c1;text-decoration:none">Realizar pedido</a>
+</nav>
+</div>
+<div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;border-top:1px solid #664243;padding-top:24px;font-size:14px;color:#f9c1c1">
+<span>© 2026 Pastelería Ilusión</span>
+<div style="display:flex;gap:24px"><a href="Legal.dc.html#privacidad" style="color:#f9c1c1">Aviso de privacidad</a><a href="Legal.dc.html#terminos" style="color:#f9c1c1">Términos y condiciones</a></div>
+</div>
+</div>
+</footer>
+
+<div aria-hidden="true" style="position:fixed;inset:0;background:rgba(94,25,33,0.45);z-index:40"></div>
+<aside id="menu-sitio" aria-label="Menú del sitio" style="position:fixed;top:0;right:0;bottom:0;width:320px;max-width:86vw;box-sizing:border-box;background:#fffbfb;z-index:41;border-radius:24px 0 0 24px;box-shadow:0 2px 4px rgba(94,25,33,0.06),0 12px 32px rgba(94,25,33,0.10);padding:20px;display:flex;flex-direction:column;gap:20px;overflow-y:auto">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><span style="font-family:Fraunces,Georgia,serif;font-weight:500;font-size:26px;line-height:1.1">Menú</span><button type="button" aria-label="Cerrar menú" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:12px;background:transparent;cursor:pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5e1921" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<nav aria-label="Principal"><ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px"><li><a href="Catalogo.dc.html" style="display:flex;align-items:center;min-height:52px;padding:0 16px;border-radius:12px;text-decoration:none;font-family:Fraunces,Georgia,serif;font-weight:500;font-size:24px;color:#5e1921">Catálogo</a></li><li><a href="Vitrina.dc.html" style="display:flex;align-items:center;min-height:52px;padding:0 16px;border-radius:12px;text-decoration:none;font-family:Fraunces,Georgia,serif;font-weight:500;font-size:24px;color:#5e1921">Vitrina</a></li><li><a href="Rebanadas.dc.html" style="display:flex;align-items:center;min-height:52px;padding:0 16px;border-radius:12px;text-decoration:none;font-family:Fraunces,Georgia,serif;font-weight:500;font-size:24px;color:#5e1921">Rebanadas de hoy</a></li></ul></nav>
+<a href="PedidoElegir.dc.html" style="display:flex;align-items:center;justify-content:center;height:52px;border-radius:12px;background:#5e1921;color:#fffbfb;font-weight:600;font-size:16px;text-decoration:none">Realizar pedido</a>
+<a href="Login.dc.html" style="display:flex;align-items:center;gap:10px;min-height:48px;padding:0 16px;border-top:1px solid #ecd2d2;font-weight:600;color:#5e1921;text-decoration:none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 20c1.6-3.4 4.5-5 8-5s6.4 1.6 8 5"></path></svg>Iniciar sesión o crear cuenta</a>
+<div style="margin-top:auto;display:flex;flex-direction:column;gap:6px;padding:16px;background:#f9c1c1;border-radius:12px">
+<span style="font-size:14px;color:#664243">Pedidos con 2 días de anticipación</span>
+<a href="https://wa.me/52[número]" style="font-weight:600;color:#5e1921;min-height:44px;display:inline-flex;align-items:center">Escribir por WhatsApp [número]</a>
+</div>
+</aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":5852}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.escena = this.escena.bind(this); }
+  escena(el) { this.el = el; }
+  componentDidMount() {
+    const root = this.el || document.querySelector('.escena'); if (!root) return;
+    const cake = root.querySelector('.cake3d'); if (!cake || cake.childElementCount) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const PIEL = [[255,251,251],[224,196,178]], DURZ = [[255,223,223],[224,166,146]], STAND = [[252,248,241],[214,196,184]];
+    const tiers = [{ r: 150, h: 112, base: 0, c: PIEL }, { r: 110, h: 96, base: -112, c: DURZ }, { r: 72, h: 80, base: -208, c: PIEL }];
+    const faces = [], groups = [];
+    const cyl = (g, r, h, n, col) => {
+      const w = 2 * Math.PI * r / n + 1.4;
+      for (let i = 0; i < n; i++) {
+        const f = document.createElement('div'); const a = i * 360 / n;
+        f.className = 'face'; Object.assign(f.style, { width: w + 'px', height: h + 'px', marginLeft: -w / 2 + 'px', marginTop: -h / 2 + 'px', transform: 'rotateY(' + a + 'deg) translateZ(' + r + 'px)' });
+        g.appendChild(f); faces.push({ el: f, a: a, col: col });
+      }
+    };
+    const cap = (g, r, y, colour) => {
+      const c = document.createElement('div'); c.className = 'cap';
+      Object.assign(c.style, { width: 2 * r + 'px', height: 2 * r + 'px', marginLeft: -r + 'px', marginTop: -r + 'px', background: colour, transform: 'translateY(' + y + 'px) rotateX(90deg)' });
+      g.appendChild(c);
+    };
+    // stand: plato, columna y pie
+    const stand = document.createElement('div'); cake.appendChild(stand);
+    cap(stand, 196, 0, '#fffbfb'); const plato = document.createElement('div'); stand.appendChild(plato); plato.style.transform = 'translateY(5px)'; cyl(plato, 196, 10, 48, STAND);
+    const col = document.createElement('div'); stand.appendChild(col); col.style.transform = 'translateY(40px)'; cyl(col, 26, 70, 18, STAND);
+    const pie = document.createElement('div'); stand.appendChild(pie); pie.style.transform = 'translateY(78px)'; cyl(pie, 74, 8, 30, STAND); cap(pie, 74, -4, '#f6eee5');
+    tiers.forEach((t) => {
+      const g = document.createElement('div'); cake.appendChild(g); groups.push({ g: g, t: t });
+      cyl(g, t.r, t.h, 36, t.c); cap(g, t.r, -t.h / 2, 'rgb(' + t.c[0].join(',') + ')');
+      const n = Math.round(2 * Math.PI * t.r / 22);
+      for (let i = 0; i < n; i++) { const b = document.createElement('div'); b.className = 'bead'; b.style.transform = 'rotateY(' + i * 360 / n + 'deg) translateZ(' + (t.r + 3) + 'px) translateY(' + (-t.h / 2) + 'px)'; g.appendChild(b); }
+      for (let i = 0; i < n; i++) { const b = document.createElement('div'); b.className = 'bead'; b.style.transform = 'rotateY(' + (i + 0.5) * 360 / n + 'deg) translateZ(' + (t.r + 3) + 'px) translateY(' + (t.h / 2 - 4) + 'px)'; g.appendChild(b); }
+    });
+    // vela con flama, siempre de frente a la cámara
+    const vela = document.createElement('div'); cake.appendChild(vela);
+    const cuerpo = document.createElement('div'); Object.assign(cuerpo.style, { width: '14px', height: '54px', marginLeft: '-7px', marginTop: '-54px', borderRadius: '3px', background: 'repeating-linear-gradient(160deg,#fffbfb 0 7px,#f9c1c1 7px 14px)' }); vela.appendChild(cuerpo);
+    const flama = document.createElement('div'); flama.className = 'flama'; flama.style.top = '-60px'; vela.appendChild(flama);
+    let ry = -28, px = 0, py = 0, tx = 0, ty = 0, drag = null, last = performance.now(), raf = 0;
+    const onMove = (e) => { const r = root.getBoundingClientRect(); tx = ((e.clientX - r.left) / r.width - 0.5) * 2; ty = ((e.clientY - r.top) / r.height - 0.5) * 2; if (drag !== null) { ry += (e.clientX - drag) * 0.5; drag = e.clientX; } };
+    const onDown = (e) => { drag = e.clientX; root.setPointerCapture && root.setPointerCapture(e.pointerId); };
+    const onUp = () => { drag = null; };
+    const onLeave = () => { tx = 0; ty = 0; };
+    root.addEventListener('pointermove', onMove); root.addEventListener('pointerdown', onDown);
+    root.addEventListener('pointerup', onUp); root.addEventListener('pointercancel', onUp); root.addEventListener('pointerleave', onLeave); root.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { ry += e.key === 'ArrowLeft' ? -15 : 15; e.preventDefault(); } });
+    const tick = (now) => {
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      if (!reduce && drag === null) ry += 7 * dt;
+      px += (tx - px) * 0.08; py += (ty - py) * 0.08;
+      const s = Math.min(1, root.clientWidth / 560, root.clientHeight / 600);
+      const rx = -16 + py * 5, yaw = ry + px * 16;
+      const p = reduce ? 0 : Math.max(0, Math.min(1, (window.scrollY || 0) / 380));
+      cake.style.transform = 'scale(' + s + ') rotateX(' + rx + 'deg) rotateY(' + yaw + 'deg)';
+      groups.forEach((o, i) => { o.g.style.transform = 'translateY(' + (o.t.base - o.t.h / 2 - 2 - i * p * 38) + 'px)'; });
+      vela.style.transform = 'translateY(' + (-290 - 2 * p * 38) + 'px) rotateY(' + (-yaw) + 'deg)';
+      for (const f of faces) {
+        const k = Math.pow(0.5 + 0.5 * Math.cos((f.a + yaw + 40) * Math.PI / 180), 1.15);
+        const c = f.col; f.el.style.background = 'rgb(' + Math.round(c[1][0] + (c[0][0] - c[1][0]) * k) + ',' + Math.round(c[1][1] + (c[0][1] - c[1][1]) * k) + ',' + Math.round(c[1][2] + (c[0][2] - c[1][2]) * k) + ')';
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    this.cleanup = () => { cancelAnimationFrame(raf); root.removeEventListener('pointermove', onMove); root.removeEventListener('pointerdown', onDown); root.removeEventListener('pointerup', onUp); root.removeEventListener('pointercancel', onUp); root.removeEventListener('pointerleave', onLeave); };
+  }
+  componentWillUnmount() { if (this.cleanup) this.cleanup(); }
+  renderVals() {
+    const datos = {"top": {"nombre": "Tres leches de durazno", "desc": "Relleno de durazno y cobertura de crema pastelera.", "precio": "$350"}, "resto": [{"nombre": "Tres leches con queso y zarzamora", "desc": "Relleno de queso con zarzamora y cobertura de crema pastelera.", "precio": "$420"}, {"nombre": "Imposible", "desc": "Flan con pan de chocolate.", "precio": "$350"}, {"nombre": "Choco-pingüino", "desc": "Seco, con su crema de chocolate sabor helado.", "precio": "$350"}], "vitrina": [{"nombre": "Tres leches de durazno", "precio": "$350"}, {"nombre": "Tres leches con queso y zarzamora", "precio": "$420"}, {"nombre": "Choco-pingüino", "precio": "$350"}, {"nombre": "Pastel mini de cajeta", "precio": "$130"}, {"nombre": "Imposible", "precio": "$350"}, {"nombre": "Flan napolitano", "precio": "$360"}, {"nombre": "Tarta de frutas", "precio": "$290"}, {"nombre": "Gelatina de molde", "precio": "$290"}], "rebanadas": [{"nombre": "Tres leches de durazno", "precio": "$35 la rebanada", "quedan": "Quedan [n]"}, {"nombre": "Tres leches con flan y cajeta", "precio": "$40 la rebanada", "quedan": "Quedan [n]"}, {"nombre": "Imposible", "precio": "$35 la rebanada", "quedan": "Quedan [n]"}, {"nombre": "Posible", "precio": "$35 la rebanada", "quedan": "Quedan [n]"}]};
+    return Object.assign({ escena: this.escena }, datos);
+  }
+}
+</script>
+</body>
+</html>

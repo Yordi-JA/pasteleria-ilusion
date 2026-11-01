@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Nota de pedido, Pastelería Ilusión</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face{font-family:"Fraunces";src:url(/_blob/076b4881db1aaa2eb43a1c5d930e7f0f) format("woff2");font-weight:100 900;font-display:swap}
+@font-face{font-family:"Instrument Sans";src:url(/_blob/017dfa8879dd179bf93a6b2e7ec1c54a) format("woff2");font-weight:400 700;font-display:swap}
+body{margin:0;background:#fff4f4}
+a{color:#5e1921}a:hover{color:#664243}
+.wrap{max-width:1200px;margin:0 auto;padding-left:24px;padding-right:24px;box-sizing:border-box}
+.duya{height:21px;position:relative;z-index:1;background:radial-gradient(circle at 16px 0,var(--c) 15px,transparent 15.5px) 0 5px/32px 16px repeat-x,linear-gradient(var(--c),var(--c)) 0 0/100% 6px no-repeat}
+input::placeholder{color:#664243;opacity:1}
+.topbar{display:flex;align-items:center;gap:32px}
+.nav{display:flex;gap:28px;flex:1 1 auto}
+.hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:40px;align-items:end}
+.hero-txt{padding-bottom:96px}
+.lema{font-size:34px}
+.h2big{font-size:56px}
+.rank{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:32px;align-items:stretch}
+.num1{font-size:200px}
+.rrow{display:grid;grid-template-columns:72px 140px minmax(0,1fr);gap:20px;align-items:center}
+.rnum{font-size:80px}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:24px;row-gap:48px}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+.slices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px}
+.cta{display:flex;align-items:center;justify-content:space-between;gap:32px}
+.fcols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:32px}
+.cierre{font-size:56px}
+@media (max-width:960px){
+.hero{grid-template-columns:minmax(0,1fr)}
+.hero-txt{padding-bottom:16px}
+.rank{grid-template-columns:minmax(0,1fr)}
+.g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:minmax(0,1fr)}
+.slices{display:flex;overflow-x:auto;padding-bottom:8px}
+.slices>*{flex:0 0 240px}
+.cta{flex-direction:column;align-items:flex-start}
+.h2big{font-size:44px}
+.cierre{font-size:40px}
+}
+@media (max-width:600px){
+.topbar{gap:4px;padding-left:16px !important}
+.nav{display:none}
+.menu-btn{display:inline-flex !important}
+.logo-img{width:112px !important}
+.tb-wa{display:none}
+.tb-txt{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.hero-logo{display:none}
+.lema{font-size:32px}
+.h2big{font-size:38px}
+.num1{font-size:140px}
+.rrow{grid-template-columns:44px 96px minmax(0,1fr);gap:12px}
+.rnum{font-size:56px}
+.fcols{grid-template-columns:minmax(0,1fr)}
+.cierre{font-size:32px}
+}
+.pasos{display:flex;gap:8px;flex-wrap:wrap}
+.dos{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:40px;align-items:start}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:24px;row-gap:40px}
+.campos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:960px){.dos{grid-template-columns:minmax(0,1fr)}.g3{grid-template-columns:minmax(0,1fr)}.g4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:600px){.ptitulo{font-size:36px !important}.plabel{display:none}.paso-actual .plabel{display:inline}.campos{grid-template-columns:minmax(0,1fr)}.pcard{padding:20px !important}}
+
+.toldo{height:76px;background:radial-gradient(circle at 24px 0,#fffbfb 24px,transparent 24.5px) 0 52px/96px 24px repeat-x,radial-gradient(circle at 72px 0,#ffdfdf 24px,transparent 24.5px) 0 52px/96px 24px repeat-x,repeating-linear-gradient(90deg,#fffbfb 0 48px,#ffdfdf 48px 96px) 0 0/100% 52px no-repeat;background-color:#f9c1c1;box-shadow:inset 0 3px 0 rgba(94,25,33,.12)}
+.hdr{padding-top:20px}
+@media (max-width:600px){.toldo{height:52px;background-size:64px 16px,64px 16px,100% 36px;background-position:0 36px,0 36px,0 0;background-image:radial-gradient(circle at 16px 0,#fffbfb 16px,transparent 16.5px),radial-gradient(circle at 48px 0,#ffdfdf 16px,transparent 16.5px),repeating-linear-gradient(90deg,#fffbfb 0 32px,#ffdfdf 32px 64px)}.hdr{padding-top:12px}}
+@media (max-width:370px){.tb-txt{font-size:12px}}
+.saltar{position:absolute;left:16px;top:-120px;z-index:100;background:#5e1921;color:#fffbfb;padding:12px 18px;border-radius:12px;font-weight:600;text-decoration:none;box-shadow:0 0 0 3px #f9c1c1}
+.saltar:focus{top:16px}
+main:focus{outline:none}
+footer a{display:inline-flex;align-items:center;min-height:44px}
+nav[aria-label="Ruta"] a{display:inline-flex;align-items:center;min-height:44px}
+input[type=range]{height:44px;cursor:pointer}
+</style>
+</helmet>
+<div style="background:#fff4f4;padding:24px 0;min-height:100%"><article aria-label="Nota de pedido" style="width:816px;min-height:1056px;box-sizing:border-box;margin:0 auto;background:#ffffff;color:#5e1921;font:400 14px/1.45 'Instrument Sans',sans-serif;display:flex;flex-direction:column"><header style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px;padding:40px 48px 18px;background:#fffbfb"><div style="display:flex;flex-direction:column;gap:6px"><img src="/_blob/c6797fa64a1b6cbae59d4845cf395eb0" alt="Pastelería Ilusión" class="logo-img" style="height:44px;width:auto;display:block"><span style="font-size:12px;color:#664243">Pide un deseo. Del pastel nos encargamos.</span></div><div style="text-align:right;display:flex;flex-direction:column;gap:2px"><h1 style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:500;font-size:28px">Nota de pedido</h1><span style="font-weight:600;font-size:16px">#[número]</span><span style="color:#664243;font-size:12px">Hecha el [fecha] a las [hora]</span></div></header><div aria-hidden="true" style="height:3px;background:#f9c1c1"></div><div style="padding:12px 48px 32px;display:flex;flex-direction:column;gap:22px;flex:1"><div style="display:grid;grid-template-columns:1fr 1fr;gap:20px 32px"><section style="display:flex;flex-direction:column;gap:8px"><h2 style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:500;font-size:18px">Cliente</h2><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;color:#664243">Nombre</span><span style="font-weight:600">[Nombre del cliente]</span></div><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;color:#664243">Teléfono</span><span style="font-weight:600">[Teléfono]</span></div><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;color:#664243">Correo</span><span style="font-weight:600">[correo]</span></div></section><section style="display:flex;flex-direction:column;gap:8px"><h2 style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:500;font-size:18px">Entrega</h2><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;color:#664243">Fecha y hora</span><span style="font-weight:600">Viernes 6 de noviembre, de 4:00 a 4:30 pm</span></div><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;color:#664243">Forma</span><span style="font-weight:600">Entrega a domicilio</span></div><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;color:#664243">Dirección</span><span style="font-weight:600">[Calle y número], [colonia], [código postal]</span></div></section></div><section style="display:flex;flex-direction:column;gap:6px"><h2 style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:500;font-size:18px">Detalle</h2><table style="width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums"><thead><tr><th scope="col" style="text-align:left;font-size:12px;font-weight:600;color:#664243;padding:8px 0;border-bottom:1.5px solid #5e1921">Cant.</th><th scope="col" style="text-align:left;font-size:12px;font-weight:600;color:#664243;padding:8px 0;border-bottom:1.5px solid #5e1921">Descripción</th><th scope="col" style="text-align:right;font-size:12px;font-weight:600;color:#664243;padding:8px 0;border-bottom:1.5px solid #5e1921">Importe</th></tr></thead><tbody><tr><td style="text-align:left;vertical-align:top;padding:10px 0;border-bottom:1px solid #ecd2d2;width:56px">1</td><td style="text-align:left;vertical-align:top;padding:10px 0;border-bottom:1px solid #ecd2d2;"><strong style="font-weight:600">Tres leches de durazno</strong><br><span style="color:#664243">Pastel completo, de vitrina</span></td><td style="text-align:right;vertical-align:top;padding:10px 0;border-bottom:1px solid #ecd2d2;">$350</td></tr><tr><td style="text-align:left;vertical-align:top;padding:10px 0;border-bottom:1px solid #ecd2d2;width:56px">1</td><td style="text-align:left;vertical-align:top;padding:10px 0;border-bottom:1px solid #ecd2d2;"><strong style="font-weight:600">Pastel de 15 kg (105 personas)</strong><br><span style="color:#664243">Redondo de 2 pisos. Tres leches, pan de chocolate, relleno con queso y zarzamora. Cobertura de crema pastelera lila. Flores. Mensaje: “Feliz cumpleaños Ana”.</span></td><td style="text-align:right;vertical-align:top;padding:10px 0;border-bottom:1px solid #ecd2d2;">$3,825</td></tr><tr><td style="text-align:left;vertical-align:top;padding:10px 0;border-bottom:1px solid #ecd2d2;width:56px">1</td><td style="text-align:left;vertical-align:top;padding:10px 0;border-bottom:1px solid #ecd2d2;"><strong style="font-weight:600">Decoración con flores</strong></td><td style="text-align:right;vertical-align:top;padding:10px 0;border-bottom:1px solid #ecd2d2;">$[precio]</td></tr><tr><td style="text-align:left;vertical-align:top;padding:10px 0;border-bottom:1px solid #ecd2d2;width:56px">1</td><td style="text-align:left;vertical-align:top;padding:10px 0;border-bottom:1px solid #ecd2d2;"><strong style="font-weight:600">Envío a domicilio</strong><br><span style="color:#664243">Gratis en pedidos de 15 kg o más</span></td><td style="text-align:right;vertical-align:top;padding:10px 0;border-bottom:1px solid #ecd2d2;">$0</td></tr></tbody></table><div style="align-self:flex-end;width:340px;display:flex;flex-direction:column;gap:6px;margin-top:8px"><div style="display:flex;justify-content:space-between;gap:24px;font-weight:700;font-size:16px;padding-top:6px;border-top:1.5px solid #5e1921"><span>Total del pedido</span><span style="font-variant-numeric:tabular-nums;">$[total]</span></div><div style="display:flex;justify-content:space-between;gap:24px;color:#664243"><span>Anticipo pagado (50%)</span><span style="font-variant-numeric:tabular-nums;color:#5e1921;font-weight:600">$[anticipo]</span></div><div style="display:flex;justify-content:space-between;gap:24px;color:#664243"><span>Resto, el día de la entrega</span><span style="font-variant-numeric:tabular-nums;color:#5e1921;font-weight:600">$[resto]</span></div><span style="font-size:12px;color:#664243">Pagado con [Mercado Pago, tarjeta o efectivo] el [fecha].</span></div></section><section style="display:flex;flex-direction:column;gap:10px;padding:16px 18px;border:1.5px solid #8f5413;border-radius:12px"><div style="display:flex;justify-content:space-between;gap:16px;align-items:baseline"><h2 style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:500;font-size:18px">Base para 15 kg</h2><span style="font-weight:700;font-variant-numeric:tabular-nums">Depósito pagado: $200</span></div><p style="margin:0">Regrésala <strong style="font-weight:600">antes del [fecha]</strong> (15 días después de la entrega) junto con esta nota y te devolvemos el importe.</p><div style="display:flex;gap:16px;font-size:12px;color:#664243;padding-top:6px"><span style="display:flex;align-items:flex-end;gap:8px;flex:1"><span style="white-space:nowrap">Base recibida el</span><span style="flex:1;border-bottom:1px solid #664243;height:18px"></span></span><span style="display:flex;align-items:flex-end;gap:8px;flex:1"><span style="white-space:nowrap">Recibió</span><span style="flex:1;border-bottom:1px solid #664243;height:18px"></span></span><span style="display:flex;align-items:flex-end;gap:8px;flex:1"><span style="white-space:nowrap">Importe devuelto</span><span style="flex:1;border-bottom:1px solid #664243;height:18px"></span></span></div></section><div style="margin-top:auto;display:flex;gap:16px;align-items:center;padding-top:12px;border-top:1px solid #ecd2d2"><div role="img" aria-label="Código QR para verificar la nota" style="width:96px;height:96px;flex:0 0 auto;background:repeating-conic-gradient(#5e1921 0 25%,#fffbfb 0 50%) 0 0/16px 16px;border:6px solid #fffbfb;outline:1px solid #ecd2d2"></div><div style="display:flex;flex-direction:column;gap:2px;font-size:12px;color:#664243"><strong style="font-size:13px;color:#5e1921;font-weight:600">Pastelería Ilusión</strong><span>[Dirección de la pastelería]</span><span>Todos los días, de 10:00 a 22:30. WhatsApp [número]</span><span>Escanea el código para verificar esta nota.</span></div></div></div></article></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":864,"height":1104}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

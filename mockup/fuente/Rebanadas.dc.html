@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Rebanadas de hoy en Pastelería Ilusión</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face{font-family:"Fraunces";src:url(/_blob/076b4881db1aaa2eb43a1c5d930e7f0f) format("woff2");font-weight:100 900;font-display:swap}
+@font-face{font-family:"Instrument Sans";src:url(/_blob/017dfa8879dd179bf93a6b2e7ec1c54a) format("woff2");font-weight:400 700;font-display:swap}
+body{margin:0;background:#fff4f4}
+a{color:#5e1921}a:hover{color:#664243}
+.wrap{max-width:1200px;margin:0 auto;padding-left:24px;padding-right:24px;box-sizing:border-box}
+.duya{height:21px;position:relative;z-index:1;background:radial-gradient(circle at 16px 0,var(--c) 15px,transparent 15.5px) 0 5px/32px 16px repeat-x,linear-gradient(var(--c),var(--c)) 0 0/100% 6px no-repeat}
+input::placeholder{color:#664243;opacity:1}
+.topbar{display:flex;align-items:center;gap:32px}
+.nav{display:flex;gap:28px;flex:1 1 auto}
+.hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:40px;align-items:end}
+.hero-txt{padding-bottom:96px}
+.lema{font-size:34px}
+.h2big{font-size:56px}
+.rank{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:32px;align-items:stretch}
+.num1{font-size:200px}
+.rrow{display:grid;grid-template-columns:72px 140px minmax(0,1fr);gap:20px;align-items:center}
+.rnum{font-size:80px}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:24px;row-gap:48px}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+.slices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px}
+.cta{display:flex;align-items:center;justify-content:space-between;gap:32px}
+.fcols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:32px}
+.cierre{font-size:56px}
+@media (max-width:960px){
+.hero{grid-template-columns:minmax(0,1fr)}
+.hero-txt{padding-bottom:16px}
+.rank{grid-template-columns:minmax(0,1fr)}
+.g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:minmax(0,1fr)}
+.slices{display:flex;overflow-x:auto;padding-bottom:8px}
+.slices>*{flex:0 0 240px}
+.cta{flex-direction:column;align-items:flex-start}
+.h2big{font-size:44px}
+.cierre{font-size:40px}
+}
+@media (max-width:600px){
+.topbar{gap:4px;padding-left:16px !important}
+.nav{display:none}
+.menu-btn{display:inline-flex !important}
+.logo-img{width:112px !important}
+.tb-wa{display:none}
+.tb-txt{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.hero-logo{display:none}
+.lema{font-size:32px}
+.h2big{font-size:38px}
+.num1{font-size:140px}
+.rrow{grid-template-columns:44px 96px minmax(0,1fr);gap:12px}
+.rnum{font-size:56px}
+.fcols{grid-template-columns:minmax(0,1fr)}
+.cierre{font-size:32px}
+}
+.pasos{display:flex;gap:8px;flex-wrap:wrap}
+.dos{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:40px;align-items:start}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:24px;row-gap:40px}
+.campos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:960px){.dos{grid-template-columns:minmax(0,1fr)}.g3{grid-template-columns:minmax(0,1fr)}.g4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:600px){.ptitulo{font-size:36px !important}.plabel{display:none}.paso-actual .plabel{display:inline}.campos{grid-template-columns:minmax(0,1fr)}.pcard{padding:20px !important}}
+.deco{position:absolute;inset:0;pointer-events:none;z-index:-1}
+.deco svg{position:absolute;top:50%;right:max(24px,calc((100% - 1200px) / 2 + 24px));width:112px;height:112px;transform:translateY(-50%);opacity:.3}
+.con-dibujo{padding-right:144px}
+@media (max-width:600px){.deco{display:none}.con-dibujo{padding-right:0}}
+
+.toldo{height:76px;background:radial-gradient(circle at 24px 0,#fffbfb 24px,transparent 24.5px) 0 52px/96px 24px repeat-x,radial-gradient(circle at 72px 0,#ffdfdf 24px,transparent 24.5px) 0 52px/96px 24px repeat-x,repeating-linear-gradient(90deg,#fffbfb 0 48px,#ffdfdf 48px 96px) 0 0/100% 52px no-repeat;background-color:#f9c1c1;box-shadow:inset 0 3px 0 rgba(94,25,33,.12)}
+.hdr{padding-top:20px}
+@media (max-width:600px){.toldo{height:52px;background-size:64px 16px,64px 16px,100% 36px;background-position:0 36px,0 36px,0 0;background-image:radial-gradient(circle at 16px 0,#fffbfb 16px,transparent 16.5px),radial-gradient(circle at 48px 0,#ffdfdf 16px,transparent 16.5px),repeating-linear-gradient(90deg,#fffbfb 0 32px,#ffdfdf 32px 64px)}.hdr{padding-top:12px}}
+@media (max-width:370px){.tb-txt{font-size:12px}}
+.saltar{position:absolute;left:16px;top:-120px;z-index:100;background:#5e1921;color:#fffbfb;padding:12px 18px;border-radius:12px;font-weight:600;text-decoration:none;box-shadow:0 0 0 3px #f9c1c1}
+.saltar:focus{top:16px}
+main:focus{outline:none}
+footer a{display:inline-flex;align-items:center;min-height:44px}
+nav[aria-label="Ruta"] a{display:inline-flex;align-items:center;min-height:44px}
+input[type=range]{height:44px;cursor:pointer}
+.duya[data-tipo]{background:none}
+.duya[data-tipo]::before,.duya[data-tipo]::after{content:"";position:absolute;left:0;right:0;top:-1px;pointer-events:none;-webkit-mask-repeat:repeat-x;mask-repeat:repeat-x;-webkit-mask-position:0 0;mask-position:0 0}
+.duya[data-tipo]::before{background:var(--c)}
+.duya[data-tipo=concha]::before{height:31px;-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Crect width='36' height='2'/%3E%3Cpath d='M-2 0 Q 0 20 14 25 Q 31 30 38 0 Z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Crect width='36' height='2'/%3E%3Cpath d='M-2 0 Q 0 20 14 25 Q 31 30 38 0 Z'/%3E%3C/svg%3E");-webkit-mask-size:36px 30px;mask-size:36px 30px}
+.duya[data-tipo=concha]::after{height:31px;background:rgba(94,25,33,.14);-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Cg fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cpath d='M5 2 Q 8 15 17 19'/%3E%3Cpath d='M13 2 Q 16 12 26 14'/%3E%3Cpath d='M22 2 Q 25 8 32 9'/%3E%3C/g%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Cg fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cpath d='M5 2 Q 8 15 17 19'/%3E%3Cpath d='M13 2 Q 16 12 26 14'/%3E%3Cpath d='M22 2 Q 25 8 32 9'/%3E%3C/g%3E%3C/svg%3E");-webkit-mask-size:36px 30px;mask-size:36px 30px}
+.duya[data-tipo=perlas]::before{height:23px;-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Crect width='18' height='3'/%3E%3Ccircle cx='9' cy='8' r='7.5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Crect width='18' height='3'/%3E%3Ccircle cx='9' cy='8' r='7.5'/%3E%3C/svg%3E");-webkit-mask-size:18px 22px;mask-size:18px 22px}
+.duya[data-tipo=perlas]::after{height:23px;background:rgba(255,251,251,.55);-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Ccircle cx='6.5' cy='5.5' r='2.2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Ccircle cx='6.5' cy='5.5' r='2.2'/%3E%3C/svg%3E");-webkit-mask-size:18px 22px;mask-size:18px 22px}
+.duya[data-tipo=guirnalda]::before{height:41px;-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Crect width='96' height='3'/%3E%3Cpath d='M0 0 Q 48 52 96 0 Z'/%3E%3Ccircle cx='0' cy='10' r='7'/%3E%3Ccircle cx='96' cy='10' r='7'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Crect width='96' height='3'/%3E%3Cpath d='M0 0 Q 48 52 96 0 Z'/%3E%3Ccircle cx='0' cy='10' r='7'/%3E%3Ccircle cx='96' cy='10' r='7'/%3E%3C/svg%3E");-webkit-mask-size:96px 40px;mask-size:96px 40px}
+.duya[data-tipo=guirnalda]::after{height:41px;background:rgba(255,251,251,.55);-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Ccircle cx='93.5' cy='7.5' r='2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Ccircle cx='93.5' cy='7.5' r='2'/%3E%3C/svg%3E");-webkit-mask-size:96px 40px;mask-size:96px 40px}
+</style>
+</helmet>
+<div style="font-family:'Instrument Sans','Segoe UI',system-ui,sans-serif;color:#5e1921;background:#fff4f4;font-size:16px;line-height:1.6"><a class="saltar" href="#contenido">Saltar al contenido</a>
+<div style="background:#5e1921;color:#fffbfb;font-size:14px;line-height:1.4">
+<div class="wrap" style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 24px;padding-top:10px;padding-bottom:10px">
+<span class="tb-txt">Pedidos con 2 días de anticipación</span>
+<span class="tb-wa" style="color:#f9c1c1">WhatsApp [número]</span>
+</div>
+</div>
+
+<div class="toldo" aria-hidden="true"></div>
+<header class="hdr" style="background:#f9c1c1">
+<div class="wrap"><div class="topbar" style="background:#fffbfb;border:1px solid #ecd2d2;border-radius:24px;min-height:64px;padding:8px 12px 8px 24px;box-sizing:border-box">
+<a href="Main.dc.html" aria-label="Pastelería Ilusión, inicio" style="display:block;line-height:0"><img src="/_blob/c6797fa64a1b6cbae59d4845cf395eb0" alt="Pastelería Ilusión" class="logo-img" style="width:150px;height:auto"></a>
+<nav class="nav" aria-label="Principal"><a href="Catalogo.dc.html" style="color:#5e1921;text-decoration:none;font-weight:600;font-size:15px;padding:10px 0">Catálogo</a><a href="Vitrina.dc.html" style="color:#5e1921;text-decoration:none;font-weight:600;font-size:15px;padding:10px 0">Vitrina</a><a href="Rebanadas.dc.html" style="color:#5e1921;text-decoration:none;font-weight:600;font-size:15px;padding:10px 0">Rebanadas de hoy</a><a href="PedidoElegir.dc.html" style="color:#5e1921;text-decoration:none;font-weight:600;font-size:15px;padding:10px 0">Realizar pedido</a></nav>
+<div style="display:flex;gap:8px;margin-left:auto"><a href="Cuenta.dc.html" aria-label="Cuenta" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;color:#5e1921;border-radius:12px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 20c1.6-3.4 4.5-5 8-5s6.4 1.6 8 5"></path></svg></a><a href="Carrito.dc.html" aria-label="Carrito" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;color:#5e1921;border-radius:12px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2L5 8z"></path><path d="M9 8V6.5a3 3 0 0 1 6 0V8"></path></svg></a><button type="button" class="menu-btn" aria-label="Abrir menú" aria-expanded="false" aria-controls="menu-sitio" style="display:none;width:44px;height:44px;align-items:center;justify-content:center;border:none;border-radius:12px;background:transparent;color:#5e1921;cursor:pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button></div>
+</div></div>
+</header>
+<main id="contenido" tabindex="-1">
+
+<section style="position:relative;z-index:2;background:#f9c1c1;color:#5e1921">
+<div class="deco" aria-hidden="true"><svg viewBox="0 0 64 64" width="112" height="112" aria-hidden="true" style=""><g fill="none" stroke="#5e1921" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 30l40-12 8 8z"></path><path d="M8 30v18l48-4V26M8 39l48-4"></path><circle cx="49" cy="15" r="3"></circle><path d="M50 12q2-4 5-5"></path></g></svg></div>
+<div class="wrap con-dibujo" style="padding-top:40px;padding-bottom:44px;display:flex;flex-direction:column;gap:18px"><nav aria-label="Ruta" style="font-size:14px;color:#664243"><a href="Main.dc.html" style="color:#664243">Inicio</a> / <span aria-current="page">Rebanadas de hoy</span></nav><h1 class="ptitulo" style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:500;font-size:52px;line-height:1.05;color:#5e1921">Rebanadas de hoy</h1><p style="margin:0;font-size:18px;color:#664243;max-width:620px">[Fecha de hoy]. Disponibles hasta agotar existencias.</p></div>
+</section>
+<div class="duya" style="--c:#f9c1c1" data-tipo="concha" aria-hidden="true"></div>
+<section style="padding-top:56px;padding-bottom:88px">
+<div class="wrap" style="display:flex;flex-direction:column;gap:32px"><div class="g4"><article style="background:#fffbfb;border:1px solid #ecd2d2;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px"><svg viewBox="0 0 200 120" role="img" aria-label="Foto de la rebanada pendiente" style="width:100%;height:auto;display:block"><path d="M24 84 L150 34 L178 56 L178 98 L24 112 Z" fill="#ecd2d2"></path><path d="M24 84 L150 34 L178 56 Z" fill="#fbecec"></path><text x="104" y="96" text-anchor="middle" font-size="12" fill="#664243" font-family="Instrument Sans, sans-serif">Foto de la rebanada</text></svg><h2 style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:600;font-size:22px;line-height:1.25">Tres leches de durazno</h2><span style="font-weight:600;font-variant-numeric:tabular-nums">$35 la rebanada</span><span style="font-weight:600;font-size:13px;color:#664243">Quedan [n]</span><div role="group" aria-label="Cantidad de rebanadas de tres leches de durazno" style="display:flex;justify-content:space-between;align-items:center;width:100%;box-sizing:border-box;border:1px solid #664243;border-radius:12px;background:#fffbfb"><button type="button" aria-label="Quitar uno de rebanadas de tres leches de durazno" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:#5e1921;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></button><output style="min-width:28px;text-align:center;font-weight:700">1</output><button type="button" aria-label="Agregar uno de rebanadas de tres leches de durazno" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:#5e1921;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 6v12M6 12h12"></path></svg></button></div><a href="Carrito.dc.html" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:12px;border:1.5px solid #5e1921;color:#5e1921;font-weight:600;font-size:14px;text-decoration:none">Agregar al pedido</a></article><article style="background:#fffbfb;border:1px solid #ecd2d2;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px"><svg viewBox="0 0 200 120" role="img" aria-label="Foto de la rebanada pendiente" style="width:100%;height:auto;display:block"><path d="M24 84 L150 34 L178 56 L178 98 L24 112 Z" fill="#ecd2d2"></path><path d="M24 84 L150 34 L178 56 Z" fill="#fbecec"></path><text x="104" y="96" text-anchor="middle" font-size="12" fill="#664243" font-family="Instrument Sans, sans-serif">Foto de la rebanada</text></svg><h3 style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:600;font-size:22px;line-height:1.25">Tres leches de fresa</h3><span style="font-weight:600;font-variant-numeric:tabular-nums">$35 la rebanada</span><span style="font-weight:600;font-size:13px;color:#664243">Quedan [n]</span><div role="group" aria-label="Cantidad de rebanadas de tres leches de fresa" style="display:flex;justify-content:space-between;align-items:center;width:100%;box-sizing:border-box;border:1px solid #664243;border-radius:12px;background:#fffbfb"><button type="button" aria-label="Quitar uno de rebanadas de tres leches de fresa" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:#5e1921;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></button><output style="min-width:28px;text-align:center;font-weight:700">1</output><button type="button" aria-label="Agregar uno de rebanadas de tres leches de fresa" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:#5e1921;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 6v12M6 12h12"></path></svg></button></div><a href="Carrito.dc.html" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:12px;border:1.5px solid #5e1921;color:#5e1921;font-weight:600;font-size:14px;text-decoration:none">Agregar al pedido</a></article><article style="opacity:.7;background:#fffbfb;border:1px solid #ecd2d2;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px"><svg viewBox="0 0 200 120" role="img" aria-label="Foto de la rebanada pendiente" style="width:100%;height:auto;display:block"><path d="M24 84 L150 34 L178 56 L178 98 L24 112 Z" fill="#ecd2d2"></path><path d="M24 84 L150 34 L178 56 Z" fill="#fbecec"></path><text x="104" y="96" text-anchor="middle" font-size="12" fill="#664243" font-family="Instrument Sans, sans-serif">Foto de la rebanada</text></svg><h3 style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:600;font-size:22px;line-height:1.25">Tres leches de cajeta</h3><span style="font-weight:600;font-variant-numeric:tabular-nums">$35 la rebanada</span><span style="font-weight:600;font-size:14px;color:#5e1921">Agotada por hoy</span><div role="group" aria-label="Cantidad de rebanadas de tres leches de cajeta" style="display:flex;justify-content:space-between;align-items:center;width:100%;box-sizing:border-box;border:1px solid #664243;border-radius:12px;background:#fffbfb"><button type="button" disabled aria-label="Quitar uno de rebanadas de tres leches de cajeta" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:#5e1921;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></button><output style="min-width:28px;text-align:center;font-weight:700">1</output><button type="button" disabled aria-label="Agregar uno de rebanadas de tres leches de cajeta" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:#5e1921;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 6v12M6 12h12"></path></svg></button></div><span aria-disabled="true" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:12px;border:1.5px solid #5e1921;color:#5e1921;font-weight:600;font-size:14px;text-decoration:none">Agotada</span></article><article style="background:#fffbfb;border:1px solid #ecd2d2;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px"><svg viewBox="0 0 200 120" role="img" aria-label="Foto de la rebanada pendiente" style="width:100%;height:auto;display:block"><path d="M24 84 L150 34 L178 56 L178 98 L24 112 Z" fill="#ecd2d2"></path><path d="M24 84 L150 34 L178 56 Z" fill="#fbecec"></path><text x="104" y="96" text-anchor="middle" font-size="12" fill="#664243" font-family="Instrument Sans, sans-serif">Foto de la rebanada</text></svg><h3 style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:600;font-size:22px;line-height:1.25">Tres leches con queso y zarzamora</h3><span style="font-weight:600;font-variant-numeric:tabular-nums">$40 la rebanada</span><span style="font-weight:600;font-size:13px;color:#664243">Quedan [n]</span><div role="group" aria-label="Cantidad de rebanadas de red velvet" style="display:flex;justify-content:space-between;align-items:center;width:100%;box-sizing:border-box;border:1px solid #664243;border-radius:12px;background:#fffbfb"><button type="button" aria-label="Quitar uno de rebanadas de red velvet" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:#5e1921;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></button><output style="min-width:28px;text-align:center;font-weight:700">1</output><button type="button" aria-label="Agregar uno de rebanadas de red velvet" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:#5e1921;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 6v12M6 12h12"></path></svg></button></div><a href="Carrito.dc.html" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:12px;border:1.5px solid #5e1921;color:#5e1921;font-weight:600;font-size:14px;text-decoration:none">Agregar al pedido</a></article><article style="background:#fffbfb;border:1px solid #ecd2d2;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px"><svg viewBox="0 0 200 120" role="img" aria-label="Foto de la rebanada pendiente" style="width:100%;height:auto;display:block"><path d="M24 84 L150 34 L178 56 L178 98 L24 112 Z" fill="#ecd2d2"></path><path d="M24 84 L150 34 L178 56 Z" fill="#fbecec"></path><text x="104" y="96" text-anchor="middle" font-size="12" fill="#664243" font-family="Instrument Sans, sans-serif">Foto de la rebanada</text></svg><h3 style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:600;font-size:22px;line-height:1.25">Tres leches con flan y cajeta</h3><span style="font-weight:600;font-variant-numeric:tabular-nums">$40 la rebanada</span><span style="font-weight:600;font-size:13px;color:#664243">Quedan [n]</span><div role="group" aria-label="Cantidad de rebanadas de pay de queso" style="display:flex;justify-content:space-between;align-items:center;width:100%;box-sizing:border-box;border:1px solid #664243;border-radius:12px;background:#fffbfb"><button type="button" aria-label="Quitar uno de rebanadas de pay de queso" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:#5e1921;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></button><output style="min-width:28px;text-align:center;font-weight:700">1</output><button type="button" aria-label="Agregar uno de rebanadas de pay de queso" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:#5e1921;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 6v12M6 12h12"></path></svg></button></div><a href="Carrito.dc.html" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:12px;border:1.5px solid #5e1921;color:#5e1921;font-weight:600;font-size:14px;text-decoration:none">Agregar al pedido</a></article><article style="background:#fffbfb;border:1px solid #ecd2d2;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px"><svg viewBox="0 0 200 120" role="img" aria-label="Foto de la rebanada pendiente" style="width:100%;height:auto;display:block"><path d="M24 84 L150 34 L178 56 L178 98 L24 112 Z" fill="#ecd2d2"></path><path d="M24 84 L150 34 L178 56 Z" fill="#fbecec"></path><text x="104" y="96" text-anchor="middle" font-size="12" fill="#664243" font-family="Instrument Sans, sans-serif">Foto de la rebanada</text></svg><h3 style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:600;font-size:22px;line-height:1.25">Choco-pingüino</h3><span style="font-weight:600;font-variant-numeric:tabular-nums">$35 la rebanada</span><span style="font-weight:600;font-size:13px;color:#664243">Quedan [n]</span><div role="group" aria-label="Cantidad de rebanadas de moka" style="display:flex;justify-content:space-between;align-items:center;width:100%;box-sizing:border-box;border:1px solid #664243;border-radius:12px;background:#fffbfb"><button type="button" aria-label="Quitar uno de rebanadas de moka" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:#5e1921;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></button><output style="min-width:28px;text-align:center;font-weight:700">1</output><button type="button" aria-label="Agregar uno de rebanadas de moka" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:#5e1921;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 6v12M6 12h12"></path></svg></button></div><a href="Carrito.dc.html" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:12px;border:1.5px solid #5e1921;color:#5e1921;font-weight:600;font-size:14px;text-decoration:none">Agregar al pedido</a></article><article style="background:#fffbfb;border:1px solid #ecd2d2;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px"><svg viewBox="0 0 200 120" role="img" aria-label="Foto de la rebanada pendiente" style="width:100%;height:auto;display:block"><path d="M24 84 L150 34 L178 56 L178 98 L24 112 Z" fill="#ecd2d2"></path><path d="M24 84 L150 34 L178 56 Z" fill="#fbecec"></path><text x="104" y="96" text-anchor="middle" font-size="12" fill="#664243" font-family="Instrument Sans, sans-serif">Foto de la rebanada</text></svg><h3 style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:600;font-size:22px;line-height:1.25">Imposible</h3><span style="font-weight:600;font-variant-numeric:tabular-nums">$35 la rebanada</span><span style="font-weight:600;font-size:13px;color:#664243">Quedan [n]</span><div role="group" aria-label="Cantidad de rebanadas de selva negra" style="display:flex;justify-content:space-between;align-items:center;width:100%;box-sizing:border-box;border:1px solid #664243;border-radius:12px;background:#fffbfb"><button type="button" aria-label="Quitar uno de rebanadas de selva negra" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:#5e1921;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></button><output style="min-width:28px;text-align:center;font-weight:700">1</output><button type="button" aria-label="Agregar uno de rebanadas de selva negra" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:#5e1921;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 6v12M6 12h12"></path></svg></button></div><a href="Carrito.dc.html" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:12px;border:1.5px solid #5e1921;color:#5e1921;font-weight:600;font-size:14px;text-decoration:none">Agregar al pedido</a></article><article style="background:#fffbfb;border:1px solid #ecd2d2;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px"><svg viewBox="0 0 200 120" role="img" aria-label="Foto de la rebanada pendiente" style="width:100%;height:auto;display:block"><path d="M24 84 L150 34 L178 56 L178 98 L24 112 Z" fill="#ecd2d2"></path><path d="M24 84 L150 34 L178 56 Z" fill="#fbecec"></path><text x="104" y="96" text-anchor="middle" font-size="12" fill="#664243" font-family="Instrument Sans, sans-serif">Foto de la rebanada</text></svg><h3 style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:600;font-size:22px;line-height:1.25">Posible</h3><span style="font-weight:600;font-variant-numeric:tabular-nums">$35 la rebanada</span><span style="font-weight:600;font-size:13px;color:#664243">Quedan [n]</span><div role="group" aria-label="Cantidad de rebanadas de pay de limón" style="display:flex;justify-content:space-between;align-items:center;width:100%;box-sizing:border-box;border:1px solid #664243;border-radius:12px;background:#fffbfb"><button type="button" aria-label="Quitar uno de rebanadas de pay de limón" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:#5e1921;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></button><output style="min-width:28px;text-align:center;font-weight:700">1</output><button type="button" aria-label="Agregar uno de rebanadas de pay de limón" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:#5e1921;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 6v12M6 12h12"></path></svg></button></div><a href="Carrito.dc.html" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:12px;border:1.5px solid #5e1921;color:#5e1921;font-weight:600;font-size:14px;text-decoration:none">Agregar al pedido</a></article></div></div>
+</section>
+<div class="duya" style="--c:#fff4f4" data-tipo="guirnalda" aria-hidden="true"></div>
+
+</main>
+<footer style="background:#5e1921;color:#fffbfb;padding-top:72px;padding-bottom:32px;margin-top:-21px">
+<div class="wrap" style="display:flex;flex-direction:column;gap:48px">
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:24px">
+<img src="/_blob/7a6e4470a2f1a1fab4adb9df133333ae" alt="" style="width:96px;height:96px;flex:0 0 auto">
+<p class="cierre" style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:500;line-height:1.1;color:#fffbfb;flex:1 1 320px">Pide un deseo. Del pastel nos encargamos.</p>
+</div>
+<div class="fcols" style="border-top:1px solid #664243;padding-top:32px">
+<div style="display:flex;flex-direction:column;gap:8px">
+<h3 style="margin:0 0 4px;font-size:14px;font-weight:600;color:#fffbfb">Visítanos</h3>
+<span style="color:#f9c1c1">[Dirección de la pastelería]</span>
+<span style="color:#f9c1c1">Todos los días, de 10:00 a 22:30</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<h3 style="margin:0 0 4px;font-size:14px;font-weight:600;color:#fffbfb">Pedidos</h3>
+<span style="color:#f9c1c1">WhatsApp [número]</span>
+<a href="https://wa.me/52[número]" style="color:#fffbfb;font-weight:600;text-underline-offset:4px">Escribir por WhatsApp</a>
+</div>
+<nav aria-label="Pie de página" style="display:flex;flex-direction:column;gap:8px">
+<h3 style="margin:0 0 4px;font-size:14px;font-weight:600;color:#fffbfb">La pastelería</h3>
+<a href="Catalogo.dc.html" style="color:#f9c1c1;text-decoration:none">Catálogo</a>
+<a href="Vitrina.dc.html" style="color:#f9c1c1;text-decoration:none">Vitrina</a>
+<a href="Rebanadas.dc.html" style="color:#f9c1c1;text-decoration:none">Rebanadas de hoy</a>
+<a href="BasesInfo.dc.html" style="color:#f9c1c1;text-decoration:none">Bases en préstamo</a>
+<a href="PedidoElegir.dc.html" style="color:#f9c1c1;text-decoration:none">Realizar pedido</a>
+</nav>
+</div>
+<div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;border-top:1px solid #664243;padding-top:24px;font-size:14px;color:#f9c1c1">
+<span>© 2026 Pastelería Ilusión</span>
+<div style="display:flex;gap:24px"><a href="Legal.dc.html#privacidad" style="color:#f9c1c1">Aviso de privacidad</a><a href="Legal.dc.html#terminos" style="color:#f9c1c1">Términos y condiciones</a></div>
+</div>
+</div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2243}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

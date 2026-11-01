@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Tablero sin uso</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:440px;height:200px;box-sizing:border-box;padding:28px;background:#ffdfdf;color:#5e1921;font-family:'Instrument Sans','Segoe UI',system-ui,sans-serif;display:flex;flex-direction:column;gap:8px;justify-content:center">
+<strong style="font-size:20px">Tablero sin uso</strong>
+<span style="font-size:15px;line-height:1.5">Quedó duplicado: el menú móvil ahora es el tablero «Menú de mi cuenta (móvil)». Selecciónalo y bórralo.</span>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":440,"height":200}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

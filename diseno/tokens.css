@@ -1,0 +1,41 @@
+/* Pastelería Ilusión: tokens de diseño (Fresa y mermelada). Generado desde tokens.json. */
+@font-face{font-family:"Fraunces";src:url("../assets/fuentes/Fraunces-Suave.woff2") format("woff2");font-weight:100 900;font-display:swap}
+@font-face{font-family:"Instrument Sans";src:url("../assets/fuentes/InstrumentSans.woff2") format("woff2");font-weight:400 700;font-display:swap}
+
+:root{
+  --color-nata: #fff4f4;
+  --color-betun: #fffbfb;
+  --color-harina: #fbecec;
+  --color-relieve: #ecd2d2;
+  --color-fresa: #f9c1c1;
+  --color-fresa-claro: #ffdfdf;
+  --color-mermelada: #5e1921;
+  --color-mermelada-suave: #664243;
+  --color-mermelada-profunda: #430e15;
+  --color-sobre-color: var(--color-betun);
+  --color-sobre-color-suave: var(--color-fresa);
+  --color-frambuesa: #d24d47;
+  --color-cajeta: #8f5413;
+  --color-exito: #3f5f2a;
+  --color-error: #b13a14;
+  --font-display: Fraunces, Georgia, serif;
+  --font-sans: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --texto-display: 500 56px/1.05 var(--font-display);
+  --texto-titulo-1: 500 40px/1.1 var(--font-display);
+  --texto-titulo-2: 500 28px/1.2 var(--font-display);
+  --texto-titulo-3: 600 20px/1.3 var(--font-display);
+  --texto-cuerpo: 400 16px/1.6 var(--font-sans);
+  --texto-nota: 400 14px/1.5 var(--font-sans);
+  --texto-etiqueta: 600 14px/1.3 var(--font-sans);
+  --espacio-1: 4px;
+  --espacio-2: 8px;
+  --espacio-4: 16px;
+  --espacio-6: 24px;
+  --espacio-12: 48px;
+  --radio-sm: 6px;
+  --radio-md: 12px;
+  --radio-lg: 24px;
+  --sombra-flotante: 0 2px 4px rgba(94, 25, 33, 0.06), 0 12px 32px rgba(94, 25, 33, 0.10);
+}
+
+/* La fresa SOFT=100 de Fraunces viene en el archivo; no la cambies por la de Google Fonts. */

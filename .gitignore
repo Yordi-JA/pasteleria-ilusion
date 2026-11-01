@@ -1,0 +1,68 @@
+# --- Secretos (repo público: nunca subir) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+client_secret*.json
+credentials*.json
+service-account*.json
+secrets/
+
+# --- Python / Django ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+db.sqlite3
+db.sqlite3-journal
+*.log
+# Subidas de clientes (fotos de referencia, obleas)
+backend/media/
+backend/staticfiles/
+
+# --- Volcados de base de datos (pueden tener datos de clientes) ---
+*.dump
+*.sql.gz
+*.backup
+backups/
+
+# --- Node / Vite ---
+node_modules/
+frontend/dist/
+.vite/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+*.tsbuildinfo
+
+# --- Playwright ---
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+# Guarda cookies de sesión
+playwright/.auth/
+
+# --- Editor / sistema operativo ---
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Claude Code ---
+# Las instala scripts/instalar-skills.sh desde repos de terceros
+.claude/skills/
+.claude/settings.local.json
+CLAUDE.local.md

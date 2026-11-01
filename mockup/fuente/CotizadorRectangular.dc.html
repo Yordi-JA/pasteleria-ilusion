@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Pastel rectangular en Pastelería Ilusión</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face{font-family:"Fraunces";src:url(/_blob/076b4881db1aaa2eb43a1c5d930e7f0f) format("woff2");font-weight:100 900;font-display:swap}
+@font-face{font-family:"Instrument Sans";src:url(/_blob/017dfa8879dd179bf93a6b2e7ec1c54a) format("woff2");font-weight:400 700;font-display:swap}
+body{margin:0;background:#fff4f4}
+a{color:#5e1921}a:hover{color:#664243}
+.wrap{max-width:1200px;margin:0 auto;padding-left:24px;padding-right:24px;box-sizing:border-box}
+.duya{height:21px;position:relative;z-index:1;background:radial-gradient(circle at 16px 0,var(--c) 15px,transparent 15.5px) 0 5px/32px 16px repeat-x,linear-gradient(var(--c),var(--c)) 0 0/100% 6px no-repeat}
+input::placeholder{color:#664243;opacity:1}
+.topbar{display:flex;align-items:center;gap:32px}
+.nav{display:flex;gap:28px;flex:1 1 auto}
+.hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:40px;align-items:end}
+.hero-txt{padding-bottom:96px}
+.lema{font-size:34px}
+.h2big{font-size:56px}
+.rank{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:32px;align-items:stretch}
+.num1{font-size:200px}
+.rrow{display:grid;grid-template-columns:72px 140px minmax(0,1fr);gap:20px;align-items:center}
+.rnum{font-size:80px}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:24px;row-gap:48px}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+.slices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px}
+.cta{display:flex;align-items:center;justify-content:space-between;gap:32px}
+.fcols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:32px}
+.cierre{font-size:56px}
+@media (max-width:960px){
+.hero{grid-template-columns:minmax(0,1fr)}
+.hero-txt{padding-bottom:16px}
+.rank{grid-template-columns:minmax(0,1fr)}
+.g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:minmax(0,1fr)}
+.slices{display:flex;overflow-x:auto;padding-bottom:8px}
+.slices>*{flex:0 0 240px}
+.cta{flex-direction:column;align-items:flex-start}
+.h2big{font-size:44px}
+.cierre{font-size:40px}
+}
+@media (max-width:600px){
+.topbar{gap:4px;padding-left:16px !important}
+.nav{display:none}
+.menu-btn{display:inline-flex !important}
+.logo-img{width:112px !important}
+.tb-wa{display:none}
+.tb-txt{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.hero-logo{display:none}
+.lema{font-size:32px}
+.h2big{font-size:38px}
+.num1{font-size:140px}
+.rrow{grid-template-columns:44px 96px minmax(0,1fr);gap:12px}
+.rnum{font-size:56px}
+.fcols{grid-template-columns:minmax(0,1fr)}
+.cierre{font-size:32px}
+}
+.toldo{height:76px;background:radial-gradient(circle at 24px 0,#fffbfb 24px,transparent 24.5px) 0 52px/96px 24px repeat-x,radial-gradient(circle at 72px 0,#ffdfdf 24px,transparent 24.5px) 0 52px/96px 24px repeat-x,repeating-linear-gradient(90deg,#fffbfb 0 48px,#ffdfdf 48px 96px) 0 0/100% 52px no-repeat;background-color:#f9c1c1;box-shadow:inset 0 3px 0 rgba(94,25,33,.12)}
+.hdr{padding-top:20px}
+@media (max-width:600px){.toldo{height:52px;background-size:64px 16px,64px 16px,100% 36px;background-position:0 36px,0 36px,0 0;background-image:radial-gradient(circle at 16px 0,#fffbfb 16px,transparent 16.5px),radial-gradient(circle at 48px 0,#ffdfdf 16px,transparent 16.5px),repeating-linear-gradient(90deg,#fffbfb 0 32px,#ffdfdf 32px 64px)}.hdr{padding-top:12px}}
+.h3d{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:24px;align-items:center}
+.escena{position:relative;height:600px;perspective:1100px;perspective-origin:50% 30%;touch-action:pan-y;cursor:grab;user-select:none}
+.escena:active{cursor:grabbing}
+.cake3d{position:absolute;left:50%;top:70%;transform-style:preserve-3d;will-change:transform}
+.cake3d div{position:absolute;left:0;top:0;transform-style:preserve-3d}
+.cake3d .face{backface-visibility:hidden}
+.cake3d .cap{border-radius:50%;backface-visibility:hidden}
+.cake3d .bead{width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:#fffbfb;box-shadow:inset -3px -4px 0 #e8cdcd;backface-visibility:hidden}
+.sombra3d{position:absolute;left:50%;top:70%;width:360px;height:54px;margin:58px 0 0 -180px;border-radius:50%;background:rgba(94,25,33,.18);filter:blur(14px)}
+.flama{width:16px;height:27px;margin:-27px 0 0 -8px;background:#d24d47;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-22.5 -71 43 72'%3E%3Cpath d='M0 0 C-11 0 -16.5 -7 -15.5 -16.5 C-21 -19.5 -21.5 -29 -14.5 -32.5 C-18.5 -37.5 -16.5 -45 -9.5 -47.5 C-6.5 -55 -1.5 -62.5 5 -70 C4 -64 7.5 -58 12 -52 C17.5 -44 19.5 -33 17.5 -21 C16 -8 9 0 0 0 Z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-22.5 -71 43 72'%3E%3Cpath d='M0 0 C-11 0 -16.5 -7 -15.5 -16.5 C-21 -19.5 -21.5 -29 -14.5 -32.5 C-18.5 -37.5 -16.5 -45 -9.5 -47.5 C-6.5 -55 -1.5 -62.5 5 -70 C4 -64 7.5 -58 12 -52 C17.5 -44 19.5 -33 17.5 -21 C16 -8 9 0 0 0 Z'/%3E%3C/svg%3E") center/contain no-repeat;transform-origin:50% 100%;animation:flama 1.4s ease-in-out infinite alternate}
+.flama::after{content:"";position:absolute;left:0;top:0;width:100%;height:100%;background:#f9c1c1;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-22.5 -71 43 72'%3E%3Cpath d='M1.5 -8.5 C-4.5 -8.5 -6 -15 -3.5 -21.5 C-1.5 -26.5 1.5 -30.5 4 -35 C6 -29.5 8 -23.5 7.5 -17 C7 -11 4.5 -8.5 1.5 -8.5 Z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-22.5 -71 43 72'%3E%3Cpath d='M1.5 -8.5 C-4.5 -8.5 -6 -15 -3.5 -21.5 C-1.5 -26.5 1.5 -30.5 4 -35 C6 -29.5 8 -23.5 7.5 -17 C7 -11 4.5 -8.5 1.5 -8.5 Z'/%3E%3C/svg%3E") center/contain no-repeat}
+@keyframes flama{from{transform:scale(1,1) rotate(-2deg)}to{transform:scale(.92,1.1) rotate(3deg)}}
+.pista{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:#664243}
+@media (prefers-reduced-motion: reduce){.flama{animation:none}}
+@media (max-width:960px){.h3d{grid-template-columns:minmax(0,1fr)}.escena{height:460px}}
+@media (max-width:600px){.escena{height:380px}.pista{display:none}}
+.pasos{display:flex;gap:8px;flex-wrap:wrap}
+.dos{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:40px;align-items:start}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:24px;row-gap:40px}
+.campos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:960px){.dos{grid-template-columns:minmax(0,1fr)}.g3{grid-template-columns:minmax(0,1fr)}.g4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:600px){.ptitulo{font-size:36px !important}.plabel{display:none}.paso-actual .plabel{display:inline}.campos{grid-template-columns:minmax(0,1fr)}.pcard{padding:20px !important}}
+.muestras{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.muestra{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 6px;border-radius:12px;cursor:pointer;text-align:center;font-size:14px;font-weight:600}
+.muestra input{position:absolute;opacity:0;width:1px;height:1px}
+.muestra:focus-within{outline:3px solid #5e1921;outline-offset:2px}
+.escena{position:relative;height:600px;perspective:1100px;perspective-origin:50% 30%;touch-action:pan-y;cursor:grab;user-select:none}
+.escena:active{cursor:grabbing}
+.escena.chica{height:420px}
+.cake3d{position:absolute;left:50%;top:70%;transform-style:preserve-3d;will-change:transform}
+.cake3d div{position:absolute;left:0;top:0;transform-style:preserve-3d}
+.cake3d .face{backface-visibility:hidden}
+.cake3d .cap{border-radius:50%;backface-visibility:hidden}
+.cake3d .bead{width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:#fffbfb;box-shadow:inset -3px -4px 0 #e8cdcd;backface-visibility:hidden}
+.sombra3d{position:absolute;left:50%;top:70%;width:360px;height:54px;margin:58px 0 0 -180px;border-radius:50%;background:rgba(94,25,33,.18);filter:blur(14px)}
+.escena.chica .sombra3d{width:240px;margin:40px 0 0 -120px}
+.flama{width:16px;height:27px;margin:-27px 0 0 -8px;background:#d24d47;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-22.5 -71 43 72'%3E%3Cpath d='M0 0 C-11 0 -16.5 -7 -15.5 -16.5 C-21 -19.5 -21.5 -29 -14.5 -32.5 C-18.5 -37.5 -16.5 -45 -9.5 -47.5 C-6.5 -55 -1.5 -62.5 5 -70 C4 -64 7.5 -58 12 -52 C17.5 -44 19.5 -33 17.5 -21 C16 -8 9 0 0 0 Z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-22.5 -71 43 72'%3E%3Cpath d='M0 0 C-11 0 -16.5 -7 -15.5 -16.5 C-21 -19.5 -21.5 -29 -14.5 -32.5 C-18.5 -37.5 -16.5 -45 -9.5 -47.5 C-6.5 -55 -1.5 -62.5 5 -70 C4 -64 7.5 -58 12 -52 C17.5 -44 19.5 -33 17.5 -21 C16 -8 9 0 0 0 Z'/%3E%3C/svg%3E") center/contain no-repeat;transform-origin:50% 100%;animation:flama 1.4s ease-in-out infinite alternate}
+.flama::after{content:"";position:absolute;left:0;top:0;width:100%;height:100%;background:#f9c1c1;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-22.5 -71 43 72'%3E%3Cpath d='M1.5 -8.5 C-4.5 -8.5 -6 -15 -3.5 -21.5 C-1.5 -26.5 1.5 -30.5 4 -35 C6 -29.5 8 -23.5 7.5 -17 C7 -11 4.5 -8.5 1.5 -8.5 Z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-22.5 -71 43 72'%3E%3Cpath d='M1.5 -8.5 C-4.5 -8.5 -6 -15 -3.5 -21.5 C-1.5 -26.5 1.5 -30.5 4 -35 C6 -29.5 8 -23.5 7.5 -17 C7 -11 4.5 -8.5 1.5 -8.5 Z'/%3E%3C/svg%3E") center/contain no-repeat}
+@keyframes flama{from{transform:scale(1,1) rotate(-2deg)}to{transform:scale(.92,1.1) rotate(3deg)}}
+@media (prefers-reduced-motion: reduce){.flama{animation:none}}
+@media (max-width:960px){.escena{height:460px}.escena.chica{height:360px}}
+@media (max-width:600px){.escena{height:380px}.escena.chica{height:320px}}
+.config{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;align-items:start}
+.vista{position:sticky;top:24px;display:flex;flex-direction:column;gap:16px}
+.pasos-c{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.barra-m{display:none}
+@media (max-width:600px){.config .escena.chica{height:220px}}
+@media (max-width:960px){.config{grid-template-columns:minmax(0,1fr);gap:24px}.vista{top:0;z-index:5;background:#fff4f4;padding-bottom:8px}.vista .precio-d{display:none !important}.barra-m{display:flex;position:sticky;bottom:0;z-index:6}}
+
+@media (max-width:370px){.tb-txt{font-size:12px}}
+.escena:focus-visible{outline:3px solid #5e1921;outline-offset:4px;border-radius:24px}
+.formas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.pisos{display:flex;flex-wrap:wrap;gap:8px}
+.pisos label{position:relative}
+.pisos label:focus-within{outline:3px solid #5e1921;outline-offset:2px}
+@media (max-width:420px){.formas{grid-template-columns:minmax(0,1fr)}.pisos label{width:calc(50% - 4px) !important}}
+.stepper{list-style:none;margin:0;padding:0;display:flex}
+.stepper>li{flex:1 1 0;position:relative;display:flex;justify-content:center}
+.stepper>li:not(:last-child)::after{content:"";position:absolute;top:17px;left:calc(50% + 24px);right:calc(-50% + 24px);height:2px;background:#ecd2d2}
+.stepper>li.hecho:not(:last-child)::after{background:#5e1921}
+.stepper .paso{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:44px;min-height:44px;text-decoration:none;color:#5e1921;font-size:13px}
+.stepper a.paso:hover span:last-child{text-decoration:underline}
+.stepper-m{display:none;flex-direction:column;gap:8px}
+.resumen-m{display:none}
+@media (max-width:960px){.resumen-d{display:none !important}.resumen-m{display:block}}
+@media (max-width:760px){.stepper{display:none}.stepper-m{display:flex}}
+.saltar{position:absolute;left:16px;top:-120px;z-index:100;background:#5e1921;color:#fffbfb;padding:12px 18px;border-radius:12px;font-weight:600;text-decoration:none;box-shadow:0 0 0 3px #f9c1c1}
+.saltar:focus{top:16px}
+main:focus{outline:none}
+footer a{display:inline-flex;align-items:center;min-height:44px}
+nav[aria-label="Ruta"] a{display:inline-flex;align-items:center;min-height:44px}
+input[type=range]{height:44px;cursor:pointer}
+.escenario{position:relative;border-radius:24px;overflow:hidden;background:#fffbfb;border:1px solid #ecd2d2}
+.escenario>.escena,.escenario>[role=status]{position:relative;z-index:1}
+.escenario .cake3d,.escenario .sombra3d{top:66%}
+.cake3d .flor{width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:radial-gradient(circle,#d24d47 0 3px,#f6b8ca 3.5px 7px,#ffdfdf 7.5px 9px,#ee9fb6 9.5px 13px)}
+.duya[data-tipo]{background:none}
+.duya[data-tipo]::before,.duya[data-tipo]::after{content:"";position:absolute;left:0;right:0;top:-1px;pointer-events:none;-webkit-mask-repeat:repeat-x;mask-repeat:repeat-x;-webkit-mask-position:0 0;mask-position:0 0}
+.duya[data-tipo]::before{background:var(--c)}
+.duya[data-tipo=concha]::before{height:31px;-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Crect width='36' height='2'/%3E%3Cpath d='M-2 0 Q 0 20 14 25 Q 31 30 38 0 Z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Crect width='36' height='2'/%3E%3Cpath d='M-2 0 Q 0 20 14 25 Q 31 30 38 0 Z'/%3E%3C/svg%3E");-webkit-mask-size:36px 30px;mask-size:36px 30px}
+.duya[data-tipo=concha]::after{height:31px;background:rgba(94,25,33,.14);-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Cg fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cpath d='M5 2 Q 8 15 17 19'/%3E%3Cpath d='M13 2 Q 16 12 26 14'/%3E%3Cpath d='M22 2 Q 25 8 32 9'/%3E%3C/g%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Cg fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cpath d='M5 2 Q 8 15 17 19'/%3E%3Cpath d='M13 2 Q 16 12 26 14'/%3E%3Cpath d='M22 2 Q 25 8 32 9'/%3E%3C/g%3E%3C/svg%3E");-webkit-mask-size:36px 30px;mask-size:36px 30px}
+.duya[data-tipo=perlas]::before{height:23px;-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Crect width='18' height='3'/%3E%3Ccircle cx='9' cy='8' r='7.5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Crect width='18' height='3'/%3E%3Ccircle cx='9' cy='8' r='7.5'/%3E%3C/svg%3E");-webkit-mask-size:18px 22px;mask-size:18px 22px}
+.duya[data-tipo=perlas]::after{height:23px;background:rgba(255,251,251,.55);-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Ccircle cx='6.5' cy='5.5' r='2.2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Ccircle cx='6.5' cy='5.5' r='2.2'/%3E%3C/svg%3E");-webkit-mask-size:18px 22px;mask-size:18px 22px}
+.duya[data-tipo=guirnalda]::before{height:41px;-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Crect width='96' height='3'/%3E%3Cpath d='M0 0 Q 48 52 96 0 Z'/%3E%3Ccircle cx='0' cy='10' r='7'/%3E%3Ccircle cx='96' cy='10' r='7'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Crect width='96' height='3'/%3E%3Cpath d='M0 0 Q 48 52 96 0 Z'/%3E%3Ccircle cx='0' cy='10' r='7'/%3E%3Ccircle cx='96' cy='10' r='7'/%3E%3C/svg%3E");-webkit-mask-size:96px 40px;mask-size:96px 40px}
+.duya[data-tipo=guirnalda]::after{height:41px;background:rgba(255,251,251,.55);-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Ccircle cx='93.5' cy='7.5' r='2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Ccircle cx='93.5' cy='7.5' r='2'/%3E%3C/svg%3E");-webkit-mask-size:96px 40px;mask-size:96px 40px}
+@media (max-width:600px){.paso-card{padding:16px !important}}
+</style>
+</helmet>
+<div style="font-family:'Instrument Sans','Segoe UI',system-ui,sans-serif;color:#5e1921;background:#fff4f4;font-size:16px;line-height:1.6"><a class="saltar" href="#contenido">Saltar al contenido</a>
+<div style="background:#5e1921;color:#fffbfb;font-size:14px;line-height:1.4">
+<div class="wrap" style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 24px;padding-top:10px;padding-bottom:10px">
+<span class="tb-txt">Pedidos con 2 días de anticipación</span>
+<span class="tb-wa" style="color:#f9c1c1">WhatsApp [número]</span>
+</div>
+</div>
+
+<div class="toldo" aria-hidden="true"></div>
+<header class="hdr" style="background:#f9c1c1">
+<div class="wrap"><div class="topbar" style="background:#fffbfb;border:1px solid #ecd2d2;border-radius:24px;min-height:64px;padding:8px 12px 8px 24px;box-sizing:border-box">
+<a href="Main.dc.html" aria-label="Pastelería Ilusión, inicio" style="display:block;line-height:0"><img src="/_blob/c6797fa64a1b6cbae59d4845cf395eb0" alt="Pastelería Ilusión" class="logo-img" style="width:150px;height:auto"></a>
+<nav class="nav" aria-label="Principal"><a href="Catalogo.dc.html" style="color:#5e1921;text-decoration:none;font-weight:600;font-size:15px;padding:10px 0">Catálogo</a><a href="Vitrina.dc.html" style="color:#5e1921;text-decoration:none;font-weight:600;font-size:15px;padding:10px 0">Vitrina</a><a href="Rebanadas.dc.html" style="color:#5e1921;text-decoration:none;font-weight:600;font-size:15px;padding:10px 0">Rebanadas de hoy</a><a href="PedidoElegir.dc.html" style="color:#5e1921;text-decoration:none;font-weight:600;font-size:15px;padding:10px 0">Realizar pedido</a></nav>
+<div style="display:flex;gap:8px;margin-left:auto"><a href="Cuenta.dc.html" aria-label="Cuenta" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;color:#5e1921;border-radius:12px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 20c1.6-3.4 4.5-5 8-5s6.4 1.6 8 5"></path></svg></a><a href="Carrito.dc.html" aria-label="Carrito" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;color:#5e1921;border-radius:12px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2L5 8z"></path><path d="M9 8V6.5a3 3 0 0 1 6 0V8"></path></svg></a><button type="button" class="menu-btn" aria-label="Abrir menú" aria-expanded="false" aria-controls="menu-sitio" style="display:none;width:44px;height:44px;align-items:center;justify-content:center;border:none;border-radius:12px;background:transparent;color:#5e1921;cursor:pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button></div>
+</div></div>
+</header>
+<main id="contenido" tabindex="-1">
+
+<section style="background:#f9c1c1;color:#5e1921">
+<div class="wrap" style="padding-top:40px;padding-bottom:44px;display:flex;flex-direction:column;gap:18px"><nav aria-label="Ruta" style="font-size:14px;color:#664243"><a href="Main.dc.html" style="color:#664243">Inicio</a> / <a href="PedidoElegir.dc.html" style="color:#664243">Realizar pedido</a> / <span aria-current="page">Diseña tu pastel</span></nav><h1 class="ptitulo" style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:500;font-size:52px;line-height:1.05;color:#5e1921">Diseña tu pastel</h1><p style="margin:0;font-size:18px;color:#664243;max-width:620px">Elige paso a paso.</p></div>
+</section>
+<div class="duya" style="--c:#f9c1c1" data-tipo="concha" aria-hidden="true"></div>
+<section style="padding-top:48px;padding-bottom:88px">
+<div class="wrap" style="display:flex;flex-direction:column;gap:32px"><nav aria-label="Pasos para diseñar tu pastel"><ol class="stepper"><li class="actual"><span class="paso" aria-current="step"><span style="width:36px;height:36px;box-sizing:border-box;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex:0 0 auto;background:#fffbfb;border:2px solid #5e1921;box-shadow:0 0 0 4px #ffdfdf">1</span><span style="font-weight:700;color:#5e1921">Tamaño</span></span></li><li class="siguiente"><span class="paso" aria-disabled="true"><span style="width:36px;height:36px;box-sizing:border-box;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex:0 0 auto;background:#fffbfb;border:2px solid #ecd2d2;color:#664243;font-weight:600">2</span><span style="font-weight:400;color:#664243">Tipo</span></span></li><li class="siguiente"><span class="paso" aria-disabled="true"><span style="width:36px;height:36px;box-sizing:border-box;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex:0 0 auto;background:#fffbfb;border:2px solid #ecd2d2;color:#664243;font-weight:600">3</span><span style="font-weight:400;color:#664243">Pan</span></span></li><li class="siguiente"><span class="paso" aria-disabled="true"><span style="width:36px;height:36px;box-sizing:border-box;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex:0 0 auto;background:#fffbfb;border:2px solid #ecd2d2;color:#664243;font-weight:600">4</span><span style="font-weight:400;color:#664243">Relleno</span></span></li><li class="siguiente"><span class="paso" aria-disabled="true"><span style="width:36px;height:36px;box-sizing:border-box;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex:0 0 auto;background:#fffbfb;border:2px solid #ecd2d2;color:#664243;font-weight:600">5</span><span style="font-weight:400;color:#664243">Cobertura</span></span></li><li class="siguiente"><span class="paso" aria-disabled="true"><span style="width:36px;height:36px;box-sizing:border-box;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex:0 0 auto;background:#fffbfb;border:2px solid #ecd2d2;color:#664243;font-weight:600">6</span><span style="font-weight:400;color:#664243">Decoración</span></span></li><li class="siguiente"><span class="paso" aria-disabled="true"><span style="width:36px;height:36px;box-sizing:border-box;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex:0 0 auto;background:#fffbfb;border:2px solid #ecd2d2;color:#664243;font-weight:600">7</span><span style="font-weight:400;color:#664243">Mensaje</span></span></li><li class="siguiente"><span class="paso" aria-disabled="true"><span style="width:36px;height:36px;box-sizing:border-box;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex:0 0 auto;background:#fffbfb;border:2px solid #ecd2d2;color:#664243;font-weight:600">8</span><span style="font-weight:400;color:#664243">Revisión</span></span></li></ol></nav><div class="stepper-m"><span style="font-weight:600">Paso 1 de 8: Tamaño y forma</span><div aria-hidden="true" style="display:flex;gap:4px"><span style="flex:1;height:6px;border-radius:3px;background:#f9c1c1"></span><span style="flex:1;height:6px;border-radius:3px;background:#ecd2d2"></span><span style="flex:1;height:6px;border-radius:3px;background:#ecd2d2"></span><span style="flex:1;height:6px;border-radius:3px;background:#ecd2d2"></span><span style="flex:1;height:6px;border-radius:3px;background:#ecd2d2"></span><span style="flex:1;height:6px;border-radius:3px;background:#ecd2d2"></span><span style="flex:1;height:6px;border-radius:3px;background:#ecd2d2"></span><span style="flex:1;height:6px;border-radius:3px;background:#ecd2d2"></span></div></div><div class="config"><div class="vista"><div class="escenario"><div class="escena chica" tabindex="0" data-etapa="pan" data-pisos="1" data-forma="rect" data-pan="vainilla" role="img" aria-label="Vista previa: solo el pan de vainilla, rectangular de 1 piso. Usa las flechas izquierda y derecha para girarlo"><div class="sombra3d" aria-hidden="true"></div><div class="cake3d" aria-hidden="true"></div></div></div><div class="pcard precio-d" style="background:#fffbfb;border:1px solid #ecd2d2;border-radius:24px;padding:28px;display:flex;flex-direction:column;gap:20px;padding:22px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><span style="color:#664243">Total estimado</span><span style="font-size:28px;font-weight:700;font-variant-numeric:tabular-nums">Desde $1,080 MXN</span></div><span style="font-weight:600">Para 40 personas, aprox. 6 kg, rectangular</span><p style="margin:0;font-size:14px;line-height:1.5;color:#664243">Con pan de vainilla y relleno normal. Arrastra el pastel para girarlo.</p></div></div><div class="paso-card" style="background:#fffbfb;border:2px solid #5e1921;border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:18px"><div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px"><h2 style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:500;font-size:28px;line-height:1.15">1. Tamaño y forma</h2><span style="font-size:14px;color:#664243">Paso 1 de 8</span></div><div style="display:flex;flex-direction:column;gap:6px"><label for="personas" style="font-weight:600">¿Para cuántas personas?</label><div style="display:inline-flex;align-self:flex-start;align-items:center;border:1px solid #664243;border-radius:12px;background:#fbecec"><button type="button" aria-label="Una persona menos" style="width:48px;height:48px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:#5e1921;font:600 22px 'Instrument Sans',sans-serif;cursor:pointer">−</button><input id="personas" type="number" inputmode="numeric" min="1" max="350" value="40" aria-describedby="calc" style="width:88px;height:48px;border:none;background:transparent;text-align:center;font:700 22px 'Instrument Sans',sans-serif;color:#5e1921"><button type="button" aria-label="Una persona más" style="width:48px;height:48px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:#5e1921;font:600 22px 'Instrument Sans',sans-serif;cursor:pointer">+</button></div></div><div id="calc" aria-live="polite" style="display:flex;flex-direction:column;gap:4px;padding:14px 16px;border-radius:12px;background:#fff4f4"><span style="font-size:20px;font-weight:700">Aprox. 6 kg para 40 personas</span><span style="font-size:14px;color:#664243">Calculamos 1 kg por cada 7 personas y redondeamos.</span></div><div aria-hidden="true" style="height:1px;background:#ecd2d2"></div><fieldset style="border:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px"><legend style="font-weight:600;margin-bottom:8px">Forma</legend><div class="formas"><label for="f1" style="border:1px solid #664243;background:#fffbfb;border-radius:12px;padding:14px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;min-height:44px"><input type="radio" id="f1" name="forma" style="width:20px;height:20px;flex:0 0 auto;accent-color:#5e1921"><span style="display:flex;flex-direction:column"><span style="font-weight:600">Redondo</span><span style="font-size:13px;color:#664243">Molde redondo</span></span></label><label for="f2" style="border:2px solid #5e1921;background:#fffbfb;border-radius:12px;padding:13px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;min-height:44px"><input type="radio" id="f2" name="forma" checked style="width:20px;height:20px;flex:0 0 auto;accent-color:#5e1921"><span style="display:flex;flex-direction:column"><span style="font-weight:600">Rectangular</span><span style="font-size:13px;color:#664243">Molde rectangular</span></span></label></div><span style="font-size:14px;color:#664243">¿Otra forma? <a href="Referencia.dc.html" style="color:#5e1921;font-weight:600">Envía una referencia</a>.</span></fieldset><fieldset style="border:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px"><legend style="font-weight:600;margin-bottom:8px">Pisos</legend><div class="pisos"><label style="border:2px solid #5e1921;background:#5e1921;color:#fffbfb;border-radius:12px;width:112px;min-height:64px;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;text-align:center;padding:6px"><input type="radio" name="pisos" value="1" checked aria-label="1 piso, cualquier peso" style="position:absolute;opacity:0;width:1px;height:1px"><span style="font-weight:700;font-size:17px">1 piso</span><span style="font-size:12px;color:#ffdfdf">Cualquier peso</span></label><label style="border:1px solid #664243;background:#fffbfb;border-radius:12px;width:112px;min-height:64px;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;text-align:center;padding:6px"><input type="radio" name="pisos" value="2" aria-label="2 pisos, recomendado desde 15 kg" style="position:absolute;opacity:0;width:1px;height:1px"><span style="font-weight:700;font-size:17px">2 pisos</span><span style="font-size:12px;color:#664243">Recomendado desde 15 kg</span></label><label style="border:1px solid #664243;background:#fffbfb;border-radius:12px;width:112px;min-height:64px;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;text-align:center;padding:6px"><input type="radio" name="pisos" value="3" aria-label="3 pisos, recomendado desde 18 kg" style="position:absolute;opacity:0;width:1px;height:1px"><span style="font-weight:700;font-size:17px">3 pisos</span><span style="font-size:12px;color:#664243">Recomendado desde 18 kg</span></label><label style="border:1px solid #664243;background:#fffbfb;border-radius:12px;width:112px;min-height:64px;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;text-align:center;padding:6px"><input type="radio" name="pisos" value="4" aria-label="4 pisos, recomendado desde 25 kg" style="position:absolute;opacity:0;width:1px;height:1px"><span style="font-weight:700;font-size:17px">4 pisos</span><span style="font-size:12px;color:#664243">Recomendado desde 25 kg</span></label><label style="border:1px solid #664243;background:#fffbfb;border-radius:12px;width:112px;min-height:64px;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;text-align:center;padding:6px"><input type="radio" name="pisos" value="5" aria-label="5 pisos, recomendado desde 30 kg" style="position:absolute;opacity:0;width:1px;height:1px"><span style="font-weight:700;font-size:17px">5 pisos</span><span style="font-size:12px;color:#664243">Recomendado desde 30 kg</span></label></div></fieldset><p style="margin:0;font-size:14px;line-height:1.5;color:#664243">La vista previa se arma con cada paso.</p><div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;border-top:1px solid #ecd2d2;padding-top:18px"><a href="Cotizador.dc.html" style="display:inline-flex;align-items:center;justify-content:center;height:52px;padding:0 24px;border-radius:12px;background:#5e1921;color:#fffbfb;font-weight:600;font-size:16px;text-decoration:none;box-sizing:border-box">Continuar</a><button type="button" style="min-height:44px;border:none;background:transparent;color:#5e1921;font:600 15px 'Instrument Sans',sans-serif;cursor:pointer">Atrás</button></div></div></div><div class="barra-m" style="align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;margin:0 -24px;background:#fffbfb;border-top:1px solid #ecd2d2"><span style="display:flex;flex-direction:column"><span style="font-size:13px;color:#664243">Total estimado</span><strong style="font-size:18px;font-variant-numeric:tabular-nums">Desde $1,080</strong></span><a href="Cotizador.dc.html" style="display:inline-flex;align-items:center;justify-content:center;height:52px;padding:0 24px;border-radius:12px;background:#5e1921;color:#fffbfb;font-weight:600;font-size:16px;text-decoration:none;box-sizing:border-box">Continuar</a></div></div>
+</section>
+<div class="duya" style="--c:#fff4f4" data-tipo="guirnalda" aria-hidden="true"></div>
+
+</main>
+<footer style="background:#5e1921;color:#fffbfb;padding-top:72px;padding-bottom:32px;margin-top:-21px">
+<div class="wrap" style="display:flex;flex-direction:column;gap:48px">
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:24px">
+<img src="/_blob/7a6e4470a2f1a1fab4adb9df133333ae" alt="" style="width:96px;height:96px;flex:0 0 auto">
+<p class="cierre" style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:500;line-height:1.1;color:#fffbfb;flex:1 1 320px">Pide un deseo. Del pastel nos encargamos.</p>
+</div>
+<div class="fcols" style="border-top:1px solid #664243;padding-top:32px">
+<div style="display:flex;flex-direction:column;gap:8px">
+<h3 style="margin:0 0 4px;font-size:14px;font-weight:600;color:#fffbfb">Visítanos</h3>
+<span style="color:#f9c1c1">[Dirección de la pastelería]</span>
+<span style="color:#f9c1c1">Todos los días, de 10:00 a 22:30</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<h3 style="margin:0 0 4px;font-size:14px;font-weight:600;color:#fffbfb">Pedidos</h3>
+<span style="color:#f9c1c1">WhatsApp [número]</span>
+<a href="https://wa.me/52[número]" style="color:#fffbfb;font-weight:600;text-underline-offset:4px">Escribir por WhatsApp</a>
+</div>
+<nav aria-label="Pie de página" style="display:flex;flex-direction:column;gap:8px">
+<h3 style="margin:0 0 4px;font-size:14px;font-weight:600;color:#fffbfb">La pastelería</h3>
+<a href="Catalogo.dc.html" style="color:#f9c1c1;text-decoration:none">Catálogo</a>
+<a href="Vitrina.dc.html" style="color:#f9c1c1;text-decoration:none">Vitrina</a>
+<a href="Rebanadas.dc.html" style="color:#f9c1c1;text-decoration:none">Rebanadas de hoy</a>
+<a href="BasesInfo.dc.html" style="color:#f9c1c1;text-decoration:none">Bases en préstamo</a>
+<a href="PedidoElegir.dc.html" style="color:#f9c1c1;text-decoration:none">Realizar pedido</a>
+</nav>
+</div>
+<div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;border-top:1px solid #664243;padding-top:24px;font-size:14px;color:#f9c1c1">
+<span>© 2026 Pastelería Ilusión</span>
+<div style="display:flex;gap:24px"><a href="Legal.dc.html#privacidad" style="color:#f9c1c1">Aviso de privacidad</a><a href="Legal.dc.html#terminos" style="color:#f9c1c1">Términos y condiciones</a></div>
+</div>
+</div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2263}}'>
+class Component extends DCLogic {
+  construirPastel(root) {
+    const cake = root.querySelector('.cake3d'); if (!cake || cake.childElementCount) return null;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const at = (k, d) => root.getAttribute(k) || d;
+    const num = (k, d) => parseFloat(at(k, String(d)));
+    const NIV = { pan: 0, relleno: 1, cobertura: 2, decoracion: 3, final: 4 };
+    const N = NIV[at('data-etapa', 'final')] === undefined ? 4 : NIV[at('data-etapa', 'final')];
+    const mezcla = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+    const rgb = (c) => 'rgb(' + c.join(',') + ')';
+    const luz = (par, k) => mezcla(par[1], par[0], k);
+    const COB = { blanco: [[255,251,251],[224,206,190]], amarillo: [[250,228,150],[206,174,92]], azulfuerte: [[74,112,186],[42,70,134]], azulclaro: [[176,208,236],[124,160,198]], verde: [[166,206,152],[112,158,100]], naranja: [[246,176,108],[200,124,64]], cafe: [[156,110,80],[106,72,48]], turquesa: [[110,202,198],[64,150,148]], rojo: [[212,76,72],[158,44,42]], rosa: [[246,184,202],[204,132,156]], lila: [[204,186,228],[152,132,182]] };
+    const PAN = { vainilla: [[240,206,138],[196,150,84]], chocolate: [[128,84,56],[82,50,32]], choco_pinguino: [[96,60,42],[58,36,24]], red_velvet: [[184,54,58],[122,30,36]] };
+    const tipo = at('data-tipo', ''), panK = at('data-pan', 'vainilla');
+    const tinte = (par) => tipo === 'envinado' ? par.map((c) => mezcla(c, [126, 40, 58], 0.2)) : tipo === 'tres_leches' ? par.map((c) => mezcla(c, [255, 246, 226], 0.12)) : par;
+    const panArriba = tinte(panK === 'choco_vainilla' ? PAN.vainilla : (PAN[panK] || PAN.vainilla));
+    const panAbajo = tinte(panK === 'choco_vainilla' ? PAN.chocolate : (PAN[panK] || PAN.vainilla));
+    const REL = { durazno: [246,176,84], fresa: [226,84,104], zarzamora: [112,44,90], cajeta: [188,118,48], galleta: [206,168,118], chocolate: [92,56,38], choco_vainilla: [150,104,70], capuchino: [170,122,86], fresa_yogurt: [240,164,178], nuez: [176,138,96], helado: [110,70,50], red_velvet: [250,246,238] };
+    const BASEREL = { queso: [250,244,226], flan: [242,200,96] };
+    const sabores = at('data-relleno', '').split('|').filter(Boolean).map((s) => REL[s] || REL.durazno);
+    const baseRel = BASEREL[at('data-relleno-base', '')] || null;
+    const cob = COB[at('data-cobertura', 'blanco')] || COB.blanco;
+    const deco = at('data-deco', 'ninguna'), forma = at('data-forma', 'redondo');
+    const CHISPAS = 'radial-gradient(circle,#f9c1c1 2px,transparent 2.6px) 0 0/16px 16px,radial-gradient(circle,#d24d47 2px,transparent 2.6px) 8px 8px/16px 16px,radial-gradient(circle,#6ecac6 1.6px,transparent 2.2px) 4px 11px/16px 16px';
+    const pisos = Math.max(1, Math.min(5, parseInt(at('data-pisos', '2'), 10)));
+    const DIM = [{ r: 150, h: 104 }, { r: 118, h: 90 }, { r: 90, h: 80 }, { r: 66, h: 70 }, { r: 46, h: 62 }];
+    let alto = 0; const tiers = DIM.slice(0, pisos).map((d) => { const t = Object.assign({ base: -alto }, d); alto += d.h; return t; });
+    const ajuste = Math.min(1, 300 / alto), tope = tiers[tiers.length - 1];
+    const faces = [], groups = [];
+    const lado = (g, a, w, h, dist, extra) => { const f = document.createElement('div'); f.className = 'face';
+      Object.assign(f.style, { width: w + 'px', height: h + 'px', marginLeft: -w / 2 + 'px', marginTop: -h / 2 + 'px', transform: 'rotateY(' + a + 'deg) translateZ(' + dist + 'px)' });
+      g.appendChild(f); faces.push(Object.assign({ el: f, a: a }, extra)); };
+    const cyl = (g, r, h, n, extra) => { const w = 2 * Math.PI * r / n + 1.4; for (let i = 0; i < n; i++) lado(g, i * 360 / n, w, h, r, Object.assign({ mitad: i < n / 2 ? 0 : 1 }, extra)); };
+    const dims = (t) => forma === 'rect' ? [t.r * 2.1, t.r * 1.4] : [2 * t.r, 2 * t.r];
+    const caja = (g, t, extra) => { const [W, D] = dims(t); [[0, W, D / 2], [90, D, W / 2], [180, W, D / 2], [270, D, W / 2]].forEach(([a, w, d], i) => lado(g, a, w + 1, t.h, d, Object.assign({ mitad: i < 2 ? 0 : 1 }, extra))); };
+    const tapa = (g, W, D, y, fondo, redondo) => { const c = document.createElement('div'); c.className = 'cap';
+      Object.assign(c.style, { width: W + 'px', height: D + 'px', marginLeft: -W / 2 + 'px', marginTop: -D / 2 + 'px', background: fondo, borderRadius: redondo ? '50%' : '6px', transform: 'translateY(' + y + 'px) rotateX(90deg)' }); g.appendChild(c); };
+    const STAND = [[252,248,241],[214,196,184]];
+    const stand = document.createElement('div'); cake.appendChild(stand); tapa(stand, 392, 392, 0, '#fffbfb', true);
+    const plato = document.createElement('div'); stand.appendChild(plato); plato.style.transform = 'translateY(5px)'; cyl(plato, 196, 10, 48, { col: STAND });
+    const col = document.createElement('div'); stand.appendChild(col); col.style.transform = 'translateY(40px)'; cyl(col, 26, 70, 18, { col: STAND });
+    const pie = document.createElement('div'); stand.appendChild(pie); pie.style.transform = 'translateY(78px)'; cyl(pie, 74, 8, 30, { col: STAND }); tapa(pie, 148, 148, -4, '#f6eee5', true);
+    const fila = (g, t, y, desfase) => {
+      if (forma === 'rect') { const [W, D] = dims(t);
+        [[0, W, D / 2], [90, D, W / 2], [180, W, D / 2], [270, D, W / 2]].forEach(([a, L, dist]) => { const n = Math.max(2, Math.round(L / 22));
+          for (let i = 0; i < n; i++) { const b = document.createElement('div'); b.className = 'bead'; b.style.transform = 'rotateY(' + a + 'deg) translateX(' + (-L / 2 + (i + 0.5) * L / n) + 'px) translateZ(' + (dist + 3) + 'px) translateY(' + y + 'px)'; g.appendChild(b); } });
+        return; }
+      const n = Math.round(2 * Math.PI * t.r / 22);
+      for (let i = 0; i < n; i++) { const b = document.createElement('div'); b.className = 'bead'; b.style.transform = 'rotateY(' + (i + desfase) * 360 / n + 'deg) translateZ(' + (t.r + 3) + 'px) translateY(' + y + 'px)'; g.appendChild(b); } };
+    tiers.forEach((t) => { const g = document.createElement('div'); cake.appendChild(g); groups.push({ g: g, t: t });
+      if (forma === 'rect') caja(g, t, { kind: 'piso' }); else cyl(g, t.r, t.h, 36, { kind: 'piso' });
+      const [W, D] = dims(t);
+      const fondo = N >= 2 ? ((deco === 'chispas' && N >= 3) ? CHISPAS + ',' + rgb(cob[0]) : rgb(cob[0])) : rgb(mezcla(panArriba[1], panArriba[0], 0.55));
+      tapa(g, W, D, -t.h / 2, fondo, forma !== 'rect');
+      if (N >= 2) { fila(g, t, t.h / 2 - 4, 0.5);
+        if (N >= 3 && deco !== 'ninguna') fila(g, t, -t.h / 2, 0);
+        if (N >= 3 && deco === 'duya') fila(g, t, 0, 0.25); }
+      if (N >= 3 && deco === 'flores' && t === tope) { const n = forma === 'rect' ? 6 : 8;
+        for (let i = 0; i < n; i++) { const f = document.createElement('div'); f.className = 'flor'; const rr = forma === 'rect' ? t.r * 0.62 : t.r * 0.74;
+          f.style.transform = 'rotateY(' + i * 360 / n + 'deg) translateZ(' + rr + 'px) translateY(' + (-t.h / 2 - 9) + 'px)'; g.appendChild(f); } } });
+    const msg = N >= 3 ? root.getAttribute('data-mensaje') : null, obl = N >= 3 ? root.getAttribute('data-oblea') : null;
+    if (obl) { const r = tope.r, e = num('data-oblea-escala', 1), circ = obl === 'circulo'; const w = (circ ? r * 1.2 : r * 1.0) * e, h = circ ? w : w * 1.29; const o = document.createElement('div');
+      Object.assign(o.style, { width: w + 'px', height: h + 'px', marginLeft: -w / 2 + 'px', marginTop: -h / 2 + 'px', borderRadius: circ ? '50%' : '6px', background: 'repeating-linear-gradient(135deg,#f9c1c1 0 14px,#ffdfdf 14px 28px)', boxShadow: 'inset 0 0 0 3px #fffbfb', backfaceVisibility: 'hidden',
+        transform: 'translateY(' + (-tope.h / 2 - 1) + 'px) translateX(' + num('data-oblea-x', 0) * r + 'px) translateZ(' + num('data-oblea-y', 0) * r + 'px) rotateX(90deg)' }); groups[groups.length - 1].g.appendChild(o); }
+    if (msg) { const r = tope.r, e = num('data-mensaje-escala', 1), w = r * 1.7; const m = document.createElement('div'); m.textContent = msg;
+      Object.assign(m.style, { width: w + 'px', marginLeft: -w / 2 + 'px', marginTop: '-24px', textAlign: 'center', font: '600 ' + (22 * e) + 'px/1.1 Fraunces, Georgia, serif', color: '#664243', backfaceVisibility: 'hidden',
+        transform: 'translateY(' + (-tope.h / 2 - 3) + 'px) translateX(' + num('data-mensaje-x', 0) * r + 'px) translateZ(' + num('data-mensaje-y', 0) * r + 'px) rotateX(90deg)' }); groups[groups.length - 1].g.appendChild(m); }
+    const vela = document.createElement('div'); cake.appendChild(vela); if (N < 4) vela.style.display = 'none';
+    const cuerpo = document.createElement('div'); Object.assign(cuerpo.style, { width: '14px', height: '54px', marginLeft: '-7px', marginTop: '-54px', borderRadius: '3px', background: 'repeating-linear-gradient(160deg,#fffbfb 0 7px,#f9c1c1 7px 14px)' }); vela.appendChild(cuerpo);
+    const flama = document.createElement('div'); flama.className = 'flama'; flama.style.top = '-60px'; vela.appendChild(flama);
+    const velaZ = (msg || obl) ? -tope.r * 0.55 : 0;
+    let ry = forma === 'rect' ? -38 : -28 + Math.random() * 40, px = 0, py = 0, tx = 0, ty = 0, drag = null, last = performance.now(), raf = 0, visible = true;
+    const onMove = (e) => { const r = root.getBoundingClientRect(); tx = ((e.clientX - r.left) / r.width - 0.5) * 2; ty = ((e.clientY - r.top) / r.height - 0.5) * 2; if (drag !== null) { ry += (e.clientX - drag) * 0.5; drag = e.clientX; } };
+    const onDown = (e) => { drag = e.clientX; if (root.setPointerCapture) root.setPointerCapture(e.pointerId); };
+    const onUp = () => { drag = null; }; const onLeave = () => { tx = 0; ty = 0; };
+    root.addEventListener('pointermove', onMove); root.addEventListener('pointerdown', onDown); root.addEventListener('pointerup', onUp); root.addEventListener('pointercancel', onUp); root.addEventListener('pointerleave', onLeave);
+    root.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { ry += e.key === 'ArrowLeft' ? -15 : 15; e.preventDefault(); } });
+    const vista = at('data-vista', '');
+    const draw = (now) => {
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      if (!reduce && drag === null) ry += 7 * dt;
+      px += (tx - px) * 0.08; py += (ty - py) * 0.08;
+      const s = (Math.min(1, root.clientWidth / 560, root.clientHeight / 600) || 0.6) * ajuste;
+      const rx = (vista === 'arriba' ? -46 : vista === 'medio' ? -30 : -16) + py * 5, yaw = ry + px * 16;
+      cake.style.transform = 'scale(' + s + ') rotateX(' + rx + 'deg) rotateY(' + yaw + 'deg)';
+      groups.forEach((o) => { o.g.style.transform = 'translateY(' + (o.t.base - o.t.h / 2 - 2) + 'px)'; });
+      vela.style.transform = 'translateY(' + (tope.base - tope.h - 2) + 'px) translateZ(' + velaZ + 'px) rotateY(' + (-yaw) + 'deg)';
+      for (const f of faces) { const k = Math.pow(0.5 + 0.5 * Math.cos((f.a + yaw + 40) * Math.PI / 180), 1.15);
+        if (f.kind !== 'piso') { f.el.style.background = rgb(luz(f.col, k)); continue; }
+        if (N >= 2) { const c = rgb(luz(cob, k)); f.el.style.background = (deco === 'chispas' && N >= 3) ? CHISPAS + ',' + c : c; continue; }
+        const pa = rgb(luz(panArriba, k)), pb = rgb(luz(panAbajo, k)), cor = rgb(mezcla(luz(panArriba, k), [70, 40, 20], 0.18));
+        if (N === 0 || !sabores.length) { f.el.style.background = 'linear-gradient(' + cor + ' 0 5%,' + pa + ' 5% 50%,' + pb + ' 50% 96%,' + cor + ' 96%)'; continue; }
+        const sb = rgb(mezcla(sabores[Math.min(f.mitad, sabores.length - 1)], [40, 20, 10], (1 - k) * 0.35));
+        if (baseRel) { const bq = rgb(mezcla(baseRel, [60, 40, 20], (1 - k) * 0.3));
+          f.el.style.background = 'linear-gradient(' + cor + ' 0 5%,' + pa + ' 5% 36%,' + bq + ' 36% 43%,' + sb + ' 43% 57%,' + bq + ' 57% 64%,' + pb + ' 64% 96%,' + cor + ' 96%)'; }
+        else f.el.style.background = 'linear-gradient(' + cor + ' 0 5%,' + pa + ' 5% 42%,' + sb + ' 42% 58%,' + pb + ' 58% 96%,' + cor + ' 96%)'; }
+    };
+    const tick = (now) => { draw(now); raf = visible ? requestAnimationFrame(tick) : 0; };
+    let io = null;
+    if ('IntersectionObserver' in window) { io = new IntersectionObserver((es) => { visible = es[0].isIntersecting; if (visible && !raf) { last = performance.now(); raf = requestAnimationFrame(tick); } }); io.observe(root); }
+    draw(performance.now()); raf = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(raf); if (io) io.disconnect(); root.removeEventListener('pointermove', onMove); root.removeEventListener('pointerdown', onDown); root.removeEventListener('pointerup', onUp); root.removeEventListener('pointercancel', onUp); root.removeEventListener('pointerleave', onLeave); };
+  }
+
+  componentDidMount() { this.limpiar = []; document.querySelectorAll('.escena').forEach((el) => { const c = this.construirPastel(el); if (c) this.limpiar.push(c); }); }
+  componentWillUnmount() { (this.limpiar || []).forEach((c) => c()); }
+
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

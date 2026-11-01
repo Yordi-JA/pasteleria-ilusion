@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Inicio de sesión en Pastelería Ilusión</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face{font-family:"Fraunces";src:url(/_blob/076b4881db1aaa2eb43a1c5d930e7f0f) format("woff2");font-weight:100 900;font-display:swap}
+@font-face{font-family:"Instrument Sans";src:url(/_blob/017dfa8879dd179bf93a6b2e7ec1c54a) format("woff2");font-weight:400 700;font-display:swap}
+body{margin:0;background:#fff4f4}
+a{color:#5e1921}a:hover{color:#664243}
+.wrap{max-width:1200px;margin:0 auto;padding-left:24px;padding-right:24px;box-sizing:border-box}
+.duya{height:21px;position:relative;z-index:1;background:radial-gradient(circle at 16px 0,var(--c) 15px,transparent 15.5px) 0 5px/32px 16px repeat-x,linear-gradient(var(--c),var(--c)) 0 0/100% 6px no-repeat}
+input::placeholder{color:#664243;opacity:1}
+.topbar{display:flex;align-items:center;gap:32px}
+.nav{display:flex;gap:28px;flex:1 1 auto}
+.hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:40px;align-items:end}
+.hero-txt{padding-bottom:96px}
+.lema{font-size:34px}
+.h2big{font-size:56px}
+.rank{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:32px;align-items:stretch}
+.num1{font-size:200px}
+.rrow{display:grid;grid-template-columns:72px 140px minmax(0,1fr);gap:20px;align-items:center}
+.rnum{font-size:80px}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:24px;row-gap:48px}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+.slices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px}
+.cta{display:flex;align-items:center;justify-content:space-between;gap:32px}
+.fcols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:32px}
+.cierre{font-size:56px}
+@media (max-width:960px){
+.hero{grid-template-columns:minmax(0,1fr)}
+.hero-txt{padding-bottom:16px}
+.rank{grid-template-columns:minmax(0,1fr)}
+.g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:minmax(0,1fr)}
+.slices{display:flex;overflow-x:auto;padding-bottom:8px}
+.slices>*{flex:0 0 240px}
+.cta{flex-direction:column;align-items:flex-start}
+.h2big{font-size:44px}
+.cierre{font-size:40px}
+}
+@media (max-width:600px){
+.topbar{gap:4px;padding-left:16px !important}
+.nav{display:none}
+.menu-btn{display:inline-flex !important}
+.logo-img{width:112px !important}
+.tb-wa{display:none}
+.tb-txt{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.hero-logo{display:none}
+.lema{font-size:26px}
+.h2big{font-size:38px}
+.num1{font-size:140px}
+.rrow{grid-template-columns:44px 96px minmax(0,1fr);gap:12px}
+.rnum{font-size:56px}
+.fcols{grid-template-columns:minmax(0,1fr)}
+.cierre{font-size:32px}
+}
+.login{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,480px);gap:64px;align-items:stretch}
+.lleft{display:flex;flex-direction:column;gap:32px}
+.lcake{display:block}
+.lspace{height:200px}
+.lcake-m{display:none}
+.lcard{margin-bottom:-140px}
+.lslogan{font-size:48px}
+.lben{display:flex}
+.duo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:960px){
+.login{grid-template-columns:minmax(0,1fr);gap:24px}
+.lcake{display:none}
+.lben{display:none !important}
+.lspace{height:auto;padding:136px 24px 56px}
+.lcake-m{display:block}
+.lslogan{font-size:32px}
+}
+@media (max-width:600px){
+.lslogan{font-size:28px}
+.lcard{margin-bottom:-96px;padding:28px 20px !important}
+.duo{grid-template-columns:minmax(0,1fr)}
+}
+.toldo{height:76px;background:radial-gradient(circle at 24px 0,#fffbfb 24px,transparent 24.5px) 0 52px/96px 24px repeat-x,radial-gradient(circle at 72px 0,#ffdfdf 24px,transparent 24.5px) 0 52px/96px 24px repeat-x,repeating-linear-gradient(90deg,#fffbfb 0 48px,#ffdfdf 48px 96px) 0 0/100% 52px no-repeat;background-color:#f9c1c1;box-shadow:inset 0 3px 0 rgba(94,25,33,.12)}
+.hdr{padding-top:20px}
+@media (max-width:600px){.toldo{height:52px;background-size:64px 16px,64px 16px,100% 36px;background-position:0 36px,0 36px,0 0;background-image:radial-gradient(circle at 16px 0,#fffbfb 16px,transparent 16.5px),radial-gradient(circle at 48px 0,#ffdfdf 16px,transparent 16.5px),repeating-linear-gradient(90deg,#fffbfb 0 32px,#ffdfdf 32px 64px)}.hdr{padding-top:12px}}
+.escena{position:relative;height:600px;perspective:1100px;perspective-origin:50% 30%;touch-action:pan-y;cursor:grab;user-select:none}
+.escena:active{cursor:grabbing}
+.escena.chica{height:420px}
+.cake3d{position:absolute;left:50%;top:70%;transform-style:preserve-3d;will-change:transform}
+.cake3d div{position:absolute;left:0;top:0;transform-style:preserve-3d}
+.cake3d .face{backface-visibility:hidden}
+.cake3d .cap{border-radius:50%;backface-visibility:hidden}
+.cake3d .bead{width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:#fffbfb;box-shadow:inset -3px -4px 0 #e8cdcd;backface-visibility:hidden}
+.sombra3d{position:absolute;left:50%;top:70%;width:360px;height:54px;margin:58px 0 0 -180px;border-radius:50%;background:rgba(94,25,33,.18);filter:blur(14px)}
+.escena.chica .sombra3d{width:240px;margin:40px 0 0 -120px}
+.flama{width:16px;height:27px;margin:-27px 0 0 -8px;background:#d24d47;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-22.5 -71 43 72'%3E%3Cpath d='M0 0 C-11 0 -16.5 -7 -15.5 -16.5 C-21 -19.5 -21.5 -29 -14.5 -32.5 C-18.5 -37.5 -16.5 -45 -9.5 -47.5 C-6.5 -55 -1.5 -62.5 5 -70 C4 -64 7.5 -58 12 -52 C17.5 -44 19.5 -33 17.5 -21 C16 -8 9 0 0 0 Z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-22.5 -71 43 72'%3E%3Cpath d='M0 0 C-11 0 -16.5 -7 -15.5 -16.5 C-21 -19.5 -21.5 -29 -14.5 -32.5 C-18.5 -37.5 -16.5 -45 -9.5 -47.5 C-6.5 -55 -1.5 -62.5 5 -70 C4 -64 7.5 -58 12 -52 C17.5 -44 19.5 -33 17.5 -21 C16 -8 9 0 0 0 Z'/%3E%3C/svg%3E") center/contain no-repeat;transform-origin:50% 100%;animation:flama 1.4s ease-in-out infinite alternate}
+.flama::after{content:"";position:absolute;left:0;top:0;width:100%;height:100%;background:#f9c1c1;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-22.5 -71 43 72'%3E%3Cpath d='M1.5 -8.5 C-4.5 -8.5 -6 -15 -3.5 -21.5 C-1.5 -26.5 1.5 -30.5 4 -35 C6 -29.5 8 -23.5 7.5 -17 C7 -11 4.5 -8.5 1.5 -8.5 Z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-22.5 -71 43 72'%3E%3Cpath d='M1.5 -8.5 C-4.5 -8.5 -6 -15 -3.5 -21.5 C-1.5 -26.5 1.5 -30.5 4 -35 C6 -29.5 8 -23.5 7.5 -17 C7 -11 4.5 -8.5 1.5 -8.5 Z'/%3E%3C/svg%3E") center/contain no-repeat}
+@keyframes flama{from{transform:scale(1,1) rotate(-2deg)}to{transform:scale(.92,1.1) rotate(3deg)}}
+@media (prefers-reduced-motion: reduce){.flama{animation:none}}
+@media (max-width:960px){.escena{height:460px}.escena.chica{height:360px}}
+@media (max-width:600px){.escena{height:380px}.escena.chica{height:320px}}
+@media (max-width:370px){.tb-txt{font-size:12px}}
+.escena:focus-visible{outline:3px solid #5e1921;outline-offset:4px;border-radius:24px}
+.saltar{position:absolute;left:16px;top:-120px;z-index:100;background:#5e1921;color:#fffbfb;padding:12px 18px;border-radius:12px;font-weight:600;text-decoration:none;box-shadow:0 0 0 3px #f9c1c1}
+.saltar:focus{top:16px}
+main:focus{outline:none}
+footer a{display:inline-flex;align-items:center;min-height:44px}
+nav[aria-label="Ruta"] a{display:inline-flex;align-items:center;min-height:44px}
+input[type=range]{height:44px;cursor:pointer}
+.lspace{background:#f9c1c1}
+.duya[data-tipo]{background:none}
+.duya[data-tipo]::before,.duya[data-tipo]::after{content:"";position:absolute;left:0;right:0;top:-1px;pointer-events:none;-webkit-mask-repeat:repeat-x;mask-repeat:repeat-x;-webkit-mask-position:0 0;mask-position:0 0}
+.duya[data-tipo]::before{background:var(--c)}
+.duya[data-tipo=concha]::before{height:31px;-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Crect width='36' height='2'/%3E%3Cpath d='M-2 0 Q 0 20 14 25 Q 31 30 38 0 Z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Crect width='36' height='2'/%3E%3Cpath d='M-2 0 Q 0 20 14 25 Q 31 30 38 0 Z'/%3E%3C/svg%3E");-webkit-mask-size:36px 30px;mask-size:36px 30px}
+.duya[data-tipo=concha]::after{height:31px;background:rgba(94,25,33,.14);-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Cg fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cpath d='M5 2 Q 8 15 17 19'/%3E%3Cpath d='M13 2 Q 16 12 26 14'/%3E%3Cpath d='M22 2 Q 25 8 32 9'/%3E%3C/g%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Cg fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cpath d='M5 2 Q 8 15 17 19'/%3E%3Cpath d='M13 2 Q 16 12 26 14'/%3E%3Cpath d='M22 2 Q 25 8 32 9'/%3E%3C/g%3E%3C/svg%3E");-webkit-mask-size:36px 30px;mask-size:36px 30px}
+.duya[data-tipo=perlas]::before{height:23px;-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Crect width='18' height='3'/%3E%3Ccircle cx='9' cy='8' r='7.5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Crect width='18' height='3'/%3E%3Ccircle cx='9' cy='8' r='7.5'/%3E%3C/svg%3E");-webkit-mask-size:18px 22px;mask-size:18px 22px}
+.duya[data-tipo=perlas]::after{height:23px;background:rgba(255,251,251,.55);-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Ccircle cx='6.5' cy='5.5' r='2.2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Ccircle cx='6.5' cy='5.5' r='2.2'/%3E%3C/svg%3E");-webkit-mask-size:18px 22px;mask-size:18px 22px}
+.duya[data-tipo=guirnalda]::before{height:41px;-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Crect width='96' height='3'/%3E%3Cpath d='M0 0 Q 48 52 96 0 Z'/%3E%3Ccircle cx='0' cy='10' r='7'/%3E%3Ccircle cx='96' cy='10' r='7'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Crect width='96' height='3'/%3E%3Cpath d='M0 0 Q 48 52 96 0 Z'/%3E%3Ccircle cx='0' cy='10' r='7'/%3E%3Ccircle cx='96' cy='10' r='7'/%3E%3C/svg%3E");-webkit-mask-size:96px 40px;mask-size:96px 40px}
+.duya[data-tipo=guirnalda]::after{height:41px;background:rgba(255,251,251,.55);-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Ccircle cx='93.5' cy='7.5' r='2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Ccircle cx='93.5' cy='7.5' r='2'/%3E%3C/svg%3E");-webkit-mask-size:96px 40px;mask-size:96px 40px}
+</style>
+</helmet>
+<div style="font-family:'Instrument Sans','Segoe UI',system-ui,sans-serif;color:#5e1921;background:#fff4f4;font-size:16px;line-height:1.6"><a class="saltar" href="#contenido">Saltar al contenido</a>
+<div style="background:#5e1921;color:#fffbfb;font-size:14px;line-height:1.4">
+<div class="wrap" style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 24px;padding-top:10px;padding-bottom:10px">
+<span class="tb-txt">Pedidos con 2 días de anticipación</span>
+<span class="tb-wa" style="color:#f9c1c1">WhatsApp [número]</span>
+</div>
+</div>
+
+<div class="toldo" aria-hidden="true"></div>
+<header class="hdr" style="background:#f9c1c1">
+<div class="wrap"><div class="topbar" style="background:#fffbfb;border:1px solid #ecd2d2;border-radius:24px;min-height:64px;padding:8px 12px 8px 24px;box-sizing:border-box">
+<a href="Main.dc.html" aria-label="Pastelería Ilusión, inicio" style="display:block;line-height:0"><img src="/_blob/c6797fa64a1b6cbae59d4845cf395eb0" alt="Pastelería Ilusión" class="logo-img" style="width:150px;height:auto"></a>
+<nav class="nav" aria-label="Principal"><a href="Catalogo.dc.html" style="color:#5e1921;text-decoration:none;font-weight:600;font-size:15px;padding:10px 0">Catálogo</a><a href="Vitrina.dc.html" style="color:#5e1921;text-decoration:none;font-weight:600;font-size:15px;padding:10px 0">Vitrina</a><a href="Rebanadas.dc.html" style="color:#5e1921;text-decoration:none;font-weight:600;font-size:15px;padding:10px 0">Rebanadas de hoy</a><a href="PedidoElegir.dc.html" style="color:#5e1921;text-decoration:none;font-weight:600;font-size:15px;padding:10px 0">Realizar pedido</a></nav>
+<div style="display:flex;gap:8px;margin-left:auto"><a href="Cuenta.dc.html" aria-label="Cuenta" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;color:#5e1921;border-radius:12px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 20c1.6-3.4 4.5-5 8-5s6.4 1.6 8 5"></path></svg></a><a href="Carrito.dc.html" aria-label="Carrito" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;color:#5e1921;border-radius:12px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2L5 8z"></path><path d="M9 8V6.5a3 3 0 0 1 6 0V8"></path></svg></a><button type="button" class="menu-btn" aria-label="Abrir menú" aria-expanded="false" aria-controls="menu-sitio" style="display:none;width:44px;height:44px;align-items:center;justify-content:center;border:none;border-radius:12px;background:transparent;color:#5e1921;cursor:pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button></div>
+</div></div>
+</header>
+<main id="contenido" tabindex="-1">
+
+<section style="background:#f9c1c1;color:#5e1921">
+
+<div class="wrap login" style="padding-top:56px">
+<div class="lleft">
+<p class="lslogan" style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:500;line-height:1.08;letter-spacing:-0.01em;color:#5e1921">Qué gusto verte de nuevo.</p>
+<div class="lcake" style="margin-top:auto;width:100%;max-width:340px;position:relative;z-index:2;margin-bottom:-21px"><div class="escena chica" tabindex="0" data-explotar="0" role="img" aria-label="Pastel de tres pisos que gira lentamente. Usa las flechas izquierda y derecha para girarlo"><div class="sombra3d" aria-hidden="true"></div><div class="cake3d" aria-hidden="true"></div></div></div>
+</div>
+<div class="lcard" style="position:relative;z-index:3;background:#fffbfb;color:#5e1921;border:1px solid #ecd2d2;border-radius:24px;padding:40px;display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;flex-direction:column;gap:6px">
+<h1 style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:500;font-size:40px;line-height:1.1">Inicia sesión</h1>
+<p style="margin:0;color:#664243">Entra con Google o con tu correo.</p>
+</div>
+<button type="button" aria-label="Continuar con Google (botón oficial de Google)" style="width:100%;height:44px;display:flex;align-items:center;justify-content:center;gap:12px;background:#ffffff;border:1px solid #747775;border-radius:22px;color:#1f1f1f;font:500 15px Roboto,Arial,sans-serif;cursor:pointer"><span aria-hidden="true" style="width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;border:1px dashed #747775;border-radius:4px;font-size:10px;color:#5f6368">[G]</span>Continuar con Google</button>
+<div style="display:flex;align-items:center;gap:12px;color:#664243;font-size:14px"><span style="flex:1;height:1px;background:#ecd2d2"></span>o con tu correo<span style="flex:1;height:1px;background:#ecd2d2"></span></div>
+<form style="display:flex;flex-direction:column;gap:16px" aria-label="Iniciar sesión con correo">
+<div style="display:flex;flex-direction:column;gap:6px"><label for="correo" style="font-size:14px;font-weight:600">Correo electrónico</label><input placeholder="nombre@correo.com" id="correo" type="email" autocomplete="email" style="height:48px;width:100%;box-sizing:border-box;padding:0 14px;border-radius:6px;border:1px solid #664243;background:#fbecec;color:#5e1921;font:400 16px 'Instrument Sans',sans-serif"></div>
+<div style="display:flex;flex-direction:column;gap:6px"><label for="contrasena" style="font-size:14px;font-weight:600">Contraseña</label><div style="position:relative"><input placeholder="Escribe tu contraseña" id="contrasena" type="password" autocomplete="current-password" style="height:48px;width:100%;box-sizing:border-box;padding:0 14px;border-radius:6px;border:1px solid #664243;background:#fbecec;color:#5e1921;font:400 16px 'Instrument Sans',sans-serif;padding-right:96px"><button type="button" aria-label="Mostrar contraseña" style="position:absolute;right:2px;top:2px;height:44px;padding:0 14px;border:none;background:transparent;color:#5e1921;font:600 14px 'Instrument Sans',sans-serif;cursor:pointer">Mostrar</button></div></div>
+<a href="Recuperar.dc.html" style="align-self:flex-end;font-size:14px;font-weight:600;margin-top:-6px">¿Olvidaste tu contraseña?</a>
+<button type="submit" style="width:100%;height:48px;border:none;border-radius:12px;background:#5e1921;color:#fffbfb;font:600 16px 'Instrument Sans',sans-serif;cursor:pointer">Iniciar sesión</button>
+</form>
+<p style="margin:0;text-align:center">¿No tienes cuenta? <a href="Registro.dc.html" style="font-weight:600">Crear cuenta</a></p>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#664243">Al continuar aceptas los <a href="Legal.dc.html#terminos">Términos y condiciones</a> y el <a href="Legal.dc.html#privacidad">Aviso de privacidad</a>.</p>
+</div>
+</div>
+</section>
+<section class="lspace">
+<div class="lcake-m" style="max-width:280px;margin:0 auto"><div class="escena chica" tabindex="0" data-explotar="0" role="img" aria-label="Pastel de tres pisos que gira lentamente. Usa las flechas izquierda y derecha para girarlo"><div class="sombra3d" aria-hidden="true"></div><div class="cake3d" aria-hidden="true"></div></div></div>
+</section>
+<div class="duya" style="--c:#f9c1c1" data-tipo="guirnalda" aria-hidden="true"></div>
+
+</main>
+<footer style="background:#5e1921;color:#fffbfb;padding-top:72px;padding-bottom:32px;margin-top:-21px">
+<div class="wrap" style="display:flex;flex-direction:column;gap:48px">
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:24px">
+<img src="/_blob/7a6e4470a2f1a1fab4adb9df133333ae" alt="" style="width:96px;height:96px;flex:0 0 auto">
+<p class="cierre" style="margin:0;font-family:Fraunces,Georgia,serif;font-weight:500;line-height:1.1;color:#fffbfb;flex:1 1 320px">Pide un deseo. Del pastel nos encargamos.</p>
+</div>
+<div class="fcols" style="border-top:1px solid #664243;padding-top:32px">
+<div style="display:flex;flex-direction:column;gap:8px">
+<h2 style="margin:0 0 4px;font-size:14px;font-weight:600;color:#fffbfb">Visítanos</h2>
+<span style="color:#f9c1c1">[Dirección de la pastelería]</span>
+<span style="color:#f9c1c1">Todos los días, de 10:00 a 22:30</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<h3 style="margin:0 0 4px;font-size:14px;font-weight:600;color:#fffbfb">Pedidos</h3>
+<span style="color:#f9c1c1">WhatsApp [número]</span>
+<a href="https://wa.me/52[número]" style="color:#fffbfb;font-weight:600;text-underline-offset:4px">Escribir por WhatsApp</a>
+</div>
+<nav aria-label="Pie de página" style="display:flex;flex-direction:column;gap:8px">
+<h3 style="margin:0 0 4px;font-size:14px;font-weight:600;color:#fffbfb">La pastelería</h3>
+<a href="Catalogo.dc.html" style="color:#f9c1c1;text-decoration:none">Catálogo</a>
+<a href="Vitrina.dc.html" style="color:#f9c1c1;text-decoration:none">Vitrina</a>
+<a href="Rebanadas.dc.html" style="color:#f9c1c1;text-decoration:none">Rebanadas de hoy</a>
+<a href="BasesInfo.dc.html" style="color:#f9c1c1;text-decoration:none">Bases en préstamo</a>
+<a href="PedidoElegir.dc.html" style="color:#f9c1c1;text-decoration:none">Realizar pedido</a>
+</nav>
+</div>
+<div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;border-top:1px solid #664243;padding-top:24px;font-size:14px;color:#f9c1c1">
+<span>© 2026 Pastelería Ilusión</span>
+<div style="display:flex;gap:24px"><a href="Legal.dc.html#privacidad" style="color:#f9c1c1">Aviso de privacidad</a><a href="Legal.dc.html#terminos" style="color:#f9c1c1">Términos y condiciones</a></div>
+</div>
+</div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1717}}'>
+class Component extends DCLogic {
+  construirPastel(root) {
+    const cake = root.querySelector('.cake3d'); if (!cake || cake.childElementCount) return null;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const explotar = root.getAttribute('data-explotar') === '1';
+    const PIEL = [[255,251,251],[224,196,178]], DURZ = [[255,223,223],[224,166,146]], STAND = [[252,248,241],[214,196,184]];
+    const tiers = [{ r: 150, h: 112, base: 0, c: PIEL }, { r: 110, h: 96, base: -112, c: DURZ }, { r: 72, h: 80, base: -208, c: PIEL }];
+    const faces = [], groups = [];
+    const cyl = (g, r, h, n, col) => { const w = 2 * Math.PI * r / n + 1.4;
+      for (let i = 0; i < n; i++) { const f = document.createElement('div'); const a = i * 360 / n; f.className = 'face';
+        Object.assign(f.style, { width: w + 'px', height: h + 'px', marginLeft: -w / 2 + 'px', marginTop: -h / 2 + 'px', transform: 'rotateY(' + a + 'deg) translateZ(' + r + 'px)' });
+        g.appendChild(f); faces.push({ el: f, a: a, col: col }); } };
+    const cap = (g, r, y, colour) => { const c = document.createElement('div'); c.className = 'cap';
+      Object.assign(c.style, { width: 2 * r + 'px', height: 2 * r + 'px', marginLeft: -r + 'px', marginTop: -r + 'px', background: colour, transform: 'translateY(' + y + 'px) rotateX(90deg)' }); g.appendChild(c); };
+    const stand = document.createElement('div'); cake.appendChild(stand); cap(stand, 196, 0, '#fffbfb');
+    const plato = document.createElement('div'); stand.appendChild(plato); plato.style.transform = 'translateY(5px)'; cyl(plato, 196, 10, 48, STAND);
+    const col = document.createElement('div'); stand.appendChild(col); col.style.transform = 'translateY(40px)'; cyl(col, 26, 70, 18, STAND);
+    const pie = document.createElement('div'); stand.appendChild(pie); pie.style.transform = 'translateY(78px)'; cyl(pie, 74, 8, 30, STAND); cap(pie, 74, -4, '#f6eee5');
+    tiers.forEach((t) => { const g = document.createElement('div'); cake.appendChild(g); groups.push({ g: g, t: t });
+      cyl(g, t.r, t.h, 36, t.c); cap(g, t.r, -t.h / 2, 'rgb(' + t.c[0].join(',') + ')');
+      const n = Math.round(2 * Math.PI * t.r / 22);
+      for (let i = 0; i < n; i++) { const b = document.createElement('div'); b.className = 'bead'; b.style.transform = 'rotateY(' + i * 360 / n + 'deg) translateZ(' + (t.r + 3) + 'px) translateY(' + (-t.h / 2) + 'px)'; g.appendChild(b); }
+      for (let i = 0; i < n; i++) { const b = document.createElement('div'); b.className = 'bead'; b.style.transform = 'rotateY(' + (i + 0.5) * 360 / n + 'deg) translateZ(' + (t.r + 3) + 'px) translateY(' + (t.h / 2 - 4) + 'px)'; g.appendChild(b); } });
+    const vela = document.createElement('div'); cake.appendChild(vela);
+    const cuerpo = document.createElement('div'); Object.assign(cuerpo.style, { width: '14px', height: '54px', marginLeft: '-7px', marginTop: '-54px', borderRadius: '3px', background: 'repeating-linear-gradient(160deg,#fffbfb 0 7px,#f9c1c1 7px 14px)' }); vela.appendChild(cuerpo);
+    const flama = document.createElement('div'); flama.className = 'flama'; flama.style.top = '-60px'; vela.appendChild(flama);
+    let ry = -28 + Math.random() * 40, px = 0, py = 0, tx = 0, ty = 0, drag = null, last = performance.now(), raf = 0, visible = true;
+    const onMove = (e) => { const r = root.getBoundingClientRect(); tx = ((e.clientX - r.left) / r.width - 0.5) * 2; ty = ((e.clientY - r.top) / r.height - 0.5) * 2; if (drag !== null) { ry += (e.clientX - drag) * 0.5; drag = e.clientX; } };
+    const onDown = (e) => { drag = e.clientX; if (root.setPointerCapture) root.setPointerCapture(e.pointerId); };
+    const onUp = () => { drag = null; }; const onLeave = () => { tx = 0; ty = 0; };
+    root.addEventListener('pointermove', onMove); root.addEventListener('pointerdown', onDown); root.addEventListener('pointerup', onUp); root.addEventListener('pointercancel', onUp); root.addEventListener('pointerleave', onLeave); root.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { ry += e.key === 'ArrowLeft' ? -15 : 15; e.preventDefault(); } });
+    const draw = (now) => {
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      if (!reduce && drag === null) ry += 7 * dt;
+      px += (tx - px) * 0.08; py += (ty - py) * 0.08;
+      const s = Math.min(1, root.clientWidth / 560, root.clientHeight / 600) || 0.6;
+      const rx = -16 + py * 5, yaw = ry + px * 16;
+      const p = (reduce || !explotar) ? 0 : Math.max(0, Math.min(1, (window.scrollY || 0) / 380));
+      cake.style.transform = 'scale(' + s + ') rotateX(' + rx + 'deg) rotateY(' + yaw + 'deg)';
+      groups.forEach((o, i) => { o.g.style.transform = 'translateY(' + (o.t.base - o.t.h / 2 - 2 - i * p * 38) + 'px)'; });
+      vela.style.transform = 'translateY(' + (-290 - 2 * p * 38) + 'px) rotateY(' + (-yaw) + 'deg)';
+      for (const f of faces) { const k = Math.pow(0.5 + 0.5 * Math.cos((f.a + yaw + 40) * Math.PI / 180), 1.15); const c = f.col;
+        f.el.style.background = 'rgb(' + Math.round(c[1][0] + (c[0][0] - c[1][0]) * k) + ',' + Math.round(c[1][1] + (c[0][1] - c[1][1]) * k) + ',' + Math.round(c[1][2] + (c[0][2] - c[1][2]) * k) + ')'; }
+    };
+    const tick = (now) => { draw(now); raf = visible ? requestAnimationFrame(tick) : 0; };
+    let io = null;
+    if ('IntersectionObserver' in window) { io = new IntersectionObserver((es) => { visible = es[0].isIntersecting; if (visible && !raf) { last = performance.now(); raf = requestAnimationFrame(tick); } }); io.observe(root); }
+    draw(performance.now()); raf = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(raf); if (io) io.disconnect(); root.removeEventListener('pointermove', onMove); root.removeEventListener('pointerdown', onDown); root.removeEventListener('pointerup', onUp); root.removeEventListener('pointercancel', onUp); root.removeEventListener('pointerleave', onLeave); };
+  }
+  componentDidMount() { this.limpiar = []; document.querySelectorAll('.escena').forEach((el) => { const c = this.construirPastel(el); if (c) this.limpiar.push(c); }); }
+  componentWillUnmount() { (this.limpiar || []).forEach((c) => c()); }
+
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1212 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "BasesInfo.dc.html": {
+      "expand": "fill",
+      "h": 2613,
+      "title": "Bases en préstamo (escritorio)",
+      "w": 1440,
+      "x": 5970,
+      "y": 19197
+    },
+    "BasesInfoMovil.dc.html": {
+      "h": 3577,
+      "title": "Bases en préstamo (móvil)",
+      "w": 390,
+      "x": 7490,
+      "y": 19197
+    },
+    "BasesVacio.dc.html": {
+      "expand": "fill",
+      "h": 1796,
+      "title": "Bases vacío (escritorio)",
+      "w": 1440,
+      "x": 13930,
+      "y": 19197
+    },
+    "BasesVacioMovil.dc.html": {
+      "h": 2242,
+      "title": "Bases vacío (móvil)",
+      "w": 390,
+      "x": 15450,
+      "y": 19197
+    },
+    "Carrito.dc.html": {
+      "expand": "fill",
+      "h": 2143,
+      "title": "Carrito (escritorio)",
+      "w": 1440,
+      "x": 14840,
+      "y": 0
+    },
+    "CarritoMovil.dc.html": {
+      "h": 3583,
+      "title": "Carrito (móvil)",
+      "w": 390,
+      "x": 16360,
+      "y": 0
+    },
+    "CarritoVacio.dc.html": {
+      "expand": "fill",
+      "h": 1682,
+      "title": "Carrito vacío (escritorio)",
+      "w": 1440,
+      "x": 9950,
+      "y": 19197
+    },
+    "CarritoVacioMovil.dc.html": {
+      "h": 2065,
+      "title": "Carrito vacío (móvil)",
+      "w": 390,
+      "x": 11470,
+      "y": 19197
+    },
+    "Catalogo.dc.html": {
+      "expand": "fill",
+      "h": 6230,
+      "is_interactive": true,
+      "title": "Catálogo (escritorio)",
+      "w": 1440,
+      "x": 2430,
+      "y": 0
+    },
+    "CatalogoCargando.dc.html": {
+      "expand": "fill",
+      "h": 2472,
+      "is_interactive": true,
+      "title": "Catálogo cargando (escritorio)",
+      "w": 1440,
+      "x": 13930,
+      "y": 29086
+    },
+    "CatalogoCargandoMovil.dc.html": {
+      "h": 4826,
+      "is_interactive": true,
+      "title": "Catálogo cargando (móvil)",
+      "w": 390,
+      "x": 15450,
+      "y": 29086
+    },
+    "CatalogoMovil.dc.html": {
+      "h": 8000,
+      "is_interactive": true,
+      "title": "Catálogo (móvil)",
+      "w": 390,
+      "x": 3950,
+      "y": 0
+    },
+    "Confirmacion.dc.html": {
+      "expand": "fill",
+      "h": 2004,
+      "title": "Confirmación (escritorio)",
+      "w": 1440,
+      "x": 1990,
+      "y": 13763
+    },
+    "ConfirmacionEfectivo.dc.html": {
+      "expand": "fill",
+      "h": 2101,
+      "is_interactive": true,
+      "title": "Pedido apartado, pago en efectivo (escritorio)",
+      "w": 1440,
+      "x": 3980,
+      "y": 13763
+    },
+    "ConfirmacionEfectivoMovil.dc.html": {
+      "h": 3623,
+      "is_interactive": true,
+      "title": "Pedido apartado, pago en efectivo (móvil)",
+      "w": 390,
+      "x": 5500,
+      "y": 13763
+    },
+    "ConfirmacionMovil.dc.html": {
+      "h": 3368,
+      "title": "Confirmación (móvil)",
+      "w": 390,
+      "x": 3510,
+      "y": 13763
+    },
+    "Cotizacion.dc.html": {
+      "expand": "fill",
+      "h": 2057,
+      "title": "Cotización lista (escritorio)",
+      "w": 1440,
+      "x": 39800,
+      "y": 24290
+    },
+    "CotizacionMovil.dc.html": {
+      "h": 3030,
+      "title": "Cotización lista (móvil)",
+      "w": 390,
+      "x": 41320,
+      "y": 24290
+    },
+    "Cotizador.dc.html": {
+      "expand": "fill",
+      "h": 2185,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, paso 2 tipo de pastel (escritorio)",
+      "w": 1440,
+      "x": 9950,
+      "y": 24290
+    },
+    "CotizadorCargando.dc.html": {
+      "expand": "fill",
+      "h": 2263,
+      "title": "Diseña tu pastel cargando (escritorio)",
+      "w": 1440,
+      "x": 0,
+      "y": 29086
+    },
+    "CotizadorCargandoMovil.dc.html": {
+      "h": 3575,
+      "title": "Diseña tu pastel cargando (móvil)",
+      "w": 390,
+      "x": 1520,
+      "y": 29086
+    },
+    "CotizadorCobertura.dc.html": {
+      "expand": "fill",
+      "h": 2388,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, cobertura y color (escritorio)",
+      "w": 1440,
+      "x": 25870,
+      "y": 24290
+    },
+    "CotizadorCoberturaMovil.dc.html": {
+      "h": 3081,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, cobertura y color (móvil)",
+      "w": 390,
+      "x": 27390,
+      "y": 24290
+    },
+    "CotizadorConflicto.dc.html": {
+      "expand": "fill",
+      "h": 2594,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, cambio a envinado (escritorio)",
+      "w": 1440,
+      "x": 17910,
+      "y": 24290
+    },
+    "CotizadorConflictoMovil.dc.html": {
+      "h": 3040,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, cambio a envinado (móvil)",
+      "w": 390,
+      "x": 19430,
+      "y": 24290
+    },
+    "CotizadorDecoracion.dc.html": {
+      "expand": "fill",
+      "h": 2456,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, paso 6 decoración (escritorio)",
+      "w": 1440,
+      "x": 27860,
+      "y": 24290
+    },
+    "CotizadorDecoracionEditor.dc.html": {
+      "expand": "fill",
+      "h": 2793,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, paso 7 mensaje y oblea (escritorio)",
+      "w": 1440,
+      "x": 31840,
+      "y": 24290
+    },
+    "CotizadorDecoracionEditorMovil.dc.html": {
+      "h": 4031,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, paso 7 mensaje y oblea (móvil)",
+      "w": 390,
+      "x": 33360,
+      "y": 24290
+    },
+    "CotizadorDecoracionMovil.dc.html": {
+      "h": 3088,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, paso 6 decoración (móvil)",
+      "w": 390,
+      "x": 29380,
+      "y": 24290
+    },
+    "CotizadorDecoracionOblea.dc.html": {
+      "expand": "fill",
+      "h": 2456,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, decoración por imagen (escritorio)",
+      "w": 1440,
+      "x": 29850,
+      "y": 24290
+    },
+    "CotizadorDecoracionObleaMovil.dc.html": {
+      "h": 3324,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, decoración por imagen (móvil)",
+      "w": 390,
+      "x": 31370,
+      "y": 24290
+    },
+    "CotizadorMovil.dc.html": {
+      "h": 2769,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, paso 2 tipo de pastel (móvil)",
+      "w": 390,
+      "x": 11470,
+      "y": 24290
+    },
+    "CotizadorPan.dc.html": {
+      "expand": "fill",
+      "h": 2312,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, paso 3 pan (escritorio)",
+      "w": 1440,
+      "x": 11940,
+      "y": 24290
+    },
+    "CotizadorPanEnvinado.dc.html": {
+      "expand": "fill",
+      "h": 2312,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, pan con pastel envinado (escritorio)",
+      "w": 1440,
+      "x": 13930,
+      "y": 24290
+    },
+    "CotizadorPanEnvinadoMovil.dc.html": {
+      "h": 3156,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, pan con pastel envinado (móvil)",
+      "w": 390,
+      "x": 15450,
+      "y": 24290
+    },
+    "CotizadorPanMovil.dc.html": {
+      "h": 3157,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, paso 3 pan (móvil)",
+      "w": 390,
+      "x": 13460,
+      "y": 24290
+    },
+    "CotizadorPersonas.dc.html": {
+      "expand": "fill",
+      "h": 2263,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, paso 1 tamaño y forma (escritorio)",
+      "w": 1440,
+      "x": 1990,
+      "y": 24290
+    },
+    "CotizadorPersonasMinimo.dc.html": {
+      "expand": "fill",
+      "h": 2547,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, menos del mínimo (escritorio)",
+      "w": 1440,
+      "x": 3980,
+      "y": 24290
+    },
+    "CotizadorPersonasMinimoMovil.dc.html": {
+      "h": 3812,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, menos del mínimo (móvil)",
+      "w": 390,
+      "x": 5500,
+      "y": 24290
+    },
+    "CotizadorPersonasMovil.dc.html": {
+      "h": 3375,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, paso 1 tamaño y forma (móvil)",
+      "w": 390,
+      "x": 3510,
+      "y": 24290
+    },
+    "CotizadorPinguino.dc.html": {
+      "expand": "fill",
+      "h": 2409,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, Choco-pingüino (escritorio)",
+      "w": 1440,
+      "x": 15920,
+      "y": 24290
+    },
+    "CotizadorPinguinoMovil.dc.html": {
+      "h": 3213,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, Choco-pingüino (móvil)",
+      "w": 390,
+      "x": 17440,
+      "y": 24290
+    },
+    "CotizadorPisos.dc.html": {
+      "expand": "fill",
+      "h": 2379,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, pastel de pisos (escritorio)",
+      "w": 1440,
+      "x": 5970,
+      "y": 24290
+    },
+    "CotizadorPisosMovil.dc.html": {
+      "h": 3556,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, pastel de pisos (móvil)",
+      "w": 390,
+      "x": 7490,
+      "y": 24290
+    },
+    "CotizadorRectangular.dc.html": {
+      "expand": "fill",
+      "h": 2263,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, pastel rectangular (escritorio)",
+      "w": 1440,
+      "x": 7960,
+      "y": 24290
+    },
+    "CotizadorRectangularMovil.dc.html": {
+      "h": 3375,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, pastel rectangular (móvil)",
+      "w": 390,
+      "x": 9480,
+      "y": 24290
+    },
+    "CotizadorRelleno.dc.html": {
+      "expand": "fill",
+      "h": 2320,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, relleno con base (escritorio)",
+      "w": 1440,
+      "x": 19900,
+      "y": 24290
+    },
+    "CotizadorRellenoMovil.dc.html": {
+      "h": 2931,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, relleno con base (móvil)",
+      "w": 390,
+      "x": 21420,
+      "y": 24290
+    },
+    "CotizadorRellenoNormal.dc.html": {
+      "expand": "fill",
+      "h": 2408,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, relleno combinado (escritorio)",
+      "w": 1440,
+      "x": 21890,
+      "y": 24290
+    },
+    "CotizadorRellenoNormalMovil.dc.html": {
+      "h": 3687,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, relleno combinado (móvil)",
+      "w": 390,
+      "x": 23410,
+      "y": 24290
+    },
+    "CotizadorRellenoSeco.dc.html": {
+      "expand": "fill",
+      "h": 2320,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, relleno en pastel seco (escritorio)",
+      "w": 1440,
+      "x": 23880,
+      "y": 24290
+    },
+    "CotizadorRellenoSecoMovil.dc.html": {
+      "h": 3616,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, relleno en pastel seco (móvil)",
+      "w": 390,
+      "x": 25400,
+      "y": 24290
+    },
+    "CotizadorRevision.dc.html": {
+      "expand": "fill",
+      "h": 2591,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, revisión (escritorio)",
+      "w": 1440,
+      "x": 33830,
+      "y": 24290
+    },
+    "CotizadorRevisionMovil.dc.html": {
+      "h": 3489,
+      "is_interactive": true,
+      "title": "Diseña tu pastel, revisión (móvil)",
+      "w": 390,
+      "x": 35350,
+      "y": 24290
+    },
+    "Cuenta.dc.html": {
+      "expand": "fill",
+      "h": 1969,
+      "title": "Mis pedidos (escritorio)",
+      "w": 1440,
+      "x": 8400,
+      "y": 0
+    },
+    "CuentaBases.dc.html": {
+      "expand": "fill",
+      "h": 2057,
+      "title": "Bases en préstamo (escritorio)",
+      "w": 1440,
+      "x": 10390,
+      "y": 0
+    },
+    "CuentaBasesMovil.dc.html": {
+      "h": 2878,
+      "title": "Bases en préstamo (móvil)",
+      "w": 390,
+      "x": 11910,
+      "y": 0
+    },
+    "CuentaCargando.dc.html": {
+      "expand": "fill",
+      "h": 1763,
+      "is_interactive": true,
+      "title": "Mis pedidos cargando (escritorio)",
+      "w": 1440,
+      "x": 19900,
+      "y": 29086
+    },
+    "CuentaCargandoMovil.dc.html": {
+      "h": 2619,
+      "is_interactive": true,
+      "title": "Mis pedidos cargando (móvil)",
+      "w": 390,
+      "x": 21420,
+      "y": 29086
+    },
+    "CuentaDatos.dc.html": {
+      "expand": "fill",
+      "h": 1930,
+      "title": "Datos y avisos (escritorio)",
+      "w": 1440,
+      "x": 12380,
+      "y": 0
+    },
+    "CuentaDatosMovil.dc.html": {
+      "h": 2759,
+      "title": "Datos y avisos (móvil)",
+      "w": 390,
+      "x": 13900,
+      "y": 0
+    },
+    "CuentaMenu.dc.html": {
+      "h": 3165,
+      "title": "Menú de mi cuenta (móvil)",
+      "w": 390,
+      "x": 14370,
+      "y": 0
+    },
+    "CuentaMovil.dc.html": {
+      "h": 3165,
+      "title": "Mis pedidos (móvil)",
+      "w": 390,
+      "x": 9920,
+      "y": 0
+    },
+    "DetallePedido.dc.html": {
+      "expand": "fill",
+      "h": 2306,
+      "title": "Detalle de pedido (escritorio)",
+      "w": 1440,
+      "x": 0,
+      "y": 19197
+    },
+    "DetallePedidoCargando.dc.html": {
+      "expand": "fill",
+      "h": 1935,
+      "is_interactive": true,
+      "title": "Detalle del pedido cargando (escritorio)",
+      "w": 1440,
+      "x": 21890,
+      "y": 29086
+    },
+    "DetallePedidoCargandoMovil.dc.html": {
+      "h": 2716,
+      "is_interactive": true,
+      "title": "Detalle del pedido cargando (móvil)",
+      "w": 390,
+      "x": 23410,
+      "y": 29086
+    },
+    "DetallePedidoMovil.dc.html": {
+      "h": 3729,
+      "title": "Detalle de pedido (móvil)",
+      "w": 390,
+      "x": 1520,
+      "y": 19197
+    },
+    "Entrega.dc.html": {
+      "expand": "fill",
+      "h": 2760,
+      "title": "Entrega (escritorio)",
+      "w": 1440,
+      "x": 0,
+      "y": 13763
+    },
+    "EntregaMovil.dc.html": {
+      "h": 4490,
+      "title": "Entrega (móvil)",
+      "w": 390,
+      "x": 1520,
+      "y": 13763
+    },
+    "Ficha.dc.html": {
+      "expand": "fill",
+      "h": 2857,
+      "title": "Ficha de producto (escritorio)",
+      "w": 1440,
+      "x": 10894,
+      "y": 13763
+    },
+    "FichaCargando.dc.html": {
+      "expand": "fill",
+      "h": 1901,
+      "is_interactive": true,
+      "title": "Ficha cargando (escritorio)",
+      "w": 1440,
+      "x": 17910,
+      "y": 29086
+    },
+    "FichaCargandoMovil.dc.html": {
+      "h": 2974,
+      "is_interactive": true,
+      "title": "Ficha cargando (móvil)",
+      "w": 390,
+      "x": 19430,
+      "y": 29086
+    },
+    "FichaMovil.dc.html": {
+      "h": 4734,
+      "title": "Ficha de producto (móvil)",
+      "w": 390,
+      "x": 12414,
+      "y": 13763
+    },
+    "Legal.dc.html": {
+      "expand": "fill",
+      "h": 1825,
+      "title": "Aviso de privacidad y términos (escritorio)",
+      "w": 1440,
+      "x": 11940,
+      "y": 29086
+    },
+    "LegalMovil.dc.html": {
+      "h": 2340,
+      "title": "Aviso de privacidad y términos (móvil)",
+      "w": 390,
+      "x": 13460,
+      "y": 29086
+    },
+    "Login.dc.html": {
+      "expand": "fill",
+      "h": 1717,
+      "is_interactive": true,
+      "title": "Inicio de sesión (escritorio)",
+      "w": 1440,
+      "x": 4420,
+      "y": 0
+    },
+    "LoginError.dc.html": {
+      "expand": "fill",
+      "h": 1855,
+      "title": "Error al iniciar sesión (escritorio)",
+      "w": 1440,
+      "x": 3980,
+      "y": 29086
+    },
+    "LoginErrorMovil.dc.html": {
+      "h": 2632,
+      "title": "Error al iniciar sesión (móvil)",
+      "w": 390,
+      "x": 5500,
+      "y": 29086
+    },
+    "LoginMovil.dc.html": {
+      "h": 2472,
+      "is_interactive": true,
+      "title": "Inicio de sesión (móvil)",
+      "w": 390,
+      "x": 5940,
+      "y": 0
+    },
+    "Main.dc.html": {
+      "expand": "fill",
+      "h": 4226,
+      "is_interactive": true,
+      "title": "Portada (escritorio)",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "MenuSitio.dc.html": {
+      "h": 5852,
+      "is_interactive": true,
+      "title": "Menú del sitio (móvil)",
+      "w": 390,
+      "x": 18820,
+      "y": 0
+    },
+    "Movil.dc.html": {
+      "h": 5852,
+      "is_interactive": true,
+      "title": "Portada (móvil)",
+      "w": 390,
+      "x": 1520,
+      "y": 0
+    },
+    "NoEncontrado.dc.html": {
+      "expand": "fill",
+      "h": 1728,
+      "title": "Página no encontrada (escritorio)",
+      "w": 1440,
+      "x": 7960,
+      "y": 19197
+    },
+    "NoEncontradoMovil.dc.html": {
+      "h": 2241,
+      "title": "Página no encontrada (móvil)",
+      "w": 390,
+      "x": 9480,
+      "y": 19197
+    },
+    "NotaPDF.dc.html": {
+      "h": 1104,
+      "title": "Nota de pedido en PDF (tamaño carta)",
+      "w": 864,
+      "x": 5970,
+      "y": 13763
+    },
+    "NotaVerificada.dc.html": {
+      "expand": "fill",
+      "h": 1741,
+      "is_interactive": true,
+      "title": "Verificación de la nota (lo que abre el QR) (escritorio)",
+      "w": 1440,
+      "x": 6914,
+      "y": 13763
+    },
+    "NotaVerificadaMovil.dc.html": {
+      "h": 2095,
+      "is_interactive": true,
+      "title": "Verificación de la nota (lo que abre el QR) (móvil)",
+      "w": 390,
+      "x": 8434,
+      "y": 13763
+    },
+    "Pago.dc.html": {
+      "expand": "fill",
+      "h": 1854,
+      "title": "Pago (escritorio)",
+      "w": 1440,
+      "x": 16830,
+      "y": 0
+    },
+    "PagoError.dc.html": {
+      "expand": "fill",
+      "h": 2002,
+      "title": "Pago rechazado (escritorio)",
+      "w": 1440,
+      "x": 8904,
+      "y": 13763
+    },
+    "PagoErrorMovil.dc.html": {
+      "h": 3193,
+      "title": "Pago rechazado (móvil)",
+      "w": 390,
+      "x": 10424,
+      "y": 13763
+    },
+    "PagoMovil.dc.html": {
+      "h": 3022,
+      "title": "Pago (móvil)",
+      "w": 390,
+      "x": 18350,
+      "y": 0
+    },
+    "PagoProcesando.dc.html": {
+      "expand": "fill",
+      "h": 1919,
+      "title": "Pago procesando (escritorio)",
+      "w": 1440,
+      "x": 1990,
+      "y": 29086
+    },
+    "PagoProcesandoMovil.dc.html": {
+      "h": 3110,
+      "title": "Pago procesando (móvil)",
+      "w": 390,
+      "x": 3510,
+      "y": 29086
+    },
+    "PedidoElegir.dc.html": {
+      "expand": "fill",
+      "h": 1776,
+      "title": "Realizar pedido (escritorio)",
+      "w": 1440,
+      "x": 0,
+      "y": 24290
+    },
+    "PedidoElegirMovil.dc.html": {
+      "h": 2728,
+      "title": "Realizar pedido (móvil)",
+      "w": 390,
+      "x": 1520,
+      "y": 24290
+    },
+    "PedidosVacio.dc.html": {
+      "expand": "fill",
+      "h": 1798,
+      "title": "Mis pedidos vacío (escritorio)",
+      "w": 1440,
+      "x": 11940,
+      "y": 19197
+    },
+    "PedidosVacioMovil.dc.html": {
+      "h": 2331,
+      "title": "Mis pedidos vacío (móvil)",
+      "w": 390,
+      "x": 13460,
+      "y": 19197
+    },
+    "Rebanadas.dc.html": {
+      "expand": "fill",
+      "h": 2243,
+      "title": "Rebanadas de hoy (escritorio)",
+      "w": 1440,
+      "x": 14874,
+      "y": 13763
+    },
+    "RebanadasMovil.dc.html": {
+      "h": 3413,
+      "title": "Rebanadas de hoy (móvil)",
+      "w": 390,
+      "x": 16394,
+      "y": 13763
+    },
+    "Recuperar.dc.html": {
+      "expand": "fill",
+      "h": 1550,
+      "title": "Recuperar contraseña (escritorio)",
+      "w": 1440,
+      "x": 1990,
+      "y": 19197
+    },
+    "RecuperarMovil.dc.html": {
+      "h": 2337,
+      "title": "Recuperar contraseña (móvil)",
+      "w": 390,
+      "x": 3510,
+      "y": 19197
+    },
+    "Referencia.dc.html": {
+      "expand": "fill",
+      "h": 2522,
+      "title": "Enviar referencia (escritorio)",
+      "w": 1440,
+      "x": 35820,
+      "y": 24290
+    },
+    "ReferenciaError.dc.html": {
+      "expand": "fill",
+      "h": 2537,
+      "title": "Error al subir referencia (escritorio)",
+      "w": 1440,
+      "x": 7960,
+      "y": 29086
+    },
+    "ReferenciaErrorMovil.dc.html": {
+      "h": 3766,
+      "title": "Error al subir referencia (móvil)",
+      "w": 390,
+      "x": 9480,
+      "y": 29086
+    },
+    "ReferenciaMovil.dc.html": {
+      "h": 3572,
+      "title": "Enviar referencia (móvil)",
+      "w": 390,
+      "x": 37340,
+      "y": 24290
+    },
+    "Registro.dc.html": {
+      "expand": "fill",
+      "h": 1971,
+      "is_interactive": true,
+      "title": "Registro (escritorio)",
+      "w": 1440,
+      "x": 6410,
+      "y": 0
+    },
+    "RegistroError.dc.html": {
+      "expand": "fill",
+      "h": 2024,
+      "title": "Errores en el registro (escritorio)",
+      "w": 1440,
+      "x": 5970,
+      "y": 29086
+    },
+    "RegistroErrorMovil.dc.html": {
+      "h": 2899,
+      "title": "Errores en el registro (móvil)",
+      "w": 390,
+      "x": 7490,
+      "y": 29086
+    },
+    "RegistroMovil.dc.html": {
+      "h": 2795,
+      "is_interactive": true,
+      "title": "Registro (móvil)",
+      "w": 390,
+      "x": 7930,
+      "y": 0
+    },
+    "SolicitudEnviada.dc.html": {
+      "expand": "fill",
+      "h": 1823,
+      "title": "Solicitud enviada (escritorio)",
+      "w": 1440,
+      "x": 37810,
+      "y": 24290
+    },
+    "SolicitudEnviadaMovil.dc.html": {
+      "h": 2779,
+      "title": "Solicitud enviada (móvil)",
+      "w": 390,
+      "x": 39330,
+      "y": 24290
+    },
+    "Verificar.dc.html": {
+      "expand": "fill",
+      "h": 1550,
+      "title": "Verificar correo (escritorio)",
+      "w": 1440,
+      "x": 3980,
+      "y": 19197
+    },
+    "VerificarMovil.dc.html": {
+      "h": 2209,
+      "title": "Verificar correo (móvil)",
+      "w": 390,
+      "x": 5500,
+      "y": 19197
+    },
+    "Vitrina.dc.html": {
+      "expand": "fill",
+      "h": 2819,
+      "title": "Vitrina (escritorio)",
+      "w": 1440,
+      "x": 12884,
+      "y": 13763
+    },
+    "VitrinaAgotada.dc.html": {
+      "expand": "fill",
+      "h": 2030,
+      "title": "Vitrina agotada (escritorio)",
+      "w": 1440,
+      "x": 9950,
+      "y": 29086
+    },
+    "VitrinaAgotadaMovil.dc.html": {
+      "h": 2685,
+      "title": "Vitrina agotada (móvil)",
+      "w": 390,
+      "x": 11470,
+      "y": 29086
+    },
+    "VitrinaCargando.dc.html": {
+      "expand": "fill",
+      "h": 1895,
+      "is_interactive": true,
+      "title": "Vitrina cargando (escritorio)",
+      "w": 1440,
+      "x": 15920,
+      "y": 29086
+    },
+    "VitrinaCargandoMovil.dc.html": {
+      "h": 2768,
+      "is_interactive": true,
+      "title": "Vitrina cargando (móvil)",
+      "w": 390,
+      "x": 17440,
+      "y": 29086
+    },
+    "VitrinaMovil.dc.html": {
+      "h": 4259,
+      "title": "Vitrina (móvil)",
+      "w": 390,
+      "x": 14404,
+      "y": 13763
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-13T01:25:51Z",
+    "v": 1
+  },
+  "designSystems": [
+    {
+      "artifact": "https://claude.ai/artifact/D535SPvDnuaR2zQ6WXUKaR",
+      "copiedAt": "2026-10-13T06:09:48Z",
+      "namespace": "pasteleriailusion",
+      "title": "Pastelería Ilusión",
+      "version": "1791871778-0f60"
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  },
+  "noteOrder": [
+    "datos",
+    "t-portada",
+    "t-catalogo",
+    "t-login",
+    "t-cuenta",
+    "t-borrar",
+    "t-pago",
+    "t-menu",
+    "t-flujo-de-compra",
+    "t-producto",
+    "t-información-y-estados",
+    "t-pedido-personalizado",
+    "t-estados"
+  ],
+  "notes": {
+    "datos": {
+      "fill": "orange",
+      "text": "Datos de ejemplo: los nombres, descripciones, precios y existencias se reemplazan con los reales de la pastelería. Cada silueta marca dónde va un PNG recortado; los corchetes [ ] marcan datos que faltan.",
+      "w": 360,
+      "x": 1990,
+      "y": 0
+    },
+    "t-borrar": {
+      "kind": "title1",
+      "maxW": 2520,
+      "text": "Para borrar",
+      "w": 240,
+      "x": -2600,
+      "y": -300
+    },
+    "t-catalogo": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Catálogo",
+      "w": 240,
+      "x": 2430,
+      "y": -300
+    },
+    "t-cuenta": {
+      "kind": "title1",
+      "maxW": 5890,
+      "text": "Cuenta",
+      "w": 240,
+      "x": 0,
+      "y": 18897
+    },
+    "t-estados": {
+      "kind": "title1",
+      "maxW": 8000,
+      "text": "Estados de carga, error y legales",
+      "w": 240,
+      "x": 0,
+      "y": 28786
+    },
+    "t-flujo-de-compra": {
+      "kind": "title1",
+      "maxW": 5890,
+      "text": "Flujo de compra",
+      "w": 240,
+      "x": 0,
+      "y": 13463
+    },
+    "t-información-y-estados": {
+      "kind": "title1",
+      "maxW": 9870,
+      "text": "Información y estados",
+      "x": 5970,
+      "y": 18897
+    },
+    "t-login": {
+      "kind": "title1",
+      "maxW": 3900,
+      "text": "Inicio de sesión y registro",
+      "w": 240,
+      "x": 4420,
+      "y": -300
+    },
+    "t-menu": {
+      "kind": "title1",
+      "maxW": 900,
+      "text": "Menú móvil",
+      "w": 240,
+      "x": 18820,
+      "y": -300
+    },
+    "t-pago": {
+      "kind": "title1",
+      "maxW": 3900,
+      "text": "Carrito y pago",
+      "w": 240,
+      "x": 14840,
+      "y": -300
+    },
+    "t-pedido-personalizado": {
+      "kind": "title1",
+      "maxW": 8000,
+      "text": "Pedido personalizado",
+      "w": 240,
+      "x": 0,
+      "y": 23990
+    },
+    "t-portada": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Portada",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "t-producto": {
+      "kind": "title1",
+      "maxW": 5890,
+      "text": "Producto",
+      "w": 240,
+      "x": 5970,
+      "y": 13463
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Movil.dc.html",
+    "Catalogo.dc.html",
+    "CatalogoMovil.dc.html",
+    "Login.dc.html",
+    "LoginMovil.dc.html",
+    "Registro.dc.html",
+    "RegistroMovil.dc.html",
+    "Cuenta.dc.html",
+    "CuentaMovil.dc.html",
+    "CuentaBases.dc.html",
+    "CuentaBasesMovil.dc.html",
+    "CuentaDatos.dc.html",
+    "CuentaDatosMovil.dc.html",
+    "CuentaMenu.dc.html",
+    "Carrito.dc.html",
+    "CarritoMovil.dc.html",
+    "Pago.dc.html",
+    "PagoMovil.dc.html",
+    "MenuSitio.dc.html",
+    "Entrega.dc.html",
+    "EntregaMovil.dc.html",
+    "Confirmacion.dc.html",
+    "ConfirmacionMovil.dc.html",
+    "ConfirmacionEfectivo.dc.html",
+    "ConfirmacionEfectivoMovil.dc.html",
+    "NotaPDF.dc.html",
+    "PagoError.dc.html",
+    "PagoErrorMovil.dc.html",
+    "Ficha.dc.html",
+    "FichaMovil.dc.html",
+    "Vitrina.dc.html",
+    "VitrinaMovil.dc.html",
+    "Rebanadas.dc.html",
+    "RebanadasMovil.dc.html",
+    "DetallePedido.dc.html",
+    "DetallePedidoMovil.dc.html",
+    "Recuperar.dc.html",
+    "RecuperarMovil.dc.html",
+    "Verificar.dc.html",
+    "VerificarMovil.dc.html",
+    "BasesInfo.dc.html",
+    "BasesInfoMovil.dc.html",
+    "NoEncontrado.dc.html",
+    "NoEncontradoMovil.dc.html",
+    "CarritoVacio.dc.html",
+    "CarritoVacioMovil.dc.html",
+    "PedidosVacio.dc.html",
+    "PedidosVacioMovil.dc.html",
+    "BasesVacio.dc.html",
+    "BasesVacioMovil.dc.html",
+    "CotizadorCargando.dc.html",
+    "CotizadorCargandoMovil.dc.html",
+    "PagoProcesando.dc.html",
+    "PagoProcesandoMovil.dc.html",
+    "LoginError.dc.html",
+    "LoginErrorMovil.dc.html",
+    "RegistroError.dc.html",
+    "RegistroErrorMovil.dc.html",
+    "ReferenciaError.dc.html",
+    "ReferenciaErrorMovil.dc.html",
+    "VitrinaAgotada.dc.html",
+    "VitrinaAgotadaMovil.dc.html",
+    "Legal.dc.html",
+    "LegalMovil.dc.html",
+    "PedidoElegir.dc.html",
+    "PedidoElegirMovil.dc.html",
+    "CotizadorPersonas.dc.html",
+    "CotizadorPersonasMovil.dc.html",
+    "CotizadorPersonasMinimo.dc.html",
+    "CotizadorPersonasMinimoMovil.dc.html",
+    "CotizadorPisos.dc.html",
+    "CotizadorPisosMovil.dc.html",
+    "CotizadorRectangular.dc.html",
+    "CotizadorRectangularMovil.dc.html",
+    "Cotizador.dc.html",
+    "CotizadorMovil.dc.html",
+    "CotizadorPan.dc.html",
+    "CotizadorPanMovil.dc.html",
+    "CotizadorPanEnvinado.dc.html",
+    "CotizadorPanEnvinadoMovil.dc.html",
+    "CotizadorPinguino.dc.html",
+    "CotizadorPinguinoMovil.dc.html",
+    "CotizadorConflicto.dc.html",
+    "CotizadorConflictoMovil.dc.html",
+    "CotizadorRelleno.dc.html",
+    "CotizadorRellenoMovil.dc.html",
+    "CotizadorRellenoNormal.dc.html",
+    "CotizadorRellenoNormalMovil.dc.html",
+    "CotizadorRellenoSeco.dc.html",
+    "CotizadorRellenoSecoMovil.dc.html",
+    "CotizadorCobertura.dc.html",
+    "CotizadorCoberturaMovil.dc.html",
+    "CotizadorDecoracion.dc.html",
+    "CotizadorDecoracionMovil.dc.html",
+    "CotizadorDecoracionOblea.dc.html",
+    "CotizadorDecoracionObleaMovil.dc.html",
+    "CotizadorDecoracionEditor.dc.html",
+    "CotizadorDecoracionEditorMovil.dc.html",
+    "CotizadorRevision.dc.html",
+    "CotizadorRevisionMovil.dc.html",
+    "Referencia.dc.html",
+    "ReferenciaMovil.dc.html",
+    "SolicitudEnviada.dc.html",
+    "SolicitudEnviadaMovil.dc.html",
+    "Cotizacion.dc.html",
+    "CotizacionMovil.dc.html",
+    "NotaVerificada.dc.html",
+    "NotaVerificadaMovil.dc.html",
+    "CatalogoCargando.dc.html",
+    "CatalogoCargandoMovil.dc.html",
+    "VitrinaCargando.dc.html",
+    "VitrinaCargandoMovil.dc.html",
+    "FichaCargando.dc.html",
+    "FichaCargandoMovil.dc.html",
+    "CuentaCargando.dc.html",
+    "CuentaCargandoMovil.dc.html",
+    "DetallePedidoCargando.dc.html",
+    "DetallePedidoCargandoMovil.dc.html"
+  ],
+  "pages": [],
+  "title": "Mockup Pastelería Ilusión"
+}
