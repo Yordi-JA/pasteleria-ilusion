@@ -60,7 +60,7 @@ Estas decisiones se toman al inicializar el proyecto en la Etapa 2, salvo que se
 | Versiones de Python y Django | Sin fijar. Al consultarla el 1 de noviembre de 2026, la documentación oficial de Django mostraba la versión 6.1 |
 | Herramienta de compilación del frontend | Sin elegir |
 | Versión de PostgreSQL | Sin fijar. Al consultarla el 1 de noviembre de 2026, la documentación oficial mostraba la 18 como versión actual |
-| PaaS de despliegue | Sin elegir; se decide antes de la Etapa 5 |
+| PaaS de despliegue | Sin elegir; se decide en la Etapa 2 |
 | API de distancias para la tarifa de envío | Las reglas sugieren Google Distance Matrix ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 8); se decide antes de la Etapa 4 |
 | Proveedor de correo | Sin elegir |
 

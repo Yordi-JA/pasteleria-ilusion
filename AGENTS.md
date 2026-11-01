@@ -90,7 +90,8 @@ El diagrama, los contratos y la justificación están en [`docs/proyecto/arquite
 - Cuando una regla cambie, actualiza el documento que la define, no solo el código.
 - Cada decisión nueva se registra en `docs/proyecto/decisiones.md`.
 - Al cerrar una tarea, anota el avance en `docs/bitacora.md` y actualiza el estado en `README.md`.
-- Al cerrar una etapa del plan, informa qué quedó, cómo lo verificaste y qué decidiste, y espera el visto bueno antes de seguir con la siguiente. El plan está en [`docs/proyecto/plan-de-trabajo.md`](docs/proyecto/plan-de-trabajo.md).
+- Al cerrar una etapa del plan, informa qué quedó, cómo lo verificaste y qué decidiste, y espera el visto bueno antes de seguir con la siguiente. Con el visto bueno, anota la fecha real de cierre y lo que se movió en la tabla "Ejecución real" de [`docs/proyecto/plan-de-trabajo.md`](docs/proyecto/plan-de-trabajo.md). No cambies las fechas del baseline ni las del plan real: un cambio al plan real necesita una decisión nueva en `docs/proyecto/decisiones.md` y una fila en el registro de cambios del plan.
+- Del 19 al 23 de noviembre de 2026 solo corrige fallas; no agregues funciones ni pantallas. Desde el 24 de noviembre no cambies código.
 - Si una regla de negocio y el mockup se contradicen, gana la regla y avisas.
 
 ## Git y secretos
@@ -102,7 +103,7 @@ El diagrama, los contratos y la justificación están en [`docs/proyecto/arquite
 - En el frontend solo van llaves públicas (la `pk_` de Stripe, la Public Key de Mercado Pago, el client ID de Google): toda variable de entorno que lee el frontend termina en el código que se publica (en Vite, las `VITE_*`). Las llaves secretas viven solo en el `.env` del backend.
 - Toda credencial descargada (JSON de Google, llaves) va en `secrets/`, que Git ignora. Los volcados de base de datos van en `backend/respaldos/`, también ignorada.
 - `backend/media/` (fotos de referencia y otras subidas de clientes) nunca se versiona.
-- Los agentes no hacen commits ni push, no crean el repositorio y no se agregan como coautores (sin `Co-Authored-By`). Preparan los cambios y entregan al equipo los comandos de git.
+- Los agentes no hacen commits, push ni etiquetas, no generan el zip de entrega, no crean el repositorio y no se agregan como coautores (sin `Co-Authored-By`). Preparan los cambios y entregan al equipo los comandos de git.
 
 ## Comandos
 

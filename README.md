@@ -77,10 +77,12 @@ El frontend sigue MVVM: los hooks (view-models) llevan el estado y hablan con el
 | Etapa | Fechas (2026) | Contenido | Estado |
 | --- | --- | --- | --- |
 | 1 | 08 al 31 de octubre | Reglas de negocio, identidad visual, libro de marca, mockup y arquitectura | Completada |
-| 2 | 01 al 07 de noviembre | Backend (Django, PostgreSQL, modelos, repositorios, servicios, API en `/api/v1/`, Swagger, admin) y, en paralelo, frontend (React, Tailwind con el preset, componentes base, rutas) | En curso |
-| 3 | 08 al 14 de noviembre | Pantallas conectadas a la API, acceso, "Diseña tu pastel" con react-three-fiber | Por iniciar |
-| 4 | 15 al 21 de noviembre | Carrito, entrega y agenda, pagos, Observer, garantías de bases con nota PDF y QR, referencia, cancelaciones | Por iniciar |
-| 5 | 22 al 28 de noviembre | Pruebas con pytest y Playwright, accesibilidad, despliegue en PaaS, reporte final y referencias en APA | Por iniciar |
+| 2 | 01 al 07 de noviembre | Backend (Django, PostgreSQL, modelos, repositorios, servicios, API en `/api/v1/`, Swagger, admin) y, en paralelo, frontend (React, Tailwind con el preset, componentes base, rutas); despliegue del esqueleto en una PaaS | En curso |
+| 3 | 08 al 13 de noviembre | Pantallas conectadas a la API, acceso, "Diseña tu pastel" con react-three-fiber | Por iniciar |
+| 4 | 14 al 19 de noviembre | Carrito, entrega y agenda, pagos, Observer, garantías de bases con nota PDF y QR, referencia, cancelaciones | Por iniciar |
+| 5 | 20 al 23 de noviembre | Cierre: verificación (pruebas en el sitio desplegado, accesibilidad, video de respaldo), reporte final con referencias en APA, presentación, ensayo, etiqueta del commit final y zip del código | Por iniciar |
+
+El código se congela el 19 de noviembre: del 19 al 23 solo se corrigen fallas, y desde el 24 no se cambia código. La exposición es el 24 o el 26 de noviembre (se planea para el 24) y la entrega, con reporte, código y presentación, el 26.
 
 El plan completo, con la comparación contra el plan original de 8 semanas, está en [`docs/proyecto/plan-de-trabajo.md`](docs/proyecto/plan-de-trabajo.md).
 
