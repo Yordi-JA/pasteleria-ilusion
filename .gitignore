@@ -10,6 +10,11 @@ client_secret*.json
 credentials*.json
 service-account*.json
 secrets/
+.envrc
+id_rsa*
+id_ed25519*
+ngrok.yml
+.mcp.json
 
 # --- Python / Django ---
 __pycache__/
@@ -18,15 +23,22 @@ __pycache__/
 venv/
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+**/coverage/
 .mypy_cache/
 .ruff_cache/
 *.egg-info/
 db.sqlite3
 db.sqlite3-journal
 *.log
+# Settings locales de Django
+**/local_settings.py
+**/settings_local.py
+**/settings/local.py
 # Subidas de clientes (fotos de referencia, obleas)
 backend/media/
+backend/**/media/
 backend/staticfiles/
 
 # --- Volcados de base de datos (pueden tener datos de clientes) ---
@@ -34,10 +46,16 @@ backend/staticfiles/
 *.sql.gz
 *.backup
 backups/
+*.sql
+*.bak
+*.tar
+backend/respaldos/
+backend/**/dumpdata*.json
 
 # --- Node / Vite ---
 node_modules/
 frontend/dist/
+frontend/build/
 .vite/
 npm-debug.log*
 yarn-error.log*
@@ -49,9 +67,11 @@ pnpm-debug.log*
 test-results/
 playwright-report/
 blob-report/
-playwright/.cache/
+**/playwright/.cache/
 # Guarda cookies de sesión
-playwright/.auth/
+**/playwright/.auth/
+**/e2e/.auth/
+**/storageState*.json
 
 # --- Editor / sistema operativo ---
 .idea/

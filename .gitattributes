@@ -18,3 +18,9 @@
 *.woff2 binary
 *.ttf binary
 *.otf binary
+*.glb binary
+*.hdr binary
+*.ktx2 binary
+*.avif binary
+*.mp4 binary
+*.zip binary
