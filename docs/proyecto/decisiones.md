@@ -1,6 +1,6 @@
 # Registro de decisiones
 
-Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D22 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026.
+Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D23 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026.
 
 ## Contenido
 
@@ -174,6 +174,13 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 - **Contexto:** El equipo no quiere abusar del recurso.
 - **Consecuencias:** La descripción inicial, el objetivo 3 y "Qué ofrece el sitio" del README, [`objetivos.md`](objetivos.md), `AGENTS.md` y el libro de marca ya no lo anuncian. Su ubicación en el mockup y en [`../libro-de-marca.md`](../libro-de-marca.md) (sección "Presencia de marca") no cambia. El alcance técnico del objetivo 3 no se reduce: la vista previa sigue en WebGL con `react-three-fiber`. [`plan-de-trabajo.md`](plan-de-trabajo.md) conserva el nombre original del entregable. El nombre técnico "cotizador 3D" sigue permitido en código y documentación técnica (D6).
 
+### D23. Calendario de cierre para la exposición
+
+- **Fecha:** 1 de noviembre de 2026.
+- **Decisión:** El plan real se ajusta para tener los entregables listos el lunes 23 de noviembre: Etapa 3 del 8 al 13, Etapa 4 del 14 al 19 (con congelamiento del código el jueves 19) y Etapa 5 de cierre del 20 al 23 (verificación, reporte, presentación y ensayo). Pruebas y accesibilidad se hacen dentro de las etapas 2 a 4 y el despliegue empieza en la Etapa 2. El código se entrega como un zip generado con `git archive` desde una etiqueta del commit final, para que solo entren archivos versionados y nunca `.env`, `secrets/`, `backend/media/`, `node_modules` ni el entorno virtual. Lo genera el equipo (D16).
+- **Contexto:** Las exposiciones son el martes 24 y el jueves 26 de noviembre, y el equipo no sabe qué día le toca. La entrega es el jueves 26 e incluye el reporte, el código y la presentación. El plan anterior cerraba el 28 de noviembre.
+- **Consecuencias:** Las etapas 3 y 4 pierden un día cada una. El mínimo para la exposición se define al iniciar la Etapa 3. La fecha real de cierre de cada etapa se anota en la ejecución real de [`plan-de-trabajo.md`](plan-de-trabajo.md#ejecución-real). El baseline del anteproyecto no cambia. La sección "Cómo correrlo" del README tiene que estar completa para el 19, porque quien reciba el zip no tiene GitHub. Como el zip sale sin `.env`, esa sección explica cómo crearlo a partir de `.env.example` y qué llaves sandbox se necesitan, y la demo de referencia es el sitio desplegado.
+
 ## Decisiones abiertas
 
 | Tema | Detalle | Se resuelve |
@@ -181,7 +188,8 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 | Tailwind v3 o v4 | El preset `design/tailwind.preset.js` está en formato v3 | Etapa 2 |
 | Versiones de Python y Django | Sin fijar | Etapa 2 |
 | Herramienta de compilación del frontend | Sin elegir | Etapa 2 |
-| PaaS de despliegue | Sin elegir. Debe permitir que el frontend y la API compartan sitio (D15) | Antes de la Etapa 5 |
+| PaaS de despliegue | Sin elegir. Debe permitir que el frontend y la API compartan sitio (D15) | Etapa 2 |
+| Mínimo para la exposición | Qué se demuestra en vivo de cada uno de los 6 objetivos y qué entra solo si sobra tiempo | Al iniciar la Etapa 3 |
 | API de distancias | Para la tarifa de envío; las reglas sugieren una API de rutas como Google Distance Matrix | Antes de la Etapa 4 |
 | Nombre del modelo `Cotizaciones3D` | Choca con la "cotización" del envío de referencia (D6) | Etapa 2 |
 | Nombres finales de modelos y campos | Los de [`arquitectura.md`](arquitectura.md#entidades-previstas) son previstos | Etapa 2 |

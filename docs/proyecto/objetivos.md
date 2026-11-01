@@ -88,7 +88,7 @@ La columna "Estado" dice lo que existe hoy (1 de noviembre de 2026). Lo marcado 
 | Plan de trabajo (baseline vs. real) | Tabla del anteproyecto, plan real en 5 etapas, Gantt comparativo, justificación del desfase y registro de cambios | [`plan-de-trabajo.md`](plan-de-trabajo.md), [`../bitacora.md`](../bitacora.md) | Listo; se actualiza cada etapa |
 | Tecnología | Rol, justificación y versión de cada tecnología; decisiones abiertas | [`tecnologias.md`](tecnologias.md) | Documentada; versiones por fijar en la Etapa 2 |
 | Framework | Django (con ORM, admin y DRF) y React, instalados y demostrados | [`tecnologias.md`](tecnologias.md); código en `backend/` y `frontend/` | Seleccionados; instalación en la Etapa 2 |
-| Prototipo / mockup | Mockup de alta fidelidad con 60 vistas en escritorio y móvil y 119 capturas; después, el sitio conectado al backend y una suite con pytest y Playwright | `mockup/fuente/`, `mockup/capturas/`, [`../mapa-de-vistas.md`](../mapa-de-vistas.md), [`pruebas.md`](pruebas.md) | Mockup listo; demo y pruebas en las etapas 3 a 5 |
+| Prototipo / mockup | Mockup de alta fidelidad con 60 vistas en escritorio y móvil y 119 capturas; después, el sitio conectado al backend y una suite con pytest y Playwright | `mockup/fuente/`, `mockup/capturas/`, [`../mapa-de-vistas.md`](../mapa-de-vistas.md), [`pruebas.md`](pruebas.md) | Mockup listo; pruebas en las etapas 2 a 4 y demo en el cierre (Etapa 5) |
 | Fuentes | Referencias en APA 7.ª edición de cada tecnología, de WCAG 2.1 y de los patrones de diseño | [`referencias.md`](referencias.md) | Lista inicial; se completa en el reporte final |
 
 ## Ver también

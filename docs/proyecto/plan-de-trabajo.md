@@ -1,12 +1,13 @@
 # Plan de trabajo: baseline y plan real
 
-El anteproyecto del 1 de octubre de 2026 planeó 8 semanas. El plan real tiene 5 etapas: la Etapa 1 (8 al 31 de octubre) está completada y la Etapa 2 (1 al 7 de noviembre) está en curso. Este documento contrasta ambos planes, justifica el desfase y registra los cambios.
+El anteproyecto del 1 de octubre de 2026 planeó 8 semanas. El plan real tiene 5 etapas: la Etapa 1 (8 al 31 de octubre) está completada y la Etapa 2 (1 al 7 de noviembre) está en curso. Sus entregables (reporte, código y presentación) quedan listos el 23 de noviembre, para la exposición del 24 o del 26 y la entrega del 26. El baseline se conserva sin cambios. Este documento contrasta ambos planes, justifica el desfase y registra los cambios.
 
 ## Contenido
 
 - [Baseline original](#baseline-original)
 - [Justificación del desfase de la Etapa 1](#justificación-del-desfase-de-la-etapa-1)
 - [Plan real en 5 etapas](#plan-real-en-5-etapas)
+- [Ejecución real](#ejecución-real)
 - [Gantt: baseline y plan real](#gantt-baseline-y-plan-real)
 - [Correspondencia con las fases del prompt maestro](#correspondencia-con-las-fases-del-prompt-maestro)
 - [Registro de cambios al plan](#registro-de-cambios-al-plan)
@@ -25,8 +26,8 @@ El anteproyecto se entregó el 1 de octubre de 2026 con un plan de 8 semanas lin
 | 4 | 22 oct al 28 oct | 29 oct al 04 nov | Módulo WebGL para personalizar y previsualizar en 3D obleas y decoraciones | Módulo WebGL funcional | Flujo visual y reglas del flujo "Diseña tu pastel" definidos; el lienzo 3D se programa en la Etapa 3 real |
 | 5 | 29 oct al 04 nov | 05 nov al 11 nov | Carrito y pasarela de pagos; base de datos de los importes de bases ligados a cuentas | Pasarela integrada y garantías digitales ligadas a cuentas | Diseño de interfaz y reglas listos. Integración de pagos y garantías: Etapa 4 real |
 | 6 | 05 nov al 11 nov | 12 nov al 18 nov | Agenda de entregas sin empalmes; cancelaciones y devoluciones | Agenda y cancelaciones funcionales | Reglas de capacidad, lapsos y anticipación definidas; código en la Etapa 4 real. La política de cancelaciones sigue pendiente de la pastelería |
-| 7 | 12 nov al 18 nov | 19 nov al 25 nov | Pruebas integrales de compra e inventario; demo funcional | Sistema probado y demo preparado | Pendiente (Etapa 5 real). Se amplía con pruebas automatizadas y despliegue |
-| 8 | 19 nov al 25 nov | 26 nov al 02 dic | Propuesta de negocio; reporte final; fuentes | Propuesta afinada, reporte y referencias | Pendiente (Etapa 5 real): cierre documental, comparativa baseline vs. real y referencias APA |
+| 7 | 12 nov al 18 nov | 19 nov al 25 nov | Pruebas integrales de compra e inventario; demo funcional | Sistema probado y demo preparado | Pendiente. Las pruebas automatizadas se hacen dentro de las etapas 2 a 4 y la verificación final es el 20 nov (Etapa 5 real). Se amplía con despliegue desde la Etapa 2 |
+| 8 | 19 nov al 25 nov | 26 nov al 02 dic | Propuesta de negocio; reporte final; fuentes | Propuesta afinada, reporte y referencias | Pendiente (Etapa 5 real): reporte el 21 nov, con la comparativa baseline vs. real y las referencias APA, y presentación el 22 nov |
 
 ## Justificación del desfase de la Etapa 1
 
@@ -58,12 +59,33 @@ La Etapa 1 absorbió así el diseño de las semanas 1, 3, 5 y 6 del baseline. A 
 | Etapa | Fechas | Estado | Entregables |
 | --- | --- | --- | --- |
 | 1. Levantamiento, identidad visual y diseño | 8 al 31 oct | Completada | Requerimientos y reglas de negocio validadas con la pastelería; identidad visual ("Betún y duya", paleta Fresa y mermelada, logo con la vela, dibujos de línea); libro de marca; mockup de alta fidelidad (60 vistas en escritorio y móvil, con estados); arquitectura y patrones |
-| 2. Backend, base de datos y frontend base | 1 al 7 nov | En curso | Backend: proyecto Django y PostgreSQL, modelos ORM, repositorios, servicios de precio y garantías, DRF bajo `/api/v1/`, `drf-spectacular` en `/api/v1/docs/`, admin con precios y límites editables. Frontend base, en paralelo: React y Tailwind con el preset y las fuentes, componentes base del libro de marca, rutas de [`../mapa-de-vistas.md`](../mapa-de-vistas.md), página de muestra. Hoy: repositorio, `AGENTS.md` y documentación |
-| 3. Pantallas conectadas e integración 3D | 8 al 14 nov | Por iniciar | Portada, catálogo, vitrina, rebanadas y ficha conectados a la API; acceso con Google y correo; "Diseña tu pastel" (8 pasos) con `react-three-fiber` y precio calculado por el backend (Strategy) |
-| 4. Compra, pagos, garantías y agenda | 15 al 21 nov | Por iniciar | Carrito; entrega con agenda sin empalmes (lapsos de 30 min, máximo 3 pedidos por lapso, 2 días de anticipación); pago con Factory Method y Adapter, `Idempotency-Key` y webhooks idempotentes; Observer de eventos del pedido; garantías de bases (nota PDF con QR, `/nota/:token`, devolución registrada por el personal); envío de referencia y cotización; cancelaciones |
-| 5. Pruebas, accesibilidad, despliegue y reporte | 22 al 28 nov | Por iniciar | `pytest` con `pytest-django` y Playwright; accesibilidad WCAG 2.1 AA; revisión de interfaz; despliegue en una PaaS; reporte final con baseline vs. real y referencias APA |
+| 2. Backend, base de datos y frontend base | 1 al 7 nov | En curso | Backend: proyecto Django y PostgreSQL, modelos ORM, repositorios, servicios de precio y garantías, DRF bajo `/api/v1/`, `drf-spectacular` en `/api/v1/docs/`, admin con precios y límites editables. Frontend base, en paralelo: React y Tailwind con el preset y las fuentes, componentes base del libro de marca, rutas de [`../mapa-de-vistas.md`](../mapa-de-vistas.md), página de muestra. Elección de la PaaS y despliegue del esqueleto de Django y React. Pruebas de lo que se construye. Hoy: repositorio, `AGENTS.md` y documentación |
+| 3. Pantallas conectadas e integración 3D | 8 al 13 nov | Por iniciar | Al iniciar, se define el mínimo para la exposición: qué se demuestra en vivo de cada uno de los 6 objetivos y qué entra solo si sobra tiempo. Portada, catálogo, vitrina, rebanadas y ficha conectados a la API; acceso con Google y correo; "Diseña tu pastel" (8 pasos) con `react-three-fiber` y precio calculado por el backend (Strategy). Con sus pruebas y revisión de accesibilidad por pantalla |
+| 4. Compra, pagos, garantías y agenda | 14 al 19 nov | Por iniciar | Carrito; entrega con agenda sin empalmes (lapsos de 30 min, máximo 3 pedidos por lapso, 2 días de anticipación); pago con Factory Method y Adapter, `Idempotency-Key` y webhooks idempotentes; Observer de eventos del pedido; garantías de bases (nota PDF con QR, `/nota/:token`, devolución registrada por el personal); envío de referencia y cotización; cancelaciones. Con sus pruebas. El jueves 19 se congela el código y desde ahí solo se corrigen fallas |
+| 5. Cierre: verificación, reporte y presentación | 20 al 23 nov | Por iniciar | Vie 20: verificación (pruebas en el sitio desplegado, revisión final de accesibilidad, video de respaldo de la demo). Sáb 21: reporte final, con la comparativa baseline contra real cerrada con las fechas reales y las referencias APA. Dom 22: presentación. Lun 23: ensayo general, revisión cruzada, etiqueta del commit final y zip del código (lo genera el equipo, D23); los tres entregables quedan listos |
 
-Las 8 etapas del baseline se consolidan así: la Etapa 2 real cubre la semana 2 y la base de datos de las semanas 5 y 6; la Etapa 3, las semanas 3 y 4; la Etapa 4, las semanas 5 y 6; la Etapa 5, las semanas 7 y 8.
+Las 8 etapas del baseline se consolidan así: la Etapa 2 real cubre la semana 2 y la base de datos de las semanas 5 y 6; la Etapa 3, las semanas 3 y 4; la Etapa 4, las semanas 5 y 6; las pruebas de la semana 7 se reparten en las etapas 2 a 4, y la Etapa 5 cubre su verificación final y la semana 8.
+
+Pruebas (`pytest` con `pytest-django` y Playwright) y accesibilidad WCAG 2.1 AA no son una etapa propia: se hacen dentro de las etapas 2 a 4, pantalla por pantalla. El despliegue empieza en la Etapa 2.
+
+Hitos:
+
+- Jueves 19 de noviembre: congelamiento del código. Del 19 al 23 solo se corrigen fallas.
+- Lunes 23 de noviembre: entregables listos, con la etiqueta del commit final y el zip del código.
+- Martes 24 o jueves 26 de noviembre: exposición (el equipo no sabe qué día le toca y planea para el 24). Del 24 al 26 hay holgura solo para correcciones al reporte o a la presentación, sin código.
+- Jueves 26 de noviembre: entrega del reporte, el código (como archivos) y la presentación.
+
+## Ejecución real
+
+Esta tabla se llena al cerrar cada etapa. Si algo se adelanta o se atrasa, se anota aquí y el baseline no se toca.
+
+| Etapa | Plan real | Cierre real | Diferencia contra el plan real | Notas |
+| --- | --- | --- | --- | --- |
+| 1 | 8 al 31 oct | 31 oct | Sin diferencia | El kit para construir el sitio se terminó el 1 nov (ver la [justificación](#la-identidad-visual-se-definió-en-la-misma-etapa)) |
+| 2 | 1 al 7 nov | Por cerrar | Por cerrar | Por cerrar |
+| 3 | 8 al 13 nov | Por cerrar | Por cerrar | Por cerrar |
+| 4 | 14 al 19 nov | Por cerrar | Por cerrar | Por cerrar |
+| 5 | 20 al 23 nov | Por cerrar | Por cerrar | Por cerrar |
 
 ## Gantt: baseline y plan real
 
@@ -89,9 +111,15 @@ gantt
     R1 Reglas, identidad visual y mockup  :done, r1, 2026-10-08, 24d
     R2 Backend y base de datos            :active, r2a, 2026-11-01, 7d
     R2 Frontend base                      :active, r2b, 2026-11-01, 7d
-    R3 Pantallas conectadas y 3D          :r3, 2026-11-08, 7d
-    R4 Pagos, garantías y agenda          :r4, 2026-11-15, 7d
-    R5 Pruebas, despliegue y reporte      :r5, 2026-11-22, 7d
+    R3 Pantallas conectadas y 3D          :r3, 2026-11-08, 6d
+    R4 Pagos, garantías y agenda          :r4, 2026-11-14, 6d
+    R5 Verificación                       :r5a, 2026-11-20, 1d
+    R5 Reporte                            :r5b, 2026-11-21, 1d
+    R5 Presentación                       :r5c, 2026-11-22, 1d
+    R5 Ensayo y revisión cruzada          :r5d, 2026-11-23, 1d
+    Congelamiento del código              :milestone, m1, 2026-11-19, 0d
+    Exposición posible (martes)           :milestone, m2, 2026-11-24, 0d
+    Exposición posible (jueves) y entrega :milestone, m3, 2026-11-26, 0d
 ```
 
 ## Correspondencia con las fases del prompt maestro
@@ -105,7 +133,7 @@ El prompt maestro con el que se encargó la construcción dividía el trabajo en
 | 3. Cuenta y compra | Acceso con Google y correo; carrito; entrega con horarios y tarifa; pago en sandbox y efectivo; confirmación; "Mis pedidos"; detalle con bases | 3 (acceso) y 4 (el resto) |
 | 4. Diseña tu pastel | Los 8 pasos con reglas validadas en el backend; precio calculado por el backend; vista previa 3D por etapas; revisión y paso al carrito | 3 (el paso al carrito se completa en la 4) |
 | 5. Referencia y nota | Pedido con foto de referencia y cotización; nota en PDF con QR y su página de verificación; devolución de bases | 4 |
-| 6. Cierre | Accesibilidad WCAG 2.1 AA; pruebas de la lógica de negocio; revisión de interfaz; lista de datos PENDIENTE | 5 |
+| 6. Cierre | Accesibilidad WCAG 2.1 AA; pruebas de la lógica de negocio; revisión de interfaz; lista de datos PENDIENTE | 2 a 4 (accesibilidad, pruebas y revisión por pantalla) y 5 (revisión final y lista de datos PENDIENTE) |
 
 ## Registro de cambios al plan
 
@@ -113,6 +141,7 @@ El prompt maestro con el que se encargó la construcción dividía el trabajo en
 | --- | --- | --- |
 | 1 nov 2026 | Se corrige la narrativa del mockup: son prototipos de diseño, no código React. El frontend arranca en la Etapa 2 y avanza en paralelo con el backend | La Etapa 1 adelantó el diseño de las vistas, no su programación. Esperar al backend para empezar el frontend dejaría las etapas 3 y 4 sin margen |
 | 1 nov 2026 | La Etapa 2 pasa de "backend y base de datos" a "backend, base de datos y frontend base" | Consecuencia del cambio anterior |
+| 1 nov 2026 | Las etapas 3 a 5 pasan de 8 al 14, 15 al 21 y 22 al 28 de noviembre a 8 al 13, 14 al 19 y 20 al 23. Pruebas y accesibilidad se hacen dentro de las etapas 2 a 4 y el despliegue empieza en la Etapa 2 | Exposición el 24 o el 26 de noviembre y entrega el 26 con reporte, código y presentación (D23) |
 
 ## Riesgos
 
@@ -121,7 +150,7 @@ El prompt maestro con el que se encargó la construcción dividía el trabajo en
 | Carga del frontend: 60 vistas con sus estados, 8 pasos de "Diseña tu pastel" y escena 3D, que ahora se construyen en el mismo periodo que el backend | Pantallas incompletas al cierre | Empezar por los componentes base y la página de muestra; construir cada pantalla contra sus capturas de escritorio y móvil; avanzar por etapas |
 | Datos PENDIENTE de la pastelería: precio de las decoraciones fijas, repartidor propio o aplicación, vigencia de una cotización, políticas de cambios y cancelaciones, base dañada, dirección, WhatsApp, aviso de privacidad y términos | No se pueden cerrar el objetivo 6 ni los textos legales | Dejar cada dato configurable en la base de datos o el admin, con marcador PENDIENTE visible; nunca un valor supuesto |
 | Integración de tres formas de pago (Mercado Pago, Stripe y efectivo) con cobros duplicados o webhooks repetidos | Cobros dobles o estados inconsistentes | Factory Method con registro y Adapter por SDK; `Idempotency-Key`; webhooks idempotentes; pruebas con SDK simulados |
-| Fechas fijas: la Etapa 5 junta pruebas, accesibilidad, despliegue y reporte en una semana que termina el 28 de noviembre | Sin holgura para retrasos | Escribir pruebas desde las etapas 2 a 4 junto con el código; documentar al avanzar |
+| Fechas fijas: las etapas 3 y 4 pierden un día cada una y absorben pruebas y despliegue | Pantallas o pruebas incompletas al congelar el código | Pruebas y accesibilidad por pantalla; despliegue desde la Etapa 2; mínimo para la exposición definido al iniciar la Etapa 3; congelamiento del código el 19 de noviembre |
 | Decisiones abiertas: versiones sin fijar, PaaS, API de distancias para la tarifa de envío | Retrasos al integrar | Fijar versiones al inicializar Django y React; ver [`tecnologias.md`](tecnologias.md#decisiones-abiertas) |
 
 ## Ver también

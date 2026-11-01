@@ -262,7 +262,7 @@ El objetivo es WCAG 2.1 nivel AA ([`referencias.md`](referencias.md)). Se revisa
 | Estados con palabra | Ningún estado se comunica solo con color |
 | Tamaño táctil | Enlaces y deslizadores utilizables en móvil |
 
-La herramienta automática de auditoría (por ejemplo una extensión para Playwright) no está elegida. Se decide en la Etapa 5.
+La herramienta automática de auditoría (por ejemplo una extensión para Playwright) no está elegida. Se decide al iniciar la Etapa 3.
 
 ## Casos por confirmar
 

@@ -167,3 +167,4 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Plan actualizado con el frontend en paralelo al backend.
 - La carpeta `diseno/` se renombra a `design/` y se corrigen sus rutas en la documentación (D21).
 - El 3D se presenta como complemento en el README, los objetivos, `AGENTS.md` y el libro de marca; el objetivo 3 se reformula como diseño de pedidos a medida con precio exacto (D22).
+- Calendario del plan real ajustado para tener los entregables listos el 23 de noviembre, con exposición el 24 o el 26 y entrega el 26 (D23). Las etapas 3 a 5 pasan a 8 al 13, 14 al 19 y 20 al 23 de noviembre; el baseline no cambia. Se agrega la tabla "Ejecución real" a `plan-de-trabajo.md`.
