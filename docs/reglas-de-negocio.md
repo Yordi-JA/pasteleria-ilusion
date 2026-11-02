@@ -192,7 +192,7 @@ En la interfaz, todos los precios del paso de pan se muestran **en la misma unid
 
 | Situación | Comportamiento |
 |---|---|
-| Tipo = envinado | Choco-pingüino desactivado: "No se combina con pastel envinado". Fresa con yogurt no aparece |
+| Tipo = envinado | Choco-pingüino desactivado: "No se combina con pastel envinado". Fresa con yogurt desactivada: "No disponible en pastel envinado" (D32) |
 | Tipo ≠ seco | Red velvet desactivado: "Solo en pastel seco" |
 | Pan = Choco-pingüino o Red velvet | El paso de relleno queda "Incluido" (bloqueado) y se salta a cobertura |
 | Cambiar el tipo invalida el pan elegido | Avisar antes de continuar; el botón dice qué pasará ("Continuar y elegir otro pan"); el pan queda marcado "Hay que cambiarlo" |
