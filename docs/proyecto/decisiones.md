@@ -1,6 +1,6 @@
 # Registro de decisiones
 
-Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D23 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026; D24 a D28, al inicializar los proyectos el 2 de noviembre; D29 a D34, el mismo 2 de noviembre: identificadores en inglés, catálogo, despliegue y límite de intentos.
+Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D23 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026; D24 a D28, al inicializar los proyectos el 2 de noviembre; D29 a D35, el mismo 2 de noviembre: identificadores en inglés, catálogo, despliegue, límite de intentos y diagramas.
 
 ## Contenido
 
@@ -307,6 +307,22 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
     - `AXES_FAILURE_LIMIT`, `AXES_COOLOFF_MINUTES` y `NUM_PROXIES` deben ser enteros; si no, la app no arranca (`ImproperlyConfigured`).
 - **Contexto:** La auditoría del despliegue encontró que el login del admin quedaba público y sin límite. Argon2 hace caro cada intento, así que unos pocos intentos simultáneos podían saturar el dyno. El equipo descartó el bloqueo por correo desde cualquier IP porque permitía a un tercero bloquear a propósito la cuenta de la dueña. Agregó el bloqueo por IP para frenar el rociado de contraseñas y acotar los registros a 5 por IP y hora.
 - **Consecuencias:** Si alguien del personal falla 5 veces desde el wifi de la pastelería, esa red espera una hora o un superusuario la desbloquea; los comandos de desbloqueo están en [`../../backend/AGENTS.md`](../../backend/AGENTS.md). axes aplica a toda llamada a `authenticate()`, así que el login JWT de la Etapa 3 hereda la política y debe responder 429. Un segundo factor para el personal queda como mejora posible.
+
+### D35. Diagramas de arquitectura en Excalidraw con la paleta de la marca
+
+- **Fecha:** 2 de noviembre de 2026.
+- **Decisión:**
+    - Los seis diagramas de [`arquitectura.md`](arquitectura.md) (contexto, capas de una petición, fábrica de pagos, Observer, estados del pedido y estados de la base) dejan de ser bloques Mermaid. Pasan a ser dibujos a mano alzada hechos en Excalidraw. En [`diagramas/`](diagramas/) se versionan la fuente `.excalidraw` y el `.svg` que muestra el documento, sin el PNG. Cada imagen lleva un texto alternativo que describe el diagrama completo.
+    - Usan los tokens de la paleta Fresa y mermelada:
+        - Fondo `nata`, trazo y texto en `mermelada` y notas en `mermelada-suave`.
+        - Un solo nodo en `fresa` por diagrama, el que articula a los demás.
+        - Servicios externos en `fresa-claro` y regiones en `harina` con borde punteado.
+        - Lo que está por definir lleva borde punteado en `cajeta`.
+        - Todas las combinaciones de texto pasan WCAG AA: 5.7:1 o más.
+    - Las etiquetas van en Excalifont y los identificadores de código en Cascadia, las dos incrustadas en el SVG. Virgil, la fuente clásica de Excalidraw, dibuja mal la ñ y el ¿.
+    - El Gantt de [`plan-de-trabajo.md`](plan-de-trabajo.md) sigue en Mermaid con la paleta aplicada por `themeVariables`, porque cambia con cada ajuste del plan.
+- **Contexto:** El equipo pidió diagramas con la identidad de la pastelería y una revisión con antislop. Se consideró mantener Mermaid con la paleta, que se ve en el diff y no requiere exportar, pero el equipo prefirió el trazo a mano. Para evitar dos versiones que se desfasen, se quitó el Mermaid. También se consideró usar Fraunces e Instrument Sans, que Excalidraw no admite: habría que cambiar la fuente del SVG con un script en cada exportación. El equipo prefirió Excalifont, que es parte del estilo dibujado; las fuentes de la marca son del sitio.
+- **Consecuencias:** Un cambio de arquitectura obliga a editar el `.excalidraw`, exportar otra vez el SVG con fondo y actualizar su texto alternativo; el diff ya no muestra el cambio en texto. El PNG para el reporte académico se exporta desde la fuente cuando haga falta.
 
 ## Decisiones abiertas
 

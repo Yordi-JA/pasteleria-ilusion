@@ -103,6 +103,28 @@ El diagrama, los contratos y la justificación están en [`docs/proyecto/arquite
 - `backend/media/` (fotos de referencia y otras subidas de clientes) nunca se versiona.
 - Los agentes no hacen commits, push ni etiquetas, no generan el zip de entrega, no crean el repositorio y no se agregan como coautores (sin `Co-Authored-By`). Preparan los cambios y entregan al equipo los comandos de git.
 
+## Pull requests
+
+El PR va contra `main`. Su título sigue Conventional Commits en español, como los commits, porque al fusionar con squash se convierte en el commit de `main`.
+
+La descripción va en español, en Markdown, con estos encabezados `##` y en este orden:
+
+1. `## Qué es esto`: uno o dos párrafos con qué parte del sitio toca, qué problema resuelve y qué no se podía hacer antes.
+2. `## Qué trae`: una viñeta por cambio. Cada viñeta dice qué cambió y, si no es obvio, por qué se eligió así (por ejemplo, la alternativa descartada). Cita rutas, endpoints, variables y comandos tal cual, entre comillas invertidas.
+3. `## Verificación`: cada comprobación con el comando y su resultado: `.venv/bin/pytest` desde `backend/`; `npm run typecheck`, `npm run lint` y `npm run test:e2e` desde `frontend/`; en pantallas, la comparación con las capturas a 1440 px y 390 px. Cuando exista el despliegue en Heroku (D26), distingue lo verificado en local de lo verificado en el sitio desplegado.
+4. `## Falta`: lo que no se hizo, y por qué.
+5. `## Para el equipo`: lo que otra persona tiene que hacer o saber, como variables nuevas en `.env`, cambios en el contrato de la API o documentos que quedaron desactualizados y no se pudieron actualizar en el mismo PR (lo normal es actualizarlos ahí).
+
+Reglas de redacción:
+
+- Frases directas y con sujeto ("No usé X porque Y", no "Se optó por no usar X").
+- No afirmes resultados, cifras ni pruebas que no se corrieron y que no aparezcan en `## Verificación`.
+- Sin rayas largas, sin emojis y sin negritas de adorno.
+- Una sección vacía dice "N/A".
+- Una imagen que ya está versionada (por ejemplo en `docs/` o `mockup/capturas/`) va con URL absoluta y el hash completo del commit, no el nombre de la rama: `https://github.com/Yordi-JA/pasteleria-ilusion/blob/<COMMIT>/<ruta>?raw=true`. La descripción del PR no resuelve rutas relativas, y la rama se borra al fusionar. El agente deja `<COMMIT>` y el equipo lo sustituye después del push por la salida de `git rev-parse HEAD`.
+- Las capturas nuevas (por ejemplo, de una pantalla) no se versionan para el PR: el equipo las arrastra al editor del PR en GitHub.
+- Los agentes redactan el título y la descripción y se los entregan al equipo; no abren el PR. No agregan líneas de atribución ni pies de firma (por ejemplo, "Generated with ..."), ni `Co-Authored-By` (ver "Git y secretos").
+
 ## Comandos
 
 Los comandos completos y verificados están en la sección "Comandos" de [`backend/AGENTS.md`](backend/AGENTS.md#comandos) y de [`frontend/AGENTS.md`](frontend/AGENTS.md#comandos). En resumen:
