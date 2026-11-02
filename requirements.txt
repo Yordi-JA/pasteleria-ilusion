@@ -1,0 +1,2 @@
+# Heroku detecta Python desde la raíz del repositorio; las dependencias viven en backend/.
+-r backend/requirements.txt

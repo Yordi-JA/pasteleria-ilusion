@@ -1,0 +1,5 @@
+# Heroku no necesita estas carpetas en el slug (no se leen en el build ni en
+# ejecución). design/ y assets/ NO van aquí: el build de Tailwind y las fuentes
+# las leen (frontend/tailwind.config.cjs y frontend/src/index.css).
+mockup/
+docs/
