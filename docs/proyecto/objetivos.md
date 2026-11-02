@@ -55,7 +55,7 @@ La tabla liga cada objetivo con las reglas que lo gobiernan, las vistas del mock
 | 3. Pedidos a medida con precio exacto | Secciones 3 a 6 (pasos 1 a 7) y 6.3 (oblea) | "Diseña tu pastel", pasos 1 a 8 y sus estados | `services/pricing_service.py` (Strategy); en el frontend, `frontend/src/three/` | 3 |
 | 4. Garantías de bases | Secciones 7 (depósito), 11 (nota y QR), 12 (estado de la base) | Bases en préstamo (cuenta y `/bases`), Nota de pedido en PDF, Verificación de la nota, Detalle de pedido | `services/warranty_service.py`, `repositories/order_repo.py`, `services/orders/order_observer.py` | 4 |
 | 5. Agenda de entregas | Sección 1 (lapsos, capacidad, anticipación) y 8 (entrega) | Entrega (calendario con días no disponibles) | `repositories/order_repo.py` (agenda), `models.py` | 4 |
-| 6. Cancelaciones y devoluciones | Secciones 10 (efectivo no recibido), 12 (`cancelado`) y 14 (política pendiente) | Pedido apartado, Detalle de pedido, Mis pedidos | `services/orders/order_observer.py`, `repositories/order_repo.py` | 4 |
+| 6. Cancelaciones y devoluciones | Secciones 10 (efectivo no recibido), 12 (`cancelled`) y 14 (política pendiente) | Pedido apartado, Detalle de pedido, Mis pedidos | `services/orders/order_observer.py`, `repositories/order_repo.py` | 4 |
 
 La tabla mapea módulos a objetivos; el reparto fino de funciones dentro de cada archivo se decide al programarlo en las etapas 2 a 4.
 
@@ -77,17 +77,17 @@ La meta es el nivel "Excelente" (9.5 a 10) en cada rubro. Los criterios son los 
 
 ### Cómo la cubre el proyecto
 
-La columna "Estado" dice lo que existe hoy (1 de noviembre de 2026). Lo marcado como pendiente se cierra en la etapa indicada.
+La columna "Estado" dice lo que existe hoy (2 de noviembre de 2026). Lo marcado como pendiente se cierra en la etapa indicada.
 
 | Rubro | Cómo lo cubre el proyecto | Evidencia | Estado |
 | --- | --- | --- | --- |
 | Objetivo | Un objetivo general y seis específicos, cada uno ligado a reglas, vistas y módulos | Este documento, [trazabilidad](#trazabilidad-de-los-objetivos) | Listo |
 | Definición de producto o servicio | Tres servicios separados: catálogo y vitrina, "Diseña tu pastel", bases con depósito | Este documento, [definición](#definición-del-producto-o-servicio); [`../reglas-de-negocio.md`](../reglas-de-negocio.md) | Listo |
 | Estrategia | Cinco etapas iterativas con capas de software separadas; backend y frontend en paralelo desde la Etapa 2 | [`plan-de-trabajo.md`](plan-de-trabajo.md), [`decisiones.md`](decisiones.md) | Listo |
-| Arquitectura | Diagramas Mermaid de contexto, capas, MVVM, patrones y estados; frontend en MVVM y backend en MVT con servicios y repositorios | [`arquitectura.md`](arquitectura.md) | Documentada; sin código todavía |
+| Arquitectura | Diagramas Mermaid de contexto, capas, MVVM, patrones y estados; frontend en MVVM y backend en MVT con servicios y repositorios | [`arquitectura.md`](arquitectura.md) | Documentada; el código tiene la estructura de capas, el modelo `User` y la API base; los patrones llegan con los servicios |
 | Plan de trabajo (baseline vs. real) | Tabla del anteproyecto, plan real en 5 etapas, Gantt comparativo, justificación del desfase y registro de cambios | [`plan-de-trabajo.md`](plan-de-trabajo.md), [`../bitacora.md`](../bitacora.md) | Listo; se actualiza cada etapa |
-| Tecnología | Rol, justificación y versión de cada tecnología; decisiones abiertas | [`tecnologias.md`](tecnologias.md) | Documentada; versiones por fijar en la Etapa 2 |
-| Framework | Django (con ORM, admin y DRF) y React, instalados y demostrados | [`tecnologias.md`](tecnologias.md); código en `backend/` y `frontend/` | Seleccionados; instalación en la Etapa 2 |
+| Tecnología | Rol, justificación y versión de cada tecnología; decisiones abiertas | [`tecnologias.md`](tecnologias.md) | Documentada; versiones fijadas el 2 de noviembre (D24 y D25) |
+| Framework | Django (con ORM, admin y DRF) y React, instalados y demostrados | [`tecnologias.md`](tecnologias.md); código en `backend/` y `frontend/` | Instalados el 2 de noviembre, con pruebas en verde; se demuestran con las pantallas de las etapas 3 y 4 |
 | Prototipo / mockup | Mockup de alta fidelidad con 60 vistas en escritorio y móvil y 119 capturas; después, el sitio conectado al backend y una suite con pytest y Playwright | `mockup/fuente/`, `mockup/capturas/`, [`../mapa-de-vistas.md`](../mapa-de-vistas.md), [`pruebas.md`](pruebas.md) | Mockup listo; pruebas en las etapas 2 a 4 y demo en el cierre (Etapa 5) |
 | Fuentes | Referencias en APA 7.ª edición de cada tecnología, de WCAG 2.1 y de los patrones de diseño | [`referencias.md`](referencias.md) | Lista inicial; se completa en el reporte final |
 

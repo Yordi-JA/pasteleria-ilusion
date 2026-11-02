@@ -1,6 +1,6 @@
 # Registro de decisiones
 
-Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D23 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026.
+Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D23 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026; D24 a D28, al inicializar los proyectos el 2 de noviembre; D29 a D31, el 2 de noviembre, tras la revisión del equipo.
 
 ## Contenido
 
@@ -68,6 +68,7 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 - **Decisión:** La interfaz va en español de México. Los identificadores del dominio van en español (`PagoBase`, `cobrar`, `crear_procesador_pago`, `REGISTRO_PASARELAS`). Los nombres de archivo y los sufijos técnicos que exige la arquitectura van en inglés (`pricing_service.py`, `product_repo.py`).
 - **Contexto:** La especificación de arquitectura mezclaba ambos idiomas.
 - **Consecuencias:** Una convención fija para el código nuevo.
+- **Reemplazada por D29.**
 
 ### D8. `AGENTS.md` como fuente única de instrucciones para agentes
 
@@ -103,6 +104,7 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 - **Decisión:** No se documentan versiones ni la herramienta de compilación del frontend hasta inicializar Django y React en la Etapa 2.
 - **Contexto:** Citar versiones antes de instalar produciría datos inventados.
 - **Consecuencias:** [`tecnologias.md`](tecnologias.md) dice "se fija en la Etapa 2" en cada versión y lista lo que sigue abierto.
+- **Reemplazada por D24 y D25.**
 
 ### D13. Observer con eventos del pedido
 
@@ -181,25 +183,94 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 - **Contexto:** Las exposiciones son el martes 24 y el jueves 26 de noviembre, y el equipo no sabe qué día le toca. La entrega es el jueves 26 e incluye el reporte, el código y la presentación. El plan anterior cerraba el 28 de noviembre.
 - **Consecuencias:** Las etapas 3 y 4 pierden un día cada una. El mínimo para la exposición se define al iniciar la Etapa 3. La fecha real de cierre de cada etapa se anota en la ejecución real de [`plan-de-trabajo.md`](plan-de-trabajo.md#ejecución-real). El baseline del anteproyecto no cambia. La sección "Cómo correrlo" del README tiene que estar completa para el 19, porque quien reciba el zip no tiene GitHub. Como el zip sale sin `.env`, esa sección explica cómo crearlo a partir de `.env.example` y qué llaves sandbox se necesitan, y la demo de referencia es el sitio desplegado.
 
+### D24. Versiones y herramientas del backend
+
+- **Fecha:** 2 de noviembre de 2026.
+- **Decisión:** Django 5.2 LTS (5.2.18) con Python 3.11, Django REST Framework 3.18.3, SimpleJWT 5.5.1, drf-spectacular 0.30.0, django-cors-headers 4.9.0 y PostgreSQL 18. El entorno se lee con django-environ y la base de datos solo con `DATABASE_URL`. El paquete del proyecto es `backend/config/`. Las dependencias van en un solo `backend/requirements.txt` con versiones exactas. En desarrollo, PostgreSQL corre en Docker (`backend/compose.yaml`, ligado a 127.0.0.1, puerto 5433 por defecto) y Django en un venv local.
+- **Contexto:** Reemplaza a D12 en lo que toca al backend. Según sus notas de versión (consultadas el 2 de noviembre de 2026; ver [`referencias.md`](referencias.md)), Django 6.1 soporta Python 3.12 a 3.14, y la máquina de desarrollo tiene 3.11. La 5.2 es LTS, con soporte hasta abril de 2028, y las dependencias del proyecto la soportan desde hace tiempo. Según el changelog de Heroku, las bases nuevas usan PostgreSQL 18 por defecto desde agosto de 2026. django-environ lee `.env`, entiende el `DATABASE_URL` de Heroku y no pisa las variables que ya existen en el entorno. Se descartó `os.environ` con dj-database-url porque obligaba a parsear listas y booleanos a mano. El puerto 5432 local ya lo ocupaba otro proyecto.
+- **Consecuencias:** Los comandos están en [`../../backend/AGENTS.md`](../../backend/AGENTS.md#comandos). Las pruebas corren contra PostgreSQL, no contra SQLite. Separar las dependencias de pruebas en `requirements-dev.txt` queda para el despliegue.
+
+### D25. Versiones y herramientas del frontend
+
+- **Fecha:** 2 de noviembre de 2026.
+- **Decisión:** Vite 8 con React 19 y TypeScript 7, Node 22 LTS y npm con versiones exactas. El linter es oxlint, que es el que trae la plantilla de Vite. Tailwind CSS v3 (3.4) usa el preset `design/tailwind.preset.js` tal cual. El enrutamiento es React Router 8 en modo declarativo (`BrowserRouter`). Las fuentes se declaran con `@font-face` apuntando a `assets/fuentes/`, sin copiarlas. Las pruebas E2E usan Playwright con Chromium. El servidor de desarrollo escucha en 127.0.0.1, solo sirve `frontend/` y `assets/fuentes/`, y reenvía `/api` a Django en `127.0.0.1:8000`.
+- **Contexto:** Reemplaza a D12 en lo que toca al frontend. Según su guía de migración, Vite 7 en adelante pide Node 20.19 o más (ver [`referencias.md`](referencias.md)). Con v3, el preset ya existente funciona sin traducción; v4 pedía pasar los tokens a `@theme`. Al inicializar el 2 de noviembre, la plantilla de `create-vite` para React y TypeScript traía TypeScript 7.0.2 y oxlint, y typescript-eslint 8.72.1 declaraba el rango `typescript >=4.8.4 <6.1.0`. Usar ESLint obligaba a bajar TypeScript, y el equipo prefirió la plantilla. En la máquina de desarrollo, el loopback IPv6 no responde.
+- **Consecuencias:** Los comandos están en [`../../frontend/AGENTS.md`](../../frontend/AGENTS.md#comandos). react-three-fiber, Phosphor Icons y el cliente HTTP se instalan cuando se usen. Una herramienta que dependa de la API de TypeScript podría no funcionar todavía con la versión 7.
+
+### D26. Despliegue en Heroku como un solo servicio
+
+- **Fecha:** 2 de noviembre de 2026.
+- **Decisión:** El sitio se despliega en Heroku con los créditos del GitHub Student Developer Pack. Un solo servicio: Django sirve el build de React y la API bajo `/api`, en el mismo origen. La base es Heroku Postgres y las tareas periódicas usan Heroku Scheduler.
+- **Contexto:** D15 exige que el frontend y la API compartan sitio. Con un solo origen eso se cumple sin dominio propio. El equipo ya tiene el Pack.
+- **Consecuencias:** El despliegue agrega el Procfile, servir el build, `SECURE_PROXY_SSL_HEADER`, `NUM_PROXIES` y una caché compartida para el throttling. En producción, la lista de orígenes CORS va vacía. `cancelar_apartados_vencidos` se programa con Heroku Scheduler. Los precios del plan se confirman al activarlo.
+
+### D27. Modelo de usuario propio con correo
+
+- **Fecha:** 2 de noviembre de 2026.
+- **Decisión:** `core_pasteleria.Usuario` es el modelo de usuario (`AUTH_USER_MODEL`) desde la primera migración. El correo es único y sirve para entrar; no hay username. El correo se guarda en minúsculas y la base de datos rechaza duplicados que solo difieren en mayúsculas. Las cuentas creadas con Google pueden no tener contraseña usable. En el admin, solo un superusuario puede: ver y editar al personal, dar permisos de personal o de superusuario, administrar grupos, crear cuentas, cambiar el correo de un cliente y fijarle una contraseña. El resto del personal con permiso sobre usuarios solo puede ver y editar los demás datos de los clientes, como activar o desactivar una cuenta.
+- **Contexto:** El acceso es con Google o con correo y contraseña. Cambiar el modelo de usuario después de la primera migración obliga a rehacer migraciones. La auditoría de seguridad encontró dos vías de escalada: un empleado con permiso de editar usuarios podía hacerse superusuario, y uno con permiso de editar grupos podía darse todos los permisos. Con permiso de editar usuarios, además, podía cambiar el correo o la contraseña de un cliente y entrar a su cuenta. El equipo decidió que eso solo lo haga un superusuario. El cliente que olvida su contraseña usa la recuperación.
+- **Consecuencias:** El modelo solo trae los campos de acceso y permisos. Nombre, teléfono y demás se deciden con los modelos de dominio.
+
+### D28. Seguridad de la sesión y de las credenciales
+
+- **Fecha:** 2 de noviembre de 2026.
+- **Decisión:** El access dura 10 minutos y el refresh 7 días, con rotación, lista negra y `CHECK_REVOKE_TOKEN`, para que un cambio de contraseña invalide los tokens anteriores. Las contraseñas se guardan con Argon2, con PBKDF2 de respaldo. Swagger UI en `/api/v1/docs/` es solo para el personal y se sirve desde el propio sitio con drf-spectacular-sidecar. HSTS dura un año; `includeSubDomains` y `preload` están apagados por defecto y se encienden por variable de entorno. Con `DEBUG=False`, la app no arranca si algún origen permitido no es `https://`. El throttling identifica al cliente con `NUM_PROXIES` leído del entorno (0 en desarrollo, 1 en Heroku), así que un `X-Forwarded-For` falsificado no da un contador nuevo.
+- **Contexto:** Completa D15, que no fijaba la duración del refresh. Lo pidió la auditoría de seguridad de la inicialización: sin sidecar, Swagger cargaba JavaScript de un CDN sin versión fija en una página con sesión de personal. La auditoría propuso separar `CSRF_TRUSTED_ORIGINS` de la lista de CORS, pero backend/AGENTS.md exige la misma lista, así que se conserva y se rechazan los orígenes `http://` en producción.
+- **Consecuencias:** La huella de `CHECK_REVOKE_TOKEN` sale del hash de la contraseña. Cuando Django migra un hash PBKDF2 a Argon2 en el primer inicio de sesión, los tokens anteriores se invalidan una vez; hoy no hay usuarios previos, así que solo importa al importar cuentas o cambiar de algoritmo. SimpleJWT renueva un refresh anterior al cambio de contraseña, aunque el access que entrega recibe 401. La vista de refresh con cookie de la Etapa 3 decide si lo rechaza de forma explícita (ver [decisiones abiertas](#decisiones-abiertas)). Quedan pendientes una CSP, una llave de firma de JWT separada de `SECRET_KEY`, una sesión más corta en el admin y programar `flushexpiredtokens`.
+
+### D29. Identificadores del dominio en inglés
+
+- **Fecha:** 2 de noviembre de 2026.
+- **Decisión:** Clases, modelos, campos, funciones, constantes, códigos de estado, permisos, comandos de gestión, rutas de la API y nombres de pruebas van en inglés (PEP 8 y convenciones de Django; en el frontend, convenciones de React y TypeScript). Siguen en español los comentarios y docstrings, toda la documentación, el reporte y todo texto visible para personas (interfaz, admin, mensajes y `verbose_name`). Las rutas del sitio siguen en español y las de la API pasan a inglés. El vocabulario de la interfaz de D6 no cambia. Los nombres de las entidades están en [Entidades previstas](arquitectura.md#entidades-previstas).
+
+    Nombres fijados (el código los usa tal cual):
+
+    | Concepto | Nombre |
+    | --- | --- |
+    | Observers | `CustomerNotificationObserver`, `InventoryObserver`, `StandLoanObserver`; interfaz `OrderObserver` con `update(event)` |
+    | Sujeto de eventos | `OrderSubject` con `subscribe(observer)` y `notify(event)` |
+    | Pagos | `BasePayment.charge(amount, payload)`, `CashPayment`, `PaymentResult`, `create_charge(amount, payload)` en los adaptadores, `create_payment_processor(payment_type)` |
+    | Registro de pasarelas | `PAYMENT_GATEWAY_REGISTRY`, con las claves `mercadopago`, `stripe` y `cash` |
+    | Repositorio de prueba | `MemoryRepo` |
+    | Servicio de garantías | `warranty_service.register_stand_return(token, actor)` |
+    | Decorador | `@audit_operation` |
+    | Ruta de diseños | `/api/v1/cake-designs/` |
+    | Campos de serializador de cliente | `status`, `refunded`, `customer_id` |
+    | Permisos | `core_pasteleria.register_cash_payment` (antes `registrar_pago_efectivo`), `core_pasteleria.register_stand_return` (antes `registrar_devolucion_base`) |
+    | Comando de gestión | `cancel_unpaid_cash_orders` (antes `cancelar_apartados_vencidos`; D18 y D26 lo citan con el nombre anterior) |
+
+    Excepciones explícitas: los códigos de tipo de pastel se quedan en español (`tres_leches`, `seco`, `envinado`) porque son nombres propios de la pastelería. La app de Django conserva su nombre, `core_pasteleria`. Los tokens de diseño de `design/` (`nata`, `mermelada`, `titulo-1` y demás) conservan sus nombres porque son el vocabulario de la marca. Ninguna excepción se extiende a otros valores: sabores, panes y productos se modelan como datos editables en la base (filas), no como identificadores de código.
+- **Contexto:** El equipo lo pidió para no forzar nombres sin ñ, como "Diseno". Se aplica antes del primer commit del código, así que solo cambian `Usuario` y los nombres de las pruebas. Resuelve el nombre del modelo `Cotizaciones3D`, que pasa a `CakeDesign`, y deja "cotización" solo para el envío de referencia (`Quote`).
+- **Consecuencias:** Reemplaza a D7. El modelo `core_pasteleria.Usuario` pasa a `core_pasteleria.User`. Los códigos de estado están en la [sección 12 de las reglas](../reglas-de-negocio.md#12-estados-del-pedido); los permisos y el comando, en la tabla de arriba y en [`../../backend/AGENTS.md`](../../backend/AGENTS.md). Las decisiones anteriores (D1 a D28) conservan los nombres que tenían al tomarse.
+
+### D30. Los pedidos de "Diseña tu pastel" no descuentan el inventario de pan
+
+- **Fecha:** 2 de noviembre de 2026.
+- **Decisión:** El inventario de pan (`Inventory`) solo controla los encargos de vitrina del mismo día. Un pedido de "Diseña tu pastel" con 2 días de anticipación se hornea aparte y no descuenta ese inventario.
+- **Contexto:** El equipo resolvió la pregunta abierta "Pedido personalizado y pan del inventario".
+- **Consecuencias:** Coincide con D14: los pedidos personalizados no descuentan vitrina. Las reglas de inventario están en las secciones 1 y 2 de [`../reglas-de-negocio.md`](../reglas-de-negocio.md).
+
+### D31. Tamaño máximo de las subidas: 5 MB por imagen al inicio
+
+- **Fecha:** 2 de noviembre de 2026.
+- **Decisión:** El tamaño máximo de cada imagen subida es de 5 MB al inicio. El admin lo edita. El admin no puede superar el tope duro de 10 MB que aplica el código ([`../../backend/AGENTS.md`](../../backend/AGENTS.md#subidas)).
+- **Contexto:** El equipo resolvió la pregunta abierta "Tamaño máximo de las subidas".
+- **Consecuencias:** El valor vive en la base de datos, no en el código. Cambiarlo no requiere un despliegue, pero nunca pasa de 10 MB.
+
 ## Decisiones abiertas
 
 | Tema | Detalle | Se resuelve |
 | --- | --- | --- |
-| Tailwind v3 o v4 | El preset `design/tailwind.preset.js` está en formato v3 | Etapa 2 |
-| Versiones de Python y Django | Sin fijar | Etapa 2 |
-| Herramienta de compilación del frontend | Sin elegir | Etapa 2 |
-| PaaS de despliegue | Sin elegir. Debe permitir que el frontend y la API compartan sitio (D15) | Etapa 2 |
 | Mínimo para la exposición | Qué se demuestra en vivo de cada uno de los 6 objetivos y qué entra solo si sobra tiempo | Al iniciar la Etapa 3 |
 | API de distancias | Para la tarifa de envío; las reglas sugieren una API de rutas como Google Distance Matrix | Antes de la Etapa 4 |
-| Nombre del modelo `Cotizaciones3D` | Choca con la "cotización" del envío de referencia (D6) | Etapa 2 |
 | Nombres finales de modelos y campos | Los de [`arquitectura.md`](arquitectura.md#entidades-previstas) son previstos | Etapa 2 |
-| Salida de `en_pausa_por_cotizacion` | Las reglas no dicen a qué estado pasa el pedido | Etapa 2 |
+| Salida de `awaiting_quote` | Las reglas no dicen a qué estado pasa el pedido cuando la pastelería da el precio de una decoración por imagen ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 14) | Cuando responda la pastelería |
 | Datos de la pastelería | Precio de decoraciones fijas, repartidor propio o aplicación, vigencia de una cotización, políticas de cambios y cancelaciones, base dañada, dirección, WhatsApp, aviso de privacidad y términos ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 14) | Cuando responda la pastelería |
 | Mensaje del registro con un correo ya usado | El mockup `RegistroError` dice "Ya hay una cuenta con este correo.", lo que revela qué correos son clientes. Opciones: mensaje genérico, o conservarlo con throttling | Etapa 3 |
-| Cancelación de apartados vencidos | Comando `cancelar_apartados_vencidos`; su programación depende del PaaS | Con el PaaS |
-| Pedido personalizado y pan del inventario | Si un pedido personalizado consume la disponibilidad de pan | Etapa 2 |
+| Cancelación de apartados vencidos | Comando `cancel_unpaid_cash_orders`, programado con Heroku Scheduler (D26); falta fijar la frecuencia | Con el despliegue |
+| Endurecimiento de la sesión y de las credenciales | Pendientes de D28: una CSP (antes de las pantallas de acceso y pago), una llave de firma de JWT separada de `SECRET_KEY`, una sesión más corta en el admin, programar `flushexpiredtokens`, una caché compartida para el throttling (hoy es por proceso), exigir `NUM_PROXIES` con `DEBUG=False` y rechazar valores negativos, y un freno contra fuerza bruta en el inicio de sesión del admin (django-axes) | CSP, caché y django-axes antes de los endpoints de acceso de la Etapa 3; el resto con el despliegue |
+| Refresh anterior a un cambio de contraseña | SimpleJWT lo renueva aunque el access que entrega recibe 401 (D28). La vista de refresh puede rechazarlo de forma explícita | Etapa 3, con el acceso |
 | Envío gratis con 15 kg o más a más de 15 km | Pregunta para la pastelería ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 8) | Cuando responda la pastelería |
-| Tamaño máximo de las subidas | Configurable en el admin | Etapa 2 |
 
 ## Ver también
 

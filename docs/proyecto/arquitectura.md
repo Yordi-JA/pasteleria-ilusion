@@ -48,7 +48,7 @@ flowchart TD
     API -.->|"verifica la identidad"| GIS
     API -->|"avisos de pedido y cuenta"| Correo
     API -.->|"distancia para la tarifa de envío"| Dist
-    Tarea["Tarea programada<br/>cancelar apartados vencidos"] -->|"actúa sobre la API"| API
+    Tarea["Tarea programada<br/>cancel_unpaid_cash_orders"] -->|"actúa sobre la API"| API
 ```
 
 Notas del diagrama:
@@ -94,7 +94,7 @@ La vista no contiene lógica de negocio. El view-model guarda el estado y llama 
 | `frontend/src/three/` | View (3D) | Escena de `react-three-fiber` que recibe sus datos del view-model |
 | `frontend/e2e/` | Pruebas | Pruebas de extremo a extremo con Playwright ([`pruebas.md`](pruebas.md)) |
 
-Hoy estas carpetas existen vacías (`.gitkeep`). El 3D no se anuncia en títulos ni botones de la interfaz ([`../../AGENTS.md`](../../AGENTS.md#reglas-que-no-se-negocian)).
+Hoy `frontend/src/` tiene `App.tsx`, `main.tsx`, `index.css`, `views/Home.tsx` (componente `Home`) y `views/NotFound.tsx` (componente `NotFound`). Las carpetas `models/`, `viewmodels/`, `components/` y `three/` siguen vacías. El 3D no se anuncia en títulos ni botones de la interfaz ([`../../AGENTS.md`](../../AGENTS.md#reglas-que-no-se-negocian)).
 
 ## Estructura del backend
 
@@ -119,7 +119,7 @@ core_pasteleria/
     └── order_repo.py       # Consultas transaccionales de pedidos, agenda y garantías
 ```
 
-Los nombres de archivo y sufijos técnicos (`pricing_service.py`, `product_repo.py`) van en inglés porque así lo exige la especificación de arquitectura del proyecto. Los identificadores del dominio van en español (`PagoBase`, `cobrar`, `crear_procesador_pago`, `REGISTRO_PASARELAS`).
+Los nombres de archivo y sufijos técnicos (`pricing_service.py`, `product_repo.py`) van en inglés porque así lo exige la especificación de arquitectura del proyecto. Los identificadores del dominio van en inglés desde D29 (`BasePayment`, `charge`, `create_payment_processor`, `PAYMENT_GATEWAY_REGISTRY`). Los comentarios y docstrings siguen en español.
 
 ## Reglas de capas
 
@@ -139,39 +139,39 @@ El material del Tema 3 (Patrones de diseño) del profesor marca cuatro antipatro
 
 | Patrón | Propósito | Archivo | Implementación exigida | Antipatrón que evita |
 | --- | --- | --- | --- | --- |
-| Factory Method | Crear el procesador de pago sin acoplar el checkout a clases concretas | `services/payments/payment_factory.py` | Clase abstracta `PagoBase(ABC)` con `cobrar(monto, payload)`, diccionario `REGISTRO_PASARELAS` y función `crear_procesador_pago(tipo)` que busca en el registro (diapositiva 18). Prohibido instanciar con `if/elif/else` | Patrón cosmético: la diapositiva 45 dice que nombrar "Factory" a una función con `if/elif` no aporta las ventajas del patrón |
+| Factory Method | Crear el procesador de pago sin acoplar el checkout a clases concretas | `services/payments/payment_factory.py` | Clase abstracta `BasePayment(ABC)` con `charge(amount, payload)`, diccionario `PAYMENT_GATEWAY_REGISTRY` y función `create_payment_processor(payment_type)` que busca en el registro (diapositiva 18). Prohibido instanciar con `if/elif/else` | Patrón cosmético: la diapositiva 45 dice que nombrar "Factory" a una función con `if/elif` no aporta las ventajas del patrón |
 | Adapter | Integrar los SDK externos sin contaminar el dominio | `services/payments/` | `MercadoPagoAdapter` envuelve la biblioteca `mercadopago` y traduce sus respuestas al formato interno; el de Stripe sigue el mismo molde (diapositivas 29 a 31; Mercado Pago se menciona en la 30) | Acoplar el dominio a la forma de respuesta de un proveedor |
 | Strategy | Calcular el precio con reglas intercambiables | `services/pricing_service.py` | Estrategias en tiempo de ejecución (clases o funciones de primer orden) para pan (incremento por kilo o precio completo de Choco-pingüino y Red velvet), relleno por tipo y base, sabor especial, combinado, oblea y decoraciones fijas (precio PENDIENTE) (diapositiva 21). La pastelería no ha definido descuentos y no se inventan (D17); el diseño admite agregar una estrategia si los define | Cadenas `if/elif` en el cálculo; patrón cosmético |
-| Observer | Notificar los eventos del pedido (cambio de estado y base devuelta) | `services/orders/order_observer.py` | `OrderSubject` mantiene los observadores, con `suscribir(observador)`, y les notifica eventos con `notificar(evento)` de forma desacoplada (diapositiva 24); ver [Observer de eventos del pedido](#observer-de-eventos-del-pedido) | Objeto Dios: un servicio de pedidos que también descuenta stock, envía avisos y activa garantías |
+| Observer | Notificar los eventos del pedido (cambio de estado y base devuelta) | `services/orders/order_observer.py` | `OrderSubject` mantiene los observadores, con `subscribe(observer)`, y les notifica eventos con `notify(event)` de forma desacoplada (diapositiva 24); ver [Observer de eventos del pedido](#observer-de-eventos-del-pedido) | Objeto Dios: un servicio de pedidos que también descuenta stock, envía avisos y activa garantías |
 | Repository | Aislar el ORM detrás de una capa sustituible | `repositories/product_repo.py`, `repositories/order_repo.py` | `views` solo coordina HTTP, `services` aplica reglas y llama a `repositories` (diapositiva 42). Permite inyectar un `RepoMemoria` en las pruebas | Acceso al ORM disperso por toda la aplicación |
-| Decorator | Medir y registrar sin ensuciar la función de negocio | `services/` (archivo por definir en la Etapa 2) | `@auditar_operacion` con `functools.wraps`, que mide milisegundos y escribe en el logger de Django; se aplica al cálculo del precio (`pricing_service`) y al cobro (`PagoBase.cobrar`) (diapositiva 27). Registra nombre, duración, id del pedido y resultado; nunca argumentos, payloads, tokens ni datos personales | Mezclar logging y métricas con la lógica de negocio |
+| Decorator | Medir y registrar sin ensuciar la función de negocio | `services/` (archivo por definir en la Etapa 2) | `@audit_operation` con `functools.wraps`, que mide milisegundos y escribe en el logger de Django; se aplica al cálculo del precio (`pricing_service`) y al cobro (`BasePayment.charge`) (diapositiva 27). Registra nombre, duración, id del pedido y resultado; nunca argumentos, payloads, tokens ni datos personales | Mezclar logging y métricas con la lógica de negocio |
 
-Para evitar la sobreingeniería, el proyecto usa solo estos patrones. `REGISTRO_PASARELAS` es una constante que no se modifica en ejecución, de modo que no funciona como estado global.
+Para evitar la sobreingeniería, el proyecto usa solo estos patrones. `PAYMENT_GATEWAY_REGISTRY` es una constante que no se modifica en ejecución, de modo que no funciona como estado global.
 
 ### Fábrica de pagos
 
-El registro admite `mercadopago`, `stripe` y `efectivo`. Agregar una pasarela es agregar una clase y una entrada del registro, sin tocar `crear_procesador_pago`.
+El registro admite `mercadopago`, `stripe` y `cash` (efectivo). Agregar una pasarela es agregar una clase y una entrada del registro, sin tocar `create_payment_processor`.
 
 ```mermaid
 classDiagram
-    class PagoBase {
+    class BasePayment {
         <<abstract>>
-        +cobrar(monto, payload) ResultadoPago
+        +charge(amount, payload) PaymentResult
     }
     class MercadoPagoPayment {
-        +cobrar(monto, payload) ResultadoPago
+        +charge(amount, payload) PaymentResult
     }
     class StripePayment {
-        +cobrar(monto, payload) ResultadoPago
+        +charge(amount, payload) PaymentResult
     }
-    class EfectivoPayment {
-        +cobrar(monto, payload) ResultadoPago
+    class CashPayment {
+        +charge(amount, payload) PaymentResult
     }
     class MercadoPagoAdapter {
-        +crear_cobro(monto, payload)
+        +create_charge(amount, payload)
     }
     class StripeAdapter {
-        +crear_cobro(monto, payload)
+        +create_charge(amount, payload)
     }
     class SdkMercadoPago {
         <<externo>>
@@ -179,26 +179,26 @@ classDiagram
     class SdkStripe {
         <<externo>>
     }
-    class FabricaPagos {
+    class PaymentFactory {
         <<modulo>>
-        +REGISTRO_PASARELAS
-        +crear_procesador_pago(tipo) PagoBase
+        +PAYMENT_GATEWAY_REGISTRY
+        +create_payment_processor(payment_type) BasePayment
     }
 
-    PagoBase <|-- MercadoPagoPayment
-    PagoBase <|-- StripePayment
-    PagoBase <|-- EfectivoPayment
+    BasePayment <|-- MercadoPagoPayment
+    BasePayment <|-- StripePayment
+    BasePayment <|-- CashPayment
     MercadoPagoPayment --> MercadoPagoAdapter
     StripePayment --> StripeAdapter
     MercadoPagoAdapter --> SdkMercadoPago
     StripeAdapter --> SdkStripe
-    FabricaPagos ..> PagoBase : devuelve
-    FabricaPagos o-- MercadoPagoPayment : mercadopago
-    FabricaPagos o-- StripePayment : stripe
-    FabricaPagos o-- EfectivoPayment : efectivo
+    PaymentFactory ..> BasePayment : devuelve
+    PaymentFactory o-- MercadoPagoPayment : mercadopago
+    PaymentFactory o-- StripePayment : stripe
+    PaymentFactory o-- CashPayment : cash
 ```
 
-`ResultadoPago` es el formato interno estándar de respuesta; su forma exacta se define en la Etapa 4. `EfectivoPayment` no necesita adaptador: no hay SDK, y su resultado deja el pedido en estado `apartado`.
+`PaymentResult` es el formato interno estándar de respuesta; su forma exacta se define en la Etapa 4. `CashPayment` no necesita adaptador: no hay SDK, y su resultado deja el pedido en estado `awaiting_payment`.
 
 ### Observer de eventos del pedido
 
@@ -207,35 +207,35 @@ classDiagram
 ```mermaid
 classDiagram
     class OrderSubject {
-        -observadores
-        +suscribir(observador)
-        +notificar(evento)
+        -observers
+        +subscribe(observer)
+        +notify(event)
     }
-    class ObservadorPedido {
+    class OrderObserver {
         <<interface>>
-        +actualizar(evento)
+        +update(event)
     }
-    class NotificacionClienteObserver {
-        +actualizar(evento)
+    class CustomerNotificationObserver {
+        +update(event)
     }
-    class InventarioObserver {
-        +actualizar(evento)
+    class InventoryObserver {
+        +update(event)
     }
-    class GarantiaBaseObserver {
-        +actualizar(evento)
+    class StandLoanObserver {
+        +update(event)
     }
 
-    OrderSubject o-- ObservadorPedido
-    ObservadorPedido <|.. NotificacionClienteObserver
-    ObservadorPedido <|.. InventarioObserver
-    ObservadorPedido <|.. GarantiaBaseObserver
+    OrderSubject o-- OrderObserver
+    OrderObserver <|.. CustomerNotificationObserver
+    OrderObserver <|.. InventoryObserver
+    OrderObserver <|.. StandLoanObserver
 ```
 
 | Observador | Responsabilidad |
 | --- | --- |
-| `NotificacionClienteObserver` | Registra o envía el aviso de cada cambio de estado y de la confirmación de agenda |
-| `InventarioObserver` | Descuenta las existencias de vitrina cuando el pedido entra en `apartado` o `recibido` (lo que ocurra primero) y las reintegra al entrar en `cancelado`. Así no se vende dos veces una pieza apartada en efectivo. Los pedidos personalizados no descuentan vitrina (D14) |
-| `GarantiaBaseObserver` | Al entrar el pedido en `entregado`, crea la base `prestada` con fecha límite igual a la entrega más 15 días y retiene el depósito. Con el evento "base devuelta", que emite `warranty_service` cuando el personal la registra en `/nota/:token`, marca la base `devuelta` y el depósito como reembolsado |
+| `CustomerNotificationObserver` | Registra o envía el aviso de cada cambio de estado y de la confirmación de agenda |
+| `InventoryObserver` | Descuenta las existencias de vitrina cuando el pedido entra en `awaiting_payment` o `received` (lo que ocurra primero) y las reintegra al entrar en `cancelled`. Así no se vende dos veces una pieza apartada en efectivo. Los pedidos personalizados no descuentan vitrina (D14) |
+| `StandLoanObserver` | Al entrar el pedido en `delivered`, crea la base `on_loan` con fecha límite igual a la entrega más 15 días y retiene el depósito. Con el evento "base devuelta", que emite `warranty_service` cuando el personal la registra en `/nota/:token`, marca la base `returned` y el depósito como reembolsado |
 
 ## Estados del pedido y de la base
 
@@ -243,41 +243,43 @@ Los estados son los de [`../reglas-de-negocio.md`](../reglas-de-negocio.md), sec
 
 ```mermaid
 stateDiagram-v2
-    [*] --> apartado : paga en efectivo
-    [*] --> recibido : paga con tarjeta o Mercado Pago
-    [*] --> en_pausa_por_cotizacion : decoración por imagen
-    apartado --> recibido : llega el pago en efectivo
-    apartado --> cancelado : no se paga el mismo día
-    recibido --> en_preparacion
-    en_preparacion --> listo_para_entregar
-    listo_para_entregar --> entregado
-    entregado --> [*]
-    cancelado --> [*]
+    [*] --> awaiting_payment : paga en efectivo
+    [*] --> received : paga con tarjeta o Mercado Pago
+    [*] --> awaiting_quote : decoración por imagen
+    awaiting_payment --> received : llega el pago en efectivo
+    awaiting_payment --> cancelled : no se paga el mismo día
+    received --> in_preparation
+    in_preparation --> ready_for_delivery
+    ready_for_delivery --> delivered
+    delivered --> [*]
+    cancelled --> [*]
 ```
+
+Los códigos y sus etiquetas en español están en [`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 12.
 
 El efectivo apartado debe pagarse el mismo día antes de las 22:30; si no, el pedido se cancela. Lo que las reglas no definen y se resuelve en la Etapa 2:
 
-- Cómo sale `en_pausa_por_cotizacion` cuando la pastelería da el precio.
+- A qué estado sale `awaiting_quote` cuando la pastelería da el precio (pregunta abierta, [`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 14).
 - Qué otras cancelaciones existen además de la del efectivo no recibido. La política de cambios y cancelaciones está pendiente ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 14).
 
-El envío de referencia tiene su propio seguimiento: `en_revision` → `cotizacion_lista` → (el cliente acepta y paga) → pedido normal.
+El envío de referencia tiene su propio seguimiento: `in_review` → `quote_ready` → (el cliente acepta y paga) → pedido normal.
 
 La base se sigue aparte. La fecha límite de devolución es la fecha de entrega más 15 días.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> prestada : se entrega un pedido de 4 kg o más
-    prestada --> devuelta : el personal registra la devolución
-    devuelta --> [*]
+    [*] --> on_loan : se entrega un pedido de 4 kg o más
+    on_loan --> returned : el personal registra la devolución
+    returned --> [*]
 ```
 
-Al pasar a `devuelta`, el depósito queda marcado como reembolsado. Las reglas no definen qué pasa si la base no se devuelve a tiempo ni si regresa dañada (pendiente, sección 14).
+Al pasar a `returned`, el depósito queda marcado como reembolsado. Las reglas no definen qué pasa si la base no se devuelve a tiempo ni si regresa dañada (pendiente, sección 14).
 
 ## Estándares de la API
 
 | Estándar | Detalle |
 | --- | --- |
-| Versionado | Todas las rutas bajo `/api/v1/`. Ejemplos de rutas previstas: `/api/v1/productos/`, `/api/v1/cotizar-3d/`, `/api/v1/pedidos/` y `/api/v1/garantias/`; las rutas finales se fijan en la Etapa 2 |
+| Versionado | Todas las rutas bajo `/api/v1/`. Ejemplos de rutas previstas: `/api/v1/products/`, `/api/v1/cake-designs/`, `/api/v1/orders/` y `/api/v1/stand-loans/`; las rutas finales se fijan en la Etapa 2 |
 | Idempotencia | El endpoint de pago lee el encabezado `Idempotency-Key` para impedir cobros o pedidos duplicados por doble clic o reintento (diapositiva 43 del Tema 3). Los webhooks de pago también son idempotentes |
 | DTOs | Las entradas se validan y las salidas se transforman en `api/serializers.py`; nunca se devuelve una instancia cruda del modelo |
 | Autenticación | JWT con SimpleJWT, que liga pedidos y garantías a la cuenta del cliente |
@@ -298,8 +300,8 @@ El detalle está en [`../../backend/AGENTS.md`](../../backend/AGENTS.md). Resume
 - El backend verifica el ID token de Google.
 - Las subidas se validan por contenido, se guardan con nombre aleatorio y solo las sirve a su dueño y al personal.
 - El token de la nota sale de `secrets.token_urlsafe(32)`, y solo el personal con permiso puede registrar "Base devuelta".
-- El efectivo pasa a `recibido` solo cuando el personal con permiso registra el cobro; los pagos en línea, solo por webhook verificado.
-- Los serializadores de cliente dejan `estado`, `reembolsado`, depósitos y montos de solo lectura, para evitar la asignación masiva.
+- El efectivo pasa a `received` solo cuando el personal con permiso registra el cobro; los pagos en línea, solo por webhook verificado.
+- Los serializadores de cliente dejan `status`, `refunded`, depósitos y montos de solo lectura, para evitar la asignación masiva.
 - El frontend y la API comparten sitio (mismo dominio propio o mismo origen) para que la cookie de refresh `SameSite=Lax` funcione. Esto condiciona la elección de la PaaS.
 - El throttling se configura por alcance.
 - `DEBUG` va apagado en producción y los secretos no tienen valor por defecto.
@@ -310,17 +312,19 @@ Estas son las entidades previstas desde el anteproyecto. Los nombres finales de 
 
 | Entidad | Para qué sirve | Reglas |
 | --- | --- | --- |
-| `Usuarios` | Cuenta del cliente (Google o correo y contraseña) y personal | Sin sección propia; la sección 11 describe el rol del personal |
-| `Productos` | Catálogo con precios fijos, vitrina y rebanadas | Sección 2 |
-| `Inventario` | Existencias de vitrina y disponibilidad de pan para pedidos del mismo día | Secciones 1 y 2 |
-| `Pedidos` | Pedidos, sus partidas, pagos y estados | Secciones 10 y 12 |
-| `Cotizaciones3D` | Configuración guardada de "Diseña tu pastel" y su precio | Secciones 3 a 6 |
-| `GarantiasBases` | Base en préstamo, depósito, fecha límite y devolución | Secciones 7 y 11 |
-| `AgendaEntregas` | Lapsos de 30 min con máximo 3 pedidos activos | Sección 1 |
+| `User` | Cuenta del cliente (Google o correo y contraseña) y personal | Sin sección propia; la sección 11 describe el rol del personal |
+| `Product` | Catálogo con precios fijos, vitrina y rebanadas | Sección 2 |
+| `Inventory` | Existencias de vitrina y disponibilidad de pan para pedidos del mismo día | Secciones 1 y 2 |
+| `Order` y `OrderItem` | Pedidos, sus partidas, pagos y estados | Secciones 10 y 12 |
+| `CakeDesign` | Configuración guardada de "Diseña tu pastel" y su precio | Secciones 3 a 6 |
+| `ReferenceRequest` | Envío de referencia (hasta 3 imágenes) y su seguimiento (`in_review`, `quote_ready`) | Sección 9 |
+| `Quote` | Cotización que la pastelería fija a un envío de referencia | Sección 9 |
+| `CakeStand` y `StandLoan` | Base física (`CakeStand`) y su préstamo con depósito, fecha límite y devolución (`StandLoan`) | Secciones 7 y 11 |
+| `DeliverySlot` | Lapsos de 30 min con máximo 3 pedidos activos | Sección 1 |
 
 Las secciones son las de [`../reglas-de-negocio.md`](../reglas-de-negocio.md). Los precios y los límites configurables (kilos mínimos, depósitos, tarifas) también necesitan tablas en la base de datos; su diseño queda para la Etapa 2.
 
-Hay un choque de nombres abierto: el modelo previsto `Cotizaciones3D` usa la palabra "cotización", que en la interfaz solo designa el envío de referencia. Se resuelve en la Etapa 2 ([`decisiones.md`](decisiones.md#decisiones-abiertas)).
+La palabra "cotización" nombra solo el envío de referencia (`Quote`). El diseño de "Diseña tu pastel" es `CakeDesign` (D29).
 
 ## Ver también
 

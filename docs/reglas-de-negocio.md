@@ -18,7 +18,7 @@ Vocabulario obligatorio en la interfaz: se dice **"pan"**, nunca "bizcocho"; **"
 | Pastel de vitrina, llevar hoy | Mismo día, si hay en vitrina |
 | Pastel de vitrina, encargado tal cual | Para cualquier fecha; **para el mismo día, con 2 horas de anticipación** y sujeto a que haya pan |
 
-- La disponibilidad de pan vive en la **base de datos de inventario**: el sitio consulta ahí si se puede hacer un pastel para hoy.
+- La disponibilidad de pan vive en la **base de datos de inventario** (`Inventory`): el sitio consulta ahí si se puede hacer un pastel para hoy. Solo los encargos de vitrina del mismo día consumen esa disponibilidad; un pedido de "Diseña tu pastel" con 2 días de anticipación se hornea aparte y no la descuenta (D30).
 - Un lapso con 3 pedidos activos se muestra como "Lleno" y no se puede elegir.
 - Primer horario disponible para un encargo de hoy: hora actual + 2 h, redondeado al siguiente lapso de 30 min.
 
@@ -312,7 +312,7 @@ def delivery_fee(total_kg: float, km: float):
 - El pedido sigue la misma anticipación de 2 días.
 - PENDIENTE: vigencia de la cotización.
 
-Estados: `en_revision` → `cotizacion_lista` → (cliente acepta y paga) → pedido normal.
+Estados: `in_review` (En revisión) → `quote_ready` (Cotización lista) → (cliente acepta y paga) → pedido normal. Las etiquetas están en la sección 12.
 
 ---
 
@@ -353,9 +353,26 @@ Ejemplo: pedido $1,000 + base $150 + envío $80 → hoy $730 (500 + 150 + 80); e
 
 ## 12. Estados del pedido
 
-`apartado` (solo efectivo, falta el pago) → `recibido` → `en_preparacion` → `listo_para_entregar` → `entregado`.
-Además: `cancelado` (p. ej. efectivo no recibido el mismo día) y `en_pausa_por_cotizacion` (decoración por imagen pendiente de precio).
-La base tiene su propio seguimiento: `prestada` → `devuelta` (depósito reembolsado), con fecha límite = entrega + 15 días.
+Los códigos son los identificadores del código (D29). Cada uno lleva su etiqueta en español para la interfaz:
+
+| Código | Etiqueta | Cuándo |
+|---|---|---|
+| `awaiting_payment` | Apartado, falta tu pago | Solo efectivo, mientras falta el pago |
+| `received` | Recibido | El pago está registrado (en línea por webhook verificado, o en efectivo por el personal) |
+| `in_preparation` | En preparación | La pastelería prepara el pedido |
+| `ready_for_delivery` | Listo para entregar | Listo para la entrega |
+| `delivered` | Entregado | Entregado al cliente |
+| `cancelled` | Cancelado | P. ej. efectivo no recibido el mismo día |
+| `awaiting_quote` | En pausa por cotización | Decoración por imagen pendiente de precio |
+
+La base tiene su propio seguimiento:
+
+| Código | Etiqueta | Cuándo |
+|---|---|---|
+| `on_loan` | Prestada | Al entregar el pedido; fecha límite = entrega + 15 días |
+| `returned` | Devuelta | El personal registra la devolución; el depósito queda reembolsado |
+
+Las etiquetas salen del texto de estas reglas y del mockup.
 
 ---
 
@@ -379,3 +396,4 @@ La base tiene su propio seguimiento: `prestada` → `devuelta` (depósito reembo
 3. Vigencia de una cotización por referencia (la respuesta es en máximo 1 hora; falta cuánto tiempo es válida).
 4. Políticas de cambios y cancelaciones, y qué pasa si la base regresa dañada: el equipo prepara un texto base y la pastelería lo completa.
 5. Dirección, WhatsApp, aviso de privacidad y términos: el equipo prepara el texto base de los avisos y la pastelería lo completa.
+6. ¿A qué estado pasa un pedido `awaiting_quote` (decoración por imagen) cuando la pastelería da el precio? Las reglas no lo dicen. Pregunta para la pastelería; el equipo no supone la respuesta.
