@@ -92,6 +92,7 @@ Esta tabla se llena al cerrar cada etapa. Si algo se adelanta o se atrasa, se an
 Las barras del baseline son el plan y no llevan estado de avance; usan las fechas desde la entrega (1 de octubre). El plan real sí muestra el avance al 1 de noviembre de 2026.
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "#fff4f4", "primaryColor": "#f9c1c1", "primaryTextColor": "#5e1921", "primaryBorderColor": "#5e1921", "lineColor": "#664243", "textColor": "#5e1921", "titleColor": "#5e1921", "sectionBkgColor": "#fff4f4", "altSectionBkgColor": "#fffbfb", "sectionBkgColor2": "#fff4f4", "gridColor": "#ecd2d2", "taskBkgColor": "#fffbfb", "taskBorderColor": "#664243", "taskTextColor": "#5e1921", "taskTextDarkColor": "#5e1921", "taskTextLightColor": "#5e1921", "taskTextOutsideColor": "#5e1921", "activeTaskBkgColor": "#f9c1c1", "activeTaskBorderColor": "#5e1921", "doneTaskBkgColor": "#ecd2d2", "doneTaskBorderColor": "#5e1921", "todayLineColor": "#8f5413"}}}%%
 gantt
     title Baseline del anteproyecto y plan real (2026)
     dateFormat YYYY-MM-DD

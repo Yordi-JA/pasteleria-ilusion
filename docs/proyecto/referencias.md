@@ -53,6 +53,8 @@ Google. (s. f.). *Instrument Sans*. Google Fonts. Recuperado el 1 de noviembre d
 
 *About Mermaid*. (s. f.). Mermaid. Recuperado el 1 de noviembre de 2026, de https://mermaid.js.org/intro/
 
+*Excalidraw developer docs*. (s. f.). Excalidraw. Recuperado el 2 de noviembre de 2026, de https://docs.excalidraw.com/
+
 *Git reference*. (s. f.). Recuperado el 1 de noviembre de 2026, de https://git-scm.com/docs
 
 GitHub. (s. f.). *GitHub Docs*. Recuperado el 1 de noviembre de 2026, de https://docs.github.com/es (título por verificar)

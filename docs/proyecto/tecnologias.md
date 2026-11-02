@@ -38,7 +38,8 @@ Cada tecnología tiene un rol y una justificación. Las versiones se fijaron el 
 | Playwright | Pruebas de extremo a extremo en navegador | Cubre el caso "agregar al carrito y validar el total" | 1.64.1 (Chromium) |
 | Phosphor Icons (`@phosphor-icons/react`) | Iconos de acción y de estado | Terminales redondeadas que acompañan a Fraunces; el libro de marca la elige en peso Regular | Se fija al instalarla |
 | Fraunces e Instrument Sans | Títulos y cuerpo del sitio | Ver [fuentes tipográficas](#fuentes-tipográficas-y-licencias) | Archivos en `assets/fuentes/` |
-| Mermaid | Diagramas de la documentación | GitHub los renderiza sin herramientas extra | No aplica |
+| Excalidraw | Diagramas de arquitectura a mano alzada, con fuente `.excalidraw` y SVG en `docs/proyecto/diagramas/` | Trazo a mano con la paleta de la marca; el SVG lleva sus fuentes y GitHub lo muestra como imagen (D35) | No aplica |
+| Mermaid | Gantt del plan de trabajo | GitHub lo renderiza desde el texto, y cada ajuste del plan es cambiar una línea (D35) | No aplica |
 | Git y GitHub | Control de versiones y repositorio público | `main` y ramas `tipo/descripcion-corta` por PR, con Conventional Commits en español | No aplica |
 
 Los servicios externos aparecen en el [diagrama de contexto](arquitectura.md#diagrama-de-contexto). Mercado Pago, Stripe y Google se integran en las etapas 3 y 4 del [plan de trabajo](plan-de-trabajo.md#plan-real-en-5-etapas), y su versión se fija al instalarlos.

@@ -72,6 +72,8 @@ Las versiones se fijaron el 2 de noviembre de 2026 (D24 y D25) y están en `back
 
 El frontend sigue MVVM: los hooks (view-models) llevan el estado y hablan con el cliente HTTP, y las vistas solo pintan. El backend es MVT con una capa de servicios para las reglas de negocio y otra de repositorios para el acceso a datos, con los patrones Factory Method, Adapter, Strategy, Observer, Repository y Decorator. Los diagramas y las decisiones están en [`docs/proyecto/arquitectura.md`](docs/proyecto/arquitectura.md).
 
+![Diagrama de contexto. El cliente usa el frontend; el personal usa el admin de Django y el frontend. El frontend habla con el backend (/api/v1/) por HTTP con JSON y JWT. El backend usa PostgreSQL, Mercado Pago y Stripe en sandbox, Google Identity Services, el envío de correos y una API de distancias, estos dos últimos por definir. La tarea programada cancel_unpaid_cash_orders actúa sobre la API.](docs/proyecto/diagramas/contexto.svg)
+
 ## Estado por etapa
 
 | Etapa | Fechas (2026) | Contenido | Estado |

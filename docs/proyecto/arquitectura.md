@@ -2,6 +2,8 @@
 
 El sitio se divide en un frontend React con MVVM y un backend Django con MVT extendido por capas de servicios y repositorios. Los dos hablan por una API REST versionada en `/api/v1/`. Los nombres de clases, módulos y rutas de este documento son el diseño previsto: el código está en el esqueleto y los nombres finales se fijan en la Etapa 2.
 
+Los diagramas son imágenes SVG hechas en Excalidraw con la paleta Fresa y mermelada (D35). Su fuente editable es el archivo `.excalidraw` del mismo nombre en [`diagramas/`](diagramas/). Si cambia la arquitectura, edita la fuente, exporta otra vez el SVG con fondo y actualiza su texto alternativo en este documento.
+
 ## Contenido
 
 - [Diagrama de contexto](#diagrama-de-contexto)
@@ -18,38 +20,7 @@ El sitio se divide en un frontend React con MVVM y un backend Django con MVT ext
 
 ## Diagrama de contexto
 
-```mermaid
-flowchart TD
-    Cliente(["Cliente"])
-    Personal(["Personal de la pastelería"])
-
-    subgraph Plataforma["Plataforma Pastelería Ilusión"]
-        UI["Frontend<br/>React + Tailwind CSS (MVVM)<br/>react-three-fiber"]
-        API["Backend<br/>Django + Django REST Framework<br/>/api/v1/"]
-        Admin["Admin de Django<br/>precios, límites, inventario, estados"]
-        DB[("PostgreSQL")]
-    end
-
-    MP["Mercado Pago<br/>sandbox"]
-    Stripe["Stripe<br/>sandbox"]
-    GIS["Google Identity Services<br/>OAuth 2.0"]
-    Correo["Envío de correos"]
-    Dist["API de distancias<br/>por definir"]
-
-    Cliente -->|"navega, diseña, agenda y paga"| UI
-    Personal -->|"edita precios, límites y estados"| Admin
-    Personal -->|"registra la devolución de bases"| UI
-    UI <-->|"HTTP + JSON, JWT"| API
-    Admin --- API
-    API <-->|"ORM, transacciones"| DB
-    API <-->|"cobros y webhooks"| MP
-    API <-->|"cobros y webhooks"| Stripe
-    UI -->|"inicio de sesión con Google"| GIS
-    API -.->|"verifica la identidad"| GIS
-    API -->|"avisos de pedido y cuenta"| Correo
-    API -.->|"distancia para la tarifa de envío"| Dist
-    Tarea["Tarea programada<br/>cancel_unpaid_cash_orders"] -->|"actúa sobre la API"| API
-```
+![Diagrama de contexto. El cliente usa el frontend; el personal usa el admin de Django y el frontend. El frontend habla con el backend (/api/v1/) por HTTP con JSON y JWT. El backend usa PostgreSQL, Mercado Pago y Stripe en sandbox, Google Identity Services, el envío de correos y una API de distancias, estos dos últimos por definir. La tarea programada cancel_unpaid_cash_orders actúa sobre la API.](diagramas/contexto.svg)
 
 Notas del diagrama:
 
@@ -60,24 +31,7 @@ Notas del diagrama:
 
 ## Capas de una petición
 
-```mermaid
-flowchart LR
-    subgraph Frontend["Frontend (MVVM)"]
-        V["View<br/>JSX"] --> VM["ViewModel<br/>hook con estado"]
-        VM --> M["Model<br/>servicio de API"]
-    end
-
-    M -->|"HTTP /api/v1"| AV
-
-    subgraph Backend["Backend (MVT + servicios y repositorios)"]
-        AV["api/views.py"] --> SE["api/serializers.py<br/>DTOs"]
-        AV --> SV["services/<br/>reglas de negocio"]
-        SV --> RP["repositories/"]
-        RP --> ORM["ORM de Django<br/>models.py"]
-    end
-
-    ORM --> PG[("PostgreSQL")]
-```
+![Capas de una petición. En el frontend, View, ViewModel y Model. La petición HTTP a /api/v1/ llega a api/views.py, que valida con api/serializers.py y delega en services/, con las reglas de negocio; services/ llama a repositories/, el único acceso al ORM de Django, que consulta PostgreSQL.](diagramas/capas-peticion.svg)
 
 La respuesta recorre el camino inverso. La vista del backend valida con el serializador, delega en un servicio y devuelve un DTO, nunca una instancia cruda del modelo.
 
@@ -152,51 +106,7 @@ Para evitar la sobreingeniería, el proyecto usa solo estos patrones. `PAYMENT_G
 
 El registro admite `mercadopago`, `stripe` y `cash` (efectivo). Agregar una pasarela es agregar una clase y una entrada del registro, sin tocar `create_payment_processor`.
 
-```mermaid
-classDiagram
-    class BasePayment {
-        <<abstract>>
-        +charge(amount, payload) PaymentResult
-    }
-    class MercadoPagoPayment {
-        +charge(amount, payload) PaymentResult
-    }
-    class StripePayment {
-        +charge(amount, payload) PaymentResult
-    }
-    class CashPayment {
-        +charge(amount, payload) PaymentResult
-    }
-    class MercadoPagoAdapter {
-        +create_charge(amount, payload)
-    }
-    class StripeAdapter {
-        +create_charge(amount, payload)
-    }
-    class SdkMercadoPago {
-        <<externo>>
-    }
-    class SdkStripe {
-        <<externo>>
-    }
-    class PaymentFactory {
-        <<modulo>>
-        +PAYMENT_GATEWAY_REGISTRY
-        +create_payment_processor(payment_type) BasePayment
-    }
-
-    BasePayment <|-- MercadoPagoPayment
-    BasePayment <|-- StripePayment
-    BasePayment <|-- CashPayment
-    MercadoPagoPayment --> MercadoPagoAdapter
-    StripePayment --> StripeAdapter
-    MercadoPagoAdapter --> SdkMercadoPago
-    StripeAdapter --> SdkStripe
-    PaymentFactory ..> BasePayment : devuelve
-    PaymentFactory o-- MercadoPagoPayment : mercadopago
-    PaymentFactory o-- StripePayment : stripe
-    PaymentFactory o-- CashPayment : cash
-```
+![Fábrica de pagos. create_payment_processor busca la clase en PAYMENT_GATEWAY_REGISTRY y devuelve una instancia de BasePayment. MercadoPagoPayment, StripePayment y CashPayment heredan de BasePayment. Los dos primeros delegan en MercadoPagoAdapter y StripeAdapter, que usan el SDK de cada proveedor; CashPayment no tiene adaptador.](diagramas/fabrica-pagos.svg)
 
 `PaymentResult` es el formato interno estándar de respuesta; su forma exacta se define en la Etapa 4. `CashPayment` no necesita adaptador: no hay SDK, y su resultado deja el pedido en estado `awaiting_payment`.
 
@@ -204,32 +114,7 @@ classDiagram
 
 `OrderSubject` notifica eventos, no solo estados. Hay dos: "estado cambiado" y "base devuelta". Los estados del pedido siguen siendo los de las reglas, sección 12 (D13).
 
-```mermaid
-classDiagram
-    class OrderSubject {
-        -observers
-        +subscribe(observer)
-        +notify(event)
-    }
-    class OrderObserver {
-        <<interface>>
-        +update(event)
-    }
-    class CustomerNotificationObserver {
-        +update(event)
-    }
-    class InventoryObserver {
-        +update(event)
-    }
-    class StandLoanObserver {
-        +update(event)
-    }
-
-    OrderSubject o-- OrderObserver
-    OrderObserver <|.. CustomerNotificationObserver
-    OrderObserver <|.. InventoryObserver
-    OrderObserver <|.. StandLoanObserver
-```
+![Observer de eventos del pedido. Los eventos estado cambiado y base devuelta llegan a OrderSubject, que avisa a cada OrderObserver suscrito. CustomerNotificationObserver, InventoryObserver y StandLoanObserver implementan la interfaz.](diagramas/observer-pedido.svg)
 
 | Observador | Responsabilidad |
 | --- | --- |
@@ -241,19 +126,7 @@ classDiagram
 
 Los estados son los de [`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 12.
 
-```mermaid
-stateDiagram-v2
-    [*] --> awaiting_payment : paga en efectivo
-    [*] --> received : paga con tarjeta o Mercado Pago
-    [*] --> awaiting_quote : decoración por imagen
-    awaiting_payment --> received : llega el pago en efectivo
-    awaiting_payment --> cancelled : no se paga el mismo día
-    received --> in_preparation
-    in_preparation --> ready_for_delivery
-    ready_for_delivery --> delivered
-    delivered --> [*]
-    cancelled --> [*]
-```
+![Estados del pedido. Se entra a awaiting_payment al pagar en efectivo, a received con tarjeta o Mercado Pago y a awaiting_quote con decoración por imagen. awaiting_payment pasa a received cuando llega el pago, o a cancelled si no se paga el mismo día antes de las 22:30. received sigue a in_preparation, ready_for_delivery y delivered. La salida de awaiting_quote está por definir.](diagramas/estados-pedido.svg)
 
 Los códigos y sus etiquetas en español están en [`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 12.
 
@@ -266,12 +139,7 @@ El envío de referencia tiene su propio seguimiento: `in_review` → `quote_read
 
 La base se sigue aparte. La fecha límite de devolución es la fecha de entrega más 15 días.
 
-```mermaid
-stateDiagram-v2
-    [*] --> on_loan : se entrega un pedido de 4 kg o más
-    on_loan --> returned : el personal registra la devolución
-    returned --> [*]
-```
+![Estados de la base. Pasa a on_loan al entregar un pedido de 4 kg o más, con fecha límite igual a la entrega más 15 días y el depósito retenido, y a returned cuando el personal registra la devolución, con el depósito reembolsado. Qué pasa si no regresa a tiempo o regresa dañada está por definir.](diagramas/estados-base.svg)
 
 Al pasar a `returned`, el depósito queda marcado como reembolsado. Las reglas no definen qué pasa si la base no se devuelve a tiempo ni si regresa dañada (pendiente, sección 14).
 
