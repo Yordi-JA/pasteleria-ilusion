@@ -14,8 +14,12 @@ def _test_environment(settings):
     settings.SECURE_SSL_REDIRECT = False
     # Hash rápido: el real (PBKDF2) vuelve lentas las pruebas.
     settings.PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
-    # El throttling guarda sus contadores en la caché: que no se filtren
-    # entre pruebas.
+    # En producción la caché es de base de datos (se prueba aparte); aquí, en
+    # memoria, para no exigir la tabla ni acceso a la base en cada prueba. Los
+    # contadores del throttling no deben filtrarse entre pruebas.
+    settings.CACHES = {
+        "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}
+    }
     cache.clear()
 
 
@@ -41,6 +45,7 @@ VALID_ENV = {
     "SECRET_KEY": "clave-de-prueba-" + "x" * 40,
     "ALLOWED_HOSTS": "localhost",
     "DATABASE_URL": "postgres://usuario:clave@localhost:5432/base",
+    "NUM_PROXIES": "0",
 }
 OPTIONAL_VARS = [
     "DEBUG",
@@ -48,6 +53,8 @@ OPTIONAL_VARS = [
     "SECURE_HSTS_INCLUDE_SUBDOMAINS",
     "SECURE_HSTS_PRELOAD",
     "NUM_PROXIES",
+    "AXES_FAILURE_LIMIT",
+    "AXES_COOLOFF_MINUTES",
 ]
 
 

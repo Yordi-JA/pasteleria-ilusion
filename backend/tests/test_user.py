@@ -3,6 +3,7 @@ import pytest
 from django.contrib.auth import authenticate, get_user_model
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.test import RequestFactory
 
 User = get_user_model()
 
@@ -89,8 +90,10 @@ def test_full_clean_detects_duplicate_email_with_different_case():
 @pytest.mark.django_db
 def test_login_by_email_ignores_case():
     User.objects.create_user("ana@ejemplo.com", "clave-segura-123")
-    assert authenticate(username="Ana@Ejemplo.COM", password="clave-segura-123")
-    assert authenticate(username="ana@ejemplo.com", password="incorrecta") is None
+    # django-axes exige la petición al autenticar.
+    request = RequestFactory().post("/")
+    assert authenticate(request, username="Ana@Ejemplo.COM", password="clave-segura-123")
+    assert authenticate(request, username="ana@ejemplo.com", password="incorrecta") is None
 
 
 @pytest.mark.django_db

@@ -1,0 +1,11 @@
+{
+  "name": "pasteleria-ilusion",
+  "private": true,
+  "description": "Raíz del monorepo para Heroku: el buildpack de Node construye frontend/.",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "heroku-postbuild": "npm ci --prefix frontend --include=dev --ignore-scripts && npm run build --prefix frontend && node -e \"require('fs').rmSync('frontend/node_modules',{recursive:true,force:true})\""
+  }
+}

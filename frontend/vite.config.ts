@@ -4,6 +4,8 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // Sin mapas de fuente: el build se sirve en producción y no debe exponer el código.
+  build: { sourcemap: false },
   server: {
     // IPv4 explícito: en esta máquina el loopback IPv6 (::1) no responde.
     host: '127.0.0.1',

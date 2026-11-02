@@ -1,6 +1,6 @@
 # Registro de decisiones
 
-Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D23 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026; D24 a D28, al inicializar los proyectos el 2 de noviembre; D29 a D31, el 2 de noviembre, tras la revisión del equipo.
+Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D23 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026; D24 a D28, al inicializar los proyectos el 2 de noviembre; D29 a D34, el mismo 2 de noviembre: identificadores en inglés, catálogo, despliegue y límite de intentos.
 
 ## Contenido
 
@@ -257,6 +257,57 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 - **Contexto:** El equipo resolvió la pregunta abierta "Tamaño máximo de las subidas".
 - **Consecuencias:** El valor vive en la base de datos, no en el código. Cambiarlo no requiere un despliegue, pero nunca pasa de 10 MB.
 
+### D32. Esquema del catálogo, el inventario y la configuración editable
+
+- **Fecha:** 2 de noviembre de 2026.
+- **Decisión:** Se aprueba el esquema propuesto para `core_pasteleria`, con las recomendaciones del diseño en las preguntas que son del equipo:
+    - Cuatro configuraciones de una sola fila, separadas por tema: `StoreSettings`, `CakeDesignSettings`, `PolicySettings` y `UploadSettings`.
+    - Tablas editables para las opciones de "Diseña tu pastel": `Bread`, `FillingBase`, `FillingFlavor`, `FillingPrice`, `TierRecommendation`, `CoverageColor` y `DecorationOption`.
+    - Tablas editables para bases y envío: `CakeStand` y `DeliveryFeeBand`.
+    - Catálogo en tres tablas: `Product` (un producto por sabor), `CatalogPrice` (precio por grupo) y `ProductOffering` (presentación a la venta).
+    - `Inventory` por día, para la vitrina y para el pan de los encargos del mismo día, con descuento atómico.
+    - Las restricciones de combinación son datos (tipos de pastel permitidos, si un sabor se combina, máximo de sabores por base) que el backend valida.
+    - Los datos reales de las reglas se siembran con migraciones de datos que no pisan lo que ya editó la pastelería. El inventario no se siembra.
+    - Lo pendiente queda vacío y el admin lo muestra como "PENDIENTE".
+    - Recomendaciones adoptadas:
+        - Lo que no se cargó para hoy no aparece en vitrina.
+        - Las fotos de producto son archivos estáticos del frontend, referidos por nombre.
+        - Las decoraciones sin precio se muestran desactivadas con "Precio por confirmar".
+        - Fresa con yogurt aparece desactivada en envinado con su motivo, no oculta.
+        - El último lapso de entrega empieza a las 22:00.
+        - El color de cada opción en la vista previa se guarda en la base.
+        - Se crean los grupos de permisos "Mostrador" (inventario) y "Precios" (precios y configuración), que crea un superusuario (D27).
+- **Contexto:** El diseño se hizo antes de escribir código para no suponer nombres ni tablas. Resuelve "Nombres finales de modelos y campos" en lo que toca al catálogo. La regla 4.7 decía a la vez que Fresa con yogurt "no aparece" en envinado y que las opciones "nunca desaparecen". Se corrige a favor de la segunda.
+- **Consecuencias:** El esquema se implementa el martes 3 de noviembre en este orden: configuración, opciones, bases y envío, catálogo, inventario y repositorios (`product_repo`, `cake_option_repo` y `settings_repo`). Lo que depende de la pastelería (unidad del pan, pan de cada pastel de vitrina, sabores y minis en vitrina, Mosaico, vitrina frente a rebanadas, peso para el envío gratis, base de 26 a 50 kg) queda configurable y marcado como PENDIENTE. La tabla de entidades de [`arquitectura.md`](arquitectura.md#entidades-previstas) se actualiza con la implementación.
+
+### D33. Despliegue en Heroku: build, archivos y estáticos
+
+- **Fecha:** 2 de noviembre de 2026.
+- **Decisión:**
+    - La raíz del repositorio lleva los archivos que leen los buildpacks: `Procfile`, `package.json`, `requirements.txt` (que remite a `backend/requirements.txt`), `.python-version` y `.slugignore` (excluye `mockup/` y `docs/`).
+    - Se usan los buildpacks `heroku/nodejs` primero y `heroku/python` después. Node construye `frontend/` sin scripts de instalación y luego borra `frontend/node_modules`. Python instala solo las dependencias de producción y corre `collectstatic` automáticamente.
+    - WhiteNoise sirve los estáticos y el build con `X-Frame-Options: DENY`. Django devuelve el `index.html` para las rutas del sitio y un 404 en JSON bajo `/api`.
+    - La caché del throttling es `DatabaseCache` sobre la misma PostgreSQL.
+    - `NUM_PROXIES` es obligatorio con `DEBUG=False`, y `SECURE_PROXY_SSL_HEADER` solo se activa cuando `NUM_PROXIES` es 1 o más.
+    - Las dependencias de pruebas van en `backend/requirements-dev.txt`.
+- **Contexto:** Implementa D26. Un gancho propio (`bin/post_compile`) se descartó porque el buildpack nuevo de Heroku no soporta esos ganchos y el automático ya encuentra `backend/manage.py` (hasta tres niveles de profundidad). `.slugignore` se aplica antes del build, así que `design/` y `assets/`, que el build lee, no pueden ir ahí. Revisión y auditoría en tres rondas.
+- **Consecuencias:** Las variables de producción y los comandos `heroku` están en [`../../backend/AGENTS.md`](../../backend/AGENTS.md). Las variables tienen que existir antes del primer push, porque `collectstatic` corre en el build. La compresión de los assets del build queda para la Etapa 3 (ver decisiones abiertas).
+
+### D34. Límite de intentos en el inicio de sesión con django-axes
+
+- **Fecha:** 2 de noviembre de 2026.
+- **Decisión:** django-axes se adelanta al primer despliegue:
+    - 5 intentos fallidos y 1 hora de bloqueo, configurables con `AXES_FAILURE_LIMIT` y `AXES_COOLOFF_MINUTES`.
+    - Se bloquea la combinación de IP y correo, y también la IP sola. No hay bloqueo por correo desde cualquier IP.
+    - Un fallo durante el bloqueo no lo alarga.
+    - Un acceso correcto no borra los fallos previos; vencen solos con el enfriamiento (`AXES_RESET_ON_SUCCESS = False`). Con el bloqueo por IP, el reinicio borraba todos los fallos de esa IP y alguien con cuenta de personal podía adivinar la contraseña de la dueña sin bloquearse (lo encontró la auditoría final).
+    - La IP se obtiene con el mismo `NUM_PROXIES` que el throttling.
+    - El correo se normaliza.
+    - El bloqueo responde 429 con `Retry-After`.
+    - `AXES_FAILURE_LIMIT`, `AXES_COOLOFF_MINUTES` y `NUM_PROXIES` deben ser enteros; si no, la app no arranca (`ImproperlyConfigured`).
+- **Contexto:** La auditoría del despliegue encontró que el login del admin quedaba público y sin límite. Argon2 hace caro cada intento, así que unos pocos intentos simultáneos podían saturar el dyno. El equipo descartó el bloqueo por correo desde cualquier IP porque permitía a un tercero bloquear a propósito la cuenta de la dueña. Agregó el bloqueo por IP para frenar el rociado de contraseñas y acotar los registros a 5 por IP y hora.
+- **Consecuencias:** Si alguien del personal falla 5 veces desde el wifi de la pastelería, esa red espera una hora o un superusuario la desbloquea; los comandos de desbloqueo están en [`../../backend/AGENTS.md`](../../backend/AGENTS.md). axes aplica a toda llamada a `authenticate()`, así que el login JWT de la Etapa 3 hereda la política y debe responder 429. Un segundo factor para el personal queda como mejora posible.
+
 ## Decisiones abiertas
 
 | Tema | Detalle | Se resuelve |
@@ -268,7 +319,11 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 | Datos de la pastelería | Precio de decoraciones fijas, repartidor propio o aplicación, vigencia de una cotización, políticas de cambios y cancelaciones, base dañada, dirección, WhatsApp, aviso de privacidad y términos ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 14) | Cuando responda la pastelería |
 | Mensaje del registro con un correo ya usado | El mockup `RegistroError` dice "Ya hay una cuenta con este correo.", lo que revela qué correos son clientes. Opciones: mensaje genérico, o conservarlo con throttling | Etapa 3 |
 | Cancelación de apartados vencidos | Comando `cancel_unpaid_cash_orders`, programado con Heroku Scheduler (D26); falta fijar la frecuencia | Con el despliegue |
-| Endurecimiento de la sesión y de las credenciales | Pendientes de D28: una CSP (antes de las pantallas de acceso y pago), una llave de firma de JWT separada de `SECRET_KEY`, una sesión más corta en el admin, programar `flushexpiredtokens`, una caché compartida para el throttling (hoy es por proceso), exigir `NUM_PROXIES` con `DEBUG=False` y rechazar valores negativos, y un freno contra fuerza bruta en el inicio de sesión del admin (django-axes) | CSP, caché y django-axes antes de los endpoints de acceso de la Etapa 3; el resto con el despliegue |
+| Endurecimiento de la sesión y de las credenciales | Pendientes de D28: una CSP (antes de las pantallas de acceso y pago), una llave de firma de JWT separada de `SECRET_KEY`, una sesión más corta en el admin y programar `flushexpiredtokens` y `axes_reset_logs`. La caché compartida, `NUM_PROXIES` obligatorio y django-axes ya quedaron (D33 y D34) | CSP antes de los endpoints de acceso de la Etapa 3; el resto con el despliegue |
+| Bloqueo por IP en el login de clientes | django-axes aplica a todo `authenticate()`. Con el bloqueo por IP sola (D34), 5 fallos de cualquier cliente detrás de una IP compartida (los operadores móviles usan CGNAT) bloquearían una hora a todos los clientes de esa IP. Opción: bloqueo por IP sola solo en `/admin/` y por IP + correo en la API, con el límite por IP a cargo del throttling | Al diseñar el login de la Etapa 3 |
+| Almacenamiento de las fotos de los clientes | Heroku borra el disco de la app en cada reinicio, así que las fotos de referencia, las imágenes de "otra decoración" y las obleas no pueden guardarse en `backend/media/` en producción. Opciones: un almacenamiento externo (por ejemplo, S3 o Cloudinary) o guardarlas en la base de datos | Antes de las subidas (Etapa 4) |
+| Compresión de los assets del build | WhiteNoise no comprime lo que sirve desde el build de Vite. Opciones: un plugin de compresión en Vite o pasar el build por `collectstatic` | Etapa 3, cuando entre react-three-fiber |
+| Preguntas del catálogo para la pastelería | Unidad del pan para encargos de hoy, pan de cada pastel de vitrina, sabores y minis en vitrina, Mosaico con yogurt, vitrina frente a rebanadas, peso que cuenta para el envío gratis y base de 26 a 50 kg (D32) | Cuando responda la pastelería |
 | Refresh anterior a un cambio de contraseña | SimpleJWT lo renueva aunque el access que entrega recibe 401 (D28). La vista de refresh puede rechazarlo de forma explícita | Etapa 3, con el acceso |
 | Envío gratis con 15 kg o más a más de 15 km | Pregunta para la pastelería ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 8) | Cuando responda la pastelería |
 
