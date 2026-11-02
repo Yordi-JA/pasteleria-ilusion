@@ -15,7 +15,35 @@ Complementan el [`AGENTS.md`](../AGENTS.md) de la raíz. React + Tailwind CSS + 
 
 ## Estado actual
 
-Hoy `frontend/` es solo un esqueleto de carpetas con `.gitkeep`. El proyecto React (herramienta de compilación, versiones, Tailwind v3 o v4) se decide e inicializa en la Etapa 2. El preset `design/tailwind.preset.js` está escrito en formato v3. Los comandos se agregan aquí cuando existan.
+El proyecto React está inicializado (Etapa 2): Vite + React + TypeScript, Tailwind CSS v3 con el preset `design/tailwind.preset.js`, React Router y Playwright (solo Chromium). Las versiones están fijas, sin `^` ni `~`, en `package.json` y `package-lock.json`. Node 22 (`.nvmrc`, `engines.node >= 22`).
+
+Hoy hay una ruta raíz (`src/views/Home.tsx`, componente `Home`) y una ruta comodín (`src/views/NotFound.tsx`, componente `NotFound`), ambas mínimas, y una prueba de humo en `e2e/smoke.spec.ts`. La prueba de la ruta comodín está en `e2e/not-found.spec.ts`. Faltan los componentes base, las rutas de `docs/mapa-de-vistas.md` y la vista previa 3D (react-three-fiber, íconos y cliente HTTP se instalan cuando se usen).
+
+Detalles de la configuración:
+
+- Las fuentes se cargan con `@font-face` en `src/index.css` desde `assets/fuentes/`, sin copiarlas. Vite las empaqueta con hash en el build y `vite.config.ts` permite servir esa carpeta en desarrollo (`server.fs.allow`).
+- El servidor de desarrollo escucha en `127.0.0.1:5173` y reenvía `/api` a `http://127.0.0.1:8000` (la API vive en el mismo origen, D15).
+- El linter es oxlint (`.oxlintrc.json`), el que trae la plantilla de Vite. Sin Prettier.
+- `npm run build` deja el sitio en `frontend/dist/` (ignorada por Git).
+
+## Comandos
+
+Desde `frontend/`. Primero activa Node 22 (el Node del sistema es 18):
+
+```bash
+source ~/.nvm/nvm.sh && nvm use
+```
+
+| Comando | Qué hace |
+| --- | --- |
+| `npm ci` | Instala exactamente las dependencias del `package-lock.json` (usa `npm install <paquete>` solo para agregar uno) |
+| `npm run dev` | Servidor de desarrollo en http://127.0.0.1:5173 |
+| `npm run typecheck` | Revisa los tipos (`tsc -b`) |
+| `npm run lint` | Revisa el código con oxlint |
+| `npm run build` | Typecheck y build de producción en `dist/` |
+| `npm run preview` | Sirve `dist/` para revisarlo |
+| `npx playwright install chromium` | Una sola vez: descarga Chromium para las pruebas (sin `--with-deps`) |
+| `npm run test:e2e` | Pruebas E2E con Playwright; levanta el servidor de desarrollo si no está corriendo |
 
 ## Estructura MVVM
 
