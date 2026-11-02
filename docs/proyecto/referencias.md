@@ -57,6 +57,16 @@ Google. (s. f.). *Instrument Sans*. Google Fonts. Recuperado el 1 de noviembre d
 
 GitHub. (s. f.). *GitHub Docs*. Recuperado el 1 de noviembre de 2026, de https://docs.github.com/es (título por verificar)
 
+Django Software Foundation. (2026, 5 de agosto). *Django 6.1 released*. Recuperado el 2 de noviembre de 2026, de https://www.djangoproject.com/weblog/2026/aug/05/django-61-released/
+
+Django Software Foundation. (s. f.). *Django 6.1 release notes*. Recuperado el 2 de noviembre de 2026, de https://docs.djangoproject.com/en/dev/releases/6.1/ (fuente de que Django 6.1 soporta Python 3.12, 3.13 y 3.14; D24)
+
+Heroku. (s. f.). *Postgres 18 is generally available on Heroku Postgres*. Heroku Dev Center. Recuperado el 2 de noviembre de 2026, de https://devcenter.heroku.com/changelog-items/3751 (fuente de que las bases nuevas usan PostgreSQL 18 por defecto; D24)
+
+Heroku. (s. f.). *Heroku Postgres version support*. Heroku Dev Center. Recuperado el 2 de noviembre de 2026, de https://devcenter.heroku.com/articles/heroku-postgres-version-support
+
+*Migration from v6*. (s. f.). Vite. Recuperado el 2 de noviembre de 2026, de https://v7.vite.dev/guide/migration (fuente de que Vite 7 en adelante pide Node 20.19 o 22.12 en adelante; D25)
+
 ## Estándares y especificaciones
 
 Hardt, D. (Ed.). (2012). *The OAuth 2.0 authorization framework* (RFC 6749). Internet Engineering Task Force. https://www.rfc-editor.org/rfc/rfc6749
@@ -91,7 +101,7 @@ Los números de diapositiva citados en [`arquitectura.md`](arquitectura.md#patro
 - Autores institucionales de las páginas que no declaran uno (Django REST framework, `drf-spectacular`, Simple JWT, React, React Three Fiber, three.js, pytest, Playwright, Phosphor, Mermaid, Git).
 - Títulos de las páginas de Tailwind CSS, GitHub Docs y la documentación de PostgreSQL.
 - Año y editores de WCAG 2.1 según la edición que cite el reporte final.
-- Las versiones de las bibliotecas: se citan al fijarlas en la Etapa 2.
+- Las versiones de las bibliotecas se fijaron el 2 de noviembre de 2026 (D24 y D25). Las referencias del reporte final deben citar esas versiones, que están en [`tecnologias.md`](tecnologias.md).
 
 ## Ver también
 

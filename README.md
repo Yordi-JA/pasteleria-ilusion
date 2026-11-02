@@ -66,7 +66,7 @@ El detalle y su relación con las pantallas está en [`docs/proyecto/objetivos.m
 | Contrato de la API | OpenAPI con drf-spectacular y Swagger UI |
 | Pruebas | pytest, pytest-django y Playwright |
 
-Las versiones se fijan al inicializar Django y React en la Etapa 2. El detalle y la justificación están en [`docs/proyecto/tecnologias.md`](docs/proyecto/tecnologias.md).
+Las versiones se fijaron el 2 de noviembre de 2026 (D24 y D25) y están en `backend/requirements.txt` y `frontend/package.json`. El detalle y la justificación están en [`docs/proyecto/tecnologias.md`](docs/proyecto/tecnologias.md).
 
 ## Arquitectura
 
@@ -106,11 +106,43 @@ El plan completo, con la comparación contra el plan original de 8 semanas, est�
 └── scripts/                  # instalar-skills.sh
 ```
 
-`backend/` y `frontend/` son hoy un esqueleto de carpetas y módulos vacíos.
+`backend/` y `frontend/` están inicializados desde el 2 de noviembre: Django con el modelo de usuario y la API base, y React con Tailwind, el router y las pruebas de humo. Las pantallas y los modelos del negocio se construyen en las etapas 2 a 4.
 
 ## Cómo correrlo
 
-Todavía no hay nada que correr. Los proyectos Django y React se inicializan en la Etapa 2; sus instrucciones de instalación y ejecución se documentan aquí cuando existan. Las variables de entorno irán en un `.env` local, que Git ignora; el repositorio solo incluirá un `.env.example` con los nombres.
+Requisitos: Python 3.11, Docker con Compose y Node 22 (por ejemplo, con nvm).
+
+1. **Backend**, desde `backend/`:
+   ```bash
+   python3.11 -m venv .venv
+   .venv/bin/pip install -r requirements.txt
+   cp .env.example .env          # trae las variables, casi todas vacías: llénalas (ver abajo)
+   docker compose up -d --wait   # PostgreSQL 18 en 127.0.0.1:5433; espera a que esté lista
+   .venv/bin/python manage.py migrate
+   .venv/bin/python manage.py createsuperuser
+   .venv/bin/python manage.py runserver
+   ```
+2. **Frontend**, desde `frontend/`:
+   ```bash
+   nvm use                       # Node 22, según .nvmrc
+   npm ci
+   npm run dev                   # http://127.0.0.1:5173, reenvía /api a Django
+   ```
+3. **Pruebas:** `.venv/bin/pytest` en `backend/`, con la base arriba y `backend/.env` creado; `npm run test:e2e` en `frontend/` (la primera vez, `npx playwright install chromium`).
+
+Valores mínimos de `backend/.env` para desarrollo (sin ellos Django no arranca):
+
+```bash
+SECRET_KEY=          # genera una: python3.11 -c "import secrets; print(secrets.token_urlsafe(50))"
+DEBUG=True           # solo en desarrollo; sin él Django exige HTTPS
+ALLOWED_HOSTS=localhost,127.0.0.1
+POSTGRES_DB=ilusion
+POSTGRES_USER=ilusion
+POSTGRES_PASSWORD=   # una clave sin caracteres especiales de URL (por ejemplo, hexadecimal)
+DATABASE_URL=postgres://ilusion:<POSTGRES_PASSWORD>@127.0.0.1:5433/ilusion
+```
+
+`DATABASE_URL` debe coincidir con las `POSTGRES_*` y el puerto. El resto de las variables y su explicación están en `backend/.env.example` y en la sección "Comandos" de [`backend/AGENTS.md`](backend/AGENTS.md#comandos) y [`frontend/AGENTS.md`](frontend/AGENTS.md#comandos). `.env` nunca se versiona.
 
 El mockup (`mockup/fuente/*.dc.html`) son prototipos HTML de un lienzo de diseño, no una aplicación React; sus capturas están en `mockup/capturas/`.
 

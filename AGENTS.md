@@ -12,7 +12,7 @@ Este archivo es la fuente única de instrucciones para cualquier agente. `backen
 - Acceso: Google (OAuth 2.0) y correo con contraseña, con JWT (SimpleJWT).
 - Pruebas: pytest y pytest-django en el backend, Playwright en `frontend/e2e/`.
 
-Las versiones y la herramienta de compilación del frontend aún no se fijan. Se fijan al inicializar Django y React en la Etapa 2. No supongas números de versión.
+Las versiones se fijaron al inicializar los proyectos (D24 y D25 en [`docs/proyecto/decisiones.md`](docs/proyecto/decisiones.md)): Django 5.2 LTS con Python 3.11 y PostgreSQL 18 en el backend; Vite, React y TypeScript con Node 22, Tailwind CSS v3 con el preset, React Router y oxlint en el frontend. Las versiones exactas están en `backend/requirements.txt` y `frontend/package.json`; no supongas otras. El despliegue previsto es en Heroku como un solo servicio (D26); aún no está configurado.
 
 ## Fuentes de verdad
 
@@ -64,9 +64,7 @@ En la interfaz:
 
 En código, documentación técnica y reporte académico sí se puede decir "cotizador 3D".
 
-Idioma del código: los identificadores del dominio van en español (`PagoBase`, `cobrar`, `crear_procesador_pago`, `REGISTRO_PASARELAS`, modelos y campos). Los nombres de archivo y sufijos técnicos que fija la arquitectura van en inglés (`pricing_service.py`, `product_repo.py`, `order_observer.py`). Comentarios y docstrings en español. Los nombres de clase que fija `docs/proyecto/arquitectura.md` (`OrderSubject`, `*Payment`, `*Observer`, `*Adapter`) son fijos y llevan el sufijo técnico en inglés.
-
-Abierto: el modelo `Cotizaciones3D` choca con el significado de "cotización" del envío de referencia. Se resuelve en la Etapa 2 y la decisión se registra en `docs/proyecto/decisiones.md`.
+Idioma del código (D29, [`docs/proyecto/decisiones.md`](docs/proyecto/decisiones.md)): los identificadores van en inglés. Esto incluye clases, modelos, campos, funciones, constantes, códigos de estado, permisos, comandos de gestión, rutas de la API y nombres de pruebas (`BasePayment`, `charge`, `create_payment_processor`, `PAYMENT_GATEWAY_REGISTRY`, `CakeDesign`, `core_pasteleria.User`). Los nombres de archivo y sufijos técnicos van en inglés (`pricing_service.py`, `product_repo.py`, `order_observer.py`). Los nombres de clase que fija `docs/proyecto/arquitectura.md` (`OrderSubject`, `*Payment`, `*Observer`, `*Adapter`) son fijos. Comentarios, docstrings y todo texto visible para personas (interfaz, admin, mensajes y `verbose_name`) van en español. Las rutas del sitio siguen en español; las rutas de la API van en inglés.
 
 ## Arquitectura en corto
 
@@ -107,7 +105,12 @@ El diagrama, los contratos y la justificación están en [`docs/proyecto/arquite
 
 ## Comandos
 
-Aún no existen. El proyecto Django y el proyecto React se inicializan en la Etapa 2; sus comandos de instalación, ejecución y pruebas se agregan aquí y en el AGENTS.md de cada carpeta cuando existan.
+Los comandos completos y verificados están en la sección "Comandos" de [`backend/AGENTS.md`](backend/AGENTS.md#comandos) y de [`frontend/AGENTS.md`](frontend/AGENTS.md#comandos). En resumen:
+
+- Backend, desde `backend/`: PostgreSQL con `docker compose up -d --wait`, el venv en `.venv` (Python 3.11), `.venv/bin/python manage.py migrate`, `.venv/bin/python manage.py runserver` y las pruebas con `.venv/bin/pytest` (necesitan la base arriba y `backend/.env`).
+- Frontend, desde `frontend/` con Node 22 (`source ~/.nvm/nvm.sh && nvm use`): `npm run dev`, `npm run typecheck`, `npm run lint`, `npm run build` y `npm run test:e2e`.
+
+En desarrollo, el frontend corre en `http://127.0.0.1:5173` y reenvía `/api` a Django en `http://127.0.0.1:8000`.
 
 ## Skills de diseño (solo Claude Code)
 

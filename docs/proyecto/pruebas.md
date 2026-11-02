@@ -1,6 +1,6 @@
 # Estrategia de pruebas
 
-El proyecto prueba la lógica de negocio con `pytest` y `pytest-django`, el recorrido de compra con Playwright y la accesibilidad con una revisión por pantalla. Estado al 1 de noviembre de 2026: no hay ninguna prueba implementada. Existen las carpetas vacías `backend/tests/` y `frontend/e2e/` (con `.gitkeep`).
+El proyecto prueba la lógica de negocio con `pytest` y `pytest-django`, el recorrido de compra con Playwright y la accesibilidad con una revisión por pantalla. Estado al 2 de noviembre de 2026: hay 79 pruebas de backend en `backend/tests/` (modelo de usuario, admin, configuración, documentación de la API, sesión JWT, hash de contraseñas y throttling) y 2 pruebas de humo con Playwright en `frontend/e2e/`. Las pruebas de la lógica de negocio llegan con los servicios de las etapas 2 a 4.
 
 ## Contenido
 
@@ -15,7 +15,7 @@ El proyecto prueba la lógica de negocio con `pytest` y `pytest-django`, el reco
 ## Principios
 
 - Los valores esperados salen de [`../reglas-de-negocio.md`](../reglas-de-negocio.md). Si una regla cambia, cambia primero ese documento y después la prueba.
-- Las pruebas de los servicios no tocan PostgreSQL: usan repositorios en memoria (`RepoMemoria`) inyectados en el servicio ([`arquitectura.md`](arquitectura.md#patrones-de-diseño)).
+- Las pruebas de los servicios no tocan PostgreSQL: usan repositorios en memoria (`MemoryRepo`) inyectados en el servicio ([`arquitectura.md`](arquitectura.md#patrones-de-diseño)).
 - Los SDK de Mercado Pago y Stripe se sustituyen por dobles; ninguna prueba hace llamadas de red.
 - Las pruebas de tiempo (efectivo apartado, primer horario del día) reciben la hora como parámetro en lugar de leer el reloj.
 - Los precios y los límites se leen de la base de datos; las pruebas los cargan como datos de prueba con los valores de las reglas.
@@ -131,9 +131,9 @@ Sección 1. La capacidad es de 3 pedidos activos por lapso de 30 minutos, entre 
 
 | Caso | Resultado esperado |
 | --- | --- |
-| Pedido en efectivo sin pago a las 22:31 del mismo día | Pasa a `cancelado` |
-| Pedido en efectivo pagado a las 22:00 | Pasa a `recibido` |
-| Pedido en efectivo, al crearse | Queda en `apartado` |
+| Pedido en efectivo sin pago a las 22:31 del mismo día | Pasa a `cancelled` |
+| Pedido en efectivo pagado a las 22:00 | Pasa a `received` |
+| Pedido en efectivo, al crearse | Queda en `awaiting_payment` |
 
 ### Fábrica de pagos sin `if/elif`
 
@@ -141,27 +141,27 @@ Regla de [`arquitectura.md`](arquitectura.md#patrones-de-diseño): queda prohibi
 
 | Caso | Resultado esperado |
 | --- | --- |
-| `crear_procesador_pago("mercadopago")` | Instancia de `MercadoPagoPayment` |
-| `crear_procesador_pago("stripe")` | Instancia de `StripePayment` |
-| `crear_procesador_pago("efectivo")` | Instancia de `EfectivoPayment` |
+| `create_payment_processor("mercadopago")` | Instancia de `MercadoPagoPayment` |
+| `create_payment_processor("stripe")` | Instancia de `StripePayment` |
+| `create_payment_processor("cash")` | Instancia de `CashPayment` |
 | Tipo desconocido | Error explícito, sin instancia |
 | Pasarela nueva agregada al registro con `monkeypatch.setitem` | La función la resuelve sin modificarse |
-| Inspección del código de `crear_procesador_pago` con `ast` | No contiene nodos `If` |
-| Adapter de Mercado Pago con un SDK simulado | Traduce la respuesta al formato interno `ResultadoPago` |
+| Inspección del código de `create_payment_processor` con `ast` | No contiene nodos `If` |
+| Adapter de Mercado Pago con un SDK simulado | Traduce la respuesta al formato interno `PaymentResult` |
 
 ### Observer
 
 | Caso | Resultado esperado |
 | --- | --- |
 | Observadores suscritos y cambio de estado | Todos reciben el aviso con el estado anterior y el nuevo |
-| Pedido de vitrina entra en `apartado` o `recibido` (el primero que ocurra) | `InventarioObserver` descuenta las existencias una sola vez |
-| Pedido entra en `cancelado` | `InventarioObserver` reintegra las existencias |
+| Pedido de vitrina entra en `awaiting_payment` o `received` (el primero que ocurra) | `InventoryObserver` descuenta las existencias una sola vez |
+| Pedido entra en `cancelled` | `InventoryObserver` reintegra las existencias |
 | Pedido personalizado | No descuenta vitrina |
-| Efectivo: pedido de vitrina apartado, no se paga antes de las 22:30 y pasa a `cancelado` | Existencias descontadas al apartar y reintegradas al cancelar |
-| Pedido con base entra en `entregado` | `GarantiaBaseObserver` crea la base `prestada` con fecha límite igual a la entrega más 15 días y retiene el depósito |
-| Evento "base devuelta" | La base pasa a `devuelta` y el depósito queda reembolsado |
+| Efectivo: pedido de vitrina apartado, no se paga antes de las 22:30 y pasa a `cancelled` | Existencias descontadas al apartar y reintegradas al cancelar |
+| Pedido con base entra en `delivered` | `StandLoanObserver` crea la base `on_loan` con fecha límite igual a la entrega más 15 días y retiene el depósito |
+| Evento "base devuelta" | La base pasa a `returned` y el depósito queda reembolsado |
 | Segundo evento "base devuelta" | No reembolsa otra vez |
-| Cambio de estado | `NotificacionClienteObserver` registra el aviso |
+| Cambio de estado | `CustomerNotificationObserver` registra el aviso |
 
 ### API y decorador
 
@@ -180,9 +180,9 @@ Regla de [`arquitectura.md`](arquitectura.md#patrones-de-diseño): queda prohibi
 | `/api/v1/docs/` con personal con sesión | 200 con la documentación |
 | `/api/v1/docs/` anónimo o como cliente en producción | 401 o 403 |
 | Cliente registra su propio pago en efectivo | 403 |
-| `PATCH` de cliente con `estado` o `reembolsado` | El estado no cambia |
+| `PATCH` de cliente con `status` o `refunded` | El estado no cambia |
 | Dos `POST` simultáneos de "Base devuelta" | Un solo reembolso |
-| `@auditar_operacion` | Conserva `__name__` (por `functools.wraps`) y registra el tiempo en milisegundos en el logger |
+| `@audit_operation` | Conserva `__name__` (por `functools.wraps`) y registra el tiempo en milisegundos en el logger |
 
 ### Rechazos del backend
 
