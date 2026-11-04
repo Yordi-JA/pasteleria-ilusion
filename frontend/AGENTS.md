@@ -17,7 +17,7 @@ Complementan el [`AGENTS.md`](../AGENTS.md) de la raíz. React + Tailwind CSS + 
 
 El proyecto React está inicializado (Etapa 2): Vite + React + TypeScript, Tailwind CSS v3 con el preset `design/tailwind.preset.js`, React Router y Playwright (solo Chromium). Las versiones están fijas, sin `^` ni `~`, en `package.json` y `package-lock.json`. Node 22 (`.nvmrc`, `engines.node >= 22`).
 
-Hoy hay una ruta raíz (`src/views/Home.tsx`, componente `Home`) y una ruta comodín (`src/views/NotFound.tsx`, componente `NotFound`), ambas mínimas, y una prueba de humo en `e2e/smoke.spec.ts`. La prueba de la ruta comodín está en `e2e/not-found.spec.ts`. Faltan los componentes base, las rutas de `docs/mapa-de-vistas.md` y la vista previa 3D (react-three-fiber, íconos y cliente HTTP se instalan cuando se usen).
+Hoy hay una ruta raíz (`src/views/Home.tsx`, componente `Home`) y una ruta comodín (`src/views/NotFound.tsx`, componente `NotFound`), ambas mínimas, y una prueba de humo en `e2e/smoke.spec.ts`. La prueba de la ruta comodín está en `e2e/not-found.spec.ts`. Hay cinco componentes base en `src/components/` (botón `Button`, campo `TextField`, tarjeta `Card`, opción elegible `ChoiceOption` y aviso `Notice`), y la página `/muestra` (`src/views/ComponentSample.tsx`, con su view-model `useComponentSample`) que los muestra en todos sus estados; solo existe en desarrollo (`import.meta.env.DEV`) y no entra al build. Su prueba está en `e2e/muestra.spec.ts`. Los avisos usan íconos de `@phosphor-icons/react` (D36). Faltan el resto de los componentes base (duya, perlas, esqueleto, barra superior con toldo y pie), las rutas de `docs/mapa-de-vistas.md` y la vista previa 3D (react-three-fiber y cliente HTTP se instalan cuando se usen).
 
 Detalles de la configuración:
 

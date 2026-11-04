@@ -1,6 +1,6 @@
 # Registro de decisiones
 
-Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D23 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026; D24 a D28, al inicializar los proyectos el 2 de noviembre; D29 a D35, el mismo 2 de noviembre: identificadores en inglés, catálogo, despliegue, límite de intentos y diagramas.
+Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D23 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026; D24 a D28, al inicializar los proyectos el 2 de noviembre; D29 a D35, el mismo 2 de noviembre: identificadores en inglés, catálogo, despliegue, límite de intentos y diagramas; D36, el 3 de noviembre: componentes base y la página de muestra.
 
 ## Contenido
 
@@ -323,6 +323,17 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
     - El Gantt de [`plan-de-trabajo.md`](plan-de-trabajo.md) sigue en Mermaid con la paleta aplicada por `themeVariables`, porque cambia con cada ajuste del plan.
 - **Contexto:** El equipo pidió diagramas con la identidad de la pastelería y una revisión con antislop. Se consideró mantener Mermaid con la paleta, que se ve en el diff y no requiere exportar, pero el equipo prefirió el trazo a mano. Para evitar dos versiones que se desfasen, se quitó el Mermaid. También se consideró usar Fraunces e Instrument Sans, que Excalidraw no admite: habría que cambiar la fuente del SVG con un script en cada exportación. El equipo prefirió Excalifont, que es parte del estilo dibujado; las fuentes de la marca son del sitio.
 - **Consecuencias:** Un cambio de arquitectura obliga a editar el `.excalidraw`, exportar otra vez el SVG con fondo y actualizar su texto alternativo; el diff ya no muestra el cambio en texto. El PNG para el reporte académico se exporta desde la fuente cuando haga falta.
+
+### D36. Componentes base, página `/muestra` solo en desarrollo e íconos Phosphor
+
+- **Fecha:** 3 de noviembre de 2026.
+- **Decisión:**
+    - Los componentes base (`Button`, `TextField`, `Card`, `ChoiceOption`, `Notice`) viven en `frontend/src/components/` y se muestran en todos sus estados en `/muestra`.
+    - `/muestra` solo existe en desarrollo: la ruta y su importación dinámica están detrás de `import.meta.env.DEV`, que Vite reemplaza por `false` y por eso no entran al build. Se verifica buscando textos de la página en `dist/`.
+    - Se instala `@phosphor-icons/react` en la versión exacta 2.1.10 (acepta React 16.8 o superior), en peso Regular, para los íconos de los avisos.
+    - Se agregan el botón secundario y el aviso de información, y se documentan en [`../libro-de-marca.md`](../libro-de-marca.md), sección "Componentes". El chip elegido de "Diseña tu pastel" pasa a `mermelada` con texto `betun`, como el resto de los chips.
+- **Contexto:** Se consideró una página de muestra siempre disponible, pero expone una vista que no es del sitio. También se consideró dibujar los íconos como SVG en línea; el libro de marca nombra Phosphor y la versión de React se verificó antes de instalar.
+- **Consecuencias:** Cada componente nuevo se agrega a `/muestra` y a `e2e/muestra.spec.ts`. El botón secundario y el aviso de información ya no necesitan consulta al equipo.
 
 ## Decisiones abiertas
 

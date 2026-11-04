@@ -36,7 +36,7 @@ Cada tecnología tiene un rol y una justificación. Las versiones se fijaron el 
 | Google Identity Services | Inicio de sesión con Google (OAuth 2.0) | Acceso sin contraseña para quien ya tiene cuenta de Google | Se fija en la Etapa 3 |
 | `pytest` y `pytest-django` | Pruebas unitarias y de integración del backend | Permiten probar servicios con repositorios en memoria y la API con la base de pruebas | 9.2.0 y 4.14.0 |
 | Playwright | Pruebas de extremo a extremo en navegador | Cubre el caso "agregar al carrito y validar el total" | 1.64.1 (Chromium) |
-| Phosphor Icons (`@phosphor-icons/react`) | Iconos de acción y de estado | Terminales redondeadas que acompañan a Fraunces; el libro de marca la elige en peso Regular | Se fija al instalarla |
+| Phosphor Icons (`@phosphor-icons/react`) | Iconos de acción y de estado | Terminales redondeadas que acompañan a Fraunces; el libro de marca la elige en peso Regular | 2.1.10 |
 | Fraunces e Instrument Sans | Títulos y cuerpo del sitio | Ver [fuentes tipográficas](#fuentes-tipográficas-y-licencias) | Archivos en `assets/fuentes/` |
 | Excalidraw | Diagramas de arquitectura a mano alzada, con fuente `.excalidraw` y SVG en `docs/proyecto/diagramas/` | Trazo a mano con la paleta de la marca; el SVG lleva sus fuentes y GitHub lo muestra como imagen (D35) | No aplica |
 | Mermaid | Gantt del plan de trabajo | GitHub lo renderiza desde el texto, y cada ajuste del plan es cambiar una línea (D35) | No aplica |
