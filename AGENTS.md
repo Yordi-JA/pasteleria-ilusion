@@ -113,7 +113,6 @@ La descripción va en español, en Markdown, con estos encabezados `##` y en est
 2. `## Qué trae`: una viñeta por cambio. Cada viñeta dice qué cambió y, si no es obvio, por qué se eligió así (por ejemplo, la alternativa descartada). Cita rutas, endpoints, variables y comandos tal cual, entre comillas invertidas.
 3. `## Verificación`: cada comprobación con el comando y su resultado: `.venv/bin/pytest` desde `backend/`; `npm run typecheck`, `npm run lint` y `npm run test:e2e` desde `frontend/`; en pantallas, la comparación con las capturas a 1440 px y 390 px. Cuando exista el despliegue en Heroku (D26), distingue lo verificado en local de lo verificado en el sitio desplegado.
 4. `## Falta`: lo que no se hizo, y por qué.
-5. `## Para el equipo`: lo que otra persona tiene que hacer o saber, como variables nuevas en `.env`, cambios en el contrato de la API o documentos que quedaron desactualizados y no se pudieron actualizar en el mismo PR (lo normal es actualizarlos ahí).
 
 Reglas de redacción:
 

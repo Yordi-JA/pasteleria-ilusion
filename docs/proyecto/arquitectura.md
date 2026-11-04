@@ -176,21 +176,26 @@ El detalle está en [`../../backend/AGENTS.md`](../../backend/AGENTS.md). Resume
 
 ## Entidades previstas
 
-Estas son las entidades previstas desde el anteproyecto. Los nombres finales de modelos y campos se fijan en la Etapa 2.
+Estas son las entidades del dominio. Las del catálogo, el inventario y la configuración editable están implementadas desde el 3 de noviembre de 2026 (D32; el detalle de campos y restricciones está en [`esquema-catalogo.md`](esquema-catalogo.md)); las de pedidos, pagos y préstamo de bases vienen después y conservan los nombres previstos.
 
-| Entidad | Para qué sirve | Reglas |
-| --- | --- | --- |
-| `User` | Cuenta del cliente (Google o correo y contraseña) y personal | Sin sección propia; la sección 11 describe el rol del personal |
-| `Product` | Catálogo con precios fijos, vitrina y rebanadas | Sección 2 |
-| `Inventory` | Existencias de vitrina y disponibilidad de pan para pedidos del mismo día | Secciones 1 y 2 |
-| `Order` y `OrderItem` | Pedidos, sus partidas, pagos y estados | Secciones 10 y 12 |
-| `CakeDesign` | Configuración guardada de "Diseña tu pastel" y su precio | Secciones 3 a 6 |
-| `ReferenceRequest` | Envío de referencia (hasta 3 imágenes) y su seguimiento (`in_review`, `quote_ready`) | Sección 9 |
-| `Quote` | Cotización que la pastelería fija a un envío de referencia | Sección 9 |
-| `CakeStand` y `StandLoan` | Base física (`CakeStand`) y su préstamo con depósito, fecha límite y devolución (`StandLoan`) | Secciones 7 y 11 |
-| `DeliverySlot` | Lapsos de 30 min con máximo 3 pedidos activos | Sección 1 |
+| Entidad | Para qué sirve | Reglas | Estado |
+| --- | --- | --- | --- |
+| `User` | Cuenta del cliente (Google o correo y contraseña) y personal | Sin sección propia; la sección 11 describe el rol del personal | Implementada |
+| `Product`, `CatalogPrice` y `ProductOffering` | Catálogo: un producto por sabor, su precio por grupo y cada presentación a la venta (completo, rebanada, mini, individual, vaso) | Sección 2 | Implementadas |
+| `Inventory` (y los proxies `ShowcaseInventory` y `BreadInventory` del admin) | Existencias por día de la vitrina y del pan para encargos del mismo día, con descuento atómico | Secciones 1 y 2 | Implementada |
+| `StoreSettings`, `CakeDesignSettings`, `PolicySettings` y `UploadSettings` | Configuraciones de una sola fila: horarios y entregas, límites y precios fijos de "Diseña tu pastel", políticas y subidas | Secciones 1, 3, 6 y 7; D31 | Implementadas |
+| `Bread`, `FillingBase`, `FillingFlavor`, `FillingPrice`, `TierRecommendation`, `CoverageColor` y `DecorationOption` | Opciones y precios editables de "Diseña tu pastel" | Secciones 3 a 6 | Implementadas |
+| `CakeStand` y `DeliveryFeeBand` | Tamaños de base con su depósito y tarifas de envío por distancia | Secciones 7 y 8 | Implementadas |
+| `Order` y `OrderItem` | Pedidos, sus partidas, pagos y estados | Secciones 10 y 12 | Prevista |
+| `CakeDesign` | Configuración guardada de "Diseña tu pastel" y su precio | Secciones 3 a 6 | Prevista |
+| `ReferenceRequest` | Envío de referencia (hasta 3 imágenes) y su seguimiento (`in_review`, `quote_ready`) | Sección 9 | Prevista |
+| `Quote` | Cotización que la pastelería fija a un envío de referencia | Sección 9 | Prevista |
+| `StandLoan` | Préstamo de una base con depósito, fecha límite y devolución | Secciones 7 y 11 | Prevista |
+| `DeliverySlot` | Lapsos de 30 min con máximo 3 pedidos activos | Sección 1 | Prevista |
 
-Las secciones son las de [`../reglas-de-negocio.md`](../reglas-de-negocio.md). Los precios y los límites configurables (kilos mínimos, depósitos, tarifas) también necesitan tablas en la base de datos; su diseño queda para la Etapa 2.
+Las secciones son las de [`../reglas-de-negocio.md`](../reglas-de-negocio.md). Los precios y los límites configurables viven en esas tablas, no en el código. Lo que la pastelería aún no define queda vacío y el admin lo muestra como "PENDIENTE".
+
+Los repositorios `product_repo`, `cake_option_repo` y `settings_repo` devuelven `dataclass` inmutables (`repositories/records.py`) y tienen su par en memoria (`repositories/memory.py`) para probar servicios sin PostgreSQL.
 
 La palabra "cotización" nombra solo el envío de referencia (`Quote`). El diseño de "Diseña tu pastel" es `CakeDesign` (D29).
 

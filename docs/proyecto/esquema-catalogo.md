@@ -37,7 +37,7 @@ No cubre `Order`, `OrderItem`, `CakeDesign`, `StandLoan`, `DeliverySlot`, `Refer
 - Clase abstracta `OrderedOption` con `sort_order` (`PositiveSmallIntegerField`, "orden", 0 por defecto) e `is_active` (`BooleanField`, "activo", `True` por defecto).
 - En Django 5.2, `CheckConstraint(condition=...)` (el argumento `check=` está obsoleto desde 5.1).
 - Agregar `"django.contrib.postgres"` a `INSTALLED_APPS` (para `ArrayField` y `ExclusionConstraint`).
-- Agregar en `settings.py` `UPLOAD_HARD_LIMIT_MB = 10`: el tope duro que el admin no puede rebasar (D31).
+- Agregar en `settings.py` `UPLOAD_HARD_LIMIT_MB = 10` (D31) y `UPLOAD_HARD_LIMIT_IMAGES = 3` (regla 9): los topes duros que el admin no puede rebasar. Cambiar cualquiera exige una migración, porque el valor queda en el validador y en la restricción de la base.
 - Las horas (`TimeField`) son hora local de `America/Mexico_City`; los servicios las combinan con la fecha usando `ZoneInfo(settings.TIME_ZONE)`.
 
 ## Opciones fijas en código
@@ -103,9 +103,9 @@ Aquí entrarán después las políticas pendientes de D5 (cancelaciones, vigenci
 | Campo | Tipo | `verbose_name` | Inicial |
 | --- | --- | --- | --- |
 | `max_upload_mb` | PositiveSmallInteger, `MaxValueValidator(settings.UPLOAD_HARD_LIMIT_MB)` | tamaño máximo por imagen (MB) | 5 |
-| `max_reference_images` | PositiveSmallInteger | imágenes por envío de referencia | 3 |
+| `max_reference_images` | PositiveSmallInteger, `MaxValueValidator(settings.UPLOAD_HARD_LIMIT_IMAGES)` | imágenes por envío de referencia | 3 |
 
-Restricciones: `1 <= max_upload_mb <= 10` (el tope duro también en la base) y `max_reference_images >= 1`. 1 MB = 1,048,576 bytes.
+Restricciones: `1 <= max_upload_mb <= 10` y `1 <= max_reference_images <= 3` (los topes duros también en la base). 1 MB = 1,048,576 bytes.
 
 ## Opciones y precios de "Diseña tu pastel"
 
@@ -138,7 +138,7 @@ Restricciones: `1 <= max_upload_mb <= 10` (el tope duro también en la base) y `
 Copia la tabla 4.5 de las reglas.
 
 - `cake_type` (choices `CakeType`), `base` (FK `FillingBase`, PROTECT), `flavor` (FK `FillingFlavor`, PROTECT, `null=True`: vacío = precio general de la base; con sabor = sabor con precio propio), `price_per_kg` Decimal(8,2) `> 0`.
-- `UniqueConstraint(fields=["cake_type", "base", "flavor"], nulls_distinct=False)` (Django 5.0+ y PostgreSQL 15+), que impide dos filas generales iguales.
+- Dos `UniqueConstraint` parciales: `(cake_type, base)` donde `flavor IS NULL` (impide dos precios generales iguales) y `(cake_type, base, flavor)` donde `flavor IS NOT NULL`. No se usa `nulls_distinct=False`: exige PostgreSQL 15 y los servidores anteriores lo ignoran en silencio.
 - `clean()`: el sabor pertenece a la base y su `allowed_cake_types` incluye `cake_type`.
 - Regla del servicio: una base está disponible en un tipo si tiene su fila general; un sabor con fila propia reemplaza el precio general; con dos sabores se toma el mayor y se suma `base.combined_extra_per_kg` (así sale "Nuez + $5").
 
@@ -183,7 +183,7 @@ Es un tamaño de base con su depósito, no cada base física.
 - `summary` CharField(160), "descripción corta" (tarjeta); `description` TextField opcional (ficha).
 - `cake_type` choices `CakeType` `null=True`; `bread`, `filling_base`, `filling_flavor` FK PROTECT `null=True` (para "Personalizar este pastel", la etiqueta "Tres leches con queso" y el pan de los encargos del mismo día).
 - `storage_notes`, `transport_notes` TextField opcionales, "conservación" y "transporte" (vacíos = PENDIENTE; la ficha oculta la sección si están vacíos).
-- `photo` CharField(120) opcional, "archivo de la foto" (nombre del archivo estático del frontend).
+- `photo` CharField(120) opcional, "archivo de la foto": solo el nombre de un archivo estático del frontend, validado con `^[a-z0-9][a-z0-9-]*\.(webp|jpg|jpeg|png|avif)\Z` (nunca una URL ni una ruta).
 - Restricciones: un postre lleva `cake_type`, `bread`, `filling_base` y `filling_flavor` vacíos; un sabor exige base; una base exige tipo; un pan exige tipo.
 - `clean()`: el sabor pertenece a la base; pan y sabor permitidos en ese tipo; un pan de precio completo no lleva base; un producto `order_only` no puede tener existencias de vitrina.
 - Índice: `(category, is_active, sort_order)`.
@@ -197,7 +197,7 @@ Cada fila es una celda de la tabla de la sección 2 de las reglas.
 
 ### `ProductOffering` ("presentación a la venta")
 
-- `product` FK CASCADE `related_name="offerings"`; `presentation` choices `Presentation`; `price` FK `CatalogPrice` PROTECT; `photo` CharField(120) opcional (si tiene valor, reemplaza la foto del producto en esa presentación); `is_active`, `sort_order`.
+- `product` FK CASCADE `related_name="offerings"`; `presentation` choices `Presentation`; `price` FK `CatalogPrice` PROTECT; `photo` CharField(120) opcional, con la misma validación que la del producto (si tiene valor, reemplaza la foto del producto en esa presentación); `is_active`, `sort_order`.
 - `UniqueConstraint(product, presentation)`. Unas 47 filas iniciales.
 - "No hay mini con queso ni con flan" se cumple porque esa fila no existe (una prueba de la semilla lo vigila).
 
@@ -212,6 +212,8 @@ Una sola tabla, porque las reglas la nombran así para los dos usos.
 - Es por día: lo que no se cargó para hoy no aparece en vitrina ni en rebanadas. Fila de hoy con cantidad > 0: "Quedan [n]" y "En vitrina hoy"; con 0: "Agotada por hoy".
 - Descuento atómico: `filter(pk=…, quantity__gte=n).update(quantity=F("quantity") - n)`. Si no actualiza ninguna fila, está agotado.
 - En el admin, dos proxies: "Vitrina de hoy" y "Pan de hoy", filtrados por `kind`, con el día de hoy por defecto y la cantidad editable en la lista (`list_editable`).
+- Bloqueo optimista: la pastelería edita la cantidad absoluta, pero un pedido puede descontar o devolver piezas mientras tanto. Cada escritura de los repositorios sube `updated_at` (`updated_at=Now()`); la lista y el formulario llevan un campo oculto con el `updated_at` de la carga y, si una fila que se editó ya es otra al guardar, no escriben nada y piden recargar ("Las existencias cambiaron mientras editabas; recarga la página"). Solo se revisan y se bloquean (`select_for_update`, hasta terminar la petición) las filas editadas: una venta en una fila que no se tocó no rechaza el guardado de las demás. Para saber qué se editó, la cantidad lleva su valor inicial oculto; el formulario de cambio, que siempre escribe la fila, la revisa siempre.
+- Guardia de lectura: un producto `order_only` nunca muestra existencias de vitrina, aunque alguien las escriba fuera del admin (`product_repo` y su par en memoria las dan como `None`).
 - Los pedidos de "Diseña tu pastel" no descuentan vitrina ni pan (D14, D30). El pan solo lo consume un encargo de vitrina para hoy.
 
 ## Dónde vive cada regla
@@ -245,7 +247,7 @@ Una sola tabla, porque las reglas la nombran así para los dos usos.
 | Mensaje: sugerencia de 4 palabras; oblea $125 tamaño carta | `CakeDesignSettings` |
 | Depósitos y "siguiente base más grande"; 15 días | `CakeStand` + servicio; `PolicySettings.stand_return_days` |
 | Envío: recoger sin costo, gratis desde 15 kg, bandas, más de 15 km por WhatsApp | Servicio, `free_delivery_from_kg`, `DeliveryFeeBand` |
-| 5 MB editable, tope de 10 MB; máximo 3 imágenes | `UploadSettings` + `UPLOAD_HARD_LIMIT_MB` + `CheckConstraint`; el tope también en el serializador antes de leer el archivo |
+| 5 MB editable, tope de 10 MB; máximo 3 imágenes | `UploadSettings` + `UPLOAD_HARD_LIMIT_MB` y `UPLOAD_HARD_LIMIT_IMAGES` + `CheckConstraint`. El tope de bytes lo aplica la etapa de subida, no el serializador (DRF ya leyó el cuerpo): rechaza por `Content-Length` y con un `FileUploadHandler` que aborta al pasar el límite |
 
 Las restricciones que el backend debe rechazar (lista de `backend/AGENTS.md`) son datos más una validación en el servicio, que rechaza aunque el frontend las oculte. Una prueba de la migración de datos comprueba que los valores sembrados cumplen cada regla.
 
@@ -262,12 +264,15 @@ Las restricciones que el backend debe rechazar (lista de `backend/AGENTS.md`) so
 
 Migraciones de datos (`RunPython`), no fixtures: llegan igual a producción, desarrollo y pruebas, sin pasos manuales. Usan `apps.get_model` y `get_or_create` por `slug` o `name`, nunca `update_or_create`, para no pisar lo que editó la pastelería. La reversa es `RunPython.noop`.
 
-- `0002`: esquema de configuraciones, opciones, `CakeStand` y `DeliveryFeeBand`.
-- `0003`: semilla de las 4 configuraciones, 5 panes, 3 bases de relleno, 10 sabores con su M2M, 14 `FillingPrice`, 5 `TierRecommendation`, 11 colores, 5 decoraciones (3 con precio vacío), 10 `CakeStand` y 4 bandas.
-- `0004`: esquema del catálogo y del inventario.
-- `0005`: semilla de 20 `CatalogPrice`, los productos del mockup (14 pasteles y 8 postres) y sus `ProductOffering`.
+Se implementó un par de migraciones (esquema y semilla) por paso, para que cada paso quedara verde y se pudiera revertir por separado. Son 9 migraciones en lugar de las 4 previstas:
 
-Los valores vienen de `docs/reglas-de-negocio.md`; las descripciones cortas, del mockup; los colores de vista previa, del primer tono de cada color en `pastel-css3d.js`. El inventario no se siembra; para la demo, un comando `seed_demo_inventory` que se niega a correr con `DEBUG=False`.
+- `0002_settings` y `0003_seed_settings`: las 4 configuraciones y su fila.
+- `0004_cake_options` y `0005_seed_cake_options`: 5 panes, 3 bases de relleno, 10 sabores con su M2M, 14 `FillingPrice`, 5 `TierRecommendation`, 11 colores y 5 decoraciones (3 con precio vacío).
+- `0006_stands_and_delivery` y `0007_seed_stands_and_delivery`: 10 `CakeStand` y 4 bandas de envío.
+- `0008_catalog` y `0009_seed_catalog`: 20 `CatalogPrice`, los productos del mockup (14 pasteles y 8 postres) y sus 47 `ProductOffering`.
+- `0010_inventory`: `Inventory` y sus proxies. El inventario no se siembra.
+
+Los valores vienen de `docs/reglas-de-negocio.md`; las descripciones cortas, del mockup; los colores de vista previa, de `pastel-css3d.js`: el primer tono de cada pan, sabor y color de cobertura, y el tono de la capa de crema de las bases con queso y con flan (`BASEREL`). La base Normal y el pan Choco-vainilla no tienen color propio en el prototipo y quedan vacíos. El inventario no se siembra; para la demo, un comando `seed_demo_inventory` que se niega a correr con `DEBUG=False`.
 
 ## Repositorios
 
@@ -276,6 +281,14 @@ Devuelven dataclasses inmutables (no instancias del modelo), para que `MemoryRep
 - **`product_repo.py`:** `list_catalog(category=None, search=None, on_date)`, `get_product_by_slug(slug, on_date)`, `list_showcase(on_date, category=None)`, `list_slices(on_date)`, `list_related(product_id, limit=3)`, `get_offering(offering_id)`; existencias: `get_showcase_stock`, `decrement_showcase_stock(offering_id, date, qty) -> bool`, `restock_showcase`, `get_bread_availability`, `consume_bread -> bool`, `release_bread`.
 - **`cake_option_repo.py`:** `list_breads()`, `list_filling_bases_with_flavors()`, `get_filling_price_table() -> dict[(cake_type, base_slug, flavor_slug | None), Decimal]`, `list_coverage_colors()`, `list_decorations()`, `list_tier_recommendations()`.
 - **`settings_repo.py`:** `get_store_settings()`, `get_cake_design_settings()`, `get_policy_settings()`, `get_upload_settings()`, `list_stand_sizes(active_only=True)`, `list_delivery_bands()`.
+
+Detalles de la implementación (el código manda):
+
+- `list_catalog` recibe `on_date` como argumento con nombre y obligatorio: `list_catalog(*, on_date, category=None, search=None)`.
+- `restock_showcase` y `release_bread` devuelven `bool` y no crean la fila del día: si no se cargó nada para esa fecha, no hay existencias que devolver (`False`).
+- `list_showcase` excluye las rebanadas y `list_slices` solo las incluye; las dos incluyen las agotadas (cantidad 0). Qué presentaciones salen en cada pantalla (flan individual, tarta mini) sigue siendo la pregunta 6 para la pastelería.
+- El filtro "Con precio pendiente" del admin de decoraciones cuenta solo las de precio fijo sin precio: "Sin decoración" y "Otra decoración" tienen el precio vacío a propósito.
+- El admin de una configuración de una sola fila solo deja agregar si la tabla quedó vacía.
 
 ## Alternativas descartadas
 
@@ -294,7 +307,7 @@ Devuelven dataclasses inmutables (no instancias del modelo), para que `MemoryRep
 **Para la pastelería (quedan PENDIENTE y configurables):**
 
 1. Unidad del pan para encargos de hoy (por tipo de pan, total o sí/no) y si el mini lo consume.
-2. Con qué pan se hace cada pastel de vitrina (`Product.bread` queda vacío hasta saberlo).
+2. Con qué pan se hace cada pastel de vitrina (`Product.bread` queda vacío hasta saberlo; solo Choco-pingüino y Red velvet lo traen sembrado, porque la regla 4.3 fija su pan).
 3. Qué sabores salen en vitrina como pastel completo (se siembran los 8 del mockup) y a qué precio si se agregan Fresa con yogurt o Nuez.
 4. Si hay mini de todos esos sabores (se siembra el mismo conjunto).
 5. Mosaico con yogurt: un producto o uno por sabor (se siembra uno).

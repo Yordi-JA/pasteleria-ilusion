@@ -108,7 +108,7 @@ El plan completo, con la comparación contra el plan original de 8 semanas, est�
 └── scripts/                  # instalar-skills.sh
 ```
 
-`backend/` y `frontend/` están inicializados desde el 2 de noviembre: Django con el modelo de usuario y la API base, y React con Tailwind, el router y las pruebas de humo. Las pantallas y los modelos del negocio se construyen en las etapas 2 a 4.
+`backend/` y `frontend/` están inicializados desde el 2 de noviembre: Django con el modelo de usuario, el esquema del catálogo, el inventario y la configuración editable (con su semilla, admin y repositorios) y la API base, y React con Tailwind, el router y las pruebas de humo. Las pantallas y los modelos del negocio se construyen en las etapas 2 a 4.
 
 ## Cómo correrlo
 

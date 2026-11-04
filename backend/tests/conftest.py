@@ -1,9 +1,11 @@
 """Fixtures compartidas de las pruebas."""
+import importlib
 import importlib.util
 from pathlib import Path
 
 import environ
 import pytest
+from django.apps import apps
 from django.core.cache import cache
 
 
@@ -80,3 +82,47 @@ def load_settings(monkeypatch):
         return settings_module
 
     return load
+
+
+# --- La semilla sobrevive a las pruebas transaccionales ---
+
+# Las pruebas con hilos (`transaction=True`) necesitan filas confirmadas, y al
+# terminar pytest-django vacía todas las tablas, semilla incluida. Las migraciones
+# de datos usan `get_or_create`, así que basta volver a correrlas: la base queda
+# como recién migrada y ninguna prueba depende del orden en que se ejecuten.
+#
+# Toda migración de datos nueva debe agregarse a `SEED_MIGRATIONS` (una prueba de
+# `test_seed_migrations.py` falla si falta alguna). Y ninguna prueba debe fijar
+# ids a mano: las secuencias de la base no se reinician, así que cambian.
+SEED_MIGRATIONS = [
+    ("0003_seed_settings", "seed_settings"),
+    ("0005_seed_cake_options", "seed_cake_options"),
+    ("0007_seed_stands_and_delivery", "seed_stands_and_delivery"),
+    ("0009_seed_catalog", "seed_catalog"),
+]
+_db_blocker = None
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _remember_db_blocker(django_db_blocker):
+    global _db_blocker
+    _db_blocker = django_db_blocker
+    yield
+    _db_blocker = None
+
+
+def _is_transactional(item):
+    marker = item.get_closest_marker("django_db")
+    uses_marker = marker is not None and marker.kwargs.get("transaction", False)
+    return uses_marker or "transactional_db" in getattr(item, "fixturenames", ())
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_runtest_teardown(item, nextitem):
+    """Vuelve a sembrar justo después de que pytest-django vació las tablas."""
+    if not _is_transactional(item):
+        return
+    with _db_blocker.unblock():
+        for module_name, function_name in SEED_MIGRATIONS:
+            module = importlib.import_module(f"core_pasteleria.migrations.{module_name}")
+            getattr(module, function_name)(apps, None)
