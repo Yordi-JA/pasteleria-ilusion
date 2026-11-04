@@ -145,7 +145,7 @@ Seis dibujos propios, cada uno tomado de algo real de la pastelería: la vela de
 - Al cambiar un color o agregar una capa, la transición dura 300 ms; con "reducir movimiento", cambia sin animación.
 - Una opción que no aplica se muestra desactivada y dice por qué ("No se combina con pastel envinado"); nunca desaparece. Si un cambio invalida algo ya elegido, se avisa antes de continuar y el botón dice qué va a pasar ("Continuar y elegir otro pan").
 - La cámara del cotizador usa el mismo ángulo que las fotos del catálogo (unos 15° desde arriba, de frente) para que el pastel 3D y los reales se vean del mismo modo.
-- Las opciones (pisos, tamaño, sabor, relleno, decoración) son chips en `radio-sm`; la elegida usa `fresa-claro` con borde `mermelada`.
+- Las opciones (pisos, tamaño, sabor, relleno, decoración) son chips en `radio-sm`; la elegida se llena de `mermelada` con texto `betun`, como en el resto de los chips (ver "Componentes").
 - El precio estimado se actualiza en `titulo-3` con cifras tabulares, junto al botón "Agregar al pedido".
 
 ## Estados
@@ -199,6 +199,8 @@ Seis dibujos propios, cada uno tomado de algo real de la pastelería: la vela de
 
 - Opción elegida en tarjetas con radio o casilla visible: fondo `betun` y borde de 2 px `mermelada`; el punto del radio marca la selección. Nunca fondo `fresa-claro`, que compite con los campos de adentro.
 - Opción elegida en chips sin radio visible (horarios, pisos): fondo `mermelada` con texto `betun`.
+- Botones: el principal (uno por pantalla) es `mermelada` con texto `betun`; el secundario es `betun` con borde de 2 px `mermelada` y texto `mermelada`, para acciones que acompañan al principal ("Ver la vitrina" junto a "Realizar pedido"); sobre campos `mermelada`, `betun` con texto `mermelada`. Texto en `etiqueta` y alto mínimo de 44 px. En hover se subraya el texto, y deshabilitado lleva borde discontinuo `relieve` y fondo `harina`: ningún estado depende solo del color.
+- Avisos: llevan un ícono Phosphor de 22 px en el color del borde (salvo el de información, que va en `mermelada`, porque `relieve` no tiene contraste suficiente), un título en negritas que nombra el estado y, si hace falta, un texto en `nota`. El de información (sin urgencia, como la recomendación de pisos en "Diseña tu pastel") lleva borde de 1 px `relieve`; el de atención, borde de 2 px `cajeta`; el de algo confirmado, borde de 2 px `exito` con palomita; el de falla, borde de 2 px `error` y `role="alert"`. Los demás usan `role="status"`.
 - Borde de duya: siempre del color exacto de la sección de la que cuelga.
 - Vistas de acceso (iniciar sesión, crear cuenta, recuperar y verificar): un solo fondo `fresa` de arriba abajo, con la tarjeta completa dentro, sin franjas intermedias.
 - "Mis pedidos": el pedido en curso es una tarjeta compacta (número, estado, qué lleva, fecha, lo que resta y "Ver pedido"); la línea de tiempo y el desglose van en el detalle.
