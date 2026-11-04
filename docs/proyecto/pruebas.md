@@ -1,6 +1,6 @@
 # Estrategia de pruebas
 
-El proyecto prueba la lógica de negocio con `pytest` y `pytest-django`, el recorrido de compra con Playwright y la accesibilidad con una revisión por pantalla. Estado al 2 de noviembre de 2026: hay 79 pruebas de backend en `backend/tests/` (modelo de usuario, admin, configuración, documentación de la API, sesión JWT, hash de contraseñas y throttling) y 2 pruebas de humo con Playwright en `frontend/e2e/`. Las pruebas de la lógica de negocio llegan con los servicios de las etapas 2 a 4.
+El proyecto prueba la lógica de negocio con `pytest` y `pytest-django`, el recorrido de compra con Playwright y la accesibilidad con una revisión por pantalla. Estado al 3 de noviembre de 2026: hay 498 pruebas de backend en `backend/tests/` (modelo de usuario, admin, configuración, documentación de la API, sesión JWT, hash de contraseñas, throttling, y el catálogo, el inventario y la configuración editable con sus semillas, restricciones y repositorios) y 2 pruebas de humo con Playwright en `frontend/e2e/`. Las pruebas de la lógica de negocio llegan con los servicios de las etapas 2 a 4.
 
 ## Contenido
 
