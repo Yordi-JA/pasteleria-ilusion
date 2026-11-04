@@ -50,6 +50,7 @@ Los servicios externos aparecen en el [diagrama de contexto](arquitectura.md#dia
 - Django REST Framework agrega serializadores, autenticación, paginación y throttling sobre el mismo modelo, y `drf-spectacular` documenta el resultado.
 - React con hooks encaja con MVVM: la vista es JSX y el hook es el view-model.
 - El framework se demuestra instalado y funcionando en las etapas 2 y 3. Desde el 2 de noviembre ambos proyectos están inicializados, con sus pruebas en verde.
+- Se consideró FastAPI y se descartó (D37). Valida datos y genera OpenAPI igual de bien, y rinde más en servicios asíncronos con mucho tráfico, pero no trae ORM, admin ni migraciones: habría que armarlos con otras bibliotecas, y la pastelería necesita el admin para editar precios y existencias. Usarlo junto a Django duplicaría la API, la sesión JWT y los permisos, y con un segundo servicio se rompería el mismo origen que exige la cookie del refresh (D15, D26). Ninguna parte del sitio lo justifica: casi todo comparte la misma base, el mismo usuario y el mismo admin.
 
 ## Fuentes tipográficas y licencias
 

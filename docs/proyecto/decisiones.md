@@ -1,6 +1,6 @@
 # Registro de decisiones
 
-Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D23 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026; D24 a D28, al inicializar los proyectos el 2 de noviembre; D29 a D35, el mismo 2 de noviembre: identificadores en inglés, catálogo, despliegue, límite de intentos y diagramas; D36, el 3 de noviembre: componentes base y la página de muestra.
+Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D23 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026; D24 a D28, al inicializar los proyectos el 2 de noviembre; D29 a D35, el mismo 2 de noviembre: identificadores en inglés, catálogo, despliegue, límite de intentos y diagramas; D36 y D37, el 3 de noviembre: componentes base, página de muestra y FastAPI descartado.
 
 ## Contenido
 
@@ -334,6 +334,13 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
     - Se agregan el botón secundario y el aviso de información, y se documentan en [`../libro-de-marca.md`](../libro-de-marca.md), sección "Componentes". El chip elegido de "Diseña tu pastel" pasa a `mermelada` con texto `betun`, como el resto de los chips.
 - **Contexto:** Se consideró una página de muestra siempre disponible, pero expone una vista que no es del sitio. También se consideró dibujar los íconos como SVG en línea; el libro de marca nombra Phosphor y la versión de React se verificó antes de instalar.
 - **Consecuencias:** Cada componente nuevo se agrega a `/muestra` y a `e2e/muestra.spec.ts`. El botón secundario y el aviso de información ya no necesitan consulta al equipo.
+
+### D37. FastAPI no se usa en el proyecto
+
+- **Fecha:** 3 de noviembre de 2026.
+- **Decisión:** El backend se queda solo con Django y Django REST Framework. FastAPI no se agrega ni como API principal ni como servicio aparte.
+- **Contexto:** El equipo vio FastAPI en la materia y revisó si alguna parte del proyecto lo aprovecharía. Los endpoints, los webhooks de pago, el cálculo del precio, la nota en PDF y la tarea `cancel_unpaid_cash_orders` usan los modelos, los repositorios y la sesión de Django, así que en ellos FastAPI duplicaría lo que DRF ya hace: validación, OpenAPI y JWT. El único candidato a servicio aparte era la tarifa de envío con la API de distancias, pero separarlo agregaría un despliegue y autenticación entre servicios para pocas líneas. Un segundo servicio también rompería el mismo origen de D26, que necesita la cookie del refresh (D15). El material de la materia marca la sobreingeniería como antipatrón.
+- **Consecuencias:** Ninguna en el código. La comparación queda en [`tecnologias.md`](tecnologias.md#framework-por-qué-django-y-react) para el reporte. Si más adelante una parte necesita un servicio asíncrono independiente, sin base ni sesión compartidas, se reconsidera con una decisión nueva.
 
 ## Decisiones abiertas
 
