@@ -50,6 +50,9 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # `ArrayField` (tipos de pastel permitidos) y `ExclusionConstraint` (rangos
+    # de kilos de las bases sin encimarse).
+    "django.contrib.postgres",
     "rest_framework",
     # Sin esta app la lista negra de refresh tokens no ocurre.
     "rest_framework_simplejwt.token_blacklist",
@@ -217,6 +220,17 @@ WHITENOISE_ADD_HEADERS_FUNCTION = _add_whitenoise_headers
 # Solo guarda las subidas de clientes. `MEDIA_URL` no se define ni se enruta:
 # los archivos salen por un endpoint con permisos.
 MEDIA_ROOT = BASE_DIR / "media"
+
+# Tope duro, en MB, del tamaño de cada imagen subida (D31). El admin edita el
+# máximo en `UploadSettings.max_upload_mb`, pero nunca puede pasar de este valor.
+# Cambiarlo exige una migración: el valor queda en el validador y en la
+# restricción de la base de `UploadSettings`.
+UPLOAD_HARD_LIMIT_MB = 10
+
+# Tope duro de imágenes por envío de referencia (regla 9: máximo 3). El admin
+# edita `UploadSettings.max_reference_images`, pero nunca puede pasar de aquí.
+# Cambiarlo exige una migración, igual que `UPLOAD_HARD_LIMIT_MB`.
+UPLOAD_HARD_LIMIT_IMAGES = 3
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
