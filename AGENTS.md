@@ -12,7 +12,7 @@ Este archivo es la fuente única de instrucciones para cualquier agente. `backen
 - Acceso: Google (OAuth 2.0) y correo con contraseña, con JWT (SimpleJWT).
 - Pruebas: pytest y pytest-django en el backend, Playwright en `frontend/e2e/`.
 
-Las versiones se fijaron al inicializar los proyectos (D24 y D25 en [`docs/proyecto/decisiones.md`](docs/proyecto/decisiones.md)): Django 5.2 LTS con Python 3.11 y PostgreSQL 18 en el backend; Vite, React y TypeScript con Node 22, Tailwind CSS v3 con el preset, React Router y oxlint en el frontend. Las versiones exactas están en `backend/requirements.txt` y `frontend/package.json`; no supongas otras. El despliegue previsto es en Heroku como un solo servicio (D26); aún no está configurado.
+Las versiones se fijaron al inicializar los proyectos (D24 y D25 en [`docs/proyecto/decisiones.md`](docs/proyecto/decisiones.md)): Django 5.2 LTS con Python 3.11 y PostgreSQL 18 en el backend; Vite, React y TypeScript con Node 22, Tailwind CSS v3 con el preset, React Router y oxlint en el frontend. Las versiones exactas están en `backend/requirements.txt` y `frontend/package.json`; no supongas otras. El sitio está desplegado en Heroku como un solo servicio desde el 4 de noviembre de 2026, en https://pasteleria-ilusion-0994ca356cbc.herokuapp.com/ (D26 y D38).
 
 ## Fuentes de verdad
 
@@ -111,7 +111,7 @@ La descripción va en español, en Markdown, con estos encabezados `##` y en est
 
 1. `## Qué es esto`: uno o dos párrafos con qué parte del sitio toca, qué problema resuelve y qué no se podía hacer antes.
 2. `## Qué trae`: una viñeta por cambio. Cada viñeta dice qué cambió y, si no es obvio, por qué se eligió así (por ejemplo, la alternativa descartada). Cita rutas, endpoints, variables y comandos tal cual, entre comillas invertidas.
-3. `## Verificación`: cada comprobación con el comando y su resultado: `.venv/bin/pytest` desde `backend/`; `npm run typecheck`, `npm run lint` y `npm run test:e2e` desde `frontend/`; en pantallas, la comparación con las capturas a 1440 px y 390 px. Cuando exista el despliegue en Heroku (D26), distingue lo verificado en local de lo verificado en el sitio desplegado.
+3. `## Verificación`: cada comprobación con el comando y su resultado: `.venv/bin/pytest` desde `backend/`; `npm run typecheck`, `npm run lint` y `npm run test:e2e` desde `frontend/`; en pantallas, la comparación con las capturas a 1440 px y 390 px. Distingue lo verificado en local de lo verificado en el sitio desplegado en Heroku (D26 y D38).
 4. `## Falta`: lo que no se hizo, y por qué.
 
 Reglas de redacción:

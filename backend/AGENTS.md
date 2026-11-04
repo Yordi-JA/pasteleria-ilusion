@@ -22,7 +22,7 @@ El proyecto Django está inicializado (Etapa 2, solo la inicialización): paquet
 
 El esquema del catálogo, el inventario y la configuración editable (D32) está implementado en `core_pasteleria/models.py`, con sus migraciones `0002` a `0010` (esquema y semilla por paso; la semilla llega sola a producción con `migrate`, ver [`docs/proyecto/esquema-catalogo.md`](../docs/proyecto/esquema-catalogo.md)), su admin en `admin.py` y sus pruebas: 4 configuraciones de una sola fila, las opciones y precios de "Diseña tu pastel", `CakeStand` y `DeliveryFeeBand`, `Product`, `CatalogPrice` y `ProductOffering`, e `Inventory` por día con los proxies "Vitrina de hoy" y "Pan de hoy". Lo que la pastelería aún no define queda vacío y el admin lo muestra como "PENDIENTE". Los repositorios `product_repo`, `cake_option_repo` y `settings_repo` devuelven `dataclass` inmutables (`repositories/records.py`) y tienen su par en memoria (`repositories/memory.py`).
 
-Todavía no hay servicios, endpoints de negocio ni `Order`, `CakeDesign`, `StandLoan`, `DeliverySlot`, `ReferenceRequest` ni `Quote`: los módulos de `api/` y `services/` y `order_repo.py` siguen siendo esqueleto. Faltan también el inicio de sesión con cookie de refresh y Google, y el comando `seed_demo_inventory`. El primer despliegue real en Heroku (cuenta, variables, add-ons) lo hace el equipo.
+Todavía no hay servicios, endpoints de negocio ni `Order`, `CakeDesign`, `StandLoan`, `DeliverySlot`, `ReferenceRequest` ni `Quote`: los módulos de `api/` y `services/` y `order_repo.py` siguen siendo esqueleto. Faltan también el inicio de sesión con cookie de refresh y Google, y el comando `seed_demo_inventory`. La app `pasteleria-ilusion` está desplegada en Heroku (https://pasteleria-ilusion-0994ca356cbc.herokuapp.com/, D38); los despliegues siguientes los hace el equipo desde `main` actualizado con `git push heroku main` (en un clon nuevo, primero `heroku git:remote -a pasteleria-ilusion`).
 
 ## Comandos
 
@@ -200,7 +200,7 @@ Heroku detecta los buildpacks desde la raíz del repositorio, así que ahí vive
 | `Procfile` | `web`: gunicorn con `config.wsgi` desde `backend/`. `release`: `migrate` y `createcachetable` antes de cada versión nueva (ambos son idempotentes). |
 | `.slugignore` | Deja fuera del slug `mockup/` y `docs/`, que no se leen ni en el build ni en ejecución. Heroku lo aplica **antes** del buildpack (Slug Compiler), así que `design/` y `assets/` no pueden ir ahí: el build de Tailwind y las fuentes los leen. |
 
-`collectstatic` lo corre solo el buildpack de Python: busca `manage.py` hasta 3 niveles de profundidad (`backend/manage.py`) y junta los estáticos en `backend/staticfiles/`. No va en el `release`, porque ese dyno se descarta y los archivos no llegan a los dynos `web`. Los ganchos `pre/post_compile` no existen en el buildpack nuevo (CNB), por eso no se usan. Para que `collectstatic` corra durante el build, las variables `SECRET_KEY`, `ALLOWED_HOSTS`, `NUM_PROXIES` y `DATABASE_URL` deben estar definidas antes del primer `git push` (Heroku las expone durante el build, y los settings las exigen para cargar).
+`collectstatic` lo corre solo el buildpack de Python: busca `manage.py` hasta 3 niveles de profundidad (`backend/manage.py`) y junta los estáticos en `backend/staticfiles/`. No va en el `release`, porque ese dyno se descarta y los archivos no llegan a los dynos `web`. No se usan los ganchos `bin/pre_compile` ni `bin/post_compile`: el buildpack clásico de Python, que es el que usa la app (D38), ya corre `collectstatic` solo, y el buildpack nuevo (CNB) no tiene esos ganchos, así que depender de ellos impediría migrar. Para que `collectstatic` corra durante el build, las variables `SECRET_KEY`, `ALLOWED_HOSTS`, `NUM_PROXIES` y `DATABASE_URL` deben estar definidas antes del primer `git push` (Heroku las expone durante el build, y los settings las exigen para cargar).
 
 Se descartó desplegar solo `backend/` con `git subtree push`: el build de React tendría que estar versionado, y `frontend/dist/` está ignorado. Se descartó también separar el frontend en otra app: rompe el mismo origen (D15) y duplica la configuración.
 
@@ -221,7 +221,7 @@ Se descartó desplegar solo `backend/` con `git subtree push`: el build de React
 | Variable | Valor |
 | --- | --- |
 | `SECRET_KEY` | Aleatoria y larga (por ejemplo, `python -c "import secrets; print(secrets.token_urlsafe(50))"`). No se versiona. |
-| `ALLOWED_HOSTS` | El dominio de la app sin esquema (`<app>.herokuapp.com`), separado por comas si hay más. |
+| `ALLOWED_HOSTS` | El dominio de la app sin esquema, tomado del "Web URL" de `heroku info`, separado por comas si hay más. Heroku agrega un sufijo al azar (`<app>-<hash>.herokuapp.com`; hoy `pasteleria-ilusion-0994ca356cbc.herokuapp.com`), así que no se arma con el nombre de la app. |
 | `NUM_PROXIES` | `1`: el router de Heroku es el único salto. Obligatorio. |
 | `DATABASE_URL` | La pone el add-on Heroku Postgres; no se escribe a mano. |
 | `DEBUG` | No definirla (queda en `False`). |
@@ -234,32 +234,48 @@ Las variables de los pagos y de Google se agregan con esas funciones. `POSTGRES_
 
 ### Comandos que corre el equipo
 
+En Windows (Git Bash) no existe `python3`: cámbialo por `python` en el `config:set` antes de copiarlo.
+
 ```bash
 heroku create <nombre-de-la-app>
+# en un clon que no corrió heroku create: heroku git:remote -a <nombre-de-la-app>
 heroku buildpacks:add --index 1 heroku/nodejs
 heroku buildpacks:add --index 2 heroku/python
-heroku addons:create heroku-postgresql:<plan>      # plan y versión: ver nota (antes de `config:set` y del push)
+heroku info -a <nombre-de-la-app>                  # copia el dominio del "Web URL" para ALLOWED_HOSTS
+# Las opciones del add-on van después de `--`; `--version=18` antes falla con "Nonexistent flag".
+heroku addons:create heroku-postgresql:essential-0 -a <nombre-de-la-app> --wait -- --version=18
 heroku config:set SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')" \
-  ALLOWED_HOSTS=<nombre-de-la-app>.herokuapp.com NUM_PROXIES=1
-git push heroku <rama>:main
+  ALLOWED_HOSTS=<dominio-de-heroku-info> NUM_PROXIES=1
+git push heroku main                               # desde la raíz del repositorio
+heroku ps:type web=basic -a <nombre-de-la-app>   # D38: Basic, no Eco
 heroku run "cd backend && python manage.py createsuperuser"
 heroku logs --tail
 ```
 
+Notas:
+
+- La primera vez, `git push heroku main` pide credenciales de `git.heroku.com`: el usuario es el correo de Heroku y la contraseña, la salida de `heroku auth:token`. Corre ese comando en una terminal propia, porque el token da acceso a la cuenta. Git Credential Manager lo guarda.
+
 Si el build falla con `ImproperlyConfigured`, falta una de las variables que los settings exigen para cargar (`SECRET_KEY`, `ALLOWED_HOSTS`, `NUM_PROXIES`, `DATABASE_URL`): el mensaje dice cuál; se define y se vuelve a hacer el push.
 
-Verificación tras el primer despliegue (revisar también el log del build: debe decir que `collectstatic` copió archivos): `curl -I https://<app>.herokuapp.com/` (200, `text/html`), `/index.html` (200 con `X-Frame-Options: DENY` y `Cache-Control: no-cache`), `/catalogo` (200), `/assets/<archivo del build>` (200, `immutable`), `/static/admin/css/base.css` (200: si falta, `collectstatic` no corrió y el admin y Swagger salen sin estilos), `/api/v1/docs/` (401), `/api/v1/noexiste/` y `/api` (404 JSON), `/media/x.jpg` (404) y `/admin/login/` (200, y tras 5 fallos seguidos desde una IP, 429 con `Retry-After`).
+Verificación tras el primer despliegue (revisar también el log del build: debe decir que `collectstatic` copió archivos), con el dominio del "Web URL" de `heroku info`: `curl -I https://<dominio-de-heroku-info>/` (200, `text/html`), `/index.html` (200 con `X-Frame-Options: DENY` y `Cache-Control: no-cache`), `/catalogo` (200), `/assets/<archivo del build>` (200, `immutable`), `/static/admin/css/base.css` (200: si falta, `collectstatic` no corrió y el admin y Swagger salen sin estilos), `/api/v1/docs/` (401), `/api/v1/noexiste/` y `/api` (404 JSON), `/media/x.jpg` (404) y `/admin/login/` (200, y tras 5 fallos seguidos desde una IP, 429 con `Retry-After`), `/robots.txt` (404), `curl -I http://<dominio-de-heroku-info>/` (301 a `https://`, sin bucle) y `Strict-Transport-Security: max-age=31536000`.
 
 ### Verificado en local y pendiente
 
 Verificado en local, sin Heroku: el script `heroku-postbuild` en una copia limpia (con `--ignore-scripts`), `collectstatic`, `createcachetable`, gunicorn con `DEBUG=False`, `check --deploy` y las pruebas de `tests/test_spa.py`, `tests/test_settings.py` y `tests/test_login_lockout.py`.
 
-Pendiente de verificar con la cuenta de Heroku:
+Verificado en Heroku el 4 de noviembre de 2026 (release v5, commit `4425df7`, D38), con la app en la región `us`, el stack `heroku-24` y los buildpacks clásicos del registro (`heroku/nodejs`, `heroku/python`):
 
-- Que el buildpack de Python encuentre `backend/manage.py` y corra `collectstatic` con las variables del entorno de build, y que `frontend/dist/` sobreviva hasta el slug (orden Node, luego Python). Si `collectstatic` se omite o falla sin romper el build, el síntoma es `/static/admin/css/base.css` con 404.
-- Que `.python-version` con `3.11` y `-r backend/requirements.txt` desde la raíz se resuelvan en la pila elegida.
-- El plan y la versión de Heroku Postgres (el desarrollo usa PostgreSQL 18) y el precio, que se confirman al activar el Pack.
-- Que el `release` corra `migrate` y `createcachetable` sin errores, y que el router de Heroku envíe `X-Forwarded-Proto: https` y un solo salto en `X-Forwarded-For` (por eso `NUM_PROXIES=1`).
+- El buildpack de Python encontró `backend/manage.py` y corrió `collectstatic`, y `frontend/dist/` llegó al slug: `/static/admin/css/base.css` y `/assets/index-<hash>.js` (en v5, `index-CAwvpzXc.js`) responden 200.
+- `.python-version` con `3.11` y `-r backend/requirements.txt` desde la raíz se resolvieron en `heroku-24`.
+- Heroku Postgres `essential-0`, versión 18.4 (el mismo mayor que desarrollo), con 1 GB y 20 conexiones. El plan cuesta alrededor de $0.007 por hora, con máximo de $5 al mes, según `heroku addons:plans heroku-postgresql`.
+- La fase `release` corre `migrate --noinput` y `createcachetable` encadenados con `&&`; ambos terminaron sin error, porque la release v5 quedó como actual. Aplicó todas las migraciones, incluidas `core_pasteleria` 0002 a 0010 con sus semillas. Gunicorn arrancó con 2 workers y los logs no muestran errores.
+- Con `curl`: `/`, `/index.html` y `/catalogo` dan 200 HTML con `X-Frame-Options: DENY` y `Cache-Control: no-cache`; el archivo de `/assets/` da 200 con `Cache-Control: max-age=315360000, public, immutable`; `/api/v1/docs/` da 401; `/api/v1/noexiste/` y `/api` dan 404 JSON; `/media/x.jpg` y `/robots.txt` dan 404; `/admin/login/` da 200; `http://` redirige con 301 a `https://`; HSTS trae `max-age=31536000`; el 301 sin bucle muestra que llega `X-Forwarded-Proto` y que `SECURE_PROXY_SSL_HEADER` funciona.
+
+Pendiente:
+
+- El bloqueo de django-axes en producción (5 fallos, luego 429 con `Retry-After`). No se probó porque bloquearía una hora la IP del equipo; se prueba después, desde otra red.
+- Que el router de Heroku agregue un solo salto a `X-Forwarded-For`, que es la base de `NUM_PROXIES=1` y de la IP que usan django-axes y el throttling. Se comprueba junto con el bloqueo de django-axes: en el admin, "Access attempts" debe registrar la IP real del equipo y no un `X-Forwarded-For` falso enviado en la petición.
 - La programación en Heroku Scheduler de `cancel_unpaid_cash_orders`, `flushexpiredtokens` y `axes_reset_logs --age 90`.
 
 Más contexto: [`docs/proyecto/arquitectura.md`](../docs/proyecto/arquitectura.md).
