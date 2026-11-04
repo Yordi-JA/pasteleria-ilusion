@@ -1,6 +1,6 @@
 # Registro de decisiones
 
-Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D23 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026; D24 a D28, al inicializar los proyectos el 2 de noviembre; D29 a D35, el mismo 2 de noviembre: identificadores en inglés, catálogo, despliegue, límite de intentos y diagramas; D36 y D37, el 3 de noviembre: componentes base, página de muestra y FastAPI descartado.
+Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D23 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026; D24 a D28, al inicializar los proyectos el 2 de noviembre; D29 a D35, el mismo 2 de noviembre: identificadores en inglés, catálogo, despliegue, límite de intentos y diagramas; D36 y D37, el 3 de noviembre: componentes base, página de muestra y FastAPI descartado; D38, el 4 de noviembre: primer despliegue en Heroku.
 
 ## Contenido
 
@@ -342,6 +342,13 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 - **Contexto:** El equipo vio FastAPI en la materia y revisó si alguna parte del proyecto lo aprovecharía. Los endpoints, los webhooks de pago, el cálculo del precio, la nota en PDF y la tarea `cancel_unpaid_cash_orders` usan los modelos, los repositorios y la sesión de Django, así que en ellos FastAPI duplicaría lo que DRF ya hace: validación, OpenAPI y JWT. El único candidato a servicio aparte era la tarifa de envío con la API de distancias, pero separarlo agregaría un despliegue y autenticación entre servicios para pocas líneas. Un segundo servicio también rompería el mismo origen de D26, que necesita la cookie del refresh (D15). El material de la materia marca la sobreingeniería como antipatrón.
 - **Consecuencias:** Ninguna en el código. La comparación queda en [`tecnologias.md`](tecnologias.md#framework-por-qué-django-y-react) para el reporte. Si más adelante una parte necesita un servicio asíncrono independiente, sin base ni sesión compartidas, se reconsidera con una decisión nueva.
 
+### D38. Primer despliegue en Heroku: app, plan y dyno
+
+- **Fecha:** 4 de noviembre de 2026.
+- **Decisión:** La app se llama `pasteleria-ilusion`, está en la región `us` y usa Heroku Postgres `essential-0` en la versión 18 y un dyno `web` Basic.
+- **Contexto:** D26 dejó los precios para confirmarse al activar el Pack. Heroku creó el dyno como Basic y se mantiene así, en lugar de Eco, porque Eco se duerme tras 30 minutos sin visitas y la primera petición tarda segundos en despertarlo, lo que estorbaría en la exposición. Postgres 18 coincide con el de desarrollo. El plan `essential-0` mostró alrededor de $0.007 por hora, con máximo de $5 al mes, 1 GB y 20 conexiones; Heroku lo instaló en la versión 18.4. El precio de los dynos no se verificó.
+- **Consecuencias:** Heroku asignó el dominio `pasteleria-ilusion-0994ca356cbc.herokuapp.com`, con sufijo al azar, y ese es el valor de `ALLOWED_HOSTS` mientras no haya dominio propio. El dominio propio se decide antes de la Etapa 3, porque Google y los pagos se registran con la dirección del sitio. Al seguir la guía se corrigió la sección "Despliegue en Heroku" de `backend/AGENTS.md`: las opciones del add-on van después de `--`, `ALLOWED_HOSTS` sale de `heroku info` y `git push heroku main` se corre desde la raíz. La guía fija el tipo de dyno con `heroku ps:type web=basic`. D38 completa D26.
+
 ## Decisiones abiertas
 
 | Tema | Detalle | Se resuelve |
@@ -360,6 +367,7 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 | Preguntas del catálogo para la pastelería | Unidad del pan para encargos de hoy, pan de cada pastel de vitrina, sabores y minis en vitrina, Mosaico con yogurt, vitrina frente a rebanadas, peso que cuenta para el envío gratis y base de 26 a 50 kg (D32) | Cuando responda la pastelería |
 | Refresh anterior a un cambio de contraseña | SimpleJWT lo renueva aunque el access que entrega recibe 401 (D28). La vista de refresh puede rechazarlo de forma explícita | Etapa 3, con el acceso |
 | Envío gratis con 15 kg o más a más de 15 km | Pregunta para la pastelería ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 8) | Cuando responda la pastelería |
+| Dominio propio | Heroku asignó `pasteleria-ilusion-0994ca356cbc.herokuapp.com` (D38). Google y los pagos se registran con la dirección del sitio, y HSTS con subdominios y preload se activa solo con dominio propio | Antes de la Etapa 3 |
 
 ## Ver también
 

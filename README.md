@@ -79,7 +79,7 @@ El frontend sigue MVVM: los hooks (view-models) llevan el estado y hablan con el
 | Etapa | Fechas (2026) | Contenido | Estado |
 | --- | --- | --- | --- |
 | 1 | 08 al 31 de octubre | Reglas de negocio, identidad visual, libro de marca, mockup y arquitectura | Completada |
-| 2 | 01 al 07 de noviembre | Backend (Django, PostgreSQL, modelos, repositorios, servicios, API en `/api/v1/`, Swagger, admin) y, en paralelo, frontend (React, Tailwind con el preset, componentes base, rutas); despliegue del esqueleto en una PaaS | En curso |
+| 2 | 01 al 07 de noviembre | Backend (Django, PostgreSQL, modelos, repositorios, servicios, API en `/api/v1/`, Swagger, admin) y, en paralelo, frontend (React, Tailwind con el preset, componentes base, rutas); despliegue del esqueleto en una PaaS (ya en Heroku: https://pasteleria-ilusion-0994ca356cbc.herokuapp.com/) | En curso |
 | 3 | 08 al 13 de noviembre | Pantallas conectadas a la API, acceso, "Diseña tu pastel" con react-three-fiber | Por iniciar |
 | 4 | 14 al 19 de noviembre | Carrito, entrega y agenda, pagos, Observer, garantías de bases con nota PDF y QR, referencia, cancelaciones | Por iniciar |
 | 5 | 20 al 23 de noviembre | Cierre: verificación (pruebas en el sitio desplegado, accesibilidad, video de respaldo), reporte final con referencias en APA, presentación, ensayo, etiqueta del commit final y zip del código | Por iniciar |
