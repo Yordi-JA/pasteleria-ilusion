@@ -223,7 +223,7 @@ def test_database_cache_works_with_the_createcachetable_table(settings, load_set
 def test_whitenoise_goes_right_after_security_middleware(settings):
     middleware = settings.MIDDLEWARE
     assert middleware.index("whitenoise.middleware.WhiteNoiseMiddleware") == (
-        middleware.index("django.middleware.security.SecurityMiddleware") + 1
+        middleware.index("config.canonical.WwwRedirectMiddleware") + 1
     )
 
 
