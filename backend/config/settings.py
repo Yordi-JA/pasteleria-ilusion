@@ -4,11 +4,13 @@ Todo lo que cambia por entorno o es secreto se lee de variables de entorno
 (`backend/.env` en desarrollo, ignorado por Git). `SECRET_KEY` y
 `ALLOWED_HOSTS` no tienen valor por defecto: sin ellos la app no arranca.
 """
+import re
 from datetime import timedelta
 from pathlib import Path
 
 import environ
 from django.core.exceptions import ImproperlyConfigured
+from django.utils.http import is_same_domain
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -43,6 +45,34 @@ ALLOWED_HOSTS = env_list("ALLOWED_HOSTS")
 if not ALLOWED_HOSTS:
     raise ImproperlyConfigured("ALLOWED_HOSTS no puede estar vacío.")
 
+
+def _host_allowed(host):
+    """True si `ALLOWED_HOSTS` permite el host, como lo decide Django."""
+    return any(
+        pattern == "*" or is_same_domain(host, pattern.lower())
+        for pattern in ALLOWED_HOSTS
+    )
+
+
+# Dirección principal del sitio (por ejemplo, `pasteleriailusion.me`). Opcional:
+# vacía, no hay redirección (desarrollo y pruebas). Con valor, `www.` + este host
+# redirige con 301 a él (`config.canonical.WwwRedirectMiddleware`).
+CANONICAL_HOST = env("CANONICAL_HOST", default="").strip().lower()
+if CANONICAL_HOST:
+    _host_pattern = r"(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))*"
+    if not re.fullmatch(_host_pattern, CANONICAL_HOST):
+        raise ImproperlyConfigured(
+            "CANONICAL_HOST debe ser solo el dominio, sin esquema, puerto ni ruta "
+            "(por ejemplo, pasteleriailusion.me)."
+        )
+    # Con la misma lógica que Django: acepta "*" y patrones como ".dominio.me".
+    for _host in (CANONICAL_HOST, f"www.{CANONICAL_HOST}"):
+        if not _host_allowed(_host):
+            raise ImproperlyConfigured(
+                f"ALLOWED_HOSTS debe permitir {_host}: CANONICAL_HOST exige "
+                "el dominio canónico y su variante con www."
+            )
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -67,7 +97,11 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    # Sirve los estáticos y el build de React; va justo después de Security.
+    # Redirige www al dominio canónico; antes de WhiteNoise para que también
+    # cubra los estáticos y el build de React.
+    "config.canonical.WwwRedirectMiddleware",
+    # Sirve los estáticos y el build de React; va justo después de la
+    # redirección de www, antes de todo lo demás.
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     # Antes de CommonMiddleware, como pide django-cors-headers.
