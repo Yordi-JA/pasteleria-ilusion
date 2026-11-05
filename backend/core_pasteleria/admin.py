@@ -309,6 +309,11 @@ class CakeStandAdmin(admin.ModelAdmin):
     list_display = ("__str__", "deposit", "origin", "is_active")
     list_filter = ("origin", "is_active")
 
+    def has_delete_permission(self, request, obj=None):
+        # Borrar un tamaño dejaría sin depósito a los pedidos de esos kilos; se
+        # desactiva con "activa", que se puede deshacer.
+        return False
+
     def changelist_view(self, request, extra_context=None):
         """Avisa si las bases no llegan hasta los kilos máximos en línea."""
         highest = CakeStand.objects.filter(is_active=True).order_by("-max_kg").first()

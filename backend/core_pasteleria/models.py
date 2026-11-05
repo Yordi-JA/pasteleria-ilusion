@@ -350,6 +350,33 @@ class CakeDesignSettings(SingletonSettings):
             ),
         ]
 
+    def clean(self):
+        super().clean()
+        if self.max_online_kg is None:
+            return
+        saved = type(self).objects.filter(pk=self.pk).values_list("max_online_kg", flat=True).first()
+        # Solo si el campo cambia (o en el alta): editar otro campo, como el
+        # precio de la oblea, no queda bloqueado por el estado de las bases.
+        if saved == self.max_online_kg:
+            return
+        # Un pedido de los kilos máximos en línea debe tener base (regla 7).
+        largest = (
+            CakeStand.objects.filter(is_active=True).order_by("-max_kg").values_list("max_kg", flat=True).first()
+        )
+        if largest is None:
+            raise ValidationError(
+                {"max_online_kg": "No hay bases activas: activa al menos una antes de fijar los kilos máximos en línea."}
+            )
+        if self.max_online_kg > largest:
+            raise ValidationError(
+                {
+                    "max_online_kg": (
+                        f"La base activa más grande llega a {largest} kg: los kilos máximos en línea "
+                        "no pueden pasar de ahí. Agrega o activa una base más grande primero."
+                    )
+                }
+            )
+
 
 class PolicySettings(SingletonSettings):
     """Políticas de la pastelería que el admin puede editar."""
@@ -693,13 +720,53 @@ class FillingPrice(models.Model):
 
     def clean(self):
         super().clean()
-        if self.flavor_id is None or self.base_id is None:
+        if self.base_id is None:
             return
-        if not self.flavor.bases.filter(pk=self.base_id).exists():
-            raise ValidationError({"flavor": "Ese sabor no se ofrece en esa base."})
-        if self.cake_type and self.cake_type not in self.flavor.allowed_cake_types:
+        if self.flavor_id is not None:
+            if not self.flavor.bases.filter(pk=self.base_id).exists():
+                raise ValidationError({"flavor": "Ese sabor no se ofrece en esa base."})
+            if self.cake_type and self.cake_type not in self.flavor.allowed_cake_types:
+                raise ValidationError(
+                    {"flavor": "Ese sabor no se ofrece en ese tipo de pastel."}
+                )
+        self._check_flavor_is_not_below_its_base()
+
+    def _check_flavor_is_not_below_its_base(self):
+        """Un sabor no se cobra por debajo de su base en el mismo tipo de pastel.
+
+        Se revisa de los dos lados: un precio propio de sabor contra el precio
+        general, y un precio general contra los propios que ya existen.
+        """
+        if not self.cake_type or self.price_per_kg is None:
+            return
+        same_type = type(self).objects.filter(cake_type=self.cake_type, base_id=self.base_id).exclude(pk=self.pk)
+        type_name = CakeType(self.cake_type).label.lower()
+        if self.flavor_id is not None:
+            general = same_type.filter(flavor__isnull=True).values_list("price_per_kg", flat=True).first()
+            if general is not None and self.price_per_kg < general:
+                raise ValidationError(
+                    {
+                        "price_per_kg": (
+                            "Un sabor no se cobra por debajo de su base: el precio general de "
+                            f"{self.base} en {type_name} es ${general:,.2f}."
+                        )
+                    }
+                )
+            return
+        cheaper = same_type.filter(flavor__isnull=False, price_per_kg__lt=self.price_per_kg).order_by(
+            "flavor__name"
+        )
+        names = [price.flavor.name for price in cheaper.select_related("flavor")]
+        if names:
+            listed = " y ".join([", ".join(names[:-1]), names[-1]]) if len(names) > 1 else names[0]
+            verb, pronoun = ("cuestan", "les") if len(names) > 1 else ("cuesta", "le")
             raise ValidationError(
-                {"flavor": "Ese sabor no se ofrece en ese tipo de pastel."}
+                {
+                    "price_per_kg": (
+                        f"Un sabor no se cobra por debajo de su base: {listed} {verb} menos "
+                        f"en {type_name}. Súbe{pronoun} el precio primero."
+                    )
+                }
             )
 
 
@@ -918,6 +985,29 @@ class CakeStand(models.Model):
         # validar las restricciones (el error por campo las salta).
         if self.min_kg is not None and self.max_kg is not None and self.min_kg > self.max_kg:
             raise ValidationError({"max_kg": '"Hasta" no puede ser menor que "desde".'})
+        self._check_the_minimum_order_keeps_a_stand()
+
+    def _check_the_minimum_order_keeps_a_stand(self):
+        """El `min_kg` más chico de la tabla (activas o no) no pasa del pedido mínimo.
+
+        Por debajo de ese `min_kg` no hay depósito (`warranty_service`): si
+        empezara arriba del pedido mínimo, un pedido chico se quedaría sin base.
+        """
+        min_custom_kg = CakeDesignSettings.objects.values_list("min_custom_kg", flat=True).first()
+        if self.min_kg is None or min_custom_kg is None:
+            return
+        others = type(self).objects.exclude(pk=self.pk).order_by("min_kg").values_list("min_kg", flat=True).first()
+        smallest = min(self.min_kg, others) if others is not None else self.min_kg
+        if smallest > min_custom_kg:
+            raise ValidationError(
+                {
+                    "min_kg": (
+                        f"La base más chica empezaría en {smallest} kg y el pedido mínimo es de "
+                        f"{min_custom_kg} kg: un pedido de {min_custom_kg} kg se quedaría sin base. "
+                        f"Deja una base que empiece en {min_custom_kg} kg o menos."
+                    )
+                }
+            )
 
 
 class DeliveryFeeBand(models.Model):

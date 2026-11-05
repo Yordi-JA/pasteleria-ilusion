@@ -249,3 +249,117 @@ def test_admin_warns_when_stands_do_not_reach_the_online_limit(superuser_client)
     assert "no tendría base" not in superuser_client.get(url).content.decode()
     CakeStand.objects.filter(max_kg__gt=40).update(is_active=False)
     assert "no tendría base" in superuser_client.get(url).content.decode()
+
+
+def test_stands_cannot_be_deleted_from_the_admin_only_deactivated(superuser_client):
+    """Borrar una base dejaría pedidos sin depósito; se desactiva."""
+    stand = CakeStand.objects.get(max_kg=5)
+    delete_url = reverse("admin:core_pasteleria_cakestand_delete", args=[stand.pk])
+    assert superuser_client.get(delete_url).status_code == 403
+    assert superuser_client.post(delete_url, {"post": "yes"}).status_code == 403
+    changelist = superuser_client.get(reverse("admin:core_pasteleria_cakestand_changelist"))
+    assert "delete_selected" not in changelist.content.decode()
+    assert CakeStand.objects.filter(pk=stand.pk).exists()
+
+
+def test_online_limit_cannot_go_beyond_the_largest_active_stand():
+    design = CakeDesignSettings.objects.get(pk=1)
+    design.max_online_kg = 51
+    with pytest.raises(ValidationError) as raised:
+        design.full_clean()
+    assert raised.value.message_dict["max_online_kg"] == [
+        "La base activa más grande llega a 50 kg: los kilos máximos en línea no pueden pasar de ahí. "
+        "Agrega o activa una base más grande primero."
+    ]
+    design.max_online_kg = 50
+    design.full_clean()
+
+
+def test_online_limit_follows_only_active_stands():
+    CakeStand.objects.filter(max_kg__gt=40).update(is_active=False)
+    design = CakeDesignSettings.objects.get(pk=1)
+    design.max_online_kg = 45
+    with pytest.raises(ValidationError):
+        design.full_clean()
+    design.max_online_kg = 40
+    design.full_clean()
+
+
+def test_online_limit_needs_some_active_stand():
+    CakeStand.objects.update(is_active=False)
+    design = CakeDesignSettings.objects.get(pk=1)
+    design.max_online_kg = 49
+    with pytest.raises(ValidationError) as raised:
+        design.full_clean()
+    assert raised.value.message_dict["max_online_kg"] == [
+        "No hay bases activas: activa al menos una antes de fijar los kilos máximos en línea."
+    ]
+
+
+def test_admin_rejects_an_online_limit_beyond_the_stands(superuser_client):
+    url = reverse("admin:core_pasteleria_cakedesignsettings_change", args=[1])
+    form = superuser_client.get(url).context["adminform"].form
+    data = {name: form[name].value() for name in form.fields}
+    response = superuser_client.post(url, {**data, "max_online_kg": 60})
+    assert response.status_code == 200
+    assert response.context["adminform"].form.errors["max_online_kg"]
+    assert CakeDesignSettings.objects.get(pk=1).max_online_kg == 50
+
+
+def test_other_settings_can_be_edited_without_active_stands():
+    """La validación de los kilos máximos solo corre si ese campo cambia."""
+    CakeStand.objects.update(is_active=False)
+    design = CakeDesignSettings.objects.get(pk=1)
+    design.wafer_price = Decimal("130")
+    design.full_clean()
+
+
+def test_online_limit_is_validated_when_the_row_is_new():
+    CakeDesignSettings.objects.all().delete()
+    CakeStand.objects.filter(max_kg__gt=40).update(is_active=False)
+    design = CakeDesignSettings(
+        people_per_kg=7, min_custom_kg=4, max_online_kg=50, wafer_price=Decimal("125"),
+        wafer_max_width_cm=Decimal("21.6"), wafer_max_height_cm=Decimal("27.9"), message_suggested_max_words=4,
+    )
+    with pytest.raises(ValidationError) as raised:
+        design.full_clean()
+    assert list(raised.value.message_dict) == ["max_online_kg"]
+
+
+# --- Umbral del depósito ---
+
+THRESHOLD_MESSAGE = (
+    "La base más chica empezaría en {kg} kg y el pedido mínimo es de 4 kg: un pedido de 4 kg "
+    "se quedaría sin base. Deja una base que empiece en 4 kg o menos."
+)
+
+
+def test_the_smallest_stand_cannot_start_above_the_minimum_order():
+    stand = CakeStand.objects.get(max_kg=5)
+    stand.min_kg = 5
+    with pytest.raises(ValidationError) as raised:
+        stand.full_clean()
+    assert raised.value.message_dict["min_kg"] == [THRESHOLD_MESSAGE.format(kg=5)]
+
+
+def test_the_threshold_counts_inactive_stands_too():
+    """El umbral sin depósito sale de toda la tabla, como en `warranty_service`."""
+    CakeStand.objects.filter(max_kg=5).update(is_active=False)
+    stand = CakeStand.objects.get(max_kg=8)
+    stand.deposit = Decimal("95")
+    stand.full_clean()
+
+
+def test_a_stand_below_the_minimum_order_is_accepted():
+    CakeStand(min_kg=2, max_kg=3, deposit=Decimal("50"), origin="approved").full_clean()
+
+
+def test_admin_rejects_raising_the_smallest_stand(superuser_client):
+    stand = CakeStand.objects.get(max_kg=5)
+    response = superuser_client.post(
+        reverse("admin:core_pasteleria_cakestand_change", args=[stand.pk]),
+        {"min_kg": 5, "max_kg": 5, "deposit": "70", "origin": "bakery", "is_active": "on"},
+    )
+    assert response.status_code == 200
+    assert response.context["adminform"].form.errors["min_kg"]
+    assert CakeStand.objects.get(pk=stand.pk).min_kg == 4
