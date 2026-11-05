@@ -151,6 +151,8 @@ Primero el **tipo de pastel**, después el **pan**, después el **relleno**.
 | Con queso | $250 | $250 | $250 |
 | Con flan | $250 | $250 | $250 |
 
+El precio propio de un sabor no puede ser menor que el precio general de su base para el mismo tipo de pastel (D39).
+
 ### 4.6 Fórmula del precio del pastel
 
 ```python
@@ -186,7 +188,7 @@ def cake_price(kg, **choice):
 
 Ejemplo: 15 kg, tres leches, pan de chocolate, con queso y zarzamora → 15 × ($250 + $5) = **$3,825**.
 
-En la interfaz, todos los precios del paso de pan se muestran **en la misma unidad** (precio por kilo): los panes que combinan con relleno como "Desde $X por kg" (relleno normal del tipo elegido + incremento del pan) y Choco-pingüino / Red velvet como precio completo, en un grupo aparte "Con relleno incluido".
+En la interfaz, todos los precios del paso de pan se muestran **en la misma unidad** (precio por kilo): los panes que combinan con relleno como "Desde $X por kg" (precio general del relleno más barato disponible en el tipo elegido + incremento del pan; con los precios de hoy es el relleno Normal, D39) y Choco-pingüino / Red velvet como precio completo, en un grupo aparte "Con relleno incluido".
 
 ### 4.7 Validaciones y conflictos
 
@@ -199,7 +201,7 @@ En la interfaz, todos los precios del paso de pan se muestran **en la misma unid
 | Base ≠ Normal | No hay combinado |
 | Fresa con yogurt elegida | No se puede agregar un segundo sabor |
 
-Las opciones no disponibles **se muestran desactivadas con su motivo; nunca desaparecen**.
+Las opciones no disponibles **se muestran desactivadas con su motivo; nunca desaparecen**. Una opción que la pastelería retira en el admin no se lista (D39).
 
 ---
 
@@ -222,6 +224,8 @@ Las opciones no disponibles **se muestran desactivadas con su motivo; nunca desa
 | Flores | PENDIENTE (precio fijo) |
 | Chispas | PENDIENTE (precio fijo) |
 | Otra decoración (el cliente sube una imagen) | Por cotizar: **el pedido queda en pausa** hasta que la pastelería dé el precio; se avisa por correo y en la cuenta |
+
+Mientras el precio de una decoración fija siga PENDIENTE, se muestra desactivada con "Precio por confirmar" y no se puede elegir (D39).
 
 ### 6.2 Mensaje
 

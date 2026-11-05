@@ -89,6 +89,8 @@ Restricciones: `opens < closes`, `opens <= first_slot <= last_slot < closes`, `s
 
 Restricciones: todos `> 0`, `max_online_kg >= min_custom_kg`, `wafer_price >= 0`.
 
+`clean()`: `max_online_kg` no puede pasar de lo que cubre la base activa más grande, y sin bases activas no se puede fijar (D39); solo se revisa en el alta o cuando ese campo cambia. Las opciones de "Diseña tu pastel" anuncian el máximo efectivo, el menor entre este campo y esa base (0 si no hay bases activas).
+
 ### `PolicySettings` ("políticas")
 
 | Campo | Tipo | `verbose_name` | Inicial |
@@ -139,8 +141,8 @@ Copia la tabla 4.5 de las reglas.
 
 - `cake_type` (choices `CakeType`), `base` (FK `FillingBase`, PROTECT), `flavor` (FK `FillingFlavor`, PROTECT, `null=True`: vacío = precio general de la base; con sabor = sabor con precio propio), `price_per_kg` Decimal(8,2) `> 0`.
 - Dos `UniqueConstraint` parciales: `(cake_type, base)` donde `flavor IS NULL` (impide dos precios generales iguales) y `(cake_type, base, flavor)` donde `flavor IS NOT NULL`. No se usa `nulls_distinct=False`: exige PostgreSQL 15 y los servidores anteriores lo ignoran en silencio.
-- `clean()`: el sabor pertenece a la base y su `allowed_cake_types` incluye `cake_type`.
-- Regla del servicio: una base está disponible en un tipo si tiene su fila general; un sabor con fila propia reemplaza el precio general; con dos sabores se toma el mayor y se suma `base.combined_extra_per_kg` (así sale "Nuez + $5").
+- `clean()`: el sabor pertenece a la base y su `allowed_cake_types` incluye `cake_type`. Un sabor con precio propio no puede costar menos que el precio general de su base en el mismo tipo, y tampoco se puede subir el precio general por encima de un sabor (se revisa de los dos lados, D39).
+- Regla del servicio: una base está disponible en un tipo si tiene su fila general y al menos un sabor que se ofrezca en ese tipo; un sabor con fila propia reemplaza el precio general; con dos sabores se toma el mayor y se suma `base.combined_extra_per_kg` (así sale "Nuez + $5").
 
 ### `TierRecommendation` ("recomendación de pisos")
 
@@ -166,8 +168,9 @@ Es un tamaño de base con su depósito, no cada base física.
 
 - `min_kg`, `max_kg` PositiveSmallInteger, "desde (kg)" y "hasta (kg)"; `deposit` Decimal(8,2) `>= 0`; `origin` choices `StandOrigin`; `description` CharField(120) opcional ("Madera forrada en aluminio"); `is_active`.
 - Restricciones: `min_kg <= max_kg`; `UniqueConstraint(max_kg)`; `ExclusionConstraint` contra rangos encimados con `Func(F("min_kg"), F("max_kg"), Value("[]"), function="int4range")` y `RangeOperators.OVERLAPS` (GiST sobre un rango, sin `btree_gist`).
+- El admin no deja borrar tamaños de base, solo desactivarlos. `clean()`: al guardar un tamaño, el `min_kg` más chico de la tabla, contando los inactivos, no puede quedar por encima de `min_custom_kg` (D39); cambiar `min_custom_kg` no lo revisa.
 - La etiqueta "Base para 4 a 5 kg" se arma en el serializador.
-- Regla del servicio: el depósito es el del tamaño activo con el `max_kg` más chico que sea `>= kg`; si `kg` es menor que el `min_kg` más chico, no hay base (así "aplica desde 4 kg" sale del dato). El admin advierte si el `max_kg` más alto es menor que `max_online_kg`.
+- Regla del servicio: el depósito es el del tamaño activo con el `max_kg` más chico que sea `>= kg`; si `kg` es menor que el `min_kg` más chico de toda la tabla (activas o no), no hay base (así "aplica desde 4 kg" sale del dato); si ningún tamaño activo alcanza los kilos, el precio responde 400 en `kg` ("No hay una base para N kg. Escríbenos por WhatsApp."). El admin advierte si el `max_kg` activo más alto es menor que `max_online_kg`.
 - Filas iniciales (10): `bakery` 4–5 $70, 6–8 $90, 10–12 $150, 15–15 $200, 20–25 $250; `approved` 26–30 $300, 31–35 $350, 36–40 $400, 41–45 $450, 46–50 $500. Los rangos 9, 13–14 y 16–19 no llevan fila: los cubre la regla de la siguiente base.
 
 ### `DeliveryFeeBand` ("tarifa de envío por distancia")

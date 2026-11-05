@@ -60,10 +60,14 @@ core_pasteleria/
 ├── api/                    # CAPA DE CONTROLADORES (Presentación / Entrada REST)
 │   ├── views.py            # Recibe requests HTTP, invoca servicios y retorna responses
 │   ├── serializers.py      # Validación y transformación de datos JSON (DTOs)
+│   ├── parsers.py          # JSON con tope de 16 KB (413 si lo pasa, 415 si no es JSON)
 │   └── urls.py             # Enrutamiento de endpoints (Front Controller de la app)
 ├── services/               # CAPA DE SERVICIOS (Lógica de Negocio y Patrones GoF)
 │   ├── pricing_service.py  # Cálculo de costos del cotizador 3D (Patrón Strategy)
+│   ├── cake_options_service.py # Opciones de "Diseña tu pastel" con disponibilidad y motivo
 │   ├── warranty_service.py # Reglas de préstamo, retención y devolución de bases
+│   ├── audit.py            # @audit_operation (Patrón Decorator)
+│   ├── errors.py           # DomainValidationError: errores por campo que la API vuelve 400
 │   ├── payments/
 │   │   └── payment_factory.py  # Patrón Factory Method + Adapter (Mercado Pago / Otros)
 │   └── orders/
@@ -98,7 +102,7 @@ El material del Tema 3 (Patrones de diseño) del profesor marca cuatro antipatro
 | Strategy | Calcular el precio con reglas intercambiables | `services/pricing_service.py` | Estrategias en tiempo de ejecución (clases o funciones de primer orden) para pan (incremento por kilo o precio completo de Choco-pingüino y Red velvet), relleno por tipo y base, sabor especial, combinado, oblea y decoraciones fijas (precio PENDIENTE) (diapositiva 21). La pastelería no ha definido descuentos y no se inventan (D17); el diseño admite agregar una estrategia si los define | Cadenas `if/elif` en el cálculo; patrón cosmético |
 | Observer | Notificar los eventos del pedido (cambio de estado y base devuelta) | `services/orders/order_observer.py` | `OrderSubject` mantiene los observadores, con `subscribe(observer)`, y les notifica eventos con `notify(event)` de forma desacoplada (diapositiva 24); ver [Observer de eventos del pedido](#observer-de-eventos-del-pedido) | Objeto Dios: un servicio de pedidos que también descuenta stock, envía avisos y activa garantías |
 | Repository | Aislar el ORM detrás de una capa sustituible | `repositories/product_repo.py`, `repositories/order_repo.py` | `views` solo coordina HTTP, `services` aplica reglas y llama a `repositories` (diapositiva 42). Permite inyectar un `RepoMemoria` en las pruebas | Acceso al ORM disperso por toda la aplicación |
-| Decorator | Medir y registrar sin ensuciar la función de negocio | `services/` (archivo por definir en la Etapa 2) | `@audit_operation` con `functools.wraps`, que mide milisegundos y escribe en el logger de Django; se aplica al cálculo del precio (`pricing_service`) y al cobro (`BasePayment.charge`) (diapositiva 27). Registra nombre, duración, id del pedido y resultado; nunca argumentos, payloads, tokens ni datos personales | Mezclar logging y métricas con la lógica de negocio |
+| Decorator | Medir y registrar sin ensuciar la función de negocio | `services/audit.py` | `@audit_operation` con `functools.wraps`, que mide milisegundos y escribe en el logger `core_pasteleria.audit`; se aplica al cálculo del precio (`pricing_service`) y al cobro (`BasePayment.charge`) (diapositiva 27). Registra nombre, duración y resultado, y el id del pedido cuando existe; nunca argumentos, payloads, tokens ni datos personales. Termina bien: INFO `ok`. Rechazo previsto (`expected_errors`): INFO `rejected:<Clase>`. Cualquier otra excepción: ERROR con el nombre de la clase. El precio no lleva id de pedido; lo llevará el cobro (D39) | Mezclar logging y métricas con la lógica de negocio |
 
 Para evitar la sobreingeniería, el proyecto usa solo estos patrones. `PAYMENT_GATEWAY_REGISTRY` es una constante que no se modifica en ejecución, de modo que no funciona como estado global.
 
