@@ -1,6 +1,6 @@
 # Estrategia de pruebas
 
-El proyecto prueba la lógica de negocio con `pytest` y `pytest-django`, el recorrido de compra con Playwright y la accesibilidad con una revisión por pantalla. Estado al 5 de noviembre de 2026: hay 801 pruebas de backend recolectadas en `backend/tests/` (800 pasan y 1 se salta sin el build del frontend), que cubren el modelo de usuario, el admin, la configuración, la documentación de la API, la sesión JWT, el hash de contraseñas, el throttling, el catálogo, el inventario y la configuración editable con sus semillas, restricciones y repositorios, el precio de "Diseña tu pastel" y sus opciones, el depósito de la base, el decorador de auditoría, los dos endpoints públicos, el parser JSON, la redirección de `www` al dominio propio y los datos del negocio y su endpoint; y 15 pruebas con Playwright en `frontend/e2e/` (humo, página de no encontrada y página de muestra). Las pruebas de la lógica de negocio que faltan llegan con los servicios de las etapas 2 a 4.
+El proyecto prueba la lógica de negocio con `pytest` y `pytest-django`, el recorrido de compra con Playwright y la accesibilidad con una revisión por pantalla. Estado al 5 de noviembre de 2026: hay 801 pruebas de backend recolectadas en `backend/tests/` (800 pasan y 1 se salta sin el build del frontend), que cubren el modelo de usuario, el admin, la configuración, la documentación de la API, la sesión JWT, el hash de contraseñas, el throttling, el catálogo, el inventario y la configuración editable con sus semillas, restricciones y repositorios, el precio de "Diseña tu pastel" y sus opciones, el depósito de la base, el decorador de auditoría, los dos endpoints públicos, el parser JSON, la redirección de `www` al dominio propio y los datos del negocio con su endpoint; y 83 pruebas con Playwright en `frontend/e2e/` (humo, página de no encontrada, página de muestra, marco del sitio, menú móvil, datos del negocio con la API simulada, rutas y cliente HTTP). Las pruebas de la lógica de negocio que faltan llegan con los servicios de las etapas 2 a 4.
 
 ## Contenido
 
@@ -219,7 +219,7 @@ El backend valida aunque la interfaz ya lo impida.
 
 ## Prueba de extremo a extremo con Playwright
 
-Los archivos viven en `frontend/e2e/`. El caso pedido es el ejemplo del Tema 4 del profesor: agregar al carrito y validar el total.
+Los archivos viven en `frontend/e2e/`. Las pruebas del marco y de los datos del negocio simulan la API con `e2e/support/store-info.ts`, así que no necesitan Django. La suite necesita el servidor de desarrollo (`npm run dev`, que Playwright levanta solo), porque `api-client.spec` importa `/src` y el corte de 10 s del cliente se acorta solo en desarrollo. El caso pedido es el ejemplo del Tema 4 del profesor: agregar al carrito y validar el total.
 
 ### Recorrido de compra con base en préstamo
 

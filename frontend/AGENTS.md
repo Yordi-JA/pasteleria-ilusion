@@ -17,11 +17,17 @@ Complementan el [`AGENTS.md`](../AGENTS.md) de la raíz. React + Tailwind CSS + 
 
 El proyecto React está inicializado (Etapa 2): Vite + React + TypeScript, Tailwind CSS v3 con el preset `design/tailwind.preset.js`, React Router y Playwright (solo Chromium). Las versiones están fijas, sin `^` ni `~`, en `package.json` y `package-lock.json`. Node 22 (`.nvmrc`, `engines.node >= 22`).
 
-Hoy hay una ruta raíz (`src/views/Home.tsx`, componente `Home`) y una ruta comodín (`src/views/NotFound.tsx`, componente `NotFound`), ambas mínimas, y una prueba de humo en `e2e/smoke.spec.ts`. La prueba de la ruta comodín está en `e2e/not-found.spec.ts`. Hay cinco componentes base en `src/components/` (botón `Button`, campo `TextField`, tarjeta `Card`, opción elegible `ChoiceOption` y aviso `Notice`), y la página `/muestra` (`src/views/ComponentSample.tsx`, con su view-model `useComponentSample`) que los muestra en todos sus estados; solo existe en desarrollo (`import.meta.env.DEV`) y no entra al build. Su prueba está en `e2e/muestra.spec.ts`. Los avisos usan íconos de `@phosphor-icons/react` (D36). Faltan el resto de los componentes base (duya, perlas, esqueleto, barra superior con toldo y pie), las rutas de `docs/mapa-de-vistas.md` y la vista previa 3D (react-three-fiber y cliente HTTP se instalan cuando se usen).
+Todas las rutas comparten el marco de `src/views/SiteLayout.tsx` (D42): enlace "Saltar al contenido", franja con los días de anticipación y el WhatsApp, toldo de CSS, barra superior fija, menú móvil (`<dialog>`) por debajo de 768 px, guirnalda de duya y pie. Las 26 rutas de `docs/mapa-de-vistas.md` existen con una vista vacía que lleva su `h1` y su `document.title` ("Vista · Pastelería Ilusión"); cuando el `h1` del mockup es un dato, lleva un marcador `[… por confirmar]`. Los legales son una sola ruta, `/legal`, con las anclas `#privacidad` y `#terminos`. La ruta comodín (`src/views/NotFound.tsx`) cubre el resto, incluido `/legal/<algo>`. `useRouteFocus` enfoca `<main>` en cada cambio de ruta y lleva al ancla cuando hay hash.
+
+Hay cinco componentes base en `src/components/` (botón `Button`, campo `TextField`, tarjeta `Card`, opción elegible `ChoiceOption` y aviso `Notice`) y el componente `Duya` (concha, perlas y guirnalda, sin márgenes negativos; la prop `below` pinta el campo de abajo). La página `/muestra` (`src/views/ComponentSample.tsx`, con su view-model `useComponentSample`) los muestra en todos sus estados; solo existe en desarrollo (`import.meta.env.DEV`) y no entra al build. Los avisos usan íconos de `@phosphor-icons/react` (D36).
+
+El primer cliente HTTP es `src/models/apiClient.ts`: `getJson(segments)` arma la ruta con `apiPath(...segments)`, que aplica `encodeURIComponent` a cada segmento y rechaza `''`, `.` y `..`. Usa siempre segmentos para `:slug`, `:id` o `:token`, nunca texto armado a mano. `src/models/storeInfo.ts` lee los datos del negocio (D41) y guarda en la caché del módulo solo las respuestas exitosas; esa caché sirve únicamente para recursos públicos. `src/viewmodels/useStoreInfo.ts` hace una sola petición por carga y reintenta, si falló, como máximo cada 60 s. Mientras carga, el marco muestra `StoreSkeleton`, un esqueleto provisional.
+
+Hay 83 pruebas de Playwright en `e2e/`. Simulan la API con `e2e/support/store-info.ts`, así que no necesitan Django, pero sí el servidor de desarrollo (`npm run dev`, que Playwright levanta solo): `api-client.spec` importa `/src` y el corte de 10 s del cliente se acorta solo en desarrollo. Faltan las perlas de avance, el componente de esqueleto completo, el contador del carrito, el estado de sesión, el contenido real de las vistas, la vista previa 3D (react-three-fiber se instala cuando se use) y los textos legales.
 
 Detalles de la configuración:
 
-- Las fuentes se cargan con `@font-face` en `src/index.css` desde `assets/fuentes/`, sin copiarlas. Vite las empaqueta con hash en el build y `vite.config.ts` permite servir esa carpeta en desarrollo (`server.fs.allow`).
+- Las fuentes se cargan con `@font-face` en `src/index.css` desde `assets/fuentes/`, sin copiarlas. Vite las empaqueta con hash en el build y `vite.config.ts` permite servir esa carpeta en desarrollo (`server.fs.allow`). `server.fs.allow` incluye también `../assets/logos`, para los logos del marco.
 - El servidor de desarrollo escucha en `127.0.0.1:5173` y reenvía `/api` a `http://127.0.0.1:8000` (la API vive en el mismo origen, D15).
 - El linter es oxlint (`.oxlintrc.json`), el que trae la plantilla de Vite. Sin Prettier.
 - `npm run build` deja el sitio en `frontend/dist/` (ignorada por Git).
@@ -32,6 +38,12 @@ Desde `frontend/`. Primero activa Node 22 (el Node del sistema es 18):
 
 ```bash
 source ~/.nvm/nvm.sh && nvm use
+```
+
+En Windows con fnm, activa Node 22 con:
+
+```bash
+eval "$(fnm env --shell bash)" && fnm use 22
 ```
 
 | Comando | Qué hace |

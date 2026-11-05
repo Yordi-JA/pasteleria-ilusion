@@ -113,7 +113,7 @@ Los estados (cargando, error, vacío, agotado) no son rutas propias: son la mism
 | Errores en el registro | `/registro · estado` | `RegistroError.dc.html` | [ver](../mockup/capturas/escritorio/102-RegistroError.jpg) | [ver](../mockup/capturas/movil/103-RegistroErrorMovil.jpg) |
 | Error al subir referencia | `/pedido/referencia · estado` | `ReferenciaError.dc.html` | [ver](../mockup/capturas/escritorio/104-ReferenciaError.jpg) | [ver](../mockup/capturas/movil/105-ReferenciaErrorMovil.jpg) |
 | Vitrina agotada | `/vitrina · estado` | `VitrinaAgotada.dc.html` | [ver](../mockup/capturas/escritorio/106-VitrinaAgotada.jpg) | [ver](../mockup/capturas/movil/107-VitrinaAgotadaMovil.jpg) |
-| Aviso de privacidad y términos | `/legal/:documento` | `Legal.dc.html` | [ver](../mockup/capturas/escritorio/108-Legal.jpg) | [ver](../mockup/capturas/movil/109-LegalMovil.jpg) |
+| Aviso de privacidad y términos | `/legal` (`#privacidad`, `#terminos`) | `Legal.dc.html` | [ver](../mockup/capturas/escritorio/108-Legal.jpg) | [ver](../mockup/capturas/movil/109-LegalMovil.jpg) |
 | Catálogo cargando | `/catalogo · estado` | `CatalogoCargando.dc.html` | [ver](../mockup/capturas/escritorio/110-CatalogoCargando.jpg) | [ver](../mockup/capturas/movil/111-CatalogoCargandoMovil.jpg) |
 | Vitrina cargando | `/vitrina · estado` | `VitrinaCargando.dc.html` | [ver](../mockup/capturas/escritorio/112-VitrinaCargando.jpg) | [ver](../mockup/capturas/movil/113-VitrinaCargandoMovil.jpg) |
 | Ficha cargando | `/pasteles/:slug · estado` | `FichaCargando.dc.html` | [ver](../mockup/capturas/escritorio/114-FichaCargando.jpg) | [ver](../mockup/capturas/movil/115-FichaCargandoMovil.jpg) |
