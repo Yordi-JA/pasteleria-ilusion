@@ -208,3 +208,28 @@ class CakeDesignPriceSerializer(serializers.Serializer):
         help_text="La decoración la cotiza la pastelería; el pedido queda en pausa hasta entonces.",
     )
     stand = StandDepositSerializer(source="stand_deposit", allow_null=True)
+
+
+# --- Datos del negocio (salida) ---
+
+
+def _hh_mm_field(help_text):
+    return serializers.TimeField(format="%H:%M", help_text=help_text)
+
+
+class StoreInfoSerializer(serializers.Serializer):
+    """Datos del pie y la franja superior; `null` en lo que la pastelería aún no define."""
+
+    address = serializers.CharField(
+        allow_null=True, help_text="Dirección de la pastelería. `null`: PENDIENTE."
+    )
+    whatsapp = serializers.CharField(
+        allow_null=True,
+        help_text=(
+            "Solo dígitos, con la lada del país y sin \"+\" (E.164, de 8 a 15 dígitos), "
+            "listo para https://wa.me/<whatsapp>. `null`: PENDIENTE."
+        ),
+    )
+    opens_at = _hh_mm_field("Hora de apertura, HH:MM en 24 horas.")
+    closes_at = _hh_mm_field("Hora de cierre, HH:MM en 24 horas.")
+    custom_lead_days = serializers.IntegerField(help_text="Días de anticipación de un pedido.")

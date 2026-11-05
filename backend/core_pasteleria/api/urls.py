@@ -15,4 +15,6 @@ urlpatterns = [
         name="cake-design-options",
     ),
     path("cake-designs/price/", views.CakeDesignPriceView.as_view(), name="cake-design-price"),
+    # Datos del negocio para el pie y la franja superior: pública y de solo lectura.
+    path("store/info/", views.StoreInfoView.as_view(), name="store-info"),
 ]

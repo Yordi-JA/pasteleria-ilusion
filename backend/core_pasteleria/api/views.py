@@ -3,15 +3,16 @@ from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.throttling import AnonRateThrottle
+from rest_framework.throttling import AnonRateThrottle, ScopedRateThrottle
 from rest_framework.views import APIView
 
-from ..services import cake_options_service, pricing_service, warranty_service
+from ..services import cake_options_service, pricing_service, store_info_service, warranty_service
 from ..services.errors import DomainValidationError, attempt, raise_all
 from .serializers import (
     CakeDesignOptionsSerializer,
     CakeDesignPriceRequestSerializer,
     CakeDesignPriceSerializer,
+    StoreInfoSerializer,
 )
 
 
@@ -19,8 +20,9 @@ class PublicReadOnlyView(APIView):
     """Vista pública que no lee la sesión ni guarda nada.
 
     Solo para operaciones sin efectos; lo que persista usa autenticación y
-    CSRF. Sin autenticación, un token vencido no la vuelve 401, y todos cuentan
-    con la tasa de anónimos. Iniciar sesión se pide al hacer el pedido.
+    CSRF. Sin autenticación, un token vencido no la vuelve 401. Por omisión, la
+    tasa de anónimos; una subclase puede fijar su propio alcance con
+    `ScopedRateThrottle`. Iniciar sesión se pide al hacer el pedido.
     """
 
     authentication_classes = []
@@ -100,3 +102,53 @@ class CakeDesignPriceView(PublicReadOnlyView):
         return Response(
             CakeDesignPriceSerializer({"breakdown": breakdown, "stand_deposit": stand_deposit}).data
         )
+
+
+class StoreInfoView(PublicReadOnlyView):
+    # Tasa propia: el pie se pide en cada visita y no debe gastar el cupo
+    # anónimo de "Diseña tu pastel". Sin autenticación, cuenta siempre por IP.
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "store_info"
+
+    @extend_schema(
+        operation_id="store_info",
+        summary="Datos del negocio",
+        description=(
+            "Dirección, WhatsApp, horario y días de anticipación de un pedido, para el pie y la "
+            "franja superior del sitio. `address` y `whatsapp` salen como `null` mientras la "
+            "pastelería no los define (PENDIENTE); la interfaz los muestra como pendientes, sin "
+            "inventar un valor. `whatsapp` lleva solo dígitos, con la lada del país y sin \"+\". "
+            "Las horas van en HH:MM de 24 horas. Los cambios del admin se ven en la siguiente "
+            "petición."
+        ),
+        responses={
+            200: OpenApiResponse(
+                response=StoreInfoSerializer,
+                examples=[
+                    OpenApiExample(
+                        "Dirección y WhatsApp pendientes",
+                        value={
+                            "address": None,
+                            "whatsapp": None,
+                            "opens_at": "10:00",
+                            "closes_at": "22:30",
+                            "custom_lead_days": 2,
+                        },
+                    ),
+                    OpenApiExample(
+                        "Con todos los datos (valores ilustrativos)",
+                        value={
+                            "address": "Calle, número, colonia, alcaldía, código postal",
+                            "whatsapp": "520000000000",
+                            "opens_at": "10:00",
+                            "closes_at": "22:30",
+                            "custom_lead_days": 2,
+                        },
+                    ),
+                ],
+            ),
+        },
+        tags=["Datos del negocio"],
+    )
+    def get(self, request):
+        return Response(StoreInfoSerializer(store_info_service.get_store_info()).data)

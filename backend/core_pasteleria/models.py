@@ -1,4 +1,6 @@
 """Tablas y relaciones del dominio (ORM sobre PostgreSQL)."""
+import unicodedata
+
 from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.contrib.postgres.constraints import ExclusionConstraint
@@ -209,8 +211,44 @@ class SingletonSettings(models.Model):
         super().save(*args, **kwargs)
 
 
+# WhatsApp en formato internacional E.164 sin "+": la lada del país (nunca
+# empieza con 0) y el número, de 8 a 15 dígitos en total. Así sirve tal cual
+# para un enlace https://wa.me/<número>.
+WHATSAPP_MIN_DIGITS = 8
+WHATSAPP_MAX_DIGITS = 15
+_WHATSAPP_BODY = f"[1-9][0-9]{{{WHATSAPP_MIN_DIGITS - 1},{WHATSAPP_MAX_DIGITS - 1}}}"
+WHATSAPP_PATTERN_SQL = f"^{_WHATSAPP_BODY}$"
+WHATSAPP_FORMAT_MESSAGE = (
+    f"Escribe el WhatsApp con solo dígitos, de {WHATSAPP_MIN_DIGITS} a "
+    f"{WHATSAPP_MAX_DIGITS}: la lada del país y el número, sin +, espacios ni "
+    "guiones. En México: 52 y los 10 dígitos."
+)
+# `\Z` y no `$`: en Python `$` acepta un salto de línea al final. `[0-9]` y no
+# `\d`, que también acepta dígitos de otras escrituras.
+whatsapp_validator = RegexValidator(rf"^{_WHATSAPP_BODY}\Z", WHATSAPP_FORMAT_MESSAGE)
+
+# Texto de una línea que se muestra en el sitio: sin caracteres de control
+# (Cc: C0, DEL, C1 como NEL), de formato (Cf: bidi, ancho cero, LRM/RLM, FEFF)
+# ni separadores de línea o párrafo (Zl, Zp), que no se ven y pueden alterar
+# cómo se muestra. Acentos, ñ y signos de puntuación sí se aceptan.
+# Sin CheckConstraint en la base, por decisión: React la muestra como texto,
+# así que es un problema de presentación y no de seguridad, y no duplicamos
+# la regla en SQL.
+ADDRESS_FORMAT_MESSAGE = (
+    "La dirección va en una sola línea, sin saltos de línea, tabuladores ni "
+    "caracteres invisibles de control o de dirección del texto."
+)
+_FORBIDDEN_ADDRESS_CATEGORIES = frozenset({"Cc", "Cf", "Zl", "Zp"})
+
+
+def validate_address_characters(value):
+    """Rechaza la dirección si lleva un carácter de control, de formato o un separador de línea."""
+    if any(unicodedata.category(character) in _FORBIDDEN_ADDRESS_CATEGORIES for character in value):
+        raise ValidationError(ADDRESS_FORMAT_MESSAGE, code="invalid")
+
+
 class StoreSettings(SingletonSettings):
-    """Horarios de la pastelería y reglas de las entregas."""
+    """Horarios de la pastelería, reglas de las entregas y los datos del negocio del pie (dirección y WhatsApp)."""
 
     store_opens_at = models.TimeField("abre")
     store_closes_at = models.TimeField(
@@ -231,6 +269,29 @@ class StoreSettings(SingletonSettings):
         "horas de anticipación de un encargo de vitrina para hoy"
     )
     free_delivery_from_kg = models.PositiveSmallIntegerField("envío gratis desde (kg)")
+    # Datos del negocio del pie y la franja superior (reglas de negocio, sección 13).
+    address = models.CharField(
+        "dirección",
+        max_length=255,
+        blank=True,
+        validators=[validate_address_characters],
+        help_text=(
+            "PENDIENTE: la pastelería aún no la define. Déjala vacía; no pongas un "
+            "valor supuesto. Se muestra en el pie del sitio."
+        ),
+    )
+    whatsapp = models.CharField(
+        "WhatsApp",
+        max_length=WHATSAPP_MAX_DIGITS,
+        blank=True,
+        validators=[whatsapp_validator],
+        help_text=(
+            "PENDIENTE: la pastelería aún no lo define. Déjalo vacío; no pongas un "
+            "valor supuesto. Escribe solo dígitos, con la lada del país y sin + ni "
+            f"espacios ni guiones, de {WHATSAPP_MIN_DIGITS} a {WHATSAPP_MAX_DIGITS} "
+            "dígitos. En México: 52 y los 10 dígitos del número."
+        ),
+    )
 
     class Meta(SingletonSettings.Meta):
         verbose_name = "horarios y entregas"
@@ -274,6 +335,14 @@ class StoreSettings(SingletonSettings):
                 violation_error_message=(
                     "Los pedidos activos por lapso deben ser mayores que 0."
                 ),
+            ),
+            # Mismo formato que `whatsapp_validator`, también para lo que se
+            # guarde sin pasar por el formulario. En PostgreSQL `$` es el fin
+            # del texto (no acepta un salto de línea final).
+            models.CheckConstraint(
+                condition=Q(whatsapp="") | Q(whatsapp__regex=WHATSAPP_PATTERN_SQL),
+                name="storesettings_whatsapp_digits",
+                violation_error_message=WHATSAPP_FORMAT_MESSAGE,
             ),
         ]
 
