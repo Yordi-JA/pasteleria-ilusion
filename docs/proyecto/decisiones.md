@@ -1,6 +1,6 @@
 # Registro de decisiones
 
-Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D23 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026; D24 a D28, al inicializar los proyectos el 2 de noviembre; D29 a D35, el mismo 2 de noviembre: identificadores en inglés, catálogo, despliegue, límite de intentos y diagramas; D36 y D37, el 3 de noviembre: componentes base, página de muestra y FastAPI descartado; D38 a D40, el 4 de noviembre: primer despliegue en Heroku, precio de "Diseña tu pastel" y dominio propio; D41, el 5 de noviembre: datos del negocio y su endpoint.
+Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D23 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026; D24 a D28, al inicializar los proyectos el 2 de noviembre; D29 a D35, el mismo 2 de noviembre: identificadores en inglés, catálogo, despliegue, límite de intentos y diagramas; D36 y D37, el 3 de noviembre: componentes base, página de muestra y FastAPI descartado; D38 a D40, el 4 de noviembre: primer despliegue en Heroku, precio de "Diseña tu pastel" y dominio propio; D41 y D42, el 5 de noviembre: datos del negocio y su endpoint; marco del sitio y rutas.
 
 ## Contenido
 
@@ -392,6 +392,28 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
     - `Cache-Control`. Los datos cambian desde el admin y la pastelería debe verlos de inmediato.
 - **Consecuencias:** El frontend puede armar el pie y la franja superior sin cuenta. Cuando la pastelería defina la dirección y el WhatsApp, los captura en el admin y el sitio los muestra sin cambiar código. La dirección y el WhatsApp siguen PENDIENTE en [`../reglas-de-negocio.md`](../reglas-de-negocio.md). El código está verificado en local y no está desplegado.
 
+### D42. Marco del sitio, rutas y datos del negocio en el frontend
+
+- **Fecha:** 5 de noviembre de 2026.
+- **Decisión:**
+    - Todas las rutas comparten un marco (`frontend/src/views/SiteLayout.tsx`): enlace "Saltar al contenido", franja `mermelada` con los días de anticipación y el WhatsApp, toldo de CSS sin imágenes, barra superior fija con `aria-current` en el enlace activo, guirnalda de duya y pie. Las 26 rutas del mapa de vistas existen con una vista vacía que lleva su `h1` y su `document.title` ("Vista · Pastelería Ilusión"). Si el `h1` del mockup es un dato, el `h1` lleva un marcador: "Hola, [nombre por confirmar]" en `/cuenta`, `/cuenta/bases` y `/cuenta/datos`, "Pedido #[número por confirmar]", "Solicitud #[número por confirmar]" y "[Nombre del pastel por confirmar]". La pestaña lleva el nombre de la vista, sin corchetes.
+    - Todo dato PENDIENTE usa el formato `[… por confirmar]` (regla 1): "[Dirección por confirmar]", "[Horario por confirmar]" y "Pedidos con [días por confirmar] de anticipación". Sin número de WhatsApp, el pie y el menú muestran "Escribir por WhatsApp [número por confirmar]" como texto, sin enlace.
+    - Los legales son una sola página, `/legal`, con las anclas `#privacidad` y `#terminos`. Cualquier `/legal/<algo>` da 404. El texto sigue PENDIENTE y se muestra con un marcador.
+    - La barra de navegación es fija al hacer scroll. El menú móvil es un `<dialog>` que aparece por debajo de 768 px; los demás ajustes móviles siguen en 600 px. El menú atrapa el foco, se cierra con Escape y al navegar, bloquea el scroll y devuelve el foco solo cuando el usuario lo cierra.
+    - `src/models/apiClient.ts` es el primer cliente HTTP. `getJson(segments)` arma la ruta con `apiPath(...segments)`, que aplica `encodeURIComponent` a cada segmento y rechaza `''`, `.` y `..`. Así un `:slug`, un `:id` o un `:token` de las vistas futuras no puede desviar la petición.
+    - `src/models/storeInfo.ts` lee `GET /api/v1/store/info/` (D41), valida la respuesta de forma defensiva y guarda en la caché del módulo la promesa de éxito. Esa caché solo sirve para recursos públicos. Un error no se guarda, y un corte de 10 s (`AbortSignal.timeout`) evita esperas sin fin.
+    - `useStoreInfo` hace una sola petición por carga. Si falla, reintenta como máximo cada 60 s al navegar o al volver a la pestaña, y al recuperar la conexión con un mínimo de 5 s. Antes de armar `https://wa.me/<dígitos>` vuelve a validar que el número tenga de 8 a 15 dígitos; el enlace se abre en otra pestaña con `rel="noopener noreferrer"`. Mientras carga se ve un esqueleto provisional (`StoreSkeleton`, `aria-hidden`) con un solo texto "Cargando datos de la pastelería" por región `aria-busy`.
+    - `useRouteFocus` sube al inicio y enfoca `<main>` en cada cambio de ruta. Con hash va al ancla, también si se repite la misma. Al usar atrás o adelante no mueve el scroll.
+    - El componente `Duya` pinta concha, perlas y guirnalda sin márgenes negativos. Su prop `below` pinta el campo de abajo.
+- **Contexto:** La barra fija la pide el libro de marca y el mockup no la muestra; ganó el libro de marca. El mapa de vistas decía `/legal/:documento`, y el libro de marca y el mockup piden una sola página con anclas; ganó el libro de marca, que tiene más autoridad que el mapa. El mockup corta el móvil en 600 px, pero entre 601 y 767 px los enlaces de la barra se partían en dos líneas, y por eso el menú aparece desde 768 px. El formato de los corchetes viene de la convención del mockup, y "por confirmar", del "Precio por confirmar" de D39. La caché de `storeInfo` evita pedir los datos en cada ruta, y es segura porque la respuesta es pública y la misma para todos; no debe usarse con datos de una cuenta. `apiPath` existe desde el primer cliente para que ninguna vista futura arme rutas a mano.
+- **Alternativas descartadas:**
+    - Un Context provider para los datos del negocio: el layout es el único consumidor, y un provider agregaría un estado compartido que nada necesita (Estado Global, sobreingeniería).
+    - Un `setInterval` de reintento: reintentaría aunque nadie mire la pestaña y no respeta el máximo de una petición cada 60 s. Se reintenta solo al navegar, al volver a la pestaña o al recuperar la conexión.
+    - El margen negativo del mockup en el pie: el libro de marca prohíbe márgenes negativos en el borde de duya (`frontend/AGENTS.md`). La prop `below` pinta el campo de abajo.
+    - `/legal/:documento`: ver el contexto.
+    - Quitar la frase de la franja cuando faltan los días: ocultaría un dato PENDIENTE en lugar de mostrar el marcador, y la regla 1 pide el marcador visible.
+- **Consecuencias:** Las vistas futuras se agregan dentro del marco y usan `getJson` con segmentos, nunca con rutas armadas con texto. Siguen pendientes las perlas de avance, el componente de esqueleto completo (el de `StoreSkeleton` es provisional), el contador del carrito, el estado de sesión, el contenido real de las vistas, el 3D y los textos legales. La contradicción del libro de marca sobre el símbolo del pie queda en las decisiones abiertas. D42 usa los datos de D41 y sigue las reglas de duya del libro de marca.
+
 ## Decisiones abiertas
 
 | Tema | Detalle | Se resuelve |
@@ -411,6 +433,7 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 | Refresh anterior a un cambio de contraseña | SimpleJWT lo renueva aunque el access que entrega recibe 401 (D28). La vista de refresh puede rechazarlo de forma explícita | Etapa 3, con el acceso |
 | Envío gratis con 15 kg o más a más de 15 km | Pregunta para la pastelería ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 8) | Cuando responda la pastelería |
 | HSTS con subdominios | `SECURE_HSTS_INCLUDE_SUBDOMAINS` sigue apagado (D40). Activarlo (y el preload) obliga a todo subdominio de `pasteleriailusion.me` a servir HTTPS, y es difícil de deshacer mientras el dominio pueda cambiar | Al cierre del proyecto |
+| Símbolo del pie frente a "uno por pantalla" | El libro de marca ("Presencia de marca") pide el símbolo en el pie, en la confirmación del pedido y junto al depósito de bases, y también dice "uno por pantalla". Probablemente el pie lo oculte en esas dos vistas (D42) | Al construir la confirmación del pedido y las bases |
 
 ## Ver también
 

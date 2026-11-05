@@ -212,12 +212,20 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Pruebas de backend con la redirección: de 687 a 716 recolectadas (715 pasan y 1 se salta). Pasó revisión de calidad y auditoría de seguridad, con una ronda de corrección.
 - Plan de trabajo: estado actualizado al 4 de noviembre, sin cambiar fechas.
 
-### Jueves 5 de noviembre: datos del negocio y su endpoint
+### Jueves 5 de noviembre: datos del negocio, marco del sitio y rutas
 
-- Decisión D41 registrada en [`proyecto/decisiones.md`](proyecto/decisiones.md), en la rama `feat/datos-del-negocio`, sin desplegar. `StoreSettings` gana `address` y `whatsapp`, vacíos en la semilla y con PENDIENTE en su `help_text` (migración `0011_store_contact`). Se editan en el admin, en la sección "Datos del negocio (pie del sitio)".
+- Decisión D41 registrada en [`proyecto/decisiones.md`](proyecto/decisiones.md), fusionada en `main` con el PR #15. `StoreSettings` gana `address` y `whatsapp`, vacíos en la semilla y con PENDIENTE en su `help_text` (migración `0011_store_contact`). Se editan en el admin, en la sección "Datos del negocio (pie del sitio)".
 - El WhatsApp va en E.164 sin "+", de 8 a 15 dígitos y sin 0 inicial, para usarlo tal cual en `https://wa.me/<número>`. Se valida en el modelo y con la restricción `storesettings_whatsapp_digits`; no se normaliza el "+" ni los espacios. La dirección rechaza caracteres de control, de formato y separadores de línea, sin restricción en la base.
 - `GET /api/v1/store/info/`: público, de solo lectura y sin sesión, con la dirección, el WhatsApp, el horario y los días de anticipación de un pedido. `address` y `whatsapp` salen `null` mientras sigan PENDIENTE. Si falta la fila de configuración responde 500, como los demás endpoints que la leen. Capas: vista, `services/store_info_service.py` y `settings_repo`.
 - Throttle propio (`store_info`, 120/min) para que el pie, que se pide en cada carga, no gaste el cupo de anónimos que comparte la calculadora de precio.
 - Pruebas de backend con los datos del negocio: de 716 a 801 recolectadas (800 pasan y 1 se salta).
 - Dirección y WhatsApp de la pastelería: siguen PENDIENTE ([`reglas-de-negocio.md`](reglas-de-negocio.md), sección 13).
-- En la máquina Windows de desarrollo se instaló Node 22 con fnm, sin tocar el Node 24 del sistema. El frontend sigue en curso y se anota en su propio PR.
+- En la máquina Windows de desarrollo se instaló Node 22 con fnm, sin tocar el Node 24 del sistema.
+- Frontend, en la rama `feat/marco-del-sitio` (D42): marco común en `src/views/SiteLayout.tsx` con enlace "Saltar al contenido", franja `mermelada` con los días de anticipación y el WhatsApp, toldo de CSS con rayas `betun` y `fresa-claro` y festones, barra superior fija con `aria-current`, guirnalda de duya y pie. El menú móvil es un `<dialog>` por debajo de 768 px: el mockup cortaba en 600 px, pero entre 601 y 767 los enlaces se partían en dos líneas. La barra es fija porque lo pide el libro de marca, aunque el mockup no la muestra.
+- Componente `Duya` con concha, perlas y guirnalda, sin márgenes negativos; la prop `below` pinta el campo de abajo.
+- Las 26 rutas del mapa de vistas, cada una con una vista vacía, su `h1` y su `document.title`. Cuando el `h1` del mockup es un dato lleva un marcador `[… por confirmar]`. Los legales son una sola página, `/legal`, con las anclas `#privacidad` y `#terminos`: el mapa decía `/legal/:documento`, y ganó el libro de marca. `useRouteFocus` enfoca `<main>` al navegar y lleva al ancla cuando hay hash.
+- Primer cliente HTTP, `src/models/apiClient.ts`, con `apiPath` para que `:slug`, `:id` o `:token` no puedan desviar la petición. `storeInfo.ts` y `useStoreInfo.ts` leen los datos del negocio (D41) con caché de éxitos, corte de 10 s y reintento como máximo cada 60 s. Sin dirección, horario, días de anticipación o WhatsApp, el marco muestra el marcador de pendiente.
+- `vite.config.ts`: `server.fs.allow` incluye `../assets/logos`.
+- Pruebas E2E: de 15 a 83, con la API simulada en `e2e/support/store-info.ts`, así que no necesitan Django. La suite necesita el servidor de desarrollo. Typecheck, lint y build salen limpios.
+- Contradicción del libro de marca: "Presencia de marca" pide el símbolo en el pie, en la confirmación del pedido y junto al depósito de bases, pero también dice "uno por pantalla". Queda como decisión abierta (D42) para resolverla al construir esas vistas.
+- Pendiente: perlas de avance, componente de esqueleto, contador del carrito, estado de sesión, contenido real de las vistas, 3D y textos legales.

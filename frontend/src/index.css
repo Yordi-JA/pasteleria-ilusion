@@ -15,3 +15,101 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  /* Bordes de duya, traducidos de design/referencia/duya.css (libro de marca, "La duya"). El elemento
+     ocupa 21 px en el flujo; la forma se dibuja en ::before (y el detalle en ::after), cuelga sobre el
+     campo de abajo y traslapa 1 px el de arriba para no dejar costura. Sin márgenes negativos. */
+  .duya {
+    height: 21px;
+    position: relative;
+    z-index: 1;
+  }
+  .duya::before,
+  .duya::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -1px;
+    pointer-events: none;
+    -webkit-mask-repeat: repeat-x;
+    mask-repeat: repeat-x;
+    -webkit-mask-position: 0 0;
+    mask-position: 0 0;
+  }
+  .duya::before {
+    background: var(--c);
+  }
+  .duya[data-tipo='concha']::before,
+  .duya[data-tipo='concha']::after {
+    height: 31px;
+    -webkit-mask-size: 36px 30px;
+    mask-size: 36px 30px;
+  }
+  .duya[data-tipo='concha']::before {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Crect width='36' height='2'/%3E%3Cpath d='M-2 0 Q 0 20 14 25 Q 31 30 38 0 Z'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Crect width='36' height='2'/%3E%3Cpath d='M-2 0 Q 0 20 14 25 Q 31 30 38 0 Z'/%3E%3C/svg%3E");
+  }
+  .duya[data-tipo='concha']::after {
+    background: theme('colors.mermelada / 14%');
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Cg fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cpath d='M5 2 Q 8 15 17 19'/%3E%3Cpath d='M13 2 Q 16 12 26 14'/%3E%3Cpath d='M22 2 Q 25 8 32 9'/%3E%3C/g%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='30'%3E%3Cg fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cpath d='M5 2 Q 8 15 17 19'/%3E%3Cpath d='M13 2 Q 16 12 26 14'/%3E%3Cpath d='M22 2 Q 25 8 32 9'/%3E%3C/g%3E%3C/svg%3E");
+  }
+  .duya[data-tipo='perlas']::before,
+  .duya[data-tipo='perlas']::after {
+    height: 23px;
+    -webkit-mask-size: 18px 22px;
+    mask-size: 18px 22px;
+  }
+  .duya[data-tipo='perlas']::before {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Crect width='18' height='3'/%3E%3Ccircle cx='9' cy='8' r='7.5'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Crect width='18' height='3'/%3E%3Ccircle cx='9' cy='8' r='7.5'/%3E%3C/svg%3E");
+  }
+  .duya[data-tipo='perlas']::after {
+    background: theme('colors.betun / 55%');
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Ccircle cx='6.5' cy='5.5' r='2.2'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='22'%3E%3Ccircle cx='6.5' cy='5.5' r='2.2'/%3E%3C/svg%3E");
+  }
+  .duya[data-tipo='guirnalda']::before,
+  .duya[data-tipo='guirnalda']::after {
+    height: 41px;
+    -webkit-mask-size: 96px 40px;
+    mask-size: 96px 40px;
+  }
+  .duya[data-tipo='guirnalda']::before {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Crect width='96' height='3'/%3E%3Cpath d='M0 0 Q 48 52 96 0 Z'/%3E%3Ccircle cx='0' cy='10' r='7'/%3E%3Ccircle cx='96' cy='10' r='7'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Crect width='96' height='3'/%3E%3Cpath d='M0 0 Q 48 52 96 0 Z'/%3E%3Ccircle cx='0' cy='10' r='7'/%3E%3Ccircle cx='96' cy='10' r='7'/%3E%3C/svg%3E");
+  }
+  .duya[data-tipo='guirnalda']::after {
+    background: theme('colors.betun / 55%');
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Ccircle cx='93.5' cy='7.5' r='2'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40'%3E%3Ccircle cx='93.5' cy='7.5' r='2'/%3E%3C/svg%3E");
+  }
+
+  /* Toldo de la fachada (libro de marca, "Presencia de marca"): rayas de 48 px en betun y fresa-claro
+     con remate festoneado sobre el campo fresa; 32 px en móvil. Solo gradientes, sin imágenes. */
+  .toldo {
+    height: 76px;
+    background-color: theme('colors.fresa');
+    background-image:
+      radial-gradient(circle at 24px 0, theme('colors.betun') 24px, transparent 24.5px),
+      radial-gradient(circle at 72px 0, theme('colors.fresa-claro') 24px, transparent 24.5px),
+      repeating-linear-gradient(90deg, theme('colors.betun') 0 48px, theme('colors.fresa-claro') 48px 96px);
+    background-size: 96px 24px, 96px 24px, 100% 52px;
+    background-position: 0 52px, 0 52px, 0 0;
+    background-repeat: repeat-x, repeat-x, no-repeat;
+    box-shadow: inset 0 3px 0 theme('colors.mermelada / 12%');
+  }
+  @media (max-width: 600px) {
+    .toldo {
+      height: 52px;
+      background-image:
+        radial-gradient(circle at 16px 0, theme('colors.betun') 16px, transparent 16.5px),
+        radial-gradient(circle at 48px 0, theme('colors.fresa-claro') 16px, transparent 16.5px),
+        repeating-linear-gradient(90deg, theme('colors.betun') 0 32px, theme('colors.fresa-claro') 32px 64px);
+      background-size: 64px 16px, 64px 16px, 100% 36px;
+      background-position: 0 36px, 0 36px, 0 0;
+    }
+  }
+}

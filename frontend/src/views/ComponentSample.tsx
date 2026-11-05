@@ -1,16 +1,20 @@
 import Button from '../components/Button.tsx'
 import Card from '../components/Card.tsx'
 import ChoiceOption from '../components/ChoiceOption.tsx'
+import Duya from '../components/Duya.tsx'
 import Notice from '../components/Notice.tsx'
 import TextField from '../components/TextField.tsx'
 import { useComponentSample } from '../viewmodels/useComponentSample.ts'
+import { usePageTitle } from '../viewmodels/usePageTitle.ts'
 
 /** Página de muestra de los componentes base. Solo existe en desarrollo (ver `App.tsx`). */
 export default function ComponentSample() {
   const vm = useComponentSample()
+  usePageTitle('Muestra de componentes')
 
+  // El marco del sitio (SiteLayout) ya pone el <main id="contenido">.
   return (
-    <main id="contenido" className="min-h-screen bg-nata font-sans text-cuerpo text-mermelada">
+    <div className="bg-nata font-sans text-cuerpo text-mermelada">
       <div className="mx-auto flex max-w-[1200px] flex-col gap-12 px-4 py-12">
         <h1 className="font-display text-titulo-1">Muestra de componentes</h1>
 
@@ -99,7 +103,21 @@ export default function ComponentSample() {
             </div>
           </div>
         </section>
+
+        <section aria-labelledby="m-duya" className="flex flex-col gap-4">
+          <h2 id="m-duya" className="font-display text-titulo-2">Borde de duya</h2>
+          <div className="overflow-hidden rounded-md border border-relieve">
+            <div className="bg-fresa px-6 py-8 font-display text-titulo-3">Conchas, bajo el encabezado</div>
+            <Duya type="concha" color="fresa" below="betun" />
+            <div className="bg-betun px-6 pb-8 pt-10">Contenido sobre betún</div>
+            <div className="bg-mermelada px-6 py-8 font-display text-titulo-3 text-sobre-color">Perlas, en un cambio fuerte de color</div>
+            <Duya type="perlas" color="mermelada" below="nata" />
+            <div className="bg-nata px-6 pb-8 pt-10 font-display text-titulo-3">Guirnalda, siempre antes del pie</div>
+            <Duya type="guirnalda" color="nata" below="mermelada" />
+            <div className="bg-mermelada px-6 pb-8 pt-12 text-sobre-color">Pie</div>
+          </div>
+        </section>
       </div>
-    </main>
+    </div>
   )
 }

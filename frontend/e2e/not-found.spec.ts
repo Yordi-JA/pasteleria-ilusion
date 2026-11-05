@@ -1,4 +1,9 @@
 import { expect, test } from '@playwright/test'
+import { mockStoreInfo } from './support/store-info.ts'
+
+test.beforeEach(async ({ page }) => {
+  await mockStoreInfo(page)
+})
 
 test('an unknown route shows the h1 and a link back to the root', async ({ page }) => {
   await page.goto('/unknown-route')
