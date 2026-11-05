@@ -129,6 +129,9 @@ class StoreSettingsRecord:
     custom_lead_days: int
     same_day_showcase_lead_hours: int
     free_delivery_from_kg: int
+    # Vacíos: PENDIENTE.
+    address: str
+    whatsapp: str
 
 
 @dataclass(frozen=True)

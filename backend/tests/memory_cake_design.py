@@ -157,11 +157,15 @@ def cake_option_repo(breads=None, filling_bases=None, filling_prices=None, decor
     )
 
 
-def settings_repo(cake_design=None, stands=None):
+# Dirección y WhatsApp vacíos, como en la semilla (PENDIENTE).
+STORE_SETTINGS = StoreSettingsRecord(
+    time(10, 0), time(22, 30), time(10, 30), time(22, 0), 30, 3, 2, 2, 15, address="", whatsapp=""
+)
+
+
+def settings_repo(cake_design=None, stands=None, store=STORE_SETTINGS):
     return MemorySettingsRepo(
-        store=StoreSettingsRecord(
-            time(10, 0), time(22, 30), time(10, 30), time(22, 0), 30, 3, 2, 2, 15
-        ),
+        store=store,
         cake_design=cake_design or CAKE_DESIGN_SETTINGS,
         policy=PolicySettingsRecord(stand_return_days=15, damaged_stand_policy=""),
         upload=UploadSettingsRecord(max_upload_mb=5, max_reference_images=3),

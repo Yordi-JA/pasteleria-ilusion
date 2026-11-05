@@ -185,7 +185,27 @@ class SingletonAdmin(admin.ModelAdmin):
 
 @admin.register(StoreSettings)
 class StoreSettingsAdmin(SingletonAdmin):
-    pass
+    # Un campo nuevo del modelo debe agregarse aquí: si no, el admin no lo muestra
+    # (una prueba lo revisa).
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "store_opens_at",
+                    "store_closes_at",
+                    "first_slot_starts_at",
+                    "last_slot_starts_at",
+                    "slot_minutes",
+                    "max_orders_per_slot",
+                    "custom_lead_days",
+                    "same_day_showcase_lead_hours",
+                    "free_delivery_from_kg",
+                )
+            },
+        ),
+        ("Datos del negocio (pie del sitio)", {"fields": ("address", "whatsapp")}),
+    )
 
 
 @admin.register(CakeDesignSettings)
