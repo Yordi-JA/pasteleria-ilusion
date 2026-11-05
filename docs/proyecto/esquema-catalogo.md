@@ -73,8 +73,12 @@ Clase abstracta `SingletonSettings`: `CheckConstraint(condition=Q(pk=1), name="%
 | `custom_lead_days` | PositiveSmallInteger | días de anticipación de un pedido | 2 |
 | `same_day_showcase_lead_hours` | PositiveSmallInteger | horas de anticipación de un encargo de vitrina para hoy | 2 |
 | `free_delivery_from_kg` | PositiveSmallInteger | envío gratis desde (kg) | 15 |
+| `address` | CharField(255), `blank=True` | dirección | vacío = PENDIENTE |
+| `whatsapp` | CharField(15), `blank=True` | WhatsApp | vacío = PENDIENTE |
 
-Restricciones: `opens < closes`, `opens <= first_slot <= last_slot < closes`, `slot_minutes > 0`, `max_orders_per_slot > 0`.
+Restricciones: `opens < closes`, `opens <= first_slot <= last_slot < closes`, `slot_minutes > 0`, `max_orders_per_slot > 0`, y `whatsapp` vacío o con el patrón `^[1-9][0-9]{7,14}$` (`storesettings_whatsapp_digits`, migración `0011`).
+
+`whatsapp` es E.164 sin "+", de 8 a 15 dígitos y sin 0 inicial; en México, 52 y los 10 dígitos. El validador del modelo usa `\Z` y `[0-9]`, así que no acepta un salto de línea final ni dígitos de otras escrituras. `address` no puede llevar caracteres de las categorías Unicode Cc, Cf, Zl ni Zp (`validate_address_characters`) y no tiene restricción en la base. Los dos campos salen en la sección "Datos del negocio (pie del sitio)" del admin y los entrega `GET /api/v1/store/info/` (D41).
 
 ### `CakeDesignSettings` ("Diseña tu pastel")
 
@@ -224,6 +228,7 @@ Una sola tabla, porque las reglas la nombran así para los dos usos.
 | Regla | Dónde vive |
 | --- | --- |
 | Horario 10:00–22:30; el efectivo vence a las 22:30 | `StoreSettings.store_opens_at` y `store_closes_at` |
+| Dirección y WhatsApp del pie (PENDIENTE) | `StoreSettings.address` y `whatsapp`; `null` en la API mientras estén vacíos |
 | Ventana 10:30–22:00 en lapsos de 30 min | `first_slot_starts_at`, `last_slot_starts_at`, `slot_minutes`; los lapsos los genera un servicio |
 | Máximo 3 pedidos activos por lapso | `max_orders_per_slot`; el conteo con `select_for_update` en `order_repo` (con `DeliverySlot`) |
 | 2 días de anticipación | `custom_lead_days` y validación en servicio |
@@ -256,7 +261,7 @@ Las restricciones que el backend debe rechazar (lista de `backend/AGENTS.md`) so
 
 ## PENDIENTE
 
-- **En este alcance:** precios de patrón con duya, flores y chispas; política de base dañada; fotos de producto; conservación y transporte; base física para 26–50 kg; peso del Red velvet completo. La cota de 50 kg es PROPUESTA (tiene valor, con marca en el `help_text`).
+- **En este alcance:** precios de patrón con duya, flores y chispas; política de base dañada; fotos de producto; conservación y transporte; base física para 26–50 kg; peso del Red velvet completo; dirección y WhatsApp de la pastelería (`StoreSettings`, vacíos, D41). La cota de 50 kg es PROPUESTA (tiene valor, con marca en el `help_text`).
 - **Modelo:** `null=True, blank=True` (o `blank=True` en textos), sin valor por defecto y nunca 0. `help_text`: "PENDIENTE: la pastelería aún no lo define. Déjalo vacío; no pongas un valor supuesto."
 - **Admin:** `empty_value_display = "PENDIENTE"` y filtro lateral "Con precio pendiente" (`price__isnull`).
 - **API:** el serializador manda `price: null` y `price_pending: true`.

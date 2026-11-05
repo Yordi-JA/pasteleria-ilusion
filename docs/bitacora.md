@@ -211,3 +211,13 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - La dirección principal es `pasteleriailusion.me`, sin `www`. La redirección de `www` con 301 está preparada en código (`WwwRedirectMiddleware` y `CANONICAL_HOST=pasteleriailusion.me`, rama `feat/dominio-canonico`) y falta desplegarla. El host de `herokuapp.com` sigue sirviendo el sitio como respaldo. HSTS con subdominios queda apagado hasta el cierre del proyecto.
 - Pruebas de backend con la redirección: de 687 a 716 recolectadas (715 pasan y 1 se salta). Pasó revisión de calidad y auditoría de seguridad, con una ronda de corrección.
 - Plan de trabajo: estado actualizado al 4 de noviembre, sin cambiar fechas.
+
+### Jueves 5 de noviembre: datos del negocio y su endpoint
+
+- Decisión D41 registrada en [`proyecto/decisiones.md`](proyecto/decisiones.md), en la rama `feat/datos-del-negocio`, sin desplegar. `StoreSettings` gana `address` y `whatsapp`, vacíos en la semilla y con PENDIENTE en su `help_text` (migración `0011_store_contact`). Se editan en el admin, en la sección "Datos del negocio (pie del sitio)".
+- El WhatsApp va en E.164 sin "+", de 8 a 15 dígitos y sin 0 inicial, para usarlo tal cual en `https://wa.me/<número>`. Se valida en el modelo y con la restricción `storesettings_whatsapp_digits`; no se normaliza el "+" ni los espacios. La dirección rechaza caracteres de control, de formato y separadores de línea, sin restricción en la base.
+- `GET /api/v1/store/info/`: público, de solo lectura y sin sesión, con la dirección, el WhatsApp, el horario y los días de anticipación de un pedido. `address` y `whatsapp` salen `null` mientras sigan PENDIENTE. Si falta la fila de configuración responde 500, como los demás endpoints que la leen. Capas: vista, `services/store_info_service.py` y `settings_repo`.
+- Throttle propio (`store_info`, 120/min) para que el pie, que se pide en cada carga, no gaste el cupo de anónimos que comparte la calculadora de precio.
+- Pruebas de backend con los datos del negocio: de 716 a 801 recolectadas (800 pasan y 1 se salta).
+- Dirección y WhatsApp de la pastelería: siguen PENDIENTE ([`reglas-de-negocio.md`](reglas-de-negocio.md), sección 13).
+- En la máquina Windows de desarrollo se instaló Node 22 con fnm, sin tocar el Node 24 del sistema. El frontend sigue en curso y se anota en su propio PR.

@@ -391,6 +391,8 @@ Las etiquetas salen del texto de estas reglas y del mockup.
 | WhatsApp | PENDIENTE |
 | Aviso de privacidad y términos | PENDIENTE (el equipo prepara un texto base y la pastelería lo completa; el agente nunca los inventa) |
 
+La dirección y el WhatsApp siguen PENDIENTE. La pastelería los captura en el admin, en "Datos del negocio (pie del sitio)" de "horarios y entregas". Mientras falten, el sitio muestra un marcador visible en su lugar y no un valor supuesto. El WhatsApp se escribe solo con dígitos, con la lada del país y sin "+" (en México, 52 y los 10 dígitos). Ver D41 en [`proyecto/decisiones.md`](proyecto/decisiones.md).
+
 ---
 
 ## 14. Lista de pendientes
