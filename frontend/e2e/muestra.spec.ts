@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
+import { mockStoreInfo } from './support/store-info.ts'
 
 /** El anillo de foco del libro de marca: 2px sólido, 2px de separación, en `mermelada` (#5e1921). */
 async function expectFocusRing(locator: Locator, color = 'rgb(94, 25, 33)') {
@@ -10,6 +11,7 @@ async function expectFocusRing(locator: Locator, color = 'rgb(94, 25, 33)') {
 }
 
 test.beforeEach(async ({ page }) => {
+  await mockStoreInfo(page)
   await page.goto('/muestra')
   await expect(page.getByRole('heading', { level: 1, name: 'Muestra de componentes' })).toBeVisible()
 })
@@ -181,3 +183,21 @@ for (const width of [1440, 390]) {
     expect(overflow).toBeLessThanOrEqual(0)
   })
 }
+
+test('duya: the three types, decorative, 21px in the flow and no negative margins', async ({ page }) => {
+  const section = page.getByRole('region', { name: 'Borde de duya' })
+  for (const type of ['concha', 'perlas', 'guirnalda']) {
+    const border = section.locator(`.duya[data-tipo="${type}"]`)
+    await expect(border).toHaveCount(1)
+    await expect(border).toHaveAttribute('aria-hidden', 'true')
+    await expect(border).toHaveCSS('height', '21px')
+    await expect(border).toHaveCSS('margin-top', '0px')
+    await expect(border).toHaveCSS('margin-bottom', '0px')
+    const shape = await border.evaluate((el) => {
+      const before = el.ownerDocument.defaultView!.getComputedStyle(el, '::before')
+      return { top: before.top, mask: before.maskImage || before.webkitMaskImage }
+    })
+    expect(shape.top).toBe('-1px')
+    expect(shape.mask).toContain('data:image/svg+xml')
+  }
+})
