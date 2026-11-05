@@ -258,3 +258,70 @@ def test_no_migrations_are_missing(db):
 def test_axes_limits_must_be_integers(load_settings, name, value):
     with pytest.raises(ImproperlyConfigured, match=f"{name} debe ser un número entero"):
         load_settings(**{name: value})
+
+
+def test_audit_logger_writes_info_through_an_effective_handler(settings):
+    """`core_pasteleria.audit` llega a la salida estándar en INFO (los logs de Heroku)."""
+    import io
+    import logging
+
+    console = settings.LOGGING["handlers"]["console"]
+    assert (console["class"], console["stream"]) == ("logging.StreamHandler", "ext://sys.stdout")
+    logger = logging.getLogger("core_pasteleria.audit")
+    assert logger.isEnabledFor(logging.INFO)
+    parent = logging.getLogger("core_pasteleria")
+    assert parent.propagate is False
+    # `type(...) is`: pytest también cuelga sus manejadores (subclases) del logger.
+    [handler] = [h for h in parent.handlers if type(h) is logging.StreamHandler]
+    assert handler.level <= logging.INFO
+    original = handler.setStream(io.StringIO())
+    try:
+        logger.info("prueba de auditoría")
+        assert "prueba de auditoría" in handler.stream.getvalue()
+    finally:
+        handler.setStream(original)
+
+
+def console_output(logger_name):
+    """Cambia el stream del `StreamHandler` de `LOGGING` por un búfer y lo devuelve."""
+    import io
+    import logging
+
+    # `type(...) is`: pytest también cuelga sus manejadores (subclases) del logger.
+    [handler] = [h for h in logging.getLogger(logger_name).handlers if type(h) is logging.StreamHandler]
+    buffer = io.StringIO()
+    return handler, handler.setStream(buffer), buffer
+
+
+def test_a_real_500_leaves_its_traceback_in_the_console(client, monkeypatch):
+    """Los 500 dejan rastro en la salida estándar aunque `DEBUG` esté apagado."""
+    from core_pasteleria.services import cake_options_service
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("falla de prueba")
+
+    monkeypatch.setattr(cake_options_service, "get_cake_design_options", boom)
+    client.raise_request_exception = False
+    handler, original, buffer = console_output("django.request")
+    try:
+        response = client.get("/api/v1/cake-designs/options/")
+    finally:
+        handler.setStream(original)
+    assert response.status_code == 500
+    output = buffer.getvalue()
+    assert "Internal Server Error: /api/v1/cake-designs/options/" in output
+    assert "Traceback" in output and "RuntimeError: falla de prueba" in output
+
+
+def test_security_warnings_reach_the_console(settings):
+    """`django.security` (por ejemplo, `DisallowedHost`) también llega a la salida estándar."""
+    import logging
+
+    security = settings.LOGGING["loggers"]["django.security"]
+    assert (security["level"], security["propagate"]) == ("WARNING", False)
+    handler, original, buffer = console_output("django.security")
+    try:
+        logging.getLogger("django.security.DisallowedHost").warning("host de prueba")
+    finally:
+        handler.setStream(original)
+    assert "host de prueba" in buffer.getvalue()
