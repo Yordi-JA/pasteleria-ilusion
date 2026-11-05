@@ -1,12 +1,17 @@
 import { Link } from 'react-router'
+import PageHeader from '../components/PageHeader.tsx'
+import { focusRing } from '../components/focus.ts'
+import { usePageTitle } from '../viewmodels/usePageTitle.ts'
+
+const TITLE = 'No encontramos esta página'
 
 export default function NotFound() {
+  usePageTitle(TITLE)
   return (
-    <main className="min-h-screen bg-nata font-sans text-cuerpo text-mermelada">
-      <h1 className="font-display text-titulo-1">No encontramos esta página</h1>
-      <Link to="/" className="font-semibold underline">
+    <PageHeader title={TITLE}>
+      <Link to="/" className={`inline-flex min-h-11 items-center self-start rounded-sm font-semibold underline underline-offset-4 ${focusRing}`}>
         Ir a inicio
       </Link>
-    </main>
+    </PageHeader>
   )
 }

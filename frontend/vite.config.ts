@@ -9,9 +9,9 @@ export default defineConfig({
   server: {
     // IPv4 explícito: en esta máquina el loopback IPv6 (::1) no responde.
     host: '127.0.0.1',
-    // Las fuentes viven en assets/fuentes/, fuera de frontend/. Se permite solo
-    // esa carpeta además de frontend/, para no exponer el resto del repositorio.
-    fs: { allow: ['.', '../assets/fuentes'] },
+    // Las fuentes y los logos viven en assets/, fuera de frontend/. Se permiten solo
+    // esas carpetas además de frontend/, para no exponer el resto del repositorio.
+    fs: { allow: ['.', '../assets/fuentes', '../assets/logos'] },
     // La API vive en el mismo origen bajo /api (D15). IPv4 explícito por la
     // misma razón que host: runserver de Django escucha en 127.0.0.1.
     proxy: {
