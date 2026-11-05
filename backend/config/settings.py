@@ -288,6 +288,9 @@ REST_FRAMEWORK = {
     # Seguro por defecto: los endpoints públicos lo declaran de forma explícita.
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    # Solo JSON y con tope de tamaño y de anidación; formularios y multipart
+    # responden 415. Las subidas de imágenes declaran su propio parser y tope.
+    "DEFAULT_PARSER_CLASSES": ["core_pasteleria.api.parsers.BoundedJSONParser"],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
@@ -337,4 +340,31 @@ SPECTACULAR_SETTINGS = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
+}
+
+# --- Registro (logging) ---
+
+# A la salida estándar, que es lo que Heroku junta en `heroku logs`. Sin esto,
+# Django solo escribe a consola con DEBUG y los INFO de la auditoría se pierden.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "plain": {"format": "{levelname} {name} {message}", "style": "{"},
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+            "formatter": "plain",
+        },
+    },
+    "loggers": {
+        # Auditoría (`core_pasteleria.audit`) y demás registros de la app.
+        "core_pasteleria": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        # Los 500 dejan rastro con su traza aunque DEBUG esté apagado.
+        "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+        # Avisos de seguridad (por ejemplo, un `Host` no permitido o un CSRF fallido).
+        "django.security": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+    },
 }

@@ -466,3 +466,58 @@ def test_seed_can_run_again_without_duplicating_or_overwriting():
     assert {m: m.objects.count() for m in counts} == counts
     assert Bread.objects.get(slug="chocolate").price_per_kg == Decimal("7.00")
     assert DecorationOption.objects.get(slug="flores").price == Decimal("90.00")
+
+
+# --- Un sabor no se cobra por debajo de su base ---
+
+
+def own_price(slug, cake_type):
+    return FillingPrice.objects.get(cake_type=cake_type, base__slug="normal", flavor__slug=slug)
+
+
+def test_a_flavor_price_below_the_general_price_of_its_base_is_rejected():
+    price = own_price("nuez", CakeType.TRES_LECHES)
+    price.price_per_kg = Decimal("179.99")
+    with pytest.raises(ValidationError) as error:
+        price.full_clean()
+    assert error.value.message_dict["price_per_kg"] == [
+        "Un sabor no se cobra por debajo de su base: el precio general de Normal en "
+        "tres leches es $180.00."
+    ]
+
+
+def test_a_flavor_price_equal_to_the_general_price_is_accepted():
+    # Nuez en envinado cuesta lo mismo que la base Normal (tabla 4.5).
+    price = own_price("nuez", CakeType.ENVINADO)
+    price.full_clean()
+    price.price_per_kg = Decimal("200")
+    price.full_clean()
+
+
+def test_a_new_flavor_price_below_the_base_is_rejected():
+    durazno = FillingFlavor.objects.get(slug="durazno")
+    price = FillingPrice(
+        cake_type=CakeType.SECO, base=FillingBase.objects.get(slug="normal"), flavor=durazno,
+        price_per_kg=Decimal("150"),
+    )
+    with pytest.raises(ValidationError) as error:
+        price.full_clean()
+    assert list(error.value.message_dict) == ["price_per_kg"]
+
+
+def test_the_general_price_cannot_go_above_a_flavor_price_of_the_same_type():
+    general = FillingPrice.objects.get(cake_type=CakeType.TRES_LECHES, base__slug="normal", flavor=None)
+    general.price_per_kg = Decimal("191")
+    with pytest.raises(ValidationError) as error:
+        general.full_clean()
+    assert error.value.message_dict["price_per_kg"] == [
+        "Un sabor no se cobra por debajo de su base: Fresa con yogurt y Nuez cuestan menos "
+        "en tres leches. Súbeles el precio primero."
+    ]
+    general.price_per_kg = Decimal("190")
+    general.full_clean()
+
+
+def test_seeded_flavor_prices_are_never_below_their_base():
+    for price in FillingPrice.objects.all():
+        price.full_clean()

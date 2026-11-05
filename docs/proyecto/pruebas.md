@@ -1,6 +1,6 @@
 # Estrategia de pruebas
 
-El proyecto prueba la lógica de negocio con `pytest` y `pytest-django`, el recorrido de compra con Playwright y la accesibilidad con una revisión por pantalla. Estado al 3 de noviembre de 2026: hay 498 pruebas de backend en `backend/tests/` (modelo de usuario, admin, configuración, documentación de la API, sesión JWT, hash de contraseñas, throttling, y el catálogo, el inventario y la configuración editable con sus semillas, restricciones y repositorios) y 2 pruebas de humo con Playwright en `frontend/e2e/`. Las pruebas de la lógica de negocio llegan con los servicios de las etapas 2 a 4.
+El proyecto prueba la lógica de negocio con `pytest` y `pytest-django`, el recorrido de compra con Playwright y la accesibilidad con una revisión por pantalla. Estado al 4 de noviembre de 2026: hay 687 pruebas de backend recolectadas en `backend/tests/` (686 pasan y 1 se salta sin el build del frontend), que cubren el modelo de usuario, el admin, la configuración, la documentación de la API, la sesión JWT, el hash de contraseñas, el throttling, el catálogo, el inventario y la configuración editable con sus semillas, restricciones y repositorios, el precio de "Diseña tu pastel" y sus opciones, el depósito de la base, el decorador de auditoría, los dos endpoints públicos y el parser JSON; y 2 pruebas de humo con Playwright en `frontend/e2e/`. Las pruebas de la lógica de negocio que faltan llegan con los servicios de las etapas 2 a 4.
 
 ## Contenido
 
@@ -182,7 +182,13 @@ Regla de [`arquitectura.md`](arquitectura.md#patrones-de-diseño): queda prohibi
 | Cliente registra su propio pago en efectivo | 403 |
 | `PATCH` de cliente con `status` o `refunded` | El estado no cambia |
 | Dos `POST` simultáneos de "Base devuelta" | Un solo reembolso |
-| `@audit_operation` | Conserva `__name__` (por `functools.wraps`) y registra el tiempo en milisegundos en el logger |
+| `@audit_operation` | Conserva `__name__` (por `functools.wraps`), registra en `core_pasteleria.audit` el tiempo en milisegundos: INFO `ok`, INFO `rejected:<Clase>` con un error previsto y ERROR con el nombre de la clase ante otro; nunca argumentos ni el mensaje del error |
+| `POST /api/v1/cake-designs/price/` sin sesión o con un token vencido | 200; no pide CSRF |
+| Cuerpo de más de 16 KB | 413 "La petición es demasiado grande." |
+| Formulario o multipart a la API | 415 |
+| JSON anidado hasta agotar la recursión | 400 "JSON inválido." |
+| Precio con monto mandado por el cliente | Se ignora; el total es el del servidor |
+| Decoración fija sin precio | Opciones: `available=false`, "Precio por confirmar"; precio: 400 en `decoration` |
 
 ### Rechazos del backend
 
@@ -200,6 +206,7 @@ El backend valida aunque la interfaz ya lo impida.
 | Pastel mini con queso | Rechazado |
 | Cliente sin permiso registra "Base devuelta" | 403 |
 | Cliente pide el pedido de otro | 404 |
+| Precio propio de un sabor menor que el precio general de su base, o precio general por encima de un sabor | Rechazado en el admin |
 
 ### Seguridad
 
