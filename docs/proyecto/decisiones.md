@@ -1,6 +1,6 @@
 # Registro de decisiones
 
-Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D23 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026; D24 a D28, al inicializar los proyectos el 2 de noviembre; D29 a D35, el mismo 2 de noviembre: identificadores en inglés, catálogo, despliegue, límite de intentos y diagramas; D36 y D37, el 3 de noviembre: componentes base, página de muestra y FastAPI descartado; D38 y D39, el 4 de noviembre: primer despliegue en Heroku y precio de "Diseña tu pastel".
+Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo que cambian. Las decisiones D1 a D23 se tomaron entre el 12 de octubre y el 1 de noviembre de 2026; D24 a D28, al inicializar los proyectos el 2 de noviembre; D29 a D35, el mismo 2 de noviembre: identificadores en inglés, catálogo, despliegue, límite de intentos y diagramas; D36 y D37, el 3 de noviembre: componentes base, página de muestra y FastAPI descartado; D38 a D40, el 4 de noviembre: primer despliegue en Heroku, precio de "Diseña tu pastel" y dominio propio.
 
 ## Contenido
 
@@ -365,6 +365,13 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 - **Contexto:** La regla 1 prohíbe inventar datos, así que un precio PENDIENTE nunca se cobra como $0 ni se oculta: la opción se muestra desactivada con su motivo, porque las opciones desactivadas no desaparecen. Las opciones y el precio salen de las mismas estrategias, para que lo que la interfaz desactiva sea lo que el servidor rechaza. La regla de que un sabor no baja del precio general de su base la fijó el equipo el 4 de noviembre: un precio propio de sabor es un sobreprecio, nunca un descuento (la pastelería no ha definido descuentos, D17). El precio no tiene id de pedido; ese dato llega con `BasePayment.charge`.
 - **Consecuencias:** El frontend puede armar "Diseña tu pastel" y mostrar el precio sin cuenta. Cuando la pastelería defina el precio de una decoración fija, se captura en el admin y la opción se activa sin cambiar código. Los pedidos con cobro llegan en la Etapa 4. El código está verificado en local y no está desplegado.
 
+### D40. Dominio propio: pasteleriailusion.me
+
+- **Fecha:** 4 de noviembre de 2026.
+- **Decisión:** La dirección del sitio es `https://pasteleriailusion.me`, sin `www`. `www.pasteleriailusion.me` redirige con 301 a ella, con el middleware `WwwRedirectMiddleware` (`backend/config/canonical.py`) y la variable `CANONICAL_HOST=pasteleriailusion.me`. El host de `herokuapp.com` sigue sirviendo el sitio como respaldo. Los dos dominios se agregan a Heroku y a `ALLOWED_HOSTS`.
+- **Contexto:** Google y los pagos se registran con la dirección del sitio, así que el dominio se resolvió antes de la Etapa 3. El dominio se registró en Namecheap con la oferta del GitHub Student Developer Pack: el primer año es gratis y la renovación se paga. Se descartó `.com` porque el Pack solo regala el `.me`, y `pasteleriailusion.com.mx` ya lo tiene registrado otra persona. Namecheap obligó a elegir GitHub Pages como opción gratuita del registro; sus registros DNS se reemplazaron por los de Heroku y no se publicó nada en GitHub Pages. El registro `.me` tardó unos 28 minutos en publicar el dominio. Mientras tanto, el certificado automático quedó en "Failed" y dejó de reintentar, y se resolvió con `heroku certs:auto:refresh` cuando el DNS ya apuntaba a Heroku. El certificado es de Let's Encrypt, cubre los dos dominios, vence el 2 de febrero de 2027 y Heroku lo renueva solo.
+- **Consecuencias:** `ALLOWED_HOSTS` en Heroku lista el host de `herokuapp.com`, `pasteleriailusion.me` y `www.pasteleriailusion.me`. Los pasos están en "Dominio propio" de la sección "Despliegue en Heroku" de `backend/AGENTS.md`. La redirección de `www` se activa al desplegar la rama que trae el middleware. `SECURE_HSTS_INCLUDE_SUBDOMAINS` sigue apagado y se reconsidera al cierre del proyecto, cuando el dominio ya no cambie. La renovación del dominio después del primer año se paga. D40 resuelve la decisión abierta "Dominio propio" que dejó D38.
+
 ## Decisiones abiertas
 
 | Tema | Detalle | Se resuelve |
@@ -383,7 +390,7 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 | Preguntas del catálogo para la pastelería | Unidad del pan para encargos de hoy, pan de cada pastel de vitrina, sabores y minis en vitrina, Mosaico con yogurt, vitrina frente a rebanadas, peso que cuenta para el envío gratis y base de 26 a 50 kg (D32) | Cuando responda la pastelería |
 | Refresh anterior a un cambio de contraseña | SimpleJWT lo renueva aunque el access que entrega recibe 401 (D28). La vista de refresh puede rechazarlo de forma explícita | Etapa 3, con el acceso |
 | Envío gratis con 15 kg o más a más de 15 km | Pregunta para la pastelería ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 8) | Cuando responda la pastelería |
-| Dominio propio | Heroku asignó `pasteleria-ilusion-0994ca356cbc.herokuapp.com` (D38). Google y los pagos se registran con la dirección del sitio, y HSTS con subdominios y preload se activa solo con dominio propio | Antes de la Etapa 3 |
+| HSTS con subdominios | `SECURE_HSTS_INCLUDE_SUBDOMAINS` sigue apagado (D40). Activarlo (y el preload) obliga a todo subdominio de `pasteleriailusion.me` a servir HTTPS, y es difícil de deshacer mientras el dominio pueda cambiar | Al cierre del proyecto |
 
 ## Ver también
 
