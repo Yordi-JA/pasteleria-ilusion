@@ -10,7 +10,7 @@ from decimal import Decimal
 import pytest
 
 from core_pasteleria.models import BreadPricingMode, DecorationPricing
-from core_pasteleria.services import cake_options_service, pricing_service
+from core_pasteleria.services import cake_options_service, catalog_service, pricing_service
 from core_pasteleria.services.pricing_service import (
     CakeDesignChoice,
     CakeDesignError,
@@ -302,7 +302,7 @@ def test_strategy_registries_cover_every_pricing_mode():
     assert set(pricing_service.DECORATION_PRICING_STRATEGIES) == set(DecorationPricing.values)
 
 
-@pytest.mark.parametrize("module", [pricing_service, cake_options_service])
+@pytest.mark.parametrize("module", [pricing_service, cake_options_service, catalog_service])
 def test_services_have_no_elif_chains(module):
     tree = ast.parse(inspect.getsource(module))
     for node in ast.walk(tree):

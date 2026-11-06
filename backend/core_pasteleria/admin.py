@@ -40,6 +40,7 @@ from .models import (
     UploadSettings,
     User,
 )
+from .services.catalog_service import HOME_FEATURED_LIMIT
 
 
 class CustomUserCreationForm(AdminUserCreationForm):
@@ -364,11 +365,31 @@ class ProductOfferingInline(admin.TabularInline):
 @admin.register(Product)
 class ProductAdmin(ReadOnlySlugMixin, admin.ModelAdmin):
     empty_value_display = "PENDIENTE"
-    list_display = ("name", "category", "sales_channel", "photo", "sort_order", "is_active")
-    list_editable = ("sort_order", "is_active")
-    list_filter = ("category", "sales_channel", "is_active")
+    list_display = (
+        "name", "category", "sales_channel", "photo", "sort_order", "is_active", "featured_on_home",
+    )
+    # `is_active` no va aquí: una lista cargada antes de desactivar un producto lo
+    # volvería a publicar al guardarla. Se activa o desactiva en su formulario.
+    list_editable = ("sort_order", "featured_on_home")
+    list_filter = ("category", "sales_channel", "is_active", "featured_on_home")
     search_fields = ("name",)
     inlines = [ProductOfferingInline]
+
+    def changelist_view(self, request, extra_context=None):
+        if request.method == "GET":
+            self._warn_about_extra_featured_products(request)
+        return super().changelist_view(request, extra_context)
+
+    def _warn_about_extra_featured_products(self, request):
+        """Avisa si hay más destacados activos de los que muestra "Pasteles de la casa"."""
+        featured = Product.objects.filter(featured_on_home=True, is_active=True).count()
+        if featured > HOME_FEATURED_LIMIT:
+            self.message_user(
+                request,
+                f"Hay {featured} productos activos destacados en la portada, y la portada muestra "
+                f"solo los primeros {HOME_FEATURED_LIMIT}, en el orden de la lista.",
+                level=messages.WARNING,
+            )
 
 
 @admin.register(CatalogPrice)

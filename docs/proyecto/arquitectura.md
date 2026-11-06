@@ -65,6 +65,7 @@ core_pasteleria/
 ├── services/               # CAPA DE SERVICIOS (Lógica de Negocio y Patrones GoF)
 │   ├── pricing_service.py  # Cálculo de costos del cotizador 3D (Patrón Strategy)
 │   ├── cake_options_service.py # Opciones de "Diseña tu pastel" con disponibilidad y motivo
+│   ├── catalog_service.py  # Catálogo, ficha, pasteles de la casa, vitrina y rebanadas de hoy
 │   ├── warranty_service.py # Reglas de préstamo, retención y devolución de bases
 │   ├── audit.py            # @audit_operation (Patrón Decorator)
 │   ├── errors.py           # DomainValidationError: errores por campo que la API vuelve 400

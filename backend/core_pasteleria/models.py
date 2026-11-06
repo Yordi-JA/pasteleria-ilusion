@@ -1192,6 +1192,15 @@ class Product(OrderedOption):
             "por ejemplo tres-leches-durazno.webp."
         ),
     )
+    featured_on_home = models.BooleanField(
+        "destacado en la portada",
+        default=False,
+        help_text=(
+            "La pastelería elige qué productos salen en \"Pasteles de la casa\" de la portada. "
+            "Salen hasta 4 de los marcados, en el orden de la lista. Si no marca ninguno, "
+            "salen los primeros 4 pasteles del catálogo."
+        ),
+    )
 
     class Meta:
         verbose_name = "producto"

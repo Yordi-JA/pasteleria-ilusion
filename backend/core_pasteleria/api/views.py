@@ -1,18 +1,29 @@
 """Capa de controladores: recibe HTTP, llama a servicios y responde."""
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, ScopedRateThrottle
 from rest_framework.views import APIView
 
-from ..services import cake_options_service, pricing_service, store_info_service, warranty_service
+from ..services import (
+    cake_options_service,
+    catalog_service,
+    pricing_service,
+    store_info_service,
+    warranty_service,
+)
 from ..services.errors import DomainValidationError, attempt, raise_all
 from .serializers import (
     CakeDesignOptionsSerializer,
     CakeDesignPriceRequestSerializer,
     CakeDesignPriceSerializer,
+    CatalogQuerySerializer,
+    ProductCardSerializer,
+    ProductDetailSerializer,
+    ShowcaseQuerySerializer,
     StoreInfoSerializer,
+    TodayStockSerializer,
 )
 
 
@@ -152,3 +163,169 @@ class StoreInfoView(PublicReadOnlyView):
     )
     def get(self, request):
         return Response(StoreInfoSerializer(store_info_service.get_store_info()).data)
+
+
+# --- Catálogo público ---
+
+CATALOG_TAG = "Catálogo"
+# Valores ilustrativos de la semilla; los ids cambian de una base a otra.
+CARD_EXAMPLE = {
+    "slug": "tres-leches-de-durazno",
+    "name": "Tres leches de durazno",
+    "category": "cake",
+    "sales_channel": "showcase_and_order",
+    "cake_type": "tres_leches",
+    "bread": None,
+    "filling_base": "normal",
+    "summary": "Relleno de durazno y cobertura de crema pastelera.",
+    "photo": None,
+    "in_showcase_today": True,
+    "offerings": [
+        {"id": 1, "presentation": "whole", "price": "350.00"},
+        {"id": 2, "presentation": "slice", "price": "35.00"},
+        {"id": 3, "presentation": "mini", "price": "130.00"},
+    ],
+}
+TODAY_STOCK_EXAMPLE = {
+    "date": "2026-11-06",
+    "items": [
+        {
+            "offering_id": 1, "product_slug": "tres-leches-de-durazno", "product_name": "Tres leches de durazno",
+            "category": "cake", "presentation": "whole", "price": "350.00", "photo": None,
+            "stock": 2, "sold_out": False,
+        },
+        {
+            "offering_id": 3, "product_slug": "tres-leches-de-durazno", "product_name": "Tres leches de durazno",
+            "category": "cake", "presentation": "mini", "price": "130.00", "photo": None,
+            "stock": 0, "sold_out": True,
+        },
+    ],
+}
+NOT_FOUND = OpenApiResponse(
+    description="No existe o la pastelería lo desactivó.",
+    examples=[OpenApiExample("No encontrado", value={"detail": "No encontrado."})],
+)
+INVALID_QUERY = OpenApiResponse(
+    description="Parámetro inválido, con el error por campo.",
+    examples=[OpenApiExample("Categoría desconocida", value={"category": ["\"gelatina\" no es una elección válida."]})],
+)
+
+
+class PublicCatalogView(PublicReadOnlyView):
+    # Tasa propia y compartida por los cinco endpoints del catálogo: la portada
+    # pide tres a la vez y no debe gastar el cupo anónimo de "Diseña tu pastel"
+    # ni el del pie. Sin autenticación, cuenta siempre por IP.
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "catalog"
+
+    @staticmethod
+    def validated_query(serializer_class, request) -> dict:
+        query = serializer_class(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        return query.validated_data
+
+
+class ProductListView(PublicCatalogView):
+    @extend_schema(
+        operation_id="catalog_products",
+        summary="Catálogo",
+        description=(
+            "Productos activos en el orden del admin, con sus presentaciones y precios. Sin "
+            "paginar: el catálogo es corto y la pantalla lo muestra completo, con el número de "
+            "pasteles y de postres. `in_showcase_today` lee la vitrina de hoy en la pastelería."
+        ),
+        parameters=[CatalogQuerySerializer],
+        responses={
+            200: OpenApiResponse(
+                response=ProductCardSerializer(many=True),
+                examples=[OpenApiExample("Un pastel", value=[CARD_EXAMPLE])],
+            ),
+            400: INVALID_QUERY,
+        },
+        tags=[CATALOG_TAG],
+    )
+    def get(self, request):
+        query = self.validated_query(CatalogQuerySerializer, request)
+        cards = catalog_service.list_catalog(category=query.get("category"), search=query.get("search"))
+        return Response(ProductCardSerializer(cards, many=True).data)
+
+
+class ProductDetailView(PublicCatalogView):
+    @extend_schema(
+        operation_id="catalog_product_detail",
+        summary="Ficha de producto",
+        description=(
+            "Producto activo con sus presentaciones, las existencias de hoy de cada una "
+            "(`stock`: `null` si no se cargó, `0` si se agotó) y hasta tres productos de la "
+            "misma categoría para \"También te puede gustar\". Conservación, transporte y fotos "
+            "salen `null` mientras sean PENDIENTE."
+        ),
+        responses={200: ProductDetailSerializer, 404: NOT_FOUND},
+        tags=[CATALOG_TAG],
+    )
+    def get(self, request, slug):
+        detail = catalog_service.get_product(slug)
+        if detail is None:
+            raise NotFound("No encontrado.")
+        return Response(ProductDetailSerializer(detail).data)
+
+
+class FeaturedProductListView(PublicCatalogView):
+    @extend_schema(
+        operation_id="catalog_featured_products",
+        summary="Pasteles de la casa",
+        description=(
+            "Para la portada: hasta 4 productos que la pastelería marcó como destacados en el "
+            "admin, en su orden; si marcó menos, salen esos. Si no marcó ninguno, salen los "
+            "primeros 4 pasteles activos del catálogo."
+        ),
+        responses={
+            200: OpenApiResponse(
+                response=ProductCardSerializer(many=True),
+                examples=[OpenApiExample("Un pastel", value=[CARD_EXAMPLE])],
+            ),
+        },
+        tags=[CATALOG_TAG],
+    )
+    def get(self, request):
+        return Response(ProductCardSerializer(catalog_service.list_home_featured(), many=True).data)
+
+
+class ShowcaseView(PublicCatalogView):
+    @extend_schema(
+        operation_id="catalog_showcase",
+        summary="Vitrina de hoy",
+        description=(
+            "Presentaciones cargadas hoy en la vitrina, sin rebanadas, en el orden del catálogo. "
+            "Con `stock` en 0 salen con `sold_out: true` (\"Agotada por hoy\"); lo que no se "
+            "cargó hoy no sale. Red velvet nunca sale. `date` es la fecha de hoy en la pastelería."
+        ),
+        parameters=[ShowcaseQuerySerializer],
+        responses={
+            200: OpenApiResponse(
+                response=TodayStockSerializer,
+                examples=[OpenApiExample("Una disponible y una agotada", value=TODAY_STOCK_EXAMPLE)],
+            ),
+            400: INVALID_QUERY,
+        },
+        tags=[CATALOG_TAG],
+    )
+    def get(self, request):
+        query = self.validated_query(ShowcaseQuerySerializer, request)
+        showcase = catalog_service.get_showcase(category=query.get("category"))
+        return Response(TodayStockSerializer(showcase).data)
+
+
+class SliceListView(PublicCatalogView):
+    @extend_schema(
+        operation_id="catalog_slices",
+        summary="Rebanadas de hoy",
+        description=(
+            "Rebanadas cargadas hoy, en el orden del catálogo, con \"Quedan [n]\" en `stock` y "
+            "`sold_out: true` en las agotadas. `date` es la fecha de hoy en la pastelería."
+        ),
+        responses={200: TodayStockSerializer},
+        tags=[CATALOG_TAG],
+    )
+    def get(self, request):
+        return Response(TodayStockSerializer(catalog_service.get_slices()).data)

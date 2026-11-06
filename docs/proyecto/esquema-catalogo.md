@@ -191,6 +191,7 @@ Es un tamaño de base con su depósito, no cada base física.
 - `cake_type` choices `CakeType` `null=True`; `bread`, `filling_base`, `filling_flavor` FK PROTECT `null=True` (para "Personalizar este pastel", la etiqueta "Tres leches con queso" y el pan de los encargos del mismo día).
 - `storage_notes`, `transport_notes` TextField opcionales, "conservación" y "transporte" (vacíos = PENDIENTE; la ficha oculta la sección si están vacíos).
 - `photo` CharField(120) opcional, "archivo de la foto": solo el nombre de un archivo estático del frontend, validado con `^[a-z0-9][a-z0-9-]*\.(webp|jpg|jpeg|png|avif)\Z` (nunca una URL ni una ruta).
+- `featured_on_home` BooleanField, "destacado en la portada", `False` por defecto (migración `0012`, D45). La pastelería marca en la lista del admin qué productos salen en "Pasteles de la casa": hasta 4 de los marcados y activos, en el orden de la lista; sin ninguno marcado, los primeros 4 pasteles activos. La semilla no marca ninguno. El admin avisa si hay más de 4 activos marcados.
 - Restricciones: un postre lleva `cake_type`, `bread`, `filling_base` y `filling_flavor` vacíos; un sabor exige base; una base exige tipo; un pan exige tipo.
 - `clean()`: el sabor pertenece a la base; pan y sabor permitidos en ese tipo; un pan de precio completo no lleva base; un producto `order_only` no puede tener existencias de vitrina.
 - Índice: `(category, is_active, sort_order)`.
@@ -237,6 +238,7 @@ Una sola tabla, porque las reglas la nombran así para los dos usos.
 | Primer horario = ahora + 2 h, al siguiente lapso | Servicio que recibe la hora como parámetro |
 | Precios completos, rebanada, mini e individual | `CatalogPrice` y `ProductOffering` |
 | "Solo en vitrina" / "Solo por encargo"; Red velvet nunca en vitrina | `Product.sales_channel`, validación en servicio y en `clean()` de `Inventory` |
+| "Pasteles de la casa" en la portada (hasta 4; sin marcados, los primeros 4 pasteles) | `Product.featured_on_home` + `catalog_service.list_home_featured` (`HOME_FEATURED_LIMIT`) |
 | No hay mini con queso ni con flan | Dato: esa `ProductOffering` no existe |
 | ~2.7 kg y ~19 personas; mini ~3 personas | `CatalogPrice.approx_weight_kg` y `servings` |
 | "Personalizar este pastel" con el sabor elegido | `Product.cake_type`, `bread`, `filling_base`, `filling_flavor` |
@@ -286,13 +288,15 @@ Los valores vienen de `docs/reglas-de-negocio.md`; las descripciones cortas, del
 
 Devuelven dataclasses inmutables (no instancias del modelo), para que `MemoryRepo` devuelva los mismos tipos y los servicios se prueben sin PostgreSQL. Ninguno guarda estado entre peticiones.
 
-- **`product_repo.py`:** `list_catalog(category=None, search=None, on_date)`, `get_product_by_slug(slug, on_date)`, `list_showcase(on_date, category=None)`, `list_slices(on_date)`, `list_related(product_id, limit=3)`, `get_offering(offering_id)`; existencias: `get_showcase_stock`, `decrement_showcase_stock(offering_id, date, qty) -> bool`, `restock_showcase`, `get_bread_availability`, `consume_bread -> bool`, `release_bread`.
+- **`product_repo.py`:** `list_catalog(category=None, search=None, on_date)`, `get_product_by_slug(slug, on_date)`, `list_showcase(on_date, category=None)`, `list_slices(on_date)`, `list_related(product_id, *, limit, on_date=None)`, `list_featured(*, on_date, limit)`, `get_offering(offering_id)`; existencias: `get_showcase_stock`, `decrement_showcase_stock(offering_id, date, qty) -> bool`, `restock_showcase`, `get_bread_availability`, `consume_bread -> bool`, `release_bread`.
 - **`cake_option_repo.py`:** `list_breads()`, `list_filling_bases_with_flavors()`, `get_filling_price_table() -> dict[(cake_type, base_slug, flavor_slug | None), Decimal]`, `list_coverage_colors()`, `list_decorations()`, `list_tier_recommendations()`.
 - **`settings_repo.py`:** `get_store_settings()`, `get_cake_design_settings()`, `get_policy_settings()`, `get_upload_settings()`, `list_stand_sizes(active_only=True)`, `list_delivery_bands()`.
 
 Detalles de la implementación (el código manda):
 
-- `list_catalog` recibe `on_date` como argumento con nombre y obligatorio: `list_catalog(*, on_date, category=None, search=None)`.
+- `list_catalog` recibe `on_date` como argumento con nombre y obligatorio: `list_catalog(*, on_date, category=None, search=None)`. `search` no distingue mayúsculas ni acentos: aplica `unaccent` (extensión de PostgreSQL, migración `0013`) a la columna y al término; el repositorio en memoria hace lo mismo con NFKD sin marcas combinantes.
+- `list_related` exige `limit` con nombre (el servicio pasa `RELATED_LIMIT`, 3) y no da relacionados de un producto inactivo; con `on_date` trae las existencias de ese día. `list_featured` da los productos activos marcados `featured_on_home`, en su orden, hasta `limit`.
+- `bread_slug`, `filling_base_slug` y `filling_flavor_slug` del registro salen en `None` si esa opción está desactivada, para que "Personalizar este pastel" no preelija algo que "Diseña tu pastel" ya no ofrece. `bread_id` se conserva (el pan de hoy del inventario lo usa).
 - `restock_showcase` y `release_bread` devuelven `bool` y no crean la fila del día: si no se cargó nada para esa fecha, no hay existencias que devolver (`False`).
 - `list_showcase` excluye las rebanadas y `list_slices` solo las incluye; las dos incluyen las agotadas (cantidad 0). Qué presentaciones salen en cada pantalla (flan individual, tarta mini) sigue siendo la pregunta 6 para la pastelería.
 - El filtro "Con precio pendiente" del admin de decoraciones cuenta solo las de precio fijo sin precio: "Sin decoración" y "Otra decoración" tienen el precio vacío a propósito.
