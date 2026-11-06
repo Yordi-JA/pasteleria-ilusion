@@ -3,6 +3,8 @@ import Card from '../components/Card.tsx'
 import ChoiceOption from '../components/ChoiceOption.tsx'
 import Duya from '../components/Duya.tsx'
 import Notice from '../components/Notice.tsx'
+import ProgressPearls from '../components/ProgressPearls.tsx'
+import Skeleton, { LoadingRegion } from '../components/Skeleton.tsx'
 import TextField from '../components/TextField.tsx'
 import { useComponentSample } from '../viewmodels/useComponentSample.ts'
 import { usePageTitle } from '../viewmodels/usePageTitle.ts'
@@ -102,6 +104,61 @@ export default function ComponentSample() {
               {vm.added && <Notice tone="success" title="Agregado al pedido" />}
             </div>
           </div>
+        </section>
+
+        <section aria-labelledby="m-perlas" className="flex flex-col gap-4">
+          <h2 id="m-perlas" className="font-display text-titulo-2">Perlas de avance</h2>
+          <ul className="flex flex-col gap-3">
+            {vm.pearlExamples.map((example) => (
+              <li key={example.id} data-testid={example.id}>
+                <ProgressPearls steps={vm.pearlSteps} current={example.current} />
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section aria-labelledby="m-esqueleto" className="flex flex-col gap-6">
+          <h2 id="m-esqueleto" className="font-display text-titulo-2">Esqueleto de carga</h2>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div data-testid="esqueleto-nata" className="flex flex-col gap-3 rounded-md bg-nata p-6 outline outline-1 -outline-offset-1 outline-relieve">
+              <Skeleton className="h-5 w-2/3" />
+              <Skeleton className="h-3.5 w-2/5" />
+            </div>
+            <div data-testid="esqueleto-fresa" className="flex flex-col gap-3 rounded-md bg-fresa p-6">
+              <Skeleton tone="fresa" className="h-5 w-2/3" />
+              <Skeleton tone="fresa" className="h-3.5 w-2/5" />
+            </div>
+            <div data-testid="esqueleto-mermelada" className="flex flex-col gap-3 rounded-md bg-mermelada p-6">
+              <Skeleton tone="mermelada" className="h-5 w-2/3" />
+              <Skeleton tone="mermelada" className="h-3.5 w-2/5" />
+            </div>
+          </div>
+          <div>
+            <Button variant="secondary" onClick={vm.toggleCatalogLoading}>
+              {vm.catalogLoading ? 'Mostrar el catálogo cargado' : 'Volver a cargar'}
+            </Button>
+          </div>
+          <LoadingRegion
+            loading={vm.catalogLoading}
+            label="Cargando el catálogo…"
+            className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+            skeleton={vm.catalogCards.map((n) => (
+              <Card key={n} large className="flex flex-col gap-3">
+                <Skeleton radius="md" className="h-[200px] w-full" />
+                <Skeleton className="h-5 w-[70%]" />
+                <Skeleton className="h-3.5 w-2/5" />
+                <Skeleton className="h-3.5 w-[30%]" />
+                <Skeleton radius="md" className="h-11 w-full" />
+              </Card>
+            ))}
+          >
+            {vm.catalogCards.map((n) => (
+              <Card key={n} as="article" large>
+                <h3 className="font-display text-titulo-3">Pastel de ejemplo</h3>
+                <p>Descripción de ejemplo.</p>
+              </Card>
+            ))}
+          </LoadingRegion>
         </section>
 
         <section aria-labelledby="m-duya" className="flex flex-col gap-4">

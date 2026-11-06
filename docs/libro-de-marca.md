@@ -45,9 +45,9 @@ La paleta es **Fresa y mermelada**: cada color sale de un relleno de la casa, y 
 - Sobre campos `mermelada` (barra superior, pie, vitrina de la portada), escribe en `betun` y usa `fresa` para el texto secundario. El botón sobre un campo `mermelada` es `betun` con texto `mermelada`.
 - Opción elegida: en tarjetas con radio visible, fondo `betun` y borde de 2px en `mermelada`; en chips sin radio visible, fondo `mermelada` con texto `betun`.
 - `frambuesa` es la flama del logo, la vela de los pasteles 3D y los números del ranking. Nunca va en texto corrido ni en botones.
-- Los estados no son pastillas de color. El avance de un pedido se muestra con **perlas de avance**: cuatro perlitas (llenas en `mermelada` hasta el paso actual, vacías con borde `relieve`) y el estado escrito al lado. Los demás estados ("En revisión", "Depósito retenido", "Apartado, falta tu pago") van como texto en `mermelada`, y los datos de producto ("En vitrina hoy", "Quedan [n]") como texto pequeño en `mermelada-suave`.
+- Los estados no son pastillas de color. El avance de un pedido se muestra con **perlas de avance**: cuatro perlitas (llenas en `mermelada` hasta el paso actual, vacías como anillo hueco con borde `mermelada-suave`) y el estado escrito al lado. Los demás estados ("En revisión", "Depósito retenido", "Apartado, falta tu pago") van como texto en `mermelada`, y los datos de producto ("En vitrina hoy", "Quedan [n]") como texto pequeño en `mermelada-suave`.
 - `cajeta` queda para el borde de los avisos que piden atención, `exito` para la palomita de algo confirmado y `error` para fallas. Ningún estado depende solo del color: siempre lleva palabra.
-- Sin degradados ni brillos. El tema es claro y fijo.
+- Sin degradados ni brillos. El tema es claro y fijo. La única excepción es el brillo del esqueleto de carga (ver "Carga de una pantalla con datos").
 - Anillo de foco: 2px sólido con 2px de separación, en `mermelada` sobre fondos claros y en `betun` sobre campos `mermelada`.
 - La restricción del guinda se levantó por decisión del equipo; la `mermelada` nunca se combina con dorado. Siguen fuera, como acentos, el azul rey, el naranja, el amarillo, el verde brillante, el rosa mexicano intenso y el morado, que en México se leen como colores de partidos o movimientos políticos. Mantén la `fresa` pastel: saturada se acercaría al rosa mexicano.
 
@@ -154,7 +154,7 @@ Seis dibujos propios, cada uno tomado de algo real de la pastelería: la vela de
 - Toda vista que muestra datos tiene estado vacío, de carga y de error.
 - Vacío: un dibujo de línea centrado, una frase concreta y una o dos salidas ("Ver la vitrina", "Realizar pedido").
 - Carga de una acción (calcular, procesar un pago): texto que dice qué está pasando ("Preparando la vista previa…", "Calculando…", "Procesando pago…") y el control afectado deshabilitado.
-- Carga de una pantalla con datos (catálogo, vitrina, ficha, mis pedidos, detalle del pedido): esqueleto que imita la forma real de la pantalla, en `harina` sobre `nata`, con un brillo suave de 1.4 s que se detiene con "reducir movimiento". El encabezado de la página se muestra completo; solo los datos van en esqueleto. La sección lleva `aria-busy="true"` y un texto para lector de pantalla que dice qué se carga ("Cargando el catálogo…").
+- Carga de una pantalla con datos (catálogo, vitrina, ficha, mis pedidos, detalle del pedido): esqueleto que imita la forma real de la pantalla, en `harina` sobre `nata`, con un brillo suave de 1.4 s que se detiene con "reducir movimiento". Sobre un campo `mermelada` (franja y pie) el esqueleto es liso, en `mermelada-suave`, sin brillo. El encabezado de la página se muestra completo; solo los datos van en esqueleto. La sección lleva `aria-busy="true"` y un texto para lector de pantalla que dice qué se carga ("Cargando el catálogo…").
 - Error: un aviso con `role="alert"` en `error` que dice qué pasó y cómo seguir. En el inicio de sesión no se señala cuál campo falló, para no revelar si el correo existe.
 
 ## Horarios

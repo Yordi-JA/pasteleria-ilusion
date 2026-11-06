@@ -414,6 +414,23 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
     - Quitar la frase de la franja cuando faltan los días: ocultaría un dato PENDIENTE en lugar de mostrar el marcador, y la regla 1 pide el marcador visible.
 - **Consecuencias:** Las vistas futuras se agregan dentro del marco y usan `getJson` con segmentos, nunca con rutas armadas con texto. Siguen pendientes las perlas de avance, el componente de esqueleto completo (el de `StoreSkeleton` es provisional), el contador del carrito, el estado de sesión, el contenido real de las vistas, el 3D y los textos legales. La contradicción del libro de marca sobre el símbolo del pie queda en las decisiones abiertas. D42 usa los datos de D41 y sigue las reglas de duya del libro de marca.
 
+### D43. Perlas de avance y esqueleto de carga
+
+- **Fecha:** 6 de noviembre de 2026.
+- **Decisión:**
+    - `ProgressPearls` recibe `steps` y `current`, y limita `current` al rango de los pasos. Las perlas son decorativas (`aria-hidden`); el lector de pantalla oye "Paso n de m:" y el estado se ve escrito al lado. La perla llena va en `mermelada`. La vacía es un anillo hueco con borde `mermelada-suave`: la diferencia entre llena y vacía es el relleno, no el color.
+    - `Skeleton` es un bloque decorativo con un brillo de 1.4 s `ease-in-out` que se mueve con `transform` en un `::after` (el bloque lleva `overflow-hidden`), y que con `prefers-reduced-motion` no se muestra ni se anima. Tiene dos tonos: `harina` sobre `nata` y `fresa-claro` sobre `fresa`. El keyframe vive en `frontend/tailwind.config.cjs`, que extiende el preset de forma local; `design/tailwind.preset.js` no cambia.
+    - El brillo se mueve con `transform` en un `::after` y no con `background-position`. Es una segunda diferencia con `design/referencia/esqueleto.css`. Conserva la duración y la curva del libro de marca.
+    - Sobre el fondo `mermelada` (franja y pie), el esqueleto es liso en `mermelada-suave`, sin brillo ni pulso. Antes pulsaba con `animate-pulse` (D42). `StoreSkeleton` ahora usa `Skeleton`.
+    - `LoadingRegion` es un envoltorio siempre montado. Lleva un `<p role="status" class="sr-only">` hermano del contenedor con `aria-busy`, nunca dentro de él. El párrafo dice qué se carga mientras carga y queda vacío al terminar; no hay texto de "cargado".
+    - El marco del sitio (franja, menú, pie) no usa `role="status"`, para no anunciar en cada página. Las pantallas con datos usan `LoadingRegion`.
+- **Contexto:** D42 dejó pendientes las perlas y el esqueleto completo. El libro de marca pedía la perla vacía con borde `relieve`, pero `relieve` (#ecd2d2) da 1.39:1 contra `betun` y 1.33:1 contra `nata`, por debajo del 3:1 que pide WCAG 2.1 1.4.11 (contraste de elementos no textuales). `mermelada-suave` (#664243) lo supera con holgura. El libro de marca no define brillo para el campo `mermelada`, y cualquier realce era un color fuera de la paleta o se confundía con el fondo. `design/referencia/esqueleto.css` pone el `role="status"` dentro del elemento `aria-busy` y lo monta con su texto, pero una live region que se monta con el texto ya puesto no se anuncia de forma fiable, y algunos lectores ignoran los cambios dentro de un `aria-busy`. El brillo de `esqueleto.css` anima `background-position`, que repinta cada bloque en cada cuadro; `transform` se compone en la GPU y no repinta, y con varios bloques en pantalla la diferencia se nota.
+- **Alternativas descartadas:**
+    - Dejar el borde `relieve` y apoyarse en el texto del estado: la perla vacía casi no se veía.
+    - Un brillo o un pulso sobre `mermelada`: ver el contexto.
+    - Seguir `esqueleto.css` tal cual para el `role="status"`: ver el contexto.
+- **Consecuencias:** Cierra los componentes base que D42 dejó pendientes (perlas y esqueleto). Las pantallas con datos usan `LoadingRegion`. Qué estado del pedido va con qué perla se decide al construir "Mis pedidos" (Etapa 4). El libro de marca se actualiza con el borde `mermelada-suave`, el esqueleto liso sobre `mermelada` y la excepción al "sin brillos". Esta decisión se aparta de `design/referencia/esqueleto.css` en la ubicación del `role="status"` y en cómo se mueve el brillo.
+
 ## Decisiones abiertas
 
 | Tema | Detalle | Se resuelve |

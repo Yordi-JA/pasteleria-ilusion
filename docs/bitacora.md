@@ -229,3 +229,13 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Pruebas E2E: de 15 a 83, con la API simulada en `e2e/support/store-info.ts`, así que no necesitan Django. La suite necesita el servidor de desarrollo. Typecheck, lint y build salen limpios.
 - Contradicción del libro de marca: "Presencia de marca" pide el símbolo en el pie, en la confirmación del pedido y junto al depósito de bases, pero también dice "uno por pantalla". Queda como decisión abierta (D42) para resolverla al construir esas vistas.
 - Pendiente: perlas de avance, componente de esqueleto, contador del carrito, estado de sesión, contenido real de las vistas, 3D y textos legales.
+
+### Viernes 6 de noviembre: perlas de avance y esqueleto de carga
+
+- Decisión D43 registrada en [`proyecto/decisiones.md`](proyecto/decisiones.md). Rama `feat/perlas-y-esqueleto`.
+- Componentes nuevos: `ProgressPearls` (`steps` y `current`, con `current` limitado al rango; perlas `aria-hidden` y texto "Paso n de m:" para el lector de pantalla), `Skeleton` (brillo de 1.4 s que se mueve con `transform` en un `::after` y no se muestra con `prefers-reduced-motion`) y `LoadingRegion` (envoltorio con un `role="status"` hermano del contenedor `aria-busy`). `StoreSkeleton` ahora usa `Skeleton`. El keyframe vive en `frontend/tailwind.config.cjs`; `design/tailwind.preset.js` no cambia.
+- Decisión 1: la perla vacía lleva borde `mermelada-suave` en lugar de `relieve`. `relieve` daba 1.39:1 contra `betun` y 1.33:1 contra `nata`, por debajo del 3:1 de WCAG 2.1 1.4.11. El libro de marca se actualiza.
+- Decisión 2: sobre el fondo `mermelada` (franja y pie) el esqueleto es liso en `mermelada-suave`, sin brillo ni pulso. Antes pulsaba con `animate-pulse` (D42). El libro de marca anota la excepción al "sin brillos" solo para el esqueleto de carga.
+- Desviación de `design/referencia/esqueleto.css`: ahí el `role="status"` va dentro del elemento `aria-busy` y se monta con el texto. Una live region montada con su texto no se anuncia de forma fiable, y algunos lectores ignoran los cambios dentro de un `aria-busy`. `LoadingRegion` queda siempre montada y con el texto vacío al terminar.
+- El marco (franja, menú, pie) no usa `role="status"`, para no anunciar en cada página. Qué estado del pedido va con qué perla se decide al construir "Mis pedidos" (Etapa 4).
+- Pruebas E2E: de 83 a 91. Typecheck, lint y build salen limpios. `/muestra` revisada en el navegador a 1440 y 390 px, sin desbordamiento horizontal, con foco visible y el cambio de cargando a cargado con teclado.
