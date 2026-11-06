@@ -201,3 +201,169 @@ test('duya: the three types, decorative, 21px in the flow and no negative margin
     expect(shape.mask).toContain('data:image/svg+xml')
   }
 })
+
+const pearlLabels = ['Recibido', 'En preparación', 'Listo para entregar', 'Entregado']
+
+test('pearls: four decorative pearls, filled up to the current step and the state written beside them', async ({ page }) => {
+  const section = page.getByRole('region', { name: 'Perlas de avance' })
+  for (const [index, label] of pearlLabels.entries()) {
+    const step = index + 1
+    const example = section.getByTestId(`perlas-paso-${step}`)
+    // El estado va escrito y completo para el lector de pantalla; las perlas no se anuncian.
+    await expect(example).toHaveText(`Paso ${step} de 4: ${label}`)
+    // "Paso n de 4:" es solo para el lector de pantalla: está fuera del flujo y mide 1x1 px.
+    const hidden = example.getByText(`Paso ${step} de 4:`, { exact: true })
+    await expect(hidden).toHaveCSS('position', 'absolute')
+    expect(await hidden.boundingBox()).toMatchObject({ width: 1, height: 1 })
+    const pearls = example.locator('[aria-hidden="true"] > span')
+    await expect(pearls).toHaveCount(4)
+    for (let i = 0; i < 4; i++) {
+      const pearl = pearls.nth(i)
+      await expect(pearl).toHaveCSS('width', '8px')
+      await expect(pearl).toHaveCSS('height', '8px')
+      if (i < step) {
+        await expect(pearl).toHaveCSS('background-color', 'rgb(94, 25, 33)')
+      } else {
+        // La perla vacía es un anillo hueco con borde `mermelada-suave` (D43): visible y sin relleno.
+        await expect(pearl).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+        // El borde es de 1.5px; Chromium lo ajusta al píxel físico (1px a 1x, 1.5px a 2x).
+        await expect(pearl).toHaveCSS('border-top-width', /^1(\.5)?px$/)
+        await expect(pearl).toHaveCSS('border-top-color', 'rgb(102, 66, 67)')
+      }
+    }
+    await expect(example.locator(':scope > span')).toHaveCSS('color', 'rgb(94, 25, 33)')
+  }
+})
+
+test('pearls: a current step out of range is clamped to the first or last pearl', async ({ page }) => {
+  const section = page.getByRole('region', { name: 'Perlas de avance' })
+  const cases: [string, string, number][] = [
+    ['perlas-menos-uno', 'Paso 1 de 4: Recibido', 1],
+    ['perlas-de-mas', 'Paso 4 de 4: Entregado', 4],
+  ]
+  for (const [id, text, filled] of cases) {
+    const example = section.getByTestId(id)
+    await expect(example).toHaveText(text)
+    const pearls = example.locator('[aria-hidden="true"] > span')
+    await expect(pearls).toHaveCount(4)
+    let count = 0
+    for (const pearl of await pearls.all()) {
+      const background = await pearl.evaluate((el) => el.ownerDocument.defaultView!.getComputedStyle(el).backgroundColor)
+      if (background === 'rgb(94, 25, 33)') count++
+    }
+    expect(count).toBe(filled)
+  }
+})
+
+test('skeleton: decorative flat blocks in harina, fresa claro and mermelada suave', async ({ page }) => {
+  const section = page.getByRole('region', { name: 'Esqueleto de carga' })
+  const tones: [string, string][] = [
+    ['esqueleto-nata', 'rgb(251, 236, 236)'],
+    ['esqueleto-fresa', 'rgb(255, 223, 223)'],
+    ['esqueleto-mermelada', 'rgb(102, 66, 67)'],
+  ]
+  for (const [id, color] of tones) {
+    const block = section.getByTestId(id).locator('[data-esqueleto]').first()
+    await expect(block).toHaveAttribute('aria-hidden', 'true')
+    await expect(block).toHaveText('')
+    // El fondo del bloque es liso: el brillo vive en el ::after y no en el fondo.
+    await expect(block).toHaveCSS('background-color', color)
+    await expect(block).toHaveCSS('background-image', 'none')
+  }
+})
+
+test('skeleton: the shimmer is a transform on an ::after, 1.4 s ease-in-out, clipped by the block', async ({ page }) => {
+  const section = page.getByRole('region', { name: 'Esqueleto de carga' })
+  for (const id of ['esqueleto-nata', 'esqueleto-fresa']) {
+    const block = section.getByTestId(id).locator('[data-esqueleto]').first()
+    await expect(block).toHaveCSS('overflow', 'hidden')
+    await expect(block).toHaveCSS('position', 'relative')
+    const info = await block.evaluate(async (el) => {
+      const after = el.ownerDocument.defaultView!.getComputedStyle(el, '::after')
+      // `e2e/` no tiene los tipos del DOM; se describe solo lo que se lee de la animación.
+      type Shimmer = { animationName: string; effect: { pseudoElement: string | null; getKeyframes(): object[] } }
+      const animations = el.getAnimations({ subtree: true }) as unknown as Shimmer[]
+      const effect = animations.find((a) => a.animationName === 'esqueleto')?.effect
+      const first = after.transform
+      await new Promise((resolve) => setTimeout(resolve, 350))
+      const second = after.transform
+      return {
+        name: after.animationName,
+        duration: after.animationDuration,
+        count: after.animationIterationCount,
+        easing: after.animationTimingFunction,
+        content: after.content,
+        position: after.position,
+        pseudo: effect?.pseudoElement,
+        properties: effect?.getKeyframes().flatMap((k: object) => Object.keys(k)).filter((k: string) => !['offset', 'easing', 'composite', 'computedOffset', 'content'].includes(k)),
+        first,
+        second,
+      }
+    })
+    expect(info.name).toBe('esqueleto')
+    expect(info.duration).toBe('1.4s')
+    expect(info.count).toBe('infinite')
+    expect(info.easing).toBe('ease-in-out')
+    expect(info.content).not.toBe('none')
+    expect(info.position).toBe('absolute')
+    expect(info.pseudo).toBe('::after')
+    // (Tailwind copia `content` a los keyframes de las variantes `after:`; no se anima.)
+    // La animación mueve solo `transform`; dos lecturas separadas en el tiempo difieren.
+    expect([...new Set(info.properties)]).toEqual(['transform'])
+    expect(info.first).not.toBe(info.second)
+  }
+})
+
+test('skeleton: the mermelada tone is flat and has no shimmer', async ({ page }) => {
+  const block = page.getByTestId('esqueleto-mermelada').locator('[data-esqueleto]').first()
+  const after = await block.evaluate((el) => {
+    const style = el.ownerDocument.defaultView!.getComputedStyle(el, '::after')
+    return { content: style.content, animation: style.animationName }
+  })
+  expect(after.content).toBe('none')
+  expect(after.animation).toBe('none')
+})
+
+test('skeleton: the loading region is busy and says what loads in a status outside the busy container', async ({ page }) => {
+  const section = page.getByRole('region', { name: 'Esqueleto de carga' })
+  // La región viva existe desde el primer montaje y el texto llega un tick después.
+  await expect(section.getByRole('status')).toHaveText('Cargando el catálogo…')
+  await expect(section.getByRole('status')).toHaveCount(1)
+  const busy = section.locator('[aria-busy="true"]')
+  await expect(busy).toHaveCount(1)
+  await expect(busy.getByRole('status')).toHaveCount(0)
+  const blocks = busy.locator('[data-esqueleto]')
+  expect(await blocks.count()).toBeGreaterThan(5)
+  for (const block of await blocks.all()) {
+    await expect(block).toHaveAttribute('aria-hidden', 'true')
+    await expect(block).toHaveText('')
+  }
+})
+
+test('skeleton: when loading ends the status is empty, the content shows and aria-busy is gone', async ({ page }) => {
+  const section = page.getByRole('region', { name: 'Esqueleto de carga' })
+  await section.getByRole('button', { name: 'Mostrar el catálogo cargado' }).click()
+  await expect(section.getByRole('status')).toHaveText('')
+  await expect(section.getByRole('status')).toHaveCount(1)
+  await expect(section.locator('[aria-busy]')).toHaveCount(0)
+  await expect(section.locator('[data-esqueleto]').filter({ visible: true })).toHaveCount(6) // solo los tonos de muestra
+  await expect(section.getByRole('heading', { level: 3, name: 'Pastel de ejemplo' })).toHaveCount(6)
+  await section.getByRole('button', { name: 'Volver a cargar' }).click()
+  await expect(section.getByRole('status')).toHaveText('Cargando el catálogo…')
+  await expect(section.locator('[aria-busy="true"]')).toHaveCount(1)
+})
+
+test('skeleton: with reduced motion the shimmer does not animate or show and the block stays flat', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  for (const id of ['esqueleto-nata', 'esqueleto-fresa']) {
+    const block = page.getByTestId(id).locator('[data-esqueleto]').first()
+    const after = await block.evaluate((el) => {
+      const style = el.ownerDocument.defaultView!.getComputedStyle(el, '::after')
+      return { animation: style.animationName, display: style.display, animations: el.getAnimations({ subtree: true }).length }
+    })
+    expect(after.animation).toBe('none')
+    expect(after.display).toBe('none')
+    expect(after.animations).toBe(0)
+    await expect(block).toHaveCSS('background-image', 'none')
+  }
+})
