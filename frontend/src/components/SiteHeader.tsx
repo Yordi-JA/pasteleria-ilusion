@@ -11,6 +11,14 @@ import SiteMenu from './SiteMenu.tsx'
 type SiteHeaderProps = {
   store: StoreDetails
   menu: ReturnType<typeof useSiteMenu>
+  /** Piezas en el carrito (suma de cantidades). */
+  cartCount: number
+}
+
+/** Nombre del enlace del carrito, como en el mockup: "Carrito, vacío" o "Carrito, 4 productos". */
+function cartLabel(count: number): string {
+  if (count === 0) return 'Carrito, vacío'
+  return count === 1 ? 'Carrito, 1 producto' : `Carrito, ${count} productos`
 }
 
 const iconControl = `h-11 w-11 shrink-0 items-center justify-center rounded-md text-mermelada hover:bg-harina motion-safe:transition-colors ${focusRing}`
@@ -24,7 +32,7 @@ const navLink =
  * toldo (12 px en móvil) y se fija a 16 px del borde superior al hacer scroll. Los cuatro enlaces pasan
  * al menú por debajo de 768 px, porque entre 601 y 767 px ya no caben en una línea junto al logo y los íconos.
  */
-export default function SiteHeader({ store, menu }: SiteHeaderProps) {
+export default function SiteHeader({ store, menu, cartCount }: SiteHeaderProps) {
   const menuButton = useRef<HTMLButtonElement>(null)
 
   return (
@@ -48,8 +56,18 @@ export default function SiteHeader({ store, menu }: SiteHeaderProps) {
             <Link to="/entrar" aria-label="Cuenta" className={`inline-flex ${iconControl}`}>
               <User size={22} weight="regular" aria-hidden="true" />
             </Link>
-            <Link to="/carrito" aria-label="Carrito" className={`inline-flex ${iconControl}`}>
+            <Link to="/carrito" aria-label={cartLabel(cartCount)} className={`relative inline-flex ${iconControl}`}>
               <Handbag size={22} weight="regular" aria-hidden="true" />
+              {/* Contador del mockup (Carrito): el número exacto va en el nombre del enlace; aquí, 99+ para que quepa. */}
+              {cartCount > 0 && (
+                <span
+                  aria-hidden="true"
+                  data-testid="contador-carrito"
+                  className="absolute right-0 top-0.5 h-5 min-w-5 rounded-full bg-mermelada px-[5px] text-center text-[12px] font-bold leading-5 tabular-nums text-sobre-color"
+                >
+                  {cartCount > 99 ? '99+' : cartCount}
+                </span>
+              )}
             </Link>
             <button
               ref={menuButton}
