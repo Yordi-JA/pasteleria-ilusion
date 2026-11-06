@@ -1,6 +1,6 @@
 # Plan de trabajo: baseline y plan real
 
-El anteproyecto del 1 de octubre de 2026 planeó 8 semanas. El plan real tiene 5 etapas: la Etapa 1 (8 al 31 de octubre) está completada la Etapa 2 (1 al 7 de noviembre) está completada desde el 6 de noviembre y la Etapa 3 (8 al 13 de noviembre) está por iniciar. Sus entregables (reporte, código y presentación) quedan listos el 23 de noviembre, para la exposición del 24 o del 26 y la entrega del 26. El baseline se conserva sin cambios. Este documento contrasta ambos planes, justifica el desfase y registra los cambios.
+El anteproyecto del 1 de octubre de 2026 planeó 8 semanas. El plan real tiene 5 etapas: la Etapa 1 (8 al 31 de octubre) está completada, la Etapa 2 (1 al 7 de noviembre) está completada desde el 6 de noviembre y la Etapa 3 (8 al 13 de noviembre) está por iniciar. Sus entregables (reporte, código y presentación) quedan listos el 23 de noviembre, para la exposición del 24 o del 26 y la entrega del 26. El baseline se conserva sin cambios. Este documento contrasta ambos planes, justifica el desfase y registra los cambios.
 
 ## Contenido
 
