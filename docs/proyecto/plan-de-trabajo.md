@@ -1,6 +1,6 @@
 # Plan de trabajo: baseline y plan real
 
-El anteproyecto del 1 de octubre de 2026 planeó 8 semanas. El plan real tiene 5 etapas: la Etapa 1 (8 al 31 de octubre) está completada y la Etapa 2 (1 al 7 de noviembre) está en curso. Sus entregables (reporte, código y presentación) quedan listos el 23 de noviembre, para la exposición del 24 o del 26 y la entrega del 26. El baseline se conserva sin cambios. Este documento contrasta ambos planes, justifica el desfase y registra los cambios.
+El anteproyecto del 1 de octubre de 2026 planeó 8 semanas. El plan real tiene 5 etapas: la Etapa 1 (8 al 31 de octubre) está completada la Etapa 2 (1 al 7 de noviembre) está completada desde el 6 de noviembre y la Etapa 3 (8 al 13 de noviembre) está por iniciar. Sus entregables (reporte, código y presentación) quedan listos el 23 de noviembre, para la exposición del 24 o del 26 y la entrega del 26. El baseline se conserva sin cambios. Este documento contrasta ambos planes, justifica el desfase y registra los cambios.
 
 ## Contenido
 
@@ -59,7 +59,7 @@ La Etapa 1 absorbió así el diseño de las semanas 1, 3, 5 y 6 del baseline. A 
 | Etapa | Fechas | Estado | Entregables |
 | --- | --- | --- | --- |
 | 1. Levantamiento, identidad visual y diseño | 8 al 31 oct | Completada | Requerimientos y reglas de negocio validadas con la pastelería; identidad visual ("Betún y duya", paleta Fresa y mermelada, logo con la vela, dibujos de línea); libro de marca; mockup de alta fidelidad (60 vistas en escritorio y móvil, con estados); arquitectura y patrones |
-| 2. Backend, base de datos y frontend base | 1 al 7 nov | En curso | Backend: proyecto Django y PostgreSQL, modelos ORM, repositorios, servicios de precio y garantías, DRF bajo `/api/v1/`, `drf-spectacular` en `/api/v1/docs/`, admin con precios y límites editables. Frontend base, en paralelo: React y Tailwind con el preset y las fuentes, componentes base del libro de marca, rutas de [`../mapa-de-vistas.md`](../mapa-de-vistas.md), página de muestra. Elección de la PaaS y despliegue del esqueleto de Django y React. Pruebas de lo que se construye. Al 4 nov: hecho el proyecto Django 5.2 con PostgreSQL 18 (D24), DRF bajo `/api/v1/` con Swagger solo para el personal, usuario con correo (D27), seguridad de la sesión (D28), esquema del catálogo, inventario y configuración editable con repositorios y admin (D32), límite de intentos (D34), servicios de precio y depósito de la base con `GET /api/v1/cake-designs/options/` y `POST /api/v1/cake-designs/price/` (D39), frontend con Vite, React, TypeScript y Tailwind con el preset y las fuentes (D25), cinco componentes base y la página de muestra (D36), y el esqueleto desplegado en Heroku el 4 nov (D26, D38) con dominio propio https://pasteleriailusion.me (D40; la redirección de `www` falta desplegarla); pruebas: 716 de backend y 15 E2E. Falta: las rutas de [`../mapa-de-vistas.md`](../mapa-de-vistas.md) en el frontend (hoy solo la raíz y la página de no encontrada) y el resto de los componentes base (duya, perlas, esqueleto, barra superior con toldo y pie) |
+| 2. Backend, base de datos y frontend base | 1 al 7 nov | Completada | Backend: proyecto Django y PostgreSQL, modelos ORM, repositorios, servicios de precio y garantías, DRF bajo `/api/v1/`, `drf-spectacular` en `/api/v1/docs/`, admin con precios y límites editables. Frontend base, en paralelo: React y Tailwind con el preset y las fuentes, componentes base del libro de marca, rutas de [`../mapa-de-vistas.md`](../mapa-de-vistas.md), página de muestra. Elección de la PaaS y despliegue del esqueleto de Django y React. Pruebas de lo que se construye. Cierre el 6 nov: proyecto Django 5.2 con PostgreSQL 18 (D24), DRF bajo `/api/v1/` con Swagger solo para el personal, usuario con correo (D27), seguridad de la sesión (D28), esquema del catálogo, inventario y configuración editable con repositorios y admin (D32), límite de intentos (D34), servicios de precio y depósito de la base con `GET /api/v1/cake-designs/options/` y `POST /api/v1/cake-designs/price/` (D39), datos del negocio con `GET /api/v1/store/info/` (D41); frontend con Vite, React, TypeScript y Tailwind con el preset y las fuentes (D25), componentes base y página de muestra (D36), marco del sitio y las 26 rutas del mapa de vistas (D42), perlas de avance y esqueleto de carga (D43); esqueleto desplegado en Heroku desde el 4 nov (D26, D38) con dominio propio https://pasteleriailusion.me y la redirección de `www` (D40); pruebas: 801 de backend y 91 E2E |
 | 3. Pantallas conectadas e integración 3D | 8 al 13 nov | Por iniciar | Al iniciar, se define el mínimo para la exposición: qué se demuestra en vivo de cada uno de los 6 objetivos y qué entra solo si sobra tiempo. Portada, catálogo, vitrina, rebanadas y ficha conectados a la API; acceso con Google y correo; "Diseña tu pastel" (8 pasos) con `react-three-fiber` y precio calculado por el backend (Strategy). Con sus pruebas y revisión de accesibilidad por pantalla |
 | 4. Compra, pagos, garantías y agenda | 14 al 19 nov | Por iniciar | Carrito; entrega con agenda sin empalmes (lapsos de 30 min, máximo 3 pedidos por lapso, 2 días de anticipación); pago con Factory Method y Adapter, `Idempotency-Key` y webhooks idempotentes; Observer de eventos del pedido; garantías de bases (nota PDF con QR, `/nota/:token`, devolución registrada por el personal); envío de referencia y cotización; cancelaciones. Con sus pruebas. El jueves 19 se congela el código y desde ahí solo se corrigen fallas |
 | 5. Cierre: verificación, reporte y presentación | 20 al 23 nov | Por iniciar | Vie 20: verificación (pruebas en el sitio desplegado, revisión final de accesibilidad, video de respaldo de la demo). Sáb 21: reporte final, con la comparativa baseline contra real cerrada con las fechas reales y las referencias APA. Dom 22: presentación. Lun 23: ensayo general, revisión cruzada, etiqueta del commit final y zip del código (lo genera el equipo, D23); los tres entregables quedan listos |
@@ -82,14 +82,14 @@ Esta tabla se llena al cerrar cada etapa. Si algo se adelanta o se atrasa, se an
 | Etapa | Plan real | Cierre real | Diferencia contra el plan real | Notas |
 | --- | --- | --- | --- | --- |
 | 1 | 8 al 31 oct | 31 oct | Sin diferencia | El kit para construir el sitio se terminó el 1 nov (ver la [justificación](#la-identidad-visual-se-definió-en-la-misma-etapa)) |
-| 2 | 1 al 7 nov | Por cerrar | Por cerrar | Por cerrar |
+| 2 | 1 al 7 nov | 6 nov | Un día antes | Las perlas de avance y el esqueleto de carga (D43) cerraron los componentes base el 6 nov. Los endpoints de catálogo, vitrina, rebanadas y ficha no estaban en la etapa y se hacen con sus pantallas en la Etapa 3. El orden de la Etapa 3 queda: portada, "Diseña tu pastel" con el 3D, catálogo, ficha, vitrina y rebanadas, y acceso; el mínimo para la exposición se define al iniciarla |
 | 3 | 8 al 13 nov | Por cerrar | Por cerrar | Por cerrar |
 | 4 | 14 al 19 nov | Por cerrar | Por cerrar | Por cerrar |
 | 5 | 20 al 23 nov | Por cerrar | Por cerrar | Por cerrar |
 
 ## Gantt: baseline y plan real
 
-Las barras del baseline son el plan y no llevan estado de avance; usan las fechas desde la entrega (1 de octubre). El plan real sí muestra el avance al 4 de noviembre de 2026.
+Las barras del baseline son el plan y no llevan estado de avance; usan las fechas desde la entrega (1 de octubre). El plan real sí muestra el avance al 6 de noviembre de 2026.
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"background": "#fff4f4", "primaryColor": "#f9c1c1", "primaryTextColor": "#5e1921", "primaryBorderColor": "#5e1921", "lineColor": "#664243", "textColor": "#5e1921", "titleColor": "#5e1921", "sectionBkgColor": "#fff4f4", "altSectionBkgColor": "#fffbfb", "sectionBkgColor2": "#fff4f4", "gridColor": "#ecd2d2", "taskBkgColor": "#fffbfb", "taskBorderColor": "#664243", "taskTextColor": "#5e1921", "taskTextDarkColor": "#5e1921", "taskTextLightColor": "#5e1921", "taskTextOutsideColor": "#5e1921", "activeTaskBkgColor": "#f9c1c1", "activeTaskBorderColor": "#5e1921", "doneTaskBkgColor": "#ecd2d2", "doneTaskBorderColor": "#5e1921", "todayLineColor": "#8f5413"}}}%%
@@ -110,8 +110,8 @@ gantt
 
     section Plan real (5 etapas)
     R1 Reglas, identidad visual y mockup  :done, r1, 2026-10-08, 24d
-    R2 Backend y base de datos            :active, r2a, 2026-11-01, 7d
-    R2 Frontend base                      :active, r2b, 2026-11-01, 7d
+    R2 Backend y base de datos            :done, r2a, 2026-11-01, 7d
+    R2 Frontend base                      :done, r2b, 2026-11-01, 7d
     R3 Pantallas conectadas y 3D          :r3, 2026-11-08, 6d
     R4 Pagos, garantías y agenda          :r4, 2026-11-14, 6d
     R5 Verificación                       :r5a, 2026-11-20, 1d
