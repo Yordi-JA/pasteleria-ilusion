@@ -8,7 +8,8 @@ pregunta abierta para la pastelería.
 """
 from datetime import date
 
-from django.db.models import Case, F, IntegerField, OuterRef, Prefetch, Q, Subquery, Value, When
+from django.contrib.postgres.lookups import Unaccent
+from django.db.models import CharField, Case, F, IntegerField, OuterRef, Prefetch, Q, Subquery, Value, When
 from django.db.models.functions import Now
 
 from ..models import Inventory, InventoryKind, Presentation, Product, ProductOffering, SalesChannel
@@ -72,6 +73,15 @@ def _product_queryset(on_date: date | None):
     )
 
 
+def _active_slug(option) -> str | None:
+    """Slug de una opción de "Diseña tu pastel" que sigue a la venta; `None` si no.
+
+    Así "Personalizar este pastel" no preelige lo que `cake-designs/options` ya
+    no ofrece. `bread_id` se conserva: el pan de hoy del inventario lo usa.
+    """
+    return option.slug if option is not None and option.is_active else None
+
+
 def _product_record(product) -> ProductRecord:
     return ProductRecord(
         id=product.id,
@@ -83,12 +93,13 @@ def _product_record(product) -> ProductRecord:
         description=product.description,
         cake_type=product.cake_type,
         bread_id=product.bread_id,
-        bread_slug=product.bread.slug if product.bread else None,
-        filling_base_slug=product.filling_base.slug if product.filling_base else None,
-        filling_flavor_slug=product.filling_flavor.slug if product.filling_flavor else None,
+        bread_slug=_active_slug(product.bread),
+        filling_base_slug=_active_slug(product.filling_base),
+        filling_flavor_slug=_active_slug(product.filling_flavor),
         storage_notes=product.storage_notes,
         transport_notes=product.transport_notes,
         photo=product.photo,
+        featured_on_home=product.featured_on_home,
         offerings=tuple(_offering_record(offering) for offering in product.offerings.all()),
     )
 
@@ -100,14 +111,18 @@ def list_catalog(*, on_date: date, category: str | None = None, search: str | No
     """Productos activos, con las existencias de `on_date` en cada presentación.
 
     `search` busca en el nombre y en la descripción corta, sin distinguir
-    mayúsculas.
+    mayúsculas ni acentos: `unaccent` (migración `0013`) se aplica a la columna y
+    al término, así "pinguino" y "pingüino" encuentran "Choco-pingüino".
     """
     products = _product_queryset(on_date)
     if category:
         products = products.filter(category=category)
     if search and search.strip():
         term = search.strip()
-        products = products.filter(Q(name__icontains=term) | Q(summary__icontains=term))
+        plain_term = Unaccent(Value(term, output_field=CharField()))
+        products = products.filter(
+            Q(name__unaccent__icontains=plain_term) | Q(summary__unaccent__icontains=plain_term)
+        )
     return [_product_record(product) for product in products]
 
 
@@ -116,13 +131,25 @@ def get_product_by_slug(slug: str, on_date: date) -> ProductRecord | None:
     return _product_record(product) if product else None
 
 
-def list_related(product_id: int, limit: int = 3) -> list[ProductRecord]:
-    """Otros productos activos de la misma categoría, sin existencias (`stock=None`)."""
-    category = Product.objects.filter(pk=product_id).values_list("category", flat=True).first()
+def list_related(product_id: int, *, limit: int, on_date: date | None = None) -> list[ProductRecord]:
+    """Otros productos activos de la misma categoría de un producto activo.
+
+    Con `on_date`, con las existencias de ese día; sin fecha, sin existencias
+    (`stock=None`). De un producto inactivo o que no existe, ninguno.
+    """
+    category = (
+        Product.objects.filter(pk=product_id, is_active=True).values_list("category", flat=True).first()
+    )
     if category is None:
         return []
-    related = _product_queryset(None).filter(category=category).exclude(pk=product_id)[:limit]
+    related = _product_queryset(on_date).filter(category=category).exclude(pk=product_id)[:limit]
     return [_product_record(product) for product in related]
+
+
+def list_featured(*, on_date: date, limit: int) -> list[ProductRecord]:
+    """Productos activos que la pastelería marcó para la portada, en su orden."""
+    featured = _product_queryset(on_date).filter(featured_on_home=True)[:limit]
+    return [_product_record(product) for product in featured]
 
 
 def get_offering(offering_id: int) -> OfferingRecord | None:

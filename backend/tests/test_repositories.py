@@ -87,6 +87,18 @@ def test_catalog_search_combines_with_category():
     assert "tres-leches-con-flan-y-cajeta" not in slugs(result)
 
 
+@pytest.mark.parametrize("term", ["pinguino", "PINGÜINO", "pingüino", "Pinguïno"])
+def test_catalog_search_ignores_accents_in_the_name_and_in_the_term(term):
+    assert slugs(product_repo.list_catalog(on_date=TODAY, search=term)) == ["choco-pinguino"]
+
+
+def test_catalog_search_ignores_accents_in_the_summary():
+    Product.objects.filter(slug="tarta-de-frutas").update(summary="Con crema de limón.")
+    for term in ("limon", "LIMÓN", "limón"):
+        assert slugs(product_repo.list_catalog(on_date=TODAY, search=term)) == ["tarta-de-frutas"], term
+    assert slugs(product_repo.list_catalog(on_date=TODAY, search="duvalin")) == ["gelatina-de-duvalin"]
+
+
 def test_catalog_hides_inactive_products_and_offerings():
     Product.objects.filter(slug="posible").update(is_active=False)
     ProductOffering.objects.filter(product__slug="imposible", presentation="slice").update(is_active=False)
@@ -168,6 +180,30 @@ def test_red_velvet_detail_is_order_only_with_one_offering():
     assert [(o.presentation, o.price, o.approx_weight_kg) for o in product.offerings] == [
         ("whole", Decimal("450.00"), None)
     ]
+
+
+def test_inactive_design_options_are_not_offered_as_presets():
+    """"Personalizar este pastel" no debe preelegir lo que "Diseña tu pastel" ya no ofrece."""
+    from core_pasteleria.models import FillingBase
+
+    Bread.objects.filter(slug="choco_pinguino").update(is_active=False)
+    FillingBase.objects.filter(slug="queso").update(is_active=False)
+    FillingFlavor.objects.filter(slug="zarzamora").update(is_active=False)
+    choco = product_repo.get_product_by_slug("choco-pinguino", TODAY)
+    assert choco.bread_slug is None
+    # El id del pan se conserva: el pan de hoy del inventario lo sigue usando.
+    assert choco.bread_id == Bread.objects.get(slug="choco_pinguino").id
+    queso = product_repo.get_product_by_slug("tres-leches-con-queso-y-zarzamora", TODAY)
+    assert (queso.filling_base_slug, queso.filling_flavor_slug) == (None, None)
+    durazno = product_repo.get_product_by_slug("tres-leches-de-durazno", TODAY)
+    assert (durazno.filling_base_slug, durazno.filling_flavor_slug) == ("normal", "durazno")
+    red_velvet = product_repo.get_product_by_slug("red-velvet", TODAY)
+    assert red_velvet.bread_slug == "red_velvet"
+
+
+def test_presets_do_not_add_queries(django_assert_num_queries):
+    with django_assert_num_queries(2):
+        product_repo.list_catalog(on_date=TODAY)
 
 
 # --- Vitrina y rebanadas ---
@@ -256,7 +292,7 @@ def test_order_only_products_report_no_stock_in_the_catalog_and_the_detail():
 def test_related_are_other_products_of_the_same_category_without_stock():
     durazno = Product.objects.get(slug="tres-leches-de-durazno")
     load_stock("tres-leches-de-fresa", "whole", 4)
-    related = product_repo.list_related(durazno.id)
+    related = product_repo.list_related(durazno.id, limit=3)
     assert slugs(related) == ["tres-leches-de-fresa", "tres-leches-de-zarzamora", "tres-leches-de-cajeta"]
     assert all(p.category == "cake" for p in related)
     assert all(o.stock is None for p in related for o in p.offerings)
@@ -266,13 +302,60 @@ def test_related_respects_the_limit_and_the_category():
     imposible = Product.objects.get(slug="imposible")
     assert slugs(product_repo.list_related(imposible.id, limit=2)) == ["posible", "flan-napolitano"]
     assert product_repo.list_related(imposible.id, limit=0) == []
-    assert product_repo.list_related(-1) == []
+    assert product_repo.list_related(-1, limit=3) == []
 
 
 def test_related_skips_inactive_products():
     Product.objects.filter(slug="tres-leches-de-fresa").update(is_active=False)
     durazno = Product.objects.get(slug="tres-leches-de-durazno")
-    assert "tres-leches-de-fresa" not in slugs(product_repo.list_related(durazno.id))
+    assert "tres-leches-de-fresa" not in slugs(product_repo.list_related(durazno.id, limit=3))
+
+
+def test_related_of_an_inactive_product_is_empty():
+    Product.objects.filter(slug="posible").update(is_active=False)
+    posible = Product.objects.get(slug="posible")
+    assert product_repo.list_related(posible.id, limit=3) == []
+
+
+@pytest.mark.parametrize("repo", [product_repo.list_related, memory.MemoryProductRepo().list_related])
+def test_related_limit_is_a_required_keyword(repo):
+    limit = inspect.signature(repo).parameters["limit"]
+    assert limit.kind is inspect.Parameter.KEYWORD_ONLY
+    assert limit.default is inspect.Parameter.empty
+
+
+def test_related_with_a_date_carries_the_stock_of_that_day():
+    durazno = Product.objects.get(slug="tres-leches-de-durazno")
+    load_stock("tres-leches-de-fresa", "whole", 4)
+    load_stock("tres-leches-de-zarzamora", "whole", 1, on_date=TOMORROW)
+    related = product_repo.list_related(durazno.id, limit=3, on_date=TODAY)
+    assert [[o.stock for o in p.offerings] for p in related] == [[4, None, None], [None, None, None], [None, None, None]]
+
+
+# --- Pasteles de la casa ---
+
+
+def test_the_seed_marks_no_product_for_the_home_page():
+    assert product_repo.list_featured(on_date=TODAY, limit=4) == []
+    assert not any(p.featured_on_home for p in product_repo.list_catalog(on_date=TODAY))
+
+
+def test_featured_lists_only_marked_active_products_in_order_up_to_the_limit():
+    Product.objects.filter(slug__in=["imposible", "tres-leches-de-fresa", "posible"]).update(featured_on_home=True)
+    Product.objects.filter(slug="posible").update(is_active=False)
+    load_stock("imposible", "whole", 2)
+    featured = product_repo.list_featured(on_date=TODAY, limit=4)
+    assert slugs(featured) == ["tres-leches-de-fresa", "imposible"]
+    assert all(p.featured_on_home for p in featured)
+    assert [o.stock for o in featured[1].offerings] == [2, None]
+    assert slugs(product_repo.list_featured(on_date=TODAY, limit=1)) == ["tres-leches-de-fresa"]
+    assert product_repo.list_featured(on_date=TODAY, limit=0) == []
+
+
+def test_featured_uses_two_queries(django_assert_num_queries):
+    Product.objects.filter(slug__in=["imposible", "tres-leches-de-fresa"]).update(featured_on_home=True)
+    with django_assert_num_queries(2):
+        product_repo.list_featured(on_date=TODAY, limit=4)
 
 
 def test_get_offering_returns_the_active_offering_with_its_product():
@@ -564,6 +647,9 @@ def test_memory_product_repo_answers_like_postgres():
         lambda r: r.list_catalog(on_date=TOMORROW),
         lambda r: r.list_catalog(on_date=TODAY, category="dessert"),
         lambda r: r.list_catalog(on_date=TODAY, search="QUESO"),
+        lambda r: r.list_catalog(on_date=TODAY, search="pinguino"),
+        lambda r: r.list_catalog(on_date=TODAY, search="PINGÜINO"),
+        lambda r: r.list_catalog(on_date=TODAY, search="duvalin"),
         lambda r: r.list_catalog(on_date=TODAY, category="cake", search="flan"),
         lambda r: r.get_product_by_slug("tres-leches-de-fresa", TODAY),
         lambda r: r.get_product_by_slug("no-existe", TODAY),
@@ -571,9 +657,9 @@ def test_memory_product_repo_answers_like_postgres():
         lambda r: r.list_showcase(TODAY, category="cake"),
         lambda r: r.list_showcase(TOMORROW),
         lambda r: r.list_slices(TODAY),
-        lambda r: r.list_related(fresa.id),
+        lambda r: r.list_related(fresa.id, limit=3),
         lambda r: r.list_related(fresa.id, limit=1),
-        lambda r: r.list_related(-1),
+        lambda r: r.list_related(-1, limit=3),
         lambda r: r.get_offering(offering_of("imposible", "slice").id),
         lambda r: r.get_offering(-1),
         lambda r: r.get_showcase_stock(offering_of("tres-leches-de-fresa", "whole").id, TODAY),
@@ -600,12 +686,30 @@ def test_memory_repo_matches_postgres_with_inactive_products_and_offerings():
         lambda r: r.list_slices(TODAY),
         lambda r: r.get_offering(offering_of("posible", "whole").id),
         lambda r: r.get_offering(offering_of("imposible", "slice").id),
-        lambda r: r.list_related(Product.objects.get(slug="imposible").id),
+        lambda r: r.list_related(Product.objects.get(slug="imposible").id, limit=3),
     ):
         assert call(product_repo) == call(in_memory)
     assert "posible" not in slugs(in_memory.list_catalog(on_date=TODAY))
     assert in_memory.get_product_by_slug("posible", TODAY) is None
     assert [o.presentation for o in in_memory.get_product_by_slug("imposible", TODAY).offerings] == ["whole"]
+
+
+def test_memory_repo_answers_featured_and_dated_related_like_postgres():
+    Product.objects.filter(slug__in=["imposible", "choco-pinguino", "tres-leches-de-fresa"]).update(featured_on_home=True)
+    load_stock("tres-leches-de-fresa", "whole", 4)
+    load_stock("imposible", "whole", 0)
+    load_stock("tres-leches-de-zarzamora", "whole", 2, on_date=TOMORROW)
+    in_memory = memory_product_repo(TODAY)
+    durazno = Product.objects.get(slug="tres-leches-de-durazno")
+    for call in (
+        lambda r: r.list_featured(on_date=TODAY, limit=4),
+        lambda r: r.list_featured(on_date=TOMORROW, limit=2),
+        lambda r: r.list_featured(on_date=TODAY, limit=0),
+        lambda r: r.list_related(durazno.id, limit=3, on_date=TODAY),
+        lambda r: r.list_related(durazno.id, limit=2, on_date=TOMORROW),
+        lambda r: r.list_related(durazno.id, limit=3),
+    ):
+        assert call(product_repo) == call(in_memory)
 
 
 def test_memory_repo_never_lists_order_only_products_in_the_showcase():

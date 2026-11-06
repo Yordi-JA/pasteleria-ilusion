@@ -6,6 +6,7 @@ repositorio por parámetro: en producción, el módulo; en las pruebas, una
 instancia de estas clases. Asumen que los registros que reciben ya son activos
 y están en el orden en que el repositorio real los devolvería.
 """
+import unicodedata
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal
@@ -30,6 +31,12 @@ from .records import (
 _SLICE = "slice"
 # Un producto solo por encargo nunca tiene existencias de vitrina (como en `product_repo`).
 _ORDER_ONLY = "order_only"
+
+
+def _plain(text: str) -> str:
+    """Sin acentos ni mayúsculas, como `unaccent` + `icontains` en `product_repo`."""
+    decomposed = unicodedata.normalize("NFKD", text)
+    return "".join(char for char in decomposed if not unicodedata.combining(char)).casefold()
 
 
 class MemoryProductRepo:
@@ -61,24 +68,28 @@ class MemoryProductRepo:
     def list_catalog(
         self, *, on_date: date, category: str | None = None, search: str | None = None
     ) -> list[ProductRecord]:
-        term = (search or "").strip().lower()
+        term = _plain((search or "").strip())
         return [
             self._product(product, on_date)
             for product in self._products
             if (not category or product.category == category)
-            and (not term or term in product.name.lower() or term in product.summary.lower())
+            and (not term or term in _plain(product.name) or term in _plain(product.summary))
         ]
 
     def get_product_by_slug(self, slug: str, on_date: date) -> ProductRecord | None:
         product = next((p for p in self._products if p.slug == slug), None)
         return self._product(product, on_date) if product else None
 
-    def list_related(self, product_id: int, limit: int = 3) -> list[ProductRecord]:
+    def list_related(self, product_id: int, *, limit: int, on_date: date | None = None) -> list[ProductRecord]:
         product = next((p for p in self._products if p.id == product_id), None)
         if product is None:
             return []
         related = [p for p in self._products if p.category == product.category and p.id != product_id]
-        return [self._product(p, None) for p in related[:limit]]
+        return [self._product(p, on_date) for p in related[:limit]]
+
+    def list_featured(self, *, on_date: date, limit: int) -> list[ProductRecord]:
+        featured = [p for p in self._products if p.featured_on_home]
+        return [self._product(p, on_date) for p in featured[:limit]]
 
     def get_offering(self, offering_id: int) -> OfferingRecord | None:
         for product in self._products:

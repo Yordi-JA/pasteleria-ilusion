@@ -55,6 +55,8 @@ Todos los pasteles de vitrina son **tres leches**, excepto el **Choco-pingüino*
 - Un pastel de vitrina pesa ~2.7 kg (~19 personas).
 - Las gelatinas en vaso aparecen en el catálogo con la etiqueta "Solo en vitrina"; no se pueden encargar.
 - Fotos de producto: se resuelven en la etapa de frontend.
+- **Pasteles de la casa (portada):** la pastelería elige en el admin qué productos salen, con "destacado en la portada" en la lista de productos (puede ser un pastel o un postre). Salen hasta 4 de los marcados, en el orden de la lista; si marca menos de 4, salen solo esos. Si no marca ninguno, salen los primeros 4 pasteles activos del catálogo, en el mismo orden. Al inicio no hay ninguno marcado: qué productos son "de la casa" lo decide la pastelería. Ver D45 en [`proyecto/decisiones.md`](proyecto/decisiones.md).
+- **"Hoy" en la vitrina y las rebanadas** es la fecha de la Ciudad de México. Un producto lleva "En vitrina hoy" si alguna de sus presentaciones que no es rebanada tiene piezas hoy. Una presentación cargada hoy con 0 piezas sale "Agotada por hoy"; la que no se cargó hoy no sale en la vitrina ni en las rebanadas.
 
 ---
 

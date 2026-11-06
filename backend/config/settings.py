@@ -339,6 +339,9 @@ REST_FRAMEWORK = {
         "user": "120/min",
         # El pie del sitio (`/api/v1/store/info/`): aparte del cupo anónimo.
         "store_info": "120/min",
+        # Catálogo, ficha, pasteles de la casa, vitrina y rebanadas, juntos. La
+        # portada pide tres por cada carga del pie: el triple de `store_info`.
+        "catalog": "360/min",
     },
     # Saltos de proxy delante de la app (en Heroku, 1). Con 0 se ignora
     # X-Forwarded-For y se usa la dirección de la conexión: si no, un cliente

@@ -431,6 +431,47 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
     - Seguir `esqueleto.css` tal cual para el `role="status"`: ver el contexto.
 - **Consecuencias:** Cierra los componentes base que D42 dejó pendientes (perlas y esqueleto). Las pantallas con datos usan `LoadingRegion`. Qué estado del pedido va con qué perla se decide al construir "Mis pedidos" (Etapa 4). El libro de marca se actualiza con el borde `mermelada-suave`, el esqueleto liso sobre `mermelada` y la excepción al "sin brillos". Esta decisión se aparta de `design/referencia/esqueleto.css` en la ubicación del `role="status"` y en cómo se mueve el brillo.
 
+### D44. Mínimo para la exposición y orden de la Etapa 3
+
+- **Fecha:** 6 de noviembre de 2026.
+- **Decisión:** La tomó el usuario.
+    - Obligatorio para el 13 de noviembre: la portada, el catálogo, la ficha, la vitrina y las rebanadas conectadas a la API (objetivo 1); "Diseña tu pastel" con sus 8 pasos, el precio calculado en el backend y la vista previa 3D (objetivo 3); y el inicio de sesión y el registro con correo.
+    - Solo si sobra tiempo: el inicio de sesión con Google, la recuperación de contraseña y la verificación del correo.
+    - Orden de trabajo: la API del catálogo y un carrito mínimo, la portada, el pastel 3D del hero (el mismo modelo que usará "Diseña tu pastel"), "Diseña tu pastel", el catálogo, la ficha, la vitrina y las rebanadas, y el inicio de sesión.
+- **Contexto:** `plan-de-trabajo.md` pide definir el mínimo para la exposición al iniciar la Etapa 3.
+- **Consecuencias:** Resuelve la decisión abierta "Mínimo para la exposición". Lo que queda fuera del mínimo no se empieza hasta cerrar lo obligatorio.
+
+### D45. API pública del catálogo y pasteles de la casa
+
+- **Fecha:** 6 de noviembre de 2026.
+- **Decisión:**
+    - Cinco endpoints públicos de solo lectura bajo `/api/v1/`, todos `GET`: `products/` (catálogo, con `category` = `cake` o `dessert` y `search` de hasta 80 caracteres en el nombre y la descripción corta), `products/<slug>/` (ficha, con sus presentaciones, las existencias de hoy y hasta 3 productos de la misma categoría), `featured-products/` ("Pasteles de la casa"), `showcase/` (vitrina de hoy, con `category`) y `slices/` (rebanadas de hoy). Un parámetro inválido responde 400 por campo; un `category` vacío equivale a "Todo". Un producto que no existe o está inactivo responde 404 con `{"detail": "No encontrado."}`, igual que las rutas inexistentes de la API.
+    - Heredan de `PublicReadOnlyView`: sin autenticación ni sesión. Comparten un throttle propio, scope `catalog` a `360/min` por IP. La portada pide tres a la vez (pasteles de la casa, vitrina y rebanadas) por cada petición del pie, así que la tasa es el triple de `store_info` (120/min). No gastan el cupo `anon` de la calculadora de precio ni el del pie.
+    - Capas: las vistas validan los parámetros con un serializador y llaman a `services/catalog_service.py`; el servicio llama a `product_repo`, que es lo único que toca el ORM. El servicio decide qué es "hoy" (`timezone.localdate()`, la fecha de la Ciudad de México por `TIME_ZONE`), convierte en `null` la foto, la conservación y el transporte vacíos (PENDIENTE) y calcula "En vitrina hoy": alguna presentación que no es rebanada tiene piezas hoy.
+    - Vitrina y rebanadas responden `{"date": "AAAA-MM-DD", "items": [...]}`, con la fecha de la pastelería para "[Fecha de hoy]". Cada partida trae `offering_id`, el producto, la presentación, el precio, la foto, `stock` y `sold_out`. Lo cargado hoy con 0 piezas sale con `sold_out: true`; lo que no se cargó hoy no sale. En la ficha, `stock` es `null` si no se cargó hoy y `0` si se agotó. Red velvet nunca tiene existencias (la guardia de `product_repo`).
+    - Dinero como texto con dos decimales (`"350.00"`) y el peso como texto con uno (`"2.7"`), nunca como `float`. Las tarjetas exponen solo lo que la pantalla usa: el id, la presentación y el precio de cada presentación, más el tipo de pastel y la base de relleno para la etiqueta ("Tres leches con queso") y el pan, que da el "Personalizado: $280 por kilo" del Red velvet desde `cake-designs/options`. La ficha agrega el sabor, y con el tipo, el pan y la base prepara "Personalizar este pastel".
+    - Sin paginar: el catálogo tiene 22 productos, la pantalla los muestra todos con el número de pasteles y de postres, y la paginación por omisión de DRF (20) lo partiría en dos. Sin `Cache-Control`, como `store/info`: las existencias cambian durante el día.
+    - `Product.featured_on_home` ("destacado en la portada"), un `BooleanField` en `False` (migración `0012_product_featured_on_home`), editable desde la lista de productos del admin, con su filtro. La semilla no marca ninguno. El servicio da hasta 4 de los marcados y activos en el orden del admin (`sort_order`, luego el nombre), sin completar con otros si hay menos. Si no hay ninguno marcado, da los primeros 4 pasteles (`cake`) activos del catálogo. El 4 es la constante `HOME_FEATURED_LIMIT` del servicio. El admin avisa (`WARNING`) en la lista de productos si hay más de 4 activos marcados, porque la portada muestra solo los primeros 4.
+    - La búsqueda no distingue mayúsculas ni acentos: `unaccent` de PostgreSQL (migración `0013_unaccent_extension`) se aplica a la columna y al término, así "pinguino" y "pingüino" encuentran "Choco-pingüino". El repositorio en memoria hace lo mismo con NFKD sin marcas combinantes. La migración es un `CREATE EXTENSION IF NOT EXISTS "unaccent"`, idempotente y sin tocar tablas, así que puede correr en la fase `release`; si fallara, Heroku no publica la versión nueva y sigue la anterior. `unaccent` es una extensión estándar de `contrib`; falta comprobarla en la base de Heroku (`essential-0`) al desplegar.
+    - `is_active` no se edita desde la lista de productos del admin, solo en el formulario de cada uno: una lista cargada antes de desactivar un producto lo volvería a publicar al guardarla, y con `featured_on_home` guardar esa lista se vuelve algo de todos los días. Personal que solo puede ver productos recibe 403 al guardarla.
+    - Si el pan, la base o el sabor de un producto está desactivado, su slug sale `null`, para que "Personalizar este pastel" no preelija algo que `cake-designs/options` ya no ofrece. Un producto inactivo no da relacionados.
+- **Contexto:** D44 pone el catálogo conectado a la API en el mínimo de la exposición. El mockup de la portada muestra 4 "Pasteles de la casa" (uno grande y tres chicos), y uno es un postre (Imposible), así que el campo admite pasteles y postres. La regla 1 prohíbe inventar cuáles son los de la casa, por eso la semilla no marca ninguno y el respaldo es una regla explícita y documentada en la sección 2 de [`../reglas-de-negocio.md`](../reglas-de-negocio.md). La fecha local importa de noche: a las 21:30 de la Ciudad de México ya es el día siguiente en UTC, y la vitrina mostraría la carga de mañana.
+- **Alternativas descartadas:**
+    - Los primeros 4 del catálogo sin campo: la pastelería no podría elegirlos sin reordenar todo el catálogo.
+    - El límite de 4 en el admin: es el tamaño de la maqueta de la portada, no una regla del negocio, y cambiarlo pide otro diseño.
+    - `products/featured/`: chocaría con la ficha de un producto cuyo slug fuera `featured`.
+    - Un throttle por endpoint: la portada gasta los tres juntos, y un solo cupo es más fácil de razonar.
+    - Paginar el catálogo: ver la decisión. Si el catálogo pasara de unos 100 productos, se revisa.
+    - `name__unaccent__icontains` con el término sin tratar: quita los acentos solo de la columna, y una búsqueda escrita con acento ("pingüino") dejaría de encontrar nada.
+    - Quitar los acentos del término en Python antes de la consulta: las reglas de Python y de `unaccent` podrían diferir; con `unaccent` en los dos lados, PostgreSQL decide igual para ambos.
+- **Aceptado sin cambiar el código (revisión del 6 de noviembre):**
+    - Las tarjetas (`products/`, `featured-products/` y `related`) son listas sin `date`. Cerca de la medianoche, `in_showcase_today` puede no coincidir con la vitrina hasta recargar.
+    - `description` vacía sale como `""`: no es PENDIENTE (la ficha puede no llevarla). La conservación y el transporte sí lo son y salen `null`.
+    - El respaldo de "Pasteles de la casa" carga todos los pasteles y toma 4 en Python; con 14 pasteles el costo no se nota.
+    - El "4" del `help_text` de `featured_on_home` es una constante del diseño; una prueba lo ata a `HOME_FEATURED_LIMIT`.
+    - Los ids de las presentaciones son consecutivos y las existencias exactas son públicas: "Quedan [n]" es un requisito del negocio.
+- **Consecuencias:** El frontend puede construir la portada, el catálogo, la ficha, la vitrina, "Vitrina agotada" y las rebanadas sin cuenta. El carrito agrega por el id de la presentación (`offerings[].id` o `offering_id`). Quedan para el frontend las etiquetas de las presentaciones ("Pastel mini de cajeta") y cruzar el pan del Red velvet con `GET /api/v1/cake-designs/options/` para su precio por kilo. "Encargarlo para hoy, con 2 horas de anticipación" necesita el pan del día y llega con el pedido. Pendiente para la pantalla del catálogo: esperar al menos 300 ms después de la última tecla antes de buscar. Pendiente para el PR del inicio de sesión: un alias de caché propio para los throttles de seguridad, que hoy comparten `django_cache` con los contadores públicos (ver `backend/AGENTS.md`). El código está verificado en local y no está desplegado.
+
 ### D46. Carrito mínimo en el navegador
 
 - **Fecha:** 6 de noviembre de 2026.
@@ -459,7 +500,6 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 
 | Tema | Detalle | Se resuelve |
 | --- | --- | --- |
-| Mínimo para la exposición | Qué se demuestra en vivo de cada uno de los 6 objetivos y qué entra solo si sobra tiempo | Al iniciar la Etapa 3 |
 | API de distancias | Para la tarifa de envío; las reglas sugieren una API de rutas como Google Distance Matrix | Antes de la Etapa 4 |
 | Nombres finales de modelos y campos | Los de [`arquitectura.md`](arquitectura.md#entidades-previstas) son previstos | Etapa 2 |
 | Salida de `awaiting_quote` | Las reglas no dicen a qué estado pasa el pedido cuando la pastelería da el precio de una decoración por imagen ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 14) | Cuando responda la pastelería |
