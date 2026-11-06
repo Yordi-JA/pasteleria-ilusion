@@ -17,7 +17,8 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('button: keyboard focus shows the ring and Enter activates it', async ({ page }) => {
-  const primary = page.getByRole('button', { name: 'Agregar al pedido' })
+  // `exact`: la sección del carrito tiene sus propios "Agregar al pedido: <producto>".
+  const primary = page.getByRole('button', { name: 'Agregar al pedido', exact: true })
   await expect(primary).toHaveCSS('cursor', 'pointer')
   await primary.focus()
   await page.keyboard.press('Tab')
@@ -165,7 +166,7 @@ test('notices: roles, border widths and tone colors', async ({ page }) => {
   await expect(info).toHaveCSS('border-top-color', 'rgb(236, 210, 210)')
   await expect(info).toHaveCSS('border-top-width', '1px')
   await expect(page.getByRole('status').filter({ hasText: 'Agregado al pedido' })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Agregar al pedido' }).click()
+  await page.getByRole('button', { name: 'Agregar al pedido', exact: true }).click()
   const success = page.getByRole('status').filter({ hasText: 'Agregado al pedido' })
   await expect(success).toHaveCSS('border-top-color', 'rgb(63, 95, 42)')
   await expect(success).toHaveCSS('border-top-width', '2px')

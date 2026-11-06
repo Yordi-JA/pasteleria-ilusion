@@ -1,7 +1,9 @@
+import AddToCartNotice from '../components/AddToCartNotice.tsx'
 import Button from '../components/Button.tsx'
 import Card from '../components/Card.tsx'
 import ChoiceOption from '../components/ChoiceOption.tsx'
 import Duya from '../components/Duya.tsx'
+import { focusRing } from '../components/focus.ts'
 import Notice from '../components/Notice.tsx'
 import ProgressPearls from '../components/ProgressPearls.tsx'
 import Skeleton, { LoadingRegion } from '../components/Skeleton.tsx'
@@ -103,6 +105,58 @@ export default function ComponentSample() {
               <Button onClick={vm.add}>Agregar al pedido</Button>
               {vm.added && <Notice tone="success" title="Agregado al pedido" />}
             </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="m-carrito" className="flex flex-col gap-4">
+          <h2 id="m-carrito" className="font-display text-titulo-2">Carrito</h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            {vm.cartExamples.map((example) => (
+              <Card key={example.offering.offeringId} as="article" className="flex flex-col gap-2">
+                <h3 className="font-display text-titulo-3">{example.offering.name}</h3>
+                <p className="text-nota text-mermelada-suave">
+                  {example.presentationLabel}, {example.price}
+                </p>
+                {example.stock !== undefined && <p className="text-nota text-mermelada-suave">Quedan {example.stock}</p>}
+                {/* El nombre empieza con el texto visible (WCAG 2.5.3) y dice qué producto agrega. */}
+                <Button
+                  variant="secondary"
+                  className="mt-2"
+                  aria-label={`Agregar al pedido: ${example.offering.name}`}
+                  onClick={() => vm.addToCart(example)}
+                >
+                  Agregar al pedido
+                </Button>
+              </Card>
+            ))}
+          </div>
+          <AddToCartNotice feedback={vm.cartFeedback} className="max-w-[640px]" />
+          <h3 className="font-display text-titulo-3">En el carrito</h3>
+          {vm.cartItems.length === 0 ? (
+            <p>El carrito está vacío.</p>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {vm.cartItems.map((item) => (
+                <li key={item.offeringId} className="flex flex-wrap items-center gap-x-4">
+                  <span>
+                    {item.name}: {item.quantity}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`Quitar: ${item.name}`}
+                    onClick={() => vm.removeFromCart(item.offeringId)}
+                    className={`inline-flex min-h-11 cursor-pointer items-center rounded-sm font-semibold underline underline-offset-4 ${focusRing}`}
+                  >
+                    Quitar
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div>
+            <Button variant="secondary" onClick={vm.clearCart}>
+              Vaciar el carrito
+            </Button>
           </div>
         </section>
 

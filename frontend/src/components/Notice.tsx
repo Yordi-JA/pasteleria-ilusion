@@ -10,6 +10,11 @@ type NoticeProps = {
   title: string
   children?: ReactNode
   className?: string
+  /**
+   * Con `false` el aviso no lleva `role`: va dentro de una región viva que ya estaba montada (ver
+   * `AddToCartNotice`), y dos regiones anidadas pueden leerse dos veces.
+   */
+  live?: boolean
 }
 
 const borders: Record<NoticeTone, string> = {
@@ -41,11 +46,11 @@ const titleColors: Record<NoticeTone, string> = {
 }
 
 // Un aviso con role status o alert se anuncia solo si se inserta de forma dinámica; uno presente al cargar la página no se lee.
-export default function Notice({ tone = 'info', title, children, className = '' }: NoticeProps) {
+export default function Notice({ tone = 'info', title, children, className = '', live = true }: NoticeProps) {
   const ToneIcon = icons[tone]
   return (
     <div
-      role={tone === 'error' ? 'alert' : 'status'}
+      role={live ? (tone === 'error' ? 'alert' : 'status') : undefined}
       className={`flex items-start gap-3 rounded-md bg-betun px-4 py-3.5 text-cuerpo text-mermelada ${borders[tone]} ${className}`}
     >
       <ToneIcon size={22} weight="regular" aria-hidden="true" className={`mt-px shrink-0 ${iconColors[tone]}`} />
