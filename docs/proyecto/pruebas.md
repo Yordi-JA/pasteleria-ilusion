@@ -1,6 +1,6 @@
 # Estrategia de pruebas
 
-El proyecto prueba la lógica de negocio con `pytest` y `pytest-django`, el recorrido de compra con Playwright y la accesibilidad con una revisión por pantalla. Estado al 5 de noviembre de 2026: hay 801 pruebas de backend recolectadas en `backend/tests/` (800 pasan y 1 se salta sin el build del frontend), que cubren el modelo de usuario, el admin, la configuración, la documentación de la API, la sesión JWT, el hash de contraseñas, el throttling, el catálogo, el inventario y la configuración editable con sus semillas, restricciones y repositorios, el precio de "Diseña tu pastel" y sus opciones, el depósito de la base, el decorador de auditoría, los dos endpoints públicos, el parser JSON, la redirección de `www` al dominio propio y los datos del negocio con su endpoint; y 83 pruebas con Playwright en `frontend/e2e/` (humo, página de no encontrada, página de muestra, marco del sitio, menú móvil, datos del negocio con la API simulada, rutas y cliente HTTP). Las pruebas de la lógica de negocio que faltan llegan con los servicios de las etapas 2 a 4.
+El proyecto prueba la lógica de negocio con `pytest` y `pytest-django`, el recorrido de compra con Playwright y la accesibilidad con una revisión por pantalla. Estado al 6 de noviembre de 2026: hay 928 pruebas de backend recolectadas en `backend/tests/` (todas pasan en local; la que revisa el build del frontend se salta si no hay `frontend/dist/`), que cubren el modelo de usuario, el admin, la configuración, la documentación de la API, la sesión JWT, el hash de contraseñas, el throttling, el catálogo, el inventario y la configuración editable con sus semillas, restricciones y repositorios, el precio de "Diseña tu pastel" y sus opciones, el depósito de la base, el decorador de auditoría, los endpoints públicos de "Diseña tu pastel", el parser JSON, la redirección de `www` al dominio propio, los datos del negocio con su endpoint y la API pública del catálogo (D45: `tests/test_catalog_api.py` y `tests/test_catalog_service.py`, con la fecha local de la pastelería, la búsqueda sin acentos, lo agotado frente a lo no cargado, "Pasteles de la casa" con su respaldo y los permisos del admin); y 83 pruebas con Playwright en `frontend/e2e/` (humo, página de no encontrada, página de muestra, marco del sitio, menú móvil, datos del negocio con la API simulada, rutas y cliente HTTP). Las pruebas de la lógica de negocio que faltan llegan con los servicios de las etapas 2 a 4.
 
 ## Contenido
 
@@ -189,6 +189,11 @@ Regla de [`arquitectura.md`](arquitectura.md#patrones-de-diseño): queda prohibi
 | JSON anidado hasta agotar la recursión | 400 "JSON inválido." |
 | Precio con monto mandado por el cliente | Se ignora; el total es el del servidor |
 | Decoración fija sin precio | Opciones: `available=false`, "Precio por confirmar"; precio: 400 en `decoration` |
+| Vitrina a las 21:30 de la Ciudad de México (ya es mañana en UTC) | Lee las existencias de hoy en la pastelería y trae su fecha |
+| Presentación cargada hoy con 0 piezas, y otra sin cargar | La primera sale con `sold_out: true`; la segunda no sale |
+| Búsqueda "pinguino" o "limon" | Encuentra "Choco-pingüino" y lo que diga "limón" |
+| Ningún producto destacado en la portada | Los primeros 4 pasteles activos del catálogo |
+| Personal que solo puede ver productos guarda la lista del admin | 403 y nada cambia |
 
 ### Rechazos del backend
 

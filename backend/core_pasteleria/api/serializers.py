@@ -1,7 +1,7 @@
 """DTOs: validan la entrada y dan forma a la salida JSON."""
 from rest_framework import serializers
 
-from ..models import Bread, CakeType
+from ..models import Bread, CakeType, Presentation, Product, ProductCategory, SalesChannel
 from ..services.pricing_service import CakeDesignChoice
 
 # El mismo largo que el `slug` de las opciones (`Bread`, `FillingBase`, ...).
@@ -233,3 +233,118 @@ class StoreInfoSerializer(serializers.Serializer):
     opens_at = _hh_mm_field("Hora de apertura, HH:MM en 24 horas.")
     closes_at = _hh_mm_field("Hora de cierre, HH:MM en 24 horas.")
     custom_lead_days = serializers.IntegerField(help_text="Días de anticipación de un pedido.")
+
+
+# --- Catálogo público (entrada y salida) ---
+
+# Tope deliberado del término de búsqueda, igual al largo del nombre. La búsqueda
+# también mira la descripción corta (160): un término más largo que un nombre
+# solo podría coincidir con una descripción, y eso no se busca así.
+SEARCH_MAX_LENGTH = Product._meta.get_field("name").max_length
+
+
+def _category_field(help_text):
+    return serializers.ChoiceField(choices=ProductCategory.choices, required=False, help_text=help_text)
+
+
+def _pending_text(help_text):
+    return serializers.CharField(allow_null=True, help_text=f"{help_text} `null`: PENDIENTE.")
+
+
+def _photo_field():
+    return _pending_text(
+        "Nombre del archivo estático del frontend; la interfaz muestra \"Foto del pastel\" mientras falta."
+    )
+
+
+class ShowcaseQuerySerializer(serializers.Serializer):
+    category = _category_field("Filtro de la vitrina: Todo (sin el parámetro), Pasteles o Postres.")
+
+
+class CatalogQuerySerializer(serializers.Serializer):
+    category = _category_field("Filtro del catálogo: Todo (sin el parámetro), Pasteles o Postres.")
+    search = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=SEARCH_MAX_LENGTH,
+        help_text="Busca en el nombre y en la descripción corta, sin distinguir mayúsculas.",
+    )
+
+
+class CardOfferingSerializer(serializers.Serializer):
+    id = serializers.IntegerField(help_text="Id de la presentación; con él se agrega al pedido.")
+    presentation = serializers.ChoiceField(choices=Presentation.choices)
+    price = money()
+
+
+class ProductOfferingSerializer(CardOfferingSerializer):
+    approx_weight_kg = serializers.DecimalField(
+        max_digits=4, decimal_places=1, allow_null=True, help_text="`null`: aún no se define."
+    )
+    servings = serializers.IntegerField(allow_null=True, help_text="Personas que rinde; `null`: aún no se define.")
+    photo = _pending_text("La de la presentación o, si no tiene, la del producto.")
+    stock = serializers.IntegerField(
+        allow_null=True,
+        help_text="Piezas en la vitrina de hoy. `null`: no se cargó hoy (solo por encargo). `0`: agotada por hoy.",
+    )
+
+
+class ProductCardSerializer(serializers.Serializer):
+    """Tarjeta del catálogo, de "Pasteles de la casa" y de "También te puede gustar"."""
+
+    slug = serializers.SlugField()
+    name = serializers.CharField()
+    category = serializers.ChoiceField(choices=ProductCategory.choices)
+    sales_channel = serializers.ChoiceField(
+        choices=SalesChannel.choices,
+        help_text="`showcase_only`: \"Solo en vitrina\". `order_only`: \"Solo por encargo\", nunca en la vitrina.",
+    )
+    cake_type = serializers.ChoiceField(choices=CakeType.choices, allow_null=True, help_text="`null` en los postres.")
+    bread = serializers.SlugField(
+        allow_null=True,
+        help_text=(
+            "Pan, como en `cake-designs/options` (con él se muestra el precio por kilo de un pan de "
+            "precio completo, como Red velvet). `null` si aún no se define o es un postre."
+        ),
+    )
+    filling_base = serializers.SlugField(
+        allow_null=True, help_text="Base de relleno (`normal`, `queso`, `flan`); `null` si no lleva."
+    )
+    summary = serializers.CharField(help_text="Descripción corta de la tarjeta.")
+    photo = _photo_field()
+    in_showcase_today = serializers.BooleanField(
+        help_text="\"En vitrina hoy\": alguna presentación que no es rebanada tiene piezas hoy."
+    )
+    offerings = CardOfferingSerializer(many=True, help_text="Presentaciones activas, en el orden del admin.")
+
+
+class ProductDetailSerializer(ProductCardSerializer):
+    """Ficha del producto. `cake_type`, `bread`, `filling_base` y `filling_flavor` preparan "Personalizar este pastel"."""
+
+    description = serializers.CharField(help_text="Descripción de la ficha; vacía si no tiene.")
+    filling_flavor = serializers.SlugField(allow_null=True)
+    storage_notes = _pending_text("Conservación.")
+    transport_notes = _pending_text("Transporte.")
+    offerings = ProductOfferingSerializer(many=True, help_text="Presentaciones activas, en el orden del admin.")
+    related = ProductCardSerializer(
+        many=True, help_text="\"También te puede gustar\": otros productos activos de la misma categoría."
+    )
+
+
+class StockItemSerializer(serializers.Serializer):
+    offering_id = serializers.IntegerField(help_text="Id de la presentación; con él se agrega al pedido.")
+    product_slug = serializers.SlugField()
+    product_name = serializers.CharField()
+    category = serializers.ChoiceField(choices=ProductCategory.choices)
+    presentation = serializers.ChoiceField(choices=Presentation.choices)
+    price = money()
+    photo = _photo_field()
+    stock = serializers.IntegerField(min_value=0, help_text="\"Quedan [n]\".")
+    sold_out = serializers.BooleanField(help_text="`true` con `stock` en 0: \"Agotada por hoy\".")
+
+
+class TodayStockSerializer(serializers.Serializer):
+    date = serializers.DateField(help_text="Fecha de hoy en la pastelería (Ciudad de México), AAAA-MM-DD.")
+    items = StockItemSerializer(
+        many=True, help_text="Lo cargado hoy, en el orden del catálogo; lo no cargado no sale."
+    )

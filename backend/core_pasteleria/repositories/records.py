@@ -52,6 +52,8 @@ class ProductRecord:
     storage_notes: str
     transport_notes: str
     photo: str
+    # Lo marca la pastelería para "Pasteles de la casa" de la portada.
+    featured_on_home: bool
     offerings: tuple[OfferingRecord, ...]
 
 
