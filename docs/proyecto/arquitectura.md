@@ -48,7 +48,7 @@ La vista no contiene lógica de negocio. El view-model guarda el estado y llama 
 | `frontend/src/three/` | View (3D) | Escena de `react-three-fiber` que recibe sus datos del view-model |
 | `frontend/e2e/` | Pruebas | Pruebas de extremo a extremo con Playwright ([`pruebas.md`](pruebas.md)) |
 
-Hoy `frontend/src/` tiene `App.tsx`, `main.tsx`, `index.css`, `views/Home.tsx` (componente `Home`) y `views/NotFound.tsx` (componente `NotFound`). Las carpetas `models/`, `viewmodels/`, `components/` y `three/` siguen vacías. El 3D no se anuncia en títulos ni botones de la interfaz ([`../../AGENTS.md`](../../AGENTS.md#reglas-que-no-se-negocian)).
+Hoy `frontend/src/` tiene el marco, las vistas de las rutas y los modelos, view-models y componentes de las Etapas 2 y 3 (el detalle está en [`../../frontend/AGENTS.md`](../../frontend/AGENTS.md#estado-actual)). `three/` tiene el pastel 3D (D48): `cakeShape.ts` (el tipo `CakeShape`, la forma del pastel, sin React ni three), `CakeModel.tsx` (el modelo paramétrico que la dibuja, compartido con "Diseña tu pastel"), `CakeScene.tsx` (lienzo, cámara, luz y gestos; va en un chunk diferido), `spin.ts` (giro, inercia e inclinación, sin three) y `palette.ts` (los colores, leídos de `design/tokens.json`). La escena recibe el diseño por props desde `viewmodels/useHeroCake.ts` y no llama a la API. El 3D no se anuncia en títulos ni botones de la interfaz ([`../../AGENTS.md`](../../AGENTS.md#reglas-que-no-se-negocian)).
 
 ## Estructura del backend
 

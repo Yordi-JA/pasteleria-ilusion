@@ -20,7 +20,7 @@ Cada tecnología tiene un rol y una justificación. Las versiones se fijaron el 
 | React Router | Rutas de [`../mapa-de-vistas.md`](../mapa-de-vistas.md) | Rutas anidadas (`/cuenta/...`) y 404 sin piezas extra | 8.5.1 |
 | oxlint | Lint del frontend | Viene con la plantilla de Vite; typescript-eslint aún no soporta TypeScript 7 (D25) | 1.89.0 |
 | Tailwind CSS | Estilos del frontend, con los tokens de la paleta en `design/tailwind.preset.js` | Los tokens del libro de marca se traducen a clases sin colores sueltos | 3.4.19 |
-| `react-three-fiber` y three.js (WebGL) | Vista previa 3D del pastel en "Diseña tu pastel" | Render declarativo de WebGL dentro de React; la escena evoluciona por etapas, de acuerdo con las capturas | Se fija al instalarla (Etapa 3) |
+| `react-three-fiber` y three.js (WebGL) | Pastel 3D de la portada (D48) y vista previa de "Diseña tu pastel" | Render declarativo de WebGL dentro de React; la escena evoluciona por etapas, de acuerdo con las capturas. Va en un chunk diferido; sin `@react-three/drei` (D48) | `@react-three/fiber` 9.8.2, `three` 0.187.0, `@types/three` 0.187.0 |
 | Django | Backend: ORM, admin, autenticación y migraciones | "Batteries included": el ORM y el admin dan la base de datos y la edición de precios y límites sin código extra | 5.2.18 LTS (Python 3.11) |
 | Django REST Framework | API REST bajo `/api/v1/`: serializadores, paginación y throttling | Serializadores como DTOs y vistas que solo coordinan HTTP | 3.18.3 |
 | PostgreSQL | Base de datos relacional de productos, pedidos, garantías y agenda | Transacciones ACID para cobros, agenda sin empalmes y depósitos | 18 (Docker en desarrollo, Heroku Postgres en producción) |
