@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation } from 'react-router'
+import { useLocation, useOutletContext } from 'react-router'
 import { fetchStoreInfo } from '../models/storeInfo.ts'
 import type { StoreInfo } from '../models/storeInfo.ts'
 
@@ -96,4 +96,23 @@ export function useStoreInfo(): StoreDetails {
   }, [unavailable, pathname, load])
 
   return useMemo(() => toStoreDetails(state.info, state.status), [state])
+}
+
+/**
+ * Los datos de la pastelería que ya pidió el marco (`SiteLayout` los pasa por el `Outlet`), para una vista que los
+ * muestra (por ejemplo, los días de anticipación en la vitrina agotada). No hace otra petición ni otro reintento.
+ */
+export function useStoreDetails(): StoreDetails {
+  const store: unknown = useOutletContext()
+  if (!isStoreDetails(store)) throw new Error('useStoreDetails necesita el Outlet de SiteLayout con los datos de la pastelería.')
+  return store
+}
+
+const STORE_STATUSES = new Set<unknown>(['loading', 'ready', 'unavailable'])
+
+/** El contexto del `Outlet` no tiene tipo: se revisa su forma antes de usarlo, por si otro marco pasara otra cosa. */
+function isStoreDetails(value: unknown): value is StoreDetails {
+  if (typeof value !== 'object' || value === null) return false
+  const details = value as Record<string, unknown>
+  return STORE_STATUSES.has(details.status) && ['address', 'hours', 'whatsapp', 'leadDays'].every((key) => key in details)
 }

@@ -9,6 +9,7 @@ import {
   mockStoreInfoSequence,
   shortenStoreInfoTimeout,
 } from './support/store-info.ts'
+import { mockCatalog } from './support/catalog.ts'
 
 const topStrip = (page: Page) => page.getByTestId('franja')
 const footer = (page: Page) => page.getByRole('contentinfo')
@@ -174,6 +175,8 @@ test.describe('store data in the strip and the footer', () => {
 
   test('while the request has not answered: a busy skeleton, never a pending marker', async ({ page }) => {
     await hangStoreInfo(page)
+    // La portada también carga: con el catálogo colgado, sus esqueletos se quedan y entran en la misma revisión.
+    await mockCatalog(page, { featured: ['hang'], showcase: ['hang'], slices: ['hang'] })
     await page.goto('/')
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     await expect(topStrip(page).locator('[aria-busy="true"]')).toHaveCount(1)

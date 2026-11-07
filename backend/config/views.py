@@ -11,7 +11,8 @@ def spa_index(request, path=""):
 
     `config/urls.py` ya deja fuera `/api/`, `/admin/`, `/static/` y `/media/`.
     Aquí se responde 404 a lo que parece un archivo (`/assets/falta.js`,
-    `/robots.txt`): devolver HTML con 200 ahí escondería los errores.
+    `/sitemap.xml`): devolver HTML con 200 ahí escondería los errores.
+    `/robots.txt` y los favicon existen en el build y WhiteNoise los sirve antes.
     """
     looks_like_file = "." in path.rsplit("/", 1)[-1]
     index = settings.FRONTEND_DIST / "index.html"

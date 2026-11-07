@@ -137,14 +137,14 @@ export default function ComponentSample() {
           ) : (
             <ul className="flex flex-col gap-1">
               {vm.cartItems.map((item) => (
-                <li key={item.offeringId} className="flex flex-wrap items-center gap-x-4">
+                <li key={`${item.offeringId}-${item.fulfillment}`} className="flex flex-wrap items-center gap-x-4">
                   <span>
                     {item.name}: {item.quantity}
                   </span>
                   <button
                     type="button"
                     aria-label={`Quitar: ${item.name}`}
-                    onClick={() => vm.removeFromCart(item.offeringId)}
+                    onClick={() => vm.removeFromCart(item)}
                     className={`inline-flex min-h-11 cursor-pointer items-center rounded-sm font-semibold underline underline-offset-4 ${focusRing}`}
                   >
                     Quitar

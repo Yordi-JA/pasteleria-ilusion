@@ -9,3 +9,7 @@ export const focusRingOnColor =
 /** Anillo para un contenedor que contiene al control enfocado (opción elegible). */
 export const focusRingWithin =
   'has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-mermelada'
+
+/** Mismo anillo en `betun`, para una opción elegible sobre un campo `mermelada`. */
+export const focusRingWithinOnColor =
+  'has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-betun'

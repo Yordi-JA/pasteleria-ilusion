@@ -38,7 +38,8 @@ export default function SiteLayout() {
         <div data-testid="toldo" className="toldo" aria-hidden="true" />
         <SiteHeader store={store} menu={menu} cartCount={cart.count} />
         <main id="contenido" ref={main} tabIndex={-1} className="flex-1 scroll-mt-24 bg-nata outline-none">
-          <Outlet />
+          {/* Las vistas que necesitan los datos del negocio los leen con `useStoreDetails`, sin otra petición. */}
+          <Outlet context={store} />
         </main>
         <Duya type="guirnalda" color="nata" below="mermelada" />
         <SiteFooter store={store} />

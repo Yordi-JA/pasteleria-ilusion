@@ -1,6 +1,6 @@
 import { useId } from 'react'
 import type { InputHTMLAttributes, ReactNode } from 'react'
-import { focusRingWithin } from './focus.ts'
+import { focusRingWithin, focusRingWithinOnColor } from './focus.ts'
 
 type ChoiceOptionProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'children'> & {
   /** `card` es una tarjeta con radio visible; `chip` oculta el radio y se llena al elegirse. */
@@ -11,6 +11,12 @@ type ChoiceOptionProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'c
   trailing?: ReactNode
   /** Por qué la opción no aplica. Se muestra siempre que esté desactivada. */
   disabledReason?: string
+  /**
+   * Chip sobre un campo `mermelada` (filtros de la vitrina de la portada): sin elegir, borde `fresa` y texto
+   * `betun`; elegido, fondo `fresa-claro` con borde de 2 px `betun` y texto `mermelada`, como el mockup. Solo
+   * aplica a `chip`.
+   */
+  onColor?: boolean
 }
 
 // Cada estado (habilitado o no) arma sus clases completas: ninguna depende del orden del CSS generado.
@@ -24,6 +30,13 @@ const cardEnabled =
 const chipEnabled =
   'cursor-pointer border-mermelada-suave bg-betun text-mermelada hover:bg-harina ' +
   'has-[:checked]:border-mermelada has-[:checked]:bg-mermelada has-[:checked]:text-sobre-color has-[:checked]:hover:bg-mermelada-profunda ' +
+  'motion-safe:transition-colors motion-safe:active:translate-y-px'
+
+// El chip elegido sobre `mermelada` engrosa el borde a 2 px y quita 1 px de relleno, para no cambiar de tamaño.
+const chipOnColorEnabled =
+  'cursor-pointer border-sobre-color-suave bg-mermelada text-sobre-color hover:bg-mermelada-profunda ' +
+  'has-[:checked]:border-2 has-[:checked]:border-betun has-[:checked]:bg-fresa-claro has-[:checked]:px-[15px] ' +
+  'has-[:checked]:text-mermelada has-[:checked]:hover:bg-fresa-claro ' +
   'motion-safe:transition-colors motion-safe:active:translate-y-px'
 
 const cardDisabled = 'cursor-not-allowed border-dashed border-relieve bg-nata text-mermelada-suave'
@@ -40,6 +53,7 @@ export default function ChoiceOption({
   disabledReason,
   id,
   disabled,
+  onColor = false,
   ...rest
 }: ChoiceOptionProps) {
   const autoId = useId()
@@ -47,8 +61,10 @@ export default function ChoiceOption({
   const reasonId = disabled && disabledReason ? `${inputId}-motivo` : undefined
   const describedBy = [reasonId, rest['aria-describedby']].filter(Boolean).join(' ') || undefined
   const isChip = variant === 'chip'
-  const state = disabled ? (isChip ? chipDisabled : cardDisabled) : isChip ? chipEnabled : cardEnabled
-  const style = `${isChip ? chipBase : cardBase} ${state} ${focusRingWithin}`
+  const chipOnColor = isChip && onColor
+  const chipState = chipOnColor ? chipOnColorEnabled : chipEnabled
+  const state = disabled ? (isChip ? chipDisabled : cardDisabled) : isChip ? chipState : cardEnabled
+  const style = `${isChip ? chipBase : cardBase} ${state} ${chipOnColor ? focusRingWithinOnColor : focusRingWithin}`
   const titleStyle = disabled ? '' : 'group-hover:underline group-hover:underline-offset-4'
 
   return (

@@ -31,7 +31,7 @@ La dirección visual se llama *Betún y duya*: la identidad se arma como se deco
 - El 3D nunca sustituye una foto de producto: catálogo, vitrina, ficha, carrito y pedidos muestran los PNG reales. Tampoco va en entrega ni pago. Con `prefers-reduced-motion` no gira ni se anima, y cada escena se pausa cuando sale de pantalla. No se agrega en otras vistas fuera de estas y de "Diseña tu pastel".
 - Cuando una vista tiene una tarjeta principal (inicio de sesión, registro), esa tarjeta es lo único que cruza el borde; el pastel se apoya junto a ella.
 - Usa el símbolo (`ilusion-simbolo.svg`) como estampa: en la confirmación del pedido, junto a la información del depósito de bases y en el pie de página. Uno por pantalla.
-- Contradicción abierta: el pie lleva el símbolo, y la confirmación del pedido y la información del depósito de bases también, pero la regla dice uno por pantalla. Se resuelve al construir esas vistas (D42).
+- El símbolo del pie es parte del marco y no cuenta para "uno por pantalla": la regla aplica a la estampa dentro del contenido. La portada lleva el suyo junto a "Rebanadas de hoy", como el mockup, además del del pie (decisión del usuario, D47).
 - Los números grandes en `frambuesa` solo se usan con un ranking real que dé la pastelería. Sin ese dato, la sección de la portada es "Pasteles de la casa", sin números.
 - La realidad la ponen los pasteles. Nada de ilustraciones genéricas de repostería, fondos repetidos, degradados ni fotos de banco. Los únicos dibujos permitidos son los de la sección "Dibujos de línea".
 
@@ -199,7 +199,7 @@ Seis dibujos propios, cada uno tomado de algo real de la pastelería: la vela de
 ## Componentes
 
 - Opción elegida en tarjetas con radio o casilla visible: fondo `betun` y borde de 2 px `mermelada`; el punto del radio marca la selección. Nunca fondo `fresa-claro`, que compite con los campos de adentro.
-- Opción elegida en chips sin radio visible (horarios, pisos): fondo `mermelada` con texto `betun`.
+- Opción elegida en chips sin radio visible (horarios, pisos): fondo `mermelada` con texto `betun`. Sobre un campo `mermelada` (los filtros de la vitrina de la portada), como en el mockup: sin elegir, borde `fresa` y texto `betun`; elegido, fondo `fresa-claro`, borde de 2 px `betun` y texto `mermelada`, con el anillo de foco en `betun` (D47).
 - Botones: el principal (uno por pantalla) es `mermelada` con texto `betun`; el secundario es `betun` con borde de 2 px `mermelada` y texto `mermelada`, para acciones que acompañan al principal ("Ver la vitrina" junto a "Realizar pedido"); sobre campos `mermelada`, `betun` con texto `mermelada`. Texto en `etiqueta` y alto mínimo de 44 px. En hover se subraya el texto, y deshabilitado lleva borde discontinuo `relieve` y fondo `harina`: ningún estado depende solo del color.
 - Avisos: llevan un ícono Phosphor de 22 px en el color del borde (salvo el de información, que va en `mermelada`, porque `relieve` no tiene contraste suficiente), un título en negritas que nombra el estado y, si hace falta, un texto en `nota`. El de información (sin urgencia, como la recomendación de pisos en "Diseña tu pastel") lleva borde de 1 px `relieve`; el de atención, borde de 2 px `cajeta`; el de algo confirmado, borde de 2 px `exito` con palomita; el de falla, borde de 2 px `error` y `role="alert"`. Los demás usan `role="status"`.
 - Borde de duya: siempre del color exacto de la sección de la que cuelga.

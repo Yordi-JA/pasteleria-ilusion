@@ -27,6 +27,20 @@ export function apiPath(...segments: string[]): string {
   return `${segments.map(encodeURIComponent).join('/')}/`
 }
 
+/** Una petición colgada se corta a los 10 s: así ninguna pantalla espera sin fin. */
+export const REQUEST_TIMEOUT_MS = 10_000
+
+/**
+ * Corte de una petición en desarrollo: las pruebas E2E pueden bajarlo con la variable global `override` (por
+ * ejemplo `__catalogTimeoutMs`) para no esperar 10 s reales. Quien llama lo usa solo dentro de
+ * `import.meta.env.DEV`, para que en el build la rama, y con ella el nombre de la variable, desaparezca:
+ * `import.meta.env.DEV ? devRequestTimeoutMs('__catalogTimeoutMs') : REQUEST_TIMEOUT_MS`.
+ */
+export function devRequestTimeoutMs(override: string): number {
+  const value: unknown = Reflect.get(globalThis, override)
+  return typeof value === 'number' && value > 0 ? value : REQUEST_TIMEOUT_MS
+}
+
 /** Pide un recurso de la API y devuelve el JSON sin validar; el modelo de cada recurso lo valida. */
 export async function getJson(segments: string[], init: { signal?: AbortSignal } = {}): Promise<unknown> {
   const path = apiPath(...segments)
