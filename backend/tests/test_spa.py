@@ -87,7 +87,7 @@ def test_nothing_serves_media(web, path):
     assert MARKER not in response.content.decode()
 
 
-@pytest.mark.parametrize("path", ["/static/no-existe.css", "/assets/falta.js", "/robots.txt"])
+@pytest.mark.parametrize("path", ["/static/no-existe.css", "/assets/falta.js", "/sitemap.xml"])
 def test_missing_files_are_404_not_the_index(web, path):
     response = web.get(path)
     assert response.status_code == 404
@@ -128,6 +128,53 @@ def test_real_build_has_no_source_maps(settings):
     for file in dist.rglob("*"):
         if file.suffix in {".js", ".css"}:
             assert "sourceMappingURL" not in file.read_text(encoding="utf-8")
+
+
+# Archivos que Vite copia de `frontend/public/` a la raíz del build (D47).
+ROOT_FILES = {
+    "/robots.txt": ("text/plain", b"User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\n"),
+    "/favicon.ico": ("image/", b"\x00\x00\x01\x00"),
+    "/favicon.svg": ("image/svg+xml", b"<svg xmlns='http://www.w3.org/2000/svg'/>"),
+    "/apple-touch-icon.png": ("image/png", b"\x89PNG\r\n\x1a\n"),
+}
+
+
+@pytest.fixture
+def web_with_root_files(dist):
+    for url, (_, content) in ROOT_FILES.items():
+        (dist / url.lstrip("/")).write_bytes(content)
+    return Client()
+
+
+@pytest.mark.parametrize("url", sorted(ROOT_FILES))
+def test_root_files_of_the_build_are_served_as_files_not_the_index(web_with_root_files, url):
+    # WhiteNoise los sirve desde la raíz del build antes de llegar al respaldo de la SPA.
+    content_type, content = ROOT_FILES[url]
+    response = web_with_root_files.get(url)
+    assert response.status_code == 200
+    assert response["Content-Type"].startswith(content_type)
+    body = b"".join(response.streaming_content) if response.streaming else response.content
+    assert body == content
+    assert MARKER.encode() not in body
+    # No llevan hash en el nombre: nunca se marcan como inmutables.
+    assert "immutable" not in response.get("Cache-Control", "")
+
+
+def test_robots_keeps_crawlers_out_of_admin_and_api(settings):
+    # Se prueba el archivo que se versiona, no un `dist/` de mentira.
+    robots = (settings.BASE_DIR.parent / "frontend" / "public" / "robots.txt").read_text(encoding="utf-8")
+    lines = robots.splitlines()
+    assert "User-agent: *" in lines
+    assert "Disallow: /admin/" in lines
+    assert "Disallow: /api/" in lines
+
+
+def test_real_build_ships_robots_and_the_favicons(settings):
+    dist = settings.FRONTEND_DIST
+    if not (dist / "index.html").is_file():
+        pytest.skip("No hay build en frontend/dist")
+    for url in ROOT_FILES:
+        assert (dist / url.lstrip("/")).is_file(), f"Falta {url} en el build"
 
 
 def test_without_a_build_the_site_routes_are_404(settings, tmp_path):

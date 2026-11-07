@@ -23,7 +23,14 @@ const catalogCards = [1, 2, 3, 4, 5, 6]
 /** Presentaciones de ejemplo para el carrito, con los textos del mockup (Carrito); la rebanada tiene tope. */
 const cartOfferings: { offering: CartOffering; price: string; stock?: number }[] = [
   {
-    offering: { offeringId: 101, name: 'Tres leches de durazno', presentation: 'whole', unitPrice: '350.00', slug: 'tres-leches-de-durazno' },
+    offering: {
+      offeringId: 101,
+      name: 'Tres leches de durazno',
+      presentation: 'whole',
+      unitPrice: '350.00',
+      slug: 'tres-leches-de-durazno',
+      fulfillment: 'order',
+    },
     price: '$350',
   },
   {
@@ -33,6 +40,7 @@ const cartOfferings: { offering: CartOffering; price: string; stock?: number }[]
       presentation: 'slice',
       unitPrice: '35.00',
       slug: 'tres-leches-de-cajeta',
+      fulfillment: 'showcase',
     },
     price: '$35',
     stock: 2,

@@ -13,6 +13,7 @@ const durazno = {
   presentation: 'whole',
   unitPrice: '350.00',
   slug: 'tres-leches-de-durazno',
+  fulfillment: 'order',
 }
 
 const cajeta = {
@@ -21,6 +22,7 @@ const cajeta = {
   presentation: 'slice',
   unitPrice: '35.00',
   slug: 'tres-leches-de-cajeta',
+  fulfillment: 'showcase',
 }
 
 const DURAZNO = 'Tres leches de durazno'
@@ -84,12 +86,13 @@ test.describe('cart model', () => {
   test('parseCart keeps the valid lines, trimmed, and drops anything malformed', async ({ page }) => {
     const result = await page.evaluate(
       async ({ url, item }) => {
-        const { parseCart } = await import(url)
+        const { parseCart, MAX_NAME_LENGTH } = await import(url)
         return {
           notObject: parseCart('texto'),
           nullValue: parseCart(null),
           noItems: parseCart({}),
           itemsNotArray: parseCart({ items: 'x' }),
+          tooLongName: parseCart({ items: [{ ...item, name: 'x'.repeat(MAX_NAME_LENGTH + 1) }] }),
           mixed: parseCart({
             items: [
               item,
@@ -102,13 +105,21 @@ test.describe('cart model', () => {
               { ...item, offeringId: 107, unitPrice: '-1.00' },
               { ...item, offeringId: 108, unitPrice: '123456789.00' },
               { ...item, offeringId: 109, name: '  ' },
-              { ...item, offeringId: 110, name: 'x'.repeat(81) },
+              { ...item, offeringId: 110, name: 'x'.repeat(95) },
               { ...item, offeringId: 111, slug: '../admin' },
               { ...item, offeringId: 112, presentation: 'Completo' },
               { ...item, offeringId: 113, kind: undefined },
               { ...item, offeringId: 114, kind: 'design' },
               { ...item, quantity: 4 },
               { ...item, offeringId: 115, name: `  ${item.name}  `, slug: ` ${item.slug} `, unitPrice: ' 350.00 ' },
+              // La misma presentación de la vitrina de hoy es otra línea.
+              { ...item, fulfillment: 'showcase', quantity: 1 },
+              { ...item, fulfillment: 'showcase', quantity: 5 },
+              // Sin `fulfillment` es una línea de antes de D47: se descarta.
+              { ...item, offeringId: 116, fulfillment: undefined },
+              // Un tipo con forma de código que esta versión no conoce es de una versión más nueva.
+              { ...item, offeringId: 117, fulfillment: 'mostrador' },
+              { ...item, offeringId: 118, fulfillment: 'Por encargo' },
               null,
               'línea',
             ],
@@ -117,15 +128,27 @@ test.describe('cart model', () => {
       },
       { url: CART_MODULE, item: { ...durazno, kind: 'offering', quantity: 2 } },
     )
-    expect(result.notObject).toEqual([])
-    expect(result.nullValue).toEqual([])
-    expect(result.noItems).toEqual([])
-    expect(result.itemsNotArray).toEqual([])
-    // Una línea repetida se descarta: la primera manda. Lo que se conserva va recortado.
-    expect(result.mixed).toEqual([
-      { ...durazno, kind: 'offering', quantity: 2 },
-      { ...durazno, offeringId: 115, kind: 'offering', quantity: 2 },
-    ])
+    const empty = { items: [], unknown: [] }
+    expect(result.notObject).toEqual(empty)
+    expect(result.nullValue).toEqual(empty)
+    expect(result.noItems).toEqual(empty)
+    expect(result.itemsNotArray).toEqual(empty)
+    expect(result.tooLongName).toEqual(empty)
+    // Una línea repetida (misma presentación y mismo tipo) se descarta: la primera manda. Lo que se conserva va
+    // recortado. Una clase de línea o un tipo desconocidos (`design`, `mostrador`) no son un dato dañado: los
+    // escribió una versión más nueva y se conservan tal cual. Un código que no tiene la forma de los de la API
+    // ('Completo', 'Por encargo') sí es un dato dañado.
+    expect(result.mixed).toEqual({
+      items: [
+        { ...durazno, kind: 'offering', quantity: 2 },
+        { ...durazno, offeringId: 115, kind: 'offering', quantity: 2 },
+        { ...durazno, fulfillment: 'showcase', kind: 'offering', quantity: 1 },
+      ],
+      unknown: [
+        { ...durazno, kind: 'design', offeringId: 114, quantity: 2 },
+        { ...durazno, offeringId: 117, fulfillment: 'mostrador', kind: 'offering', quantity: 2 },
+      ],
+    })
   })
 
   test(`parseCart reads at most 100 lines`, async ({ page }) => {
@@ -134,7 +157,7 @@ test.describe('cart model', () => {
         const { parseCart, MAX_LINES } = await import(url)
         const many = Array.from({ length: 150 }, (_, i) => ({ ...item, offeringId: i + 1 }))
         const junkFirst = [...Array.from({ length: 100 }, () => 'basura'), item]
-        return { max: MAX_LINES, many: parseCart({ items: many }).length, junkFirst: parseCart({ items: junkFirst }).length }
+        return { max: MAX_LINES, many: parseCart({ items: many }).items.length, junkFirst: parseCart({ items: junkFirst }).items.length }
       },
       { url: CART_MODULE, item: { ...durazno, kind: 'offering', quantity: 1 } },
     )
@@ -186,7 +209,9 @@ test.describe('cart model', () => {
           { ...offering, offeringId: 0 },
           { ...offering, unitPrice: 350 },
           { ...offering, slug: '../admin' },
-          { ...offering, name: 'x'.repeat(81) },
+          { ...offering, name: 'x'.repeat(95) },
+          { ...offering, fulfillment: undefined },
+          { ...offering, fulfillment: 'mostrador' },
         ]
         return invalid.map((candidate) => {
           try {
@@ -199,15 +224,13 @@ test.describe('cart model', () => {
       },
       { url: CART_MODULE, offering: durazno },
     )
-    expect(outcomes).toEqual(Array(6).fill('TypeError'))
+    expect(outcomes).toEqual(Array(8).fill('TypeError'))
   })
 
-  test('quantities outside 1 to 999, a bad maxQuantity or a 101st line are a RangeError', async ({ page }) => {
+  test('quantities outside 1 to 999 or a bad maxQuantity are a RangeError', async ({ page }) => {
     const outcomes = await page.evaluate(
       async ({ url, offering }) => {
         const { addItem } = await import(url)
-        const full = Array.from({ length: 100 }, (_, i) => ({ ...offering, offeringId: i + 1, kind: 'offering', quantity: 1 }))
-        const atCap = [{ ...offering, kind: 'offering', quantity: 999 }]
         const attempts: (() => unknown)[] = [
           () => addItem([], offering, 0),
           () => addItem([], offering, 1.5),
@@ -215,9 +238,7 @@ test.describe('cart model', () => {
           () => addItem([], offering, 1000),
           () => addItem([], offering, 1, -1),
           () => addItem([], offering, 1, 2.5),
-          () => addItem(atCap, offering, 1),
-          () => addItem(full, { ...offering, offeringId: 500 }, 1),
-          () => addItem(full, { ...offering, offeringId: 1 }, 1),
+          () => addItem([], offering, 1, undefined, -1),
         ]
         return attempts.map((attempt) => {
           try {
@@ -230,8 +251,96 @@ test.describe('cart model', () => {
       },
       { url: CART_MODULE, offering: durazno },
     )
-    // La última suma a una línea que ya existe: el tope de líneas no aplica.
-    expect(outcomes).toEqual([...Array(8).fill('RangeError'), 'aceptado'])
+    expect(outcomes).toEqual(Array(7).fill('RangeError'))
+  })
+
+  test('at the technical caps addItem adds nothing and says limit, without throwing', async ({ page }) => {
+    const result = await page.evaluate(
+      async ({ url, offering }) => {
+        const { addItem } = await import(url)
+        const full = Array.from({ length: 100 }, (_, i) => ({ ...offering, offeringId: i + 1, kind: 'offering', quantity: 1 }))
+        const atCap = [{ ...offering, kind: 'offering', quantity: 999 }]
+        const nearCap = [{ ...offering, kind: 'offering', quantity: 998 }]
+        const pieces = addItem(atCap, offering, 1)
+        const over = addItem(nearCap, offering, 2)
+        const lines = addItem(full, { ...offering, offeringId: 500 }, 1)
+        const reserved = addItem(full.slice(0, 98), { ...offering, offeringId: 500 }, 1, undefined, 2)
+        return {
+          pieces: { added: pieces.added, quantity: pieces.quantity, limit: pieces.limit, same: pieces.items === atCap },
+          over: { added: over.added, quantity: over.quantity, limit: over.limit, same: over.items === nearCap },
+          lines: { added: lines.added, quantity: lines.quantity, limit: lines.limit, same: lines.items === full },
+          reserved: { added: reserved.added, limit: reserved.limit },
+          existingLine: addItem(full, { ...offering, offeringId: 1 }, 1).quantity,
+          lastLine: addItem(full.slice(0, 97), { ...offering, offeringId: 500 }, 1, undefined, 2).added,
+          normal: 'limit' in addItem([], offering, 1),
+        }
+      },
+      { url: CART_MODULE, offering: durazno },
+    )
+    expect(result.pieces).toEqual({ added: 0, quantity: 999, limit: true, same: true })
+    expect(result.over).toEqual({ added: 0, quantity: 998, limit: true, same: true })
+    expect(result.lines).toEqual({ added: 0, quantity: 0, limit: true, same: true })
+    // Las líneas que esta versión no entiende cuentan para el tope de 100.
+    expect(result.reserved).toEqual({ added: 0, limit: true })
+    // Sumar a una línea que ya existe no abre otra: el tope de líneas no aplica.
+    expect(result.existingLine).toBe(2)
+    expect(result.lastLine).toBe(1)
+    expect(result.normal).toBe(false)
+  })
+
+  test('the offering name leaves room for the longest presentation prefix', async ({ page }) => {
+    const result = await page.evaluate(
+      async ({ url, offering }) => {
+        const { addItem, MAX_NAME_LENGTH } = await import(url)
+        const name = `Individual de ${'x'.repeat(80)}`
+        return { max: MAX_NAME_LENGTH, added: addItem([], { ...offering, name }, 1).items[0].name.length }
+      },
+      { url: CART_MODULE, offering: durazno },
+    )
+    expect(result).toEqual({ max: 94, added: 94 })
+  })
+
+  test('writeCart writes the lines it does not understand back, after its own and within 100 lines', async ({ page }) => {
+    const result = await page.evaluate(
+      async ({ url, key, offering }) => {
+        const { writeCart } = await import(url)
+        const line = { ...offering, kind: 'offering', quantity: 1 }
+        const design = { kind: 'design', id: 'abc', quantity: 1 }
+        writeCart([line], [design])
+        const both = JSON.parse(localStorage.getItem(key) ?? 'null')
+        const many = Array.from({ length: 99 }, (_, i) => ({ ...line, offeringId: i + 1 }))
+        writeCart(many, [design, { ...design, id: 'def' }])
+        const capped = JSON.parse(localStorage.getItem(key) ?? 'null').items
+        return { both, cappedLength: capped.length, cappedLast: capped[99] }
+      },
+      { url: CART_MODULE, key: KEY, offering: durazno },
+    )
+    expect(result.both).toEqual({ items: [{ ...durazno, kind: 'offering', quantity: 1 }, { kind: 'design', id: 'abc', quantity: 1 }] })
+    expect(result.cappedLength).toBe(100)
+    expect(result.cappedLast).toEqual({ kind: 'design', id: 'abc', quantity: 1 })
+  })
+
+  test('the same presentation by order and from the vitrina of today are two lines, each with its own cap', async ({ page }) => {
+    const result = await page.evaluate(
+      async ({ url, offering }) => {
+        const { addItem, removeItem, lineQuantity } = await import(url)
+        const showcase = { ...offering, fulfillment: 'showcase' }
+        const ordered = addItem([], offering, 3).items
+        const both = addItem(ordered, showcase, 5, 2)
+        const again = addItem(both.items, showcase, 1, 2)
+        const onlyOrder = removeItem(both.items, { offeringId: offering.offeringId, fulfillment: 'showcase' })
+        return {
+          lines: both.items.map((i: { fulfillment: string; quantity: number }) => `${i.fulfillment}:${i.quantity}`),
+          added: both.added,
+          again: again.added,
+          orderQuantity: lineQuantity(both.items, { offeringId: offering.offeringId, fulfillment: 'order' }),
+          afterRemove: onlyOrder.map((i: { fulfillment: string }) => i.fulfillment),
+        }
+      },
+      { url: CART_MODULE, offering: durazno },
+    )
+    // El encargo no tiene tope; la línea de la vitrina no pasa de lo que queda hoy.
+    expect(result).toEqual({ lines: ['order:3', 'showcase:2'], added: 2, again: 0, orderQuantity: 3, afterRemove: ['order'] })
   })
 
   test('removeItem drops the line and cartCount sums quantities', async ({ page }) => {
@@ -241,7 +350,7 @@ test.describe('cart model', () => {
         const items = addItem(addItem([], offering, 2).items, { ...offering, offeringId: 102 }, 3).items
         return {
           count: cartCount(items),
-          removed: removeItem(items, 101).map((i: { offeringId: number }) => i.offeringId),
+          removed: removeItem(items, { offeringId: 101, fulfillment: 'order' }).map((i: { offeringId: number }) => i.offeringId),
           empty: cartCount([]),
         }
       },
@@ -263,6 +372,8 @@ test.describe('cart model', () => {
           stale: describeAdd(offering, { added: 0, quantity: 3 }, 1, 2),
           staleLastOne: describeAdd(offering, { added: 0, quantity: 3 }, 1, 1),
           staleSoldOut: describeAdd(offering, { added: 0, quantity: 3 }, 1, 0),
+          limit: describeAdd(offering, { added: 0, quantity: 999, limit: true }, 1),
+          limitWithStock: describeAdd(offering, { added: 0, quantity: 0, limit: true }, 1, 5),
         }
       },
       { url: ADD_MODULE, offering: durazno },
@@ -280,6 +391,14 @@ test.describe('cart model', () => {
     expect(notices.stale).toEqual({ tone: 'attention', title: 'Solo quedan 2', detail: staleDetail })
     expect(notices.staleLastOne).toEqual({ tone: 'attention', title: 'Solo queda 1', detail: staleDetail })
     expect(notices.staleSoldOut).toEqual({ tone: 'attention', title: 'Ya no quedan', detail: staleDetail })
+    // Texto aprobado por el equipo, literal.
+    const limit = {
+      tone: 'attention',
+      title: 'No se pudo agregar',
+      detail: 'Tu pedido ya tiene el máximo de piezas que se pueden pedir en línea. Para más, escríbenos por WhatsApp.',
+    }
+    expect(notices.limit).toEqual(limit)
+    expect(notices.limitWithStock).toEqual(limit)
   })
 })
 
@@ -528,6 +647,60 @@ test.describe('cart in the site', () => {
     await addButton(other, CAJETA).click()
     await expect(cartLink(other)).toHaveAccessibleName('Carrito, 2 productos')
     await expect(notice(other)).toContainText('Ya tienes los 2 que quedan')
+  })
+
+  test('lines written by a newer version survive an add and an empty from this one', async ({ page }) => {
+    const design = { kind: 'design', id: 'diseno-1', quantity: 1, summary: { kg: 4 } }
+    const newPresentation = { ...cajeta, offeringId: 300, kind: 'offering', presentation: 'familiar', quantity: 1 }
+    await seedCart(page, { items: [design, { ...durazno, kind: 'offering', quantity: 1 }, newPresentation] })
+    await openSample(page)
+    // El contador solo suma lo que esta versión sabe mostrar.
+    await expect(cartLink(page)).toHaveAccessibleName('Carrito, 1 producto')
+    await addButton(page, DURAZNO).click()
+    await expect(cartLink(page)).toHaveAccessibleName('Carrito, 2 productos')
+    expect(await stored(page)).toEqual({ items: [{ ...durazno, kind: 'offering', quantity: 2 }, design, newPresentation] })
+    await page.getByRole('button', { name: 'Vaciar el carrito' }).click()
+    await expect(cartLink(page)).toHaveAccessibleName('Carrito, vacío')
+    expect(await stored(page)).toEqual({ items: [design, newPresentation] })
+  })
+
+  test('with storage full, a change from another tab does not wipe the cart kept in memory', async ({ page, context }) => {
+    // Esta pestaña no puede escribir: su carrito vive en memoria.
+    await page.addInitScript(() => {
+      Storage.prototype.setItem = () => {
+        throw new DOMException('Sin espacio.', 'QuotaExceededError')
+      }
+    })
+    await openSample(page)
+    await addButton(page, DURAZNO).click()
+    await addButton(page, DURAZNO).click()
+    await expect(cartLink(page)).toHaveAccessibleName('Carrito, 2 productos')
+    // Queda escuchando el evento `storage` que la otra pestaña dispara en esta.
+    const html = page.locator('html')
+    await html.evaluate((el) => {
+      const w = el.ownerDocument.defaultView!
+      const arrived = new Promise<void>((resolve) => w.addEventListener('storage', () => setTimeout(resolve, 50), { once: true }))
+      Reflect.set(w, '__storageEvent', arrived)
+    })
+    const other = await context.newPage()
+    await openSample(other)
+    await addButton(other, CAJETA).click()
+    await expect(cartLink(other)).toHaveAccessibleName('Carrito, 1 producto')
+    await html.evaluate((el) => Reflect.get(el.ownerDocument.defaultView!, '__storageEvent'))
+    await expect(cartLink(page)).toHaveAccessibleName('Carrito, 2 productos')
+    await expect(page.getByRole('button', { name: `Quitar: ${DURAZNO}` })).toBeVisible()
+  })
+
+  test('at 999 pieces another add explains the online limit and changes nothing', async ({ page }) => {
+    await seedCart(page, { items: [{ ...durazno, kind: 'offering', quantity: 999 }] })
+    await openSample(page)
+    await addButton(page, DURAZNO).click()
+    await expect(notice(page)).toContainText('No se pudo agregar')
+    await expect(notice(page)).toContainText(
+      'Tu pedido ya tiene el máximo de piezas que se pueden pedir en línea. Para más, escríbenos por WhatsApp.',
+    )
+    await expect(cartLink(page)).toHaveAccessibleName('Carrito, 999 productos')
+    expect(await stored(page)).toEqual({ items: [{ ...durazno, kind: 'offering', quantity: 999 }] })
   })
 
   test('remove takes one line out of the cart', async ({ page }) => {
