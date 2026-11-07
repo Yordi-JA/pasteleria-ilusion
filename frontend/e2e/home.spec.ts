@@ -71,11 +71,10 @@ test.describe('portada with data', () => {
     )
     await expect(hero(page).getByRole('link', { name: 'Realizar pedido' })).toHaveAttribute('href', '/pedido')
     await expect(hero(page).getByRole('link', { name: 'Ver la vitrina' })).toHaveAttribute('href', '/vitrina')
-    // El lugar del pastel ya ocupa su tamaño; el pastel 3D llega en otro PR y hasta entonces no se pide arrastrarlo.
+    // El lugar del pastel conserva su tamaño; el pastel 3D, su pista y su respaldo se prueban en `hero-cake.spec.ts`.
     const cake = page.getByTestId('pastel-portada')
-    await expect(cake).toHaveAttribute('aria-hidden', 'true')
     expect((await cake.boundingBox())!.height).toBeCloseTo(600, 0)
-    await expect(page.locator('main')).not.toContainText(/Arrastra|3D|proyecto|escolar|escuela/i)
+    await expect(page.locator('main')).not.toContainText(/3D|proyecto|escolar|escuela/i)
   })
 
   test('the three data sections follow the mockup order with their copy', async ({ page }) => {

@@ -14,6 +14,8 @@ module.exports = {
         esqueleto: { from: { transform: 'translateX(-100%)' }, to: { transform: 'translateX(100%)' } },
       },
       animation: { esqueleto: 'esqueleto 1.4s ease-in-out infinite' },
+      // Curva de entrada fuerte (ease-out) para lo que aparece, como la escena 3D de la portada (D48).
+      transitionTimingFunction: { entrada: 'cubic-bezier(0.23, 1, 0.32, 1)' },
     },
   },
 };

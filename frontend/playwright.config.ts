@@ -10,7 +10,17 @@ export default defineConfig({
   use: {
     baseURL: origin,
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        // WebGL por software (SwiftShader) en todas las máquinas, para que la escena 3D (D48) se dibuje igual en
+        // cualquier equipo o CI, tenga o no GPU. Chromium ya no lo activa solo: pide `--enable-unsafe-swiftshader`.
+        launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
+      },
+    },
+  ],
   // La suite corre contra el servidor de desarrollo de Vite, no contra `vite preview`: `api-client.spec.ts`
   // importa módulos de `/src` en el navegador y `storeInfo.ts` solo acepta el corte de tiempo de las pruebas en DEV.
   webServer: {
