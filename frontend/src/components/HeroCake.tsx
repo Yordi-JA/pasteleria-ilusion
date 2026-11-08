@@ -1,25 +1,11 @@
-import { Component, lazy, Suspense } from 'react'
-import type { ReactNode } from 'react'
+import { lazy, Suspense } from 'react'
 import type { HeroCakeView } from '../viewmodels/useHeroCake.ts'
+import SceneBoundary from './SceneBoundary.tsx'
 
 // La escena 3D va en su propio chunk: three y react-three-fiber no frenan el primer render de la portada.
 const CakeScene = lazy(() => import('../three/CakeScene.tsx'))
 
 const SCENE_LABEL = 'Pastel de tres pisos'
-
-/** Si el chunk no llega o la escena falla al montar, queda el pastel fijo; la portada sigue igual. */
-class SceneBoundary extends Component<{ onError: () => void; children: ReactNode }, { failed: boolean }> {
-  state = { failed: false }
-  static getDerivedStateFromError() {
-    return { failed: true }
-  }
-  componentDidCatch() {
-    this.props.onError()
-  }
-  render() {
-    return this.state.failed ? null : this.props.children
-  }
-}
 
 /**
  * El pastel fijo: el dibujo de pisos de la marca (`assets/motivos/dibujo-pisos.svg`) con los colores del pastel 3D

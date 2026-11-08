@@ -1,5 +1,8 @@
 """Capa de controladores: recibe HTTP, llama a servicios y responde."""
+from dataclasses import fields
+
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
+from rest_framework import status
 from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -19,6 +22,7 @@ from .serializers import (
     CakeDesignPriceRequestSerializer,
     CakeDesignPriceSerializer,
     CatalogQuerySerializer,
+    PeopleSizeSerializer,
     ProductCardSerializer,
     ProductDetailSerializer,
     ShowcaseQuerySerializer,
@@ -50,14 +54,18 @@ class CakeDesignOptionsView(PublicReadOnlyView):
             "decoraciones, límites y pisos recomendados, con los precios por kilo vigentes. "
             "Las opciones que no se pueden elegir no desaparecen. Panes, bases y sabores traen "
             "`allowed_cake_types` y `unavailable_reasons` (motivo por tipo de pastel); las "
-            "decoraciones, `available` y `unavailable_reason`."
+            "decoraciones, `available` y `unavailable_reason`. `smaller_alternatives` trae el peso y "
+            "las personas del pastel de vitrina y del mini, para quien pide menos del mínimo."
         ),
         responses=CakeDesignOptionsSerializer,
         tags=["Diseña tu pastel"],
     )
     def get(self, request):
         options = cake_options_service.get_cake_design_options()
-        return Response(CakeDesignOptionsSerializer(options).data)
+        # Las alternativas más chicas salen del catálogo, no de las opciones: se juntan aquí.
+        payload = {field.name: getattr(options, field.name) for field in fields(options)}
+        payload["smaller_alternatives"] = catalog_service.get_smaller_alternatives()
+        return Response(CakeDesignOptionsSerializer(payload).data)
 
 
 class CakeDesignPriceView(PublicReadOnlyView):
@@ -67,7 +75,13 @@ class CakeDesignPriceView(PublicReadOnlyView):
         description=(
             "Calcula el desglose con las cifras vigentes y el depósito de la base, que va aparte "
             "del total. No guarda nada. Ignora cualquier monto que mande el cliente; forma y "
-            "pisos no cambian el precio."
+            "pisos no cambian el precio. El tamaño va como `people` (el servidor calcula los "
+            "kilos y los devuelve en `size`, con el mínimo y el máximo en línea) o como `kg`. "
+            "Con más personas de las que se piden en línea responde 200 con los montos en `null` "
+            "y `size.above_maximum`; en ese caso solo se valida el formato de la petición, no el resto "
+            "de la elección. Con `people`, un 400 por la elección trae también `size`, para que la "
+            "interfaz muestre los kilos. Con `estimate`, la base del relleno puede ir sin sabores y "
+            "`is_estimate` sale en `true`: ningún pedido acepta ese desglose."
         ),
         request=CakeDesignPriceRequestSerializer,
         responses={
@@ -78,6 +92,16 @@ class CakeDesignPriceView(PublicReadOnlyView):
                     OpenApiExample(
                         "Decoración sin precio",
                         value={"decoration": ["Precio por confirmar"]},
+                    ),
+                    OpenApiExample(
+                        "Pan que ya no se ofrece, con los kilos por personas",
+                        value={
+                            "bread": ["Ese pan no existe o no está disponible."],
+                            "size": {
+                                "people": 40, "rounded_kg": 6, "kg": 6, "below_minimum": False,
+                                "above_maximum": False, "minimum_people": 28, "max_online_people": 350,
+                            },
+                        },
                     ),
                 ],
             ),
@@ -100,18 +124,31 @@ class CakeDesignPriceView(PublicReadOnlyView):
     def post(self, request):
         serializer = CakeDesignPriceRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        choice = serializer.to_choice()
+        data = serializer.validated_data
+        size = None
+        if data.get("people") is not None:
+            # Los kilos por personas los calcula el servidor (regla 3.1) antes que el precio, así llegan también
+            # cuando el resto de la elección no vale.
+            size = pricing_service.size_for_people(data["people"])
+            if size.above_maximum:
+                # Solo se validó el formato: con más personas de las que se piden en línea no hay precio que revisar.
+                return Response(CakeDesignPriceSerializer({"breakdown": None, "stand_deposit": None, "size": size}).data)
+        choice = serializer.to_choice(size.kg if size else data["kg"])
+        price = pricing_service.estimate_price if data["estimate"] else pricing_service.calculate_price
         # El precio y la base se revisan los dos, para devolver todos los
         # errores en una sola respuesta.
         failures: list[DomainValidationError] = []
-        breakdown = attempt(failures, pricing_service.calculate_price, choice)
+        breakdown = attempt(failures, price, choice)
         stand_deposit = attempt(failures, warranty_service.get_stand_deposit, choice.kg)
         try:
             raise_all(failures)
         except DomainValidationError as error:
-            raise ValidationError(error.errors) from error
+            if size is None:
+                raise ValidationError(error.errors) from error
+            # Los errores por campo y, aparte, los kilos ya calculados (no son un error: van tal cual).
+            return Response({**error.errors, "size": PeopleSizeSerializer(size).data}, status=status.HTTP_400_BAD_REQUEST)
         return Response(
-            CakeDesignPriceSerializer({"breakdown": breakdown, "stand_deposit": stand_deposit}).data
+            CakeDesignPriceSerializer({"breakdown": breakdown, "stand_deposit": stand_deposit, "size": size}).data
         )
 
 

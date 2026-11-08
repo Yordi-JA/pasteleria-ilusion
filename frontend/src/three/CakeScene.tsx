@@ -38,6 +38,14 @@ const OVERFLOW_TOP = 72
  */
 const FRAME = { plate: 0.7, width: 560, height: 600, scale: 0.88 }
 
+/**
+ * Encuadre de la escena: dónde queda el plato (fracción del alto de la caja), qué caja en px del mockup debe caber, a
+ * qué escala y cuántos px sube el lienzo sobre la caja. Sin él, el de la portada.
+ */
+export type SceneFraming = typeof FRAME & { overflowTop: number }
+
+const HERO_FRAMING: SceneFraming = { ...FRAME, overflowTop: OVERFLOW_TOP }
+
 export type CakeSceneProps = {
   shape: CakeShape
   /** Nombre accesible de la escena. */
@@ -55,6 +63,8 @@ export type CakeSceneProps = {
   onKeyboardFocusChange?: (keyboard: boolean) => void
   /** Si la escena tiene el foco cuando se pierde el contexto, lo pasa a otro control antes de desaparecer. */
   onFocusEscape?: () => void
+  /** Encuadre propio ("Diseña tu pastel"); sin él, el de la portada. */
+  framing?: SceneFraming
 }
 
 /** Lo que leen las pruebas en desarrollo, sin acoplarlas a three: cuadros dibujados, ángulo y separación. */
@@ -72,11 +82,11 @@ function writeProbe(el: HTMLElement, probe: Probe, angle: number, separation: nu
 }
 
 /** Coloca la cámara: la escala del mockup (100 px por unidad a 600 px de alto) y el plato al 70% de la caja. */
-function frameCamera(camera: PerspectiveCamera, width: number, height: number) {
-  const box = Math.max(1, height - OVERFLOW_TOP)
-  const pxPerUnit = Math.max(1, FRAME.scale * Math.min((100 * box) / FRAME.height, (100 * width) / FRAME.width))
+function frameCamera(camera: PerspectiveCamera, width: number, height: number, framing: SceneFraming) {
+  const box = Math.max(1, height - framing.overflowTop)
+  const pxPerUnit = Math.max(1, framing.scale * Math.min((100 * box) / framing.height, (100 * width) / framing.width))
   const visibleHeight = height / pxPerUnit
-  const plateFromCenter = (OVERFLOW_TOP + FRAME.plate * box - height / 2) / pxPerUnit
+  const plateFromCenter = (framing.overflowTop + framing.plate * box - height / 2) / pxPerUnit
   const elevation = (CAMERA_ELEVATION * Math.PI) / 180
   const target = new Vector3(0, plateFromCenter, 0)
   camera.fov = (2 * Math.atan(visibleHeight / 2 / CAMERA_DISTANCE) * 180) / Math.PI
@@ -118,12 +128,14 @@ function ContactShadow() {
 }
 
 /** Vuelve a encuadrar cada vez que cambia el tamaño del lienzo. */
-function useFraming() {
+function useFraming(framing: SceneFraming) {
   const get = useThree((state) => state.get)
   const size = useThree((state) => state.size)
+  const invalidate = useThree((state) => state.invalidate)
   useLayoutEffect(() => {
-    frameCamera(get().camera as PerspectiveCamera, size.width, size.height)
-  }, [get, size.height, size.width])
+    frameCamera(get().camera as PerspectiveCamera, size.width, size.height, framing)
+    invalidate()
+  }, [framing, get, invalidate, size.height, size.width])
 }
 
 type RigProps = {
@@ -135,9 +147,10 @@ type RigProps = {
   reducedMotion: boolean
   separateOnScroll: boolean
   onReady: () => void
+  framing: SceneFraming
 }
 
-function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnScroll, onReady }: RigProps) {
+function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnScroll, onReady, framing }: RigProps) {
   const cake = useRef<Group>(null)
   const motion = useRef<CakeMotion>({ separation: 0, yaw: 0 })
   const probe = useRef<Probe>({ frames: 0, angle: NaN, separation: NaN })
@@ -160,7 +173,7 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnS
       idleTimer.current = null
     }
   }, [running, reducedMotion, invalidate])
-  useFraming()
+  useFraming(framing)
 
   useFrame((_, delta) => {
     lastFrameAt.current = performance.now()
@@ -214,7 +227,7 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnS
       <hemisphereLight args={[brandColor('betun'), brandColor('nata'), 2.6]} />
       <directionalLight color={brandColor('betun')} intensity={1.1} position={[-3, 5, 4]} />
       <group ref={cake}>
-        <CakeModel shape={shape} motion={motion} flicker={!reducedMotion} />
+        <CakeModel shape={shape} motion={motion} flicker={!reducedMotion} animateColors={!reducedMotion} />
       </group>
       <ContactShadow />
     </>
@@ -236,6 +249,7 @@ export default function CakeScene({
   onContextLost,
   onKeyboardFocusChange,
   onFocusEscape,
+  framing = HERO_FRAMING,
 }: CakeSceneProps) {
   const container = useRef<HTMLDivElement>(null)
   const spin = useRef(createSpin(INITIAL_ANGLE))
@@ -318,7 +332,7 @@ export default function CakeScene({
         flat
         gl={{ antialias: true, alpha: true, powerPreference: 'low-power' }}
         camera={{ near: 1, far: 30 }}
-        style={{ position: 'absolute', top: -OVERFLOW_TOP, right: 0, bottom: 0, left: 0, width: 'auto', height: 'auto', pointerEvents: 'none' }}
+        style={{ position: 'absolute', top: -framing.overflowTop, right: 0, bottom: 0, left: 0, width: 'auto', height: 'auto', pointerEvents: 'none' }}
         onCreated={({ gl, invalidate }) => {
           invalidateRef.current = invalidate
           gl.domElement.addEventListener(
@@ -343,6 +357,7 @@ export default function CakeScene({
           reducedMotion={reducedMotion}
           separateOnScroll={separateOnScroll}
           onReady={onReady}
+          framing={framing}
         />
       </Canvas>
     </div>

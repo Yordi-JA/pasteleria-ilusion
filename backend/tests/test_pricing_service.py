@@ -144,7 +144,11 @@ def test_kilos_must_be_whole_numbers(kg):
 
 
 def test_kilo_limits_come_from_the_settings():
-    settings = data.settings_repo(cake_design=dataclasses.replace(data.CAKE_DESIGN_SETTINGS, max_online_kg=60))
+    # Subir el máximo pide también una base activa que cubra esos kilos: el máximo es el efectivo.
+    settings = data.settings_repo(
+        cake_design=dataclasses.replace(data.CAKE_DESIGN_SETTINGS, max_online_kg=60),
+        stands=[*data.STANDS, data.stand(51, 60, "600", "approved")],
+    )
     assert price(settings=settings, kg=60).kg == 60
 
 
@@ -338,3 +342,97 @@ def test_an_extra_bread_in_a_type_without_any_filling_price_is_rejected():
     with pytest.raises(CakeDesignError) as raised:
         price(cake_options=data.cake_option_repo(filling_prices=prices), cake_type="envinado")
     assert raised.value.errors == {"bread": ["Vainilla: no disponible en pastel envinado."]}
+
+
+# --- Total estimado mientras se arma el pastel ---
+
+
+def estimate(**choice):
+    values = {"kg": 10, "cake_type": "tres_leches", "bread": "vainilla", "filling_base": "normal", "filling_flavors": ()}
+    values.update(choice)
+    return pricing_service.estimate_price(
+        CakeDesignChoice(**values), cake_options=data.cake_option_repo(), settings=data.settings_repo()
+    )
+
+
+def estimate_errors(**choice):
+    with pytest.raises(CakeDesignError) as raised:
+        estimate(**choice)
+    return raised.value.errors
+
+
+def test_an_estimate_without_flavors_takes_the_general_price_of_the_base():
+    assert estimate(kg=6).total == Decimal("1080.00")
+    assert estimate(kg=6, cake_type="envinado").price_per_kg == Decimal("200.00")
+    assert estimate(kg=6, bread="chocolate", filling_base="queso").total == Decimal("1530.00")
+
+
+def test_an_estimate_with_flavors_prices_them_as_usual():
+    estimated = estimate(filling_flavors=("nuez", "fresa"))
+    assert dataclasses.replace(estimated, is_estimate=False) == price(filling_flavors=("nuez", "fresa"))
+    assert estimated.is_estimate is True
+
+
+def test_an_estimate_still_needs_the_base_and_follows_the_rules():
+    assert estimate_errors(filling_base=None) == {"filling_base": ["Elige la base del relleno."]}
+    assert estimate_errors(kg=3) == {"kg": ["El pedido es de mínimo 4 kg."]}
+    assert estimate_errors(cake_type="envinado", bread="choco_pinguino", filling_base=None) == {
+        "bread": ["Choco-pingüino: no se combina con pastel envinado."]
+    }
+
+
+def test_a_regular_choice_without_flavors_is_invalid():
+    """Lo que un pedido lleva (`CakeDesignChoice` con `calculate_price`) siempre pide el sabor."""
+    assert errors_of(filling_flavors=()) == {"filling_flavors": ["Elige el sabor del relleno."]}
+    assert "estimate" not in {field.name for field in dataclasses.fields(CakeDesignChoice)}
+
+
+# --- Kilos por personas (regla 3.1) ---
+
+
+@pytest.mark.parametrize(
+    ("people", "kg"),
+    [(40, 6), (47, 7), (35, 5), (70, 10), (105, 15), (130, 19), (3, 4), (28, 4), (1, 4), (31, 4), (32, 5)],
+)
+def test_kg_for_people_rounds_half_up_and_never_goes_below_the_minimum(people, kg):
+    # 47 / 7 = 6.71 sube; 31 / 7 = 4.43 baja; 32 / 7 = 4.57 sube; 3 personas dan el mínimo.
+    assert pricing_service.kg_for_people(people, settings=data.settings_repo()) == kg
+
+
+def test_half_exactly_rounds_up():
+    settings = data.settings_repo(cake_design=dataclasses.replace(data.CAKE_DESIGN_SETTINGS, people_per_kg=2))
+    assert pricing_service.kg_for_people(9, settings=settings) == 5  # 4.5 kg sube a 5
+    assert pricing_service.size_for_people(9, settings=settings).rounded_kg == 5
+
+
+def test_size_for_people_says_where_it_stands_against_the_limits():
+    settings = data.settings_repo()
+    assert pricing_service.size_for_people(15, settings=settings) == pricing_service.PeopleSize(
+        people=15, rounded_kg=2, kg=4, below_minimum=True, above_maximum=False, minimum_people=28, max_online_people=350
+    )
+    assert pricing_service.size_for_people(400, settings=settings).above_maximum is True
+    assert pricing_service.size_for_people(350, settings=settings).above_maximum is False
+
+
+def capped_at_25_kg():
+    """La configuración permite 50 kg, pero la base activa más grande cubre 25."""
+    return data.settings_repo(stands=[stand for stand in data.STANDS if stand.max_kg <= 25])
+
+
+def test_the_effective_maximum_is_the_default_for_people_and_for_kilos():
+    settings = capped_at_25_kg()
+    capped = pricing_service.size_for_people(200, settings=settings)
+    assert (capped.kg, capped.above_maximum, capped.max_online_people) == (29, True, 175)
+    assert pricing_service.size_for_people(175, settings=settings).above_maximum is False
+    assert errors_of(kg=30, settings=settings)["kg"] == ["En línea el máximo es 25 kg. Para más, escríbenos por WhatsApp."]
+
+
+def test_estimates_are_marked_and_regular_prices_are_not():
+    assert estimate(kg=6).is_estimate is True
+    assert price(kg=6).is_estimate is False
+
+
+def test_size_for_people_rejects_non_positive_counts():
+    with pytest.raises(CakeDesignError) as raised:
+        pricing_service.size_for_people(0, settings=data.settings_repo())
+    assert raised.value.errors == {"people": ["Indica al menos una persona."]}

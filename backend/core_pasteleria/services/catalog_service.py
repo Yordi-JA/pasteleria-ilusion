@@ -17,7 +17,7 @@ from decimal import Decimal
 
 from django.utils import timezone
 
-from ..models import Presentation, ProductCategory
+from ..models import Presentation, ProductCategory, SalesChannel
 from ..repositories import product_repo
 from ..repositories.records import OfferingRecord, ProductRecord
 
@@ -198,6 +198,54 @@ def get_showcase(
     on_date = today or bakery_today()
     items = products.list_showcase(on_date, category=category)
     return TodayStock(date=on_date, items=tuple(_stock_item(item) for item in items))
+
+
+@dataclass(frozen=True)
+class CakeSize:
+    """Peso y personas de una presentación; `None` es un dato que la pastelería aún no define."""
+
+    approx_weight_kg: Decimal | None
+    servings: int | None
+
+
+@dataclass(frozen=True)
+class SmallerAlternatives:
+    """Lo que "Diseña tu pastel" ofrece a quien pide menos del mínimo (regla 3.1).
+
+    `showcase_cake` es el pastel completo más ligero que se vende en vitrina y
+    `mini_cake`, el mini que rinde menos; `None` si no hay ninguno con el dato.
+    """
+
+    showcase_cake: CakeSize | None
+    mini_cake: CakeSize | None
+
+
+def _smallest(offerings: list[OfferingRecord], key) -> CakeSize | None:
+    offering = min(offerings, key=key, default=None)
+    return None if offering is None else CakeSize(offering.approx_weight_kg, offering.servings)
+
+
+def get_smaller_alternatives(*, products=product_repo, today: date | None = None) -> SmallerAlternatives:
+    """Pastel de vitrina y pastel mini con su peso y sus personas, leídos del catálogo activo."""
+    on_date = today or bakery_today()
+    cakes = products.list_catalog(on_date=on_date, category=ProductCategory.CAKE)
+    whole = [
+        offering
+        for cake in cakes
+        if cake.sales_channel != SalesChannel.ORDER_ONLY
+        for offering in cake.offerings
+        if offering.presentation == Presentation.WHOLE and offering.approx_weight_kg is not None
+    ]
+    minis = [
+        offering
+        for cake in cakes
+        for offering in cake.offerings
+        if offering.presentation == Presentation.MINI and offering.servings is not None
+    ]
+    return SmallerAlternatives(
+        showcase_cake=_smallest(whole, lambda offering: offering.approx_weight_kg),
+        mini_cake=_smallest(minis, lambda offering: offering.servings),
+    )
 
 
 def get_slices(*, products=product_repo, today: date | None = None) -> TodayStock:

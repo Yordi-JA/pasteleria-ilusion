@@ -4,11 +4,14 @@ const API_BASE = '/api/v1/'
 /** Respuesta de la API con un código fuera de 2xx. */
 export class ApiError extends Error {
   readonly status: number
+  /** El cuerpo JSON de la respuesta de error, si lo había; sin validar. */
+  readonly body: unknown
 
-  constructor(status: number, path: string) {
-    super(`GET ${API_BASE}${path} respondió ${status}`)
+  constructor(status: number, path: string, method = 'GET', body: unknown = undefined) {
+    super(`${method} ${API_BASE}${path} respondió ${status}`)
     this.name = 'ApiError'
     this.status = status
+    this.body = body
   }
 }
 
@@ -49,5 +52,25 @@ export async function getJson(segments: string[], init: { signal?: AbortSignal }
     signal: init.signal,
   })
   if (!response.ok) throw new ApiError(response.status, path)
+  return (await response.json()) as unknown
+}
+
+/**
+ * Envía JSON a la API y devuelve la respuesta sin validar. Solo para los endpoints públicos sin efectos (por ejemplo,
+ * el precio de "Diseña tu pastel"), que no leen la sesión ni piden CSRF (`PublicReadOnlyView`).
+ */
+export async function postJson(segments: string[], body: unknown, init: { signal?: AbortSignal } = {}): Promise<unknown> {
+  const path = apiPath(...segments)
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: init.signal,
+  })
+  if (!response.ok) {
+    // El cuerpo de un error puede traer datos útiles (por ejemplo, los kilos de un precio rechazado); si no es JSON, nada.
+    const body: unknown = await response.json().catch(() => undefined)
+    throw new ApiError(response.status, path, 'POST', body)
+  }
   return (await response.json()) as unknown
 }

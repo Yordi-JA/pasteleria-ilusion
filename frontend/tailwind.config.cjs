@@ -12,8 +12,15 @@ module.exports = {
       }),
       keyframes: {
         esqueleto: { from: { transform: 'translateX(-100%)' }, to: { transform: 'translateX(100%)' } },
+        // La tarjeta de "Diseña tu pastel" entra desde la derecha al avanzar y desde la izquierda al regresar.
+        'paso-derecha': { from: { opacity: '0', transform: 'translateX(24px)' }, to: { opacity: '1', transform: 'none' } },
+        'paso-izquierda': { from: { opacity: '0', transform: 'translateX(-24px)' }, to: { opacity: '1', transform: 'none' } },
       },
-      animation: { esqueleto: 'esqueleto 1.4s ease-in-out infinite' },
+      animation: {
+        esqueleto: 'esqueleto 1.4s ease-in-out infinite',
+        'paso-derecha': 'paso-derecha 250ms cubic-bezier(0.23, 1, 0.32, 1)',
+        'paso-izquierda': 'paso-izquierda 250ms cubic-bezier(0.23, 1, 0.32, 1)',
+      },
       // Curva de entrada fuerte (ease-out) para lo que aparece, como la escena 3D de la portada (D48).
       transitionTimingFunction: { entrada: 'cubic-bezier(0.23, 1, 0.32, 1)' },
     },
