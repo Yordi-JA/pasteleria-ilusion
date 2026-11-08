@@ -296,3 +296,23 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
     - Pruebas E2E: de 187 a 197 (`hero-cake.spec.ts` pasa de 14 a 18 y `spin-model.spec.ts` trae 6); con el tope de cuadros, 199. El chunk principal queda en 103.98 kB con gzip y el de la escena en 248.28 kB.
     - Capturas a 1440, 768 y 390 px: a 768 px, con los pisos separados, la vela queda debajo de la pista y de los botones.
     - Decisión del usuario: el giro solo dibuja unos 30 cuadros por segundo (`frameloop="demand"` con `invalidate()` cada 33 ms) y los gestos, la inercia, la inclinación y el scroll, a la tasa completa. Pruebas nuevas: el tope de cuadros del giro solo y `needsFullRate`; la suite pasa a 199.
+
+### Sábado 7 de noviembre: "Diseña tu pastel", tanda 1
+
+- Decisión D49 en [`proyecto/decisiones.md`](proyecto/decisiones.md), rama `feat/disena-tu-pastel`, sin desplegar: `/pedido/disena` con los pasos 1 a 5, la barra de 8 pasos (círculos en escritorio, "Paso N de 8" con segmentos en móvil), la vista previa por etapas, el total estimado, "Tu pastel" (tarjeta en escritorio, desplegable en móvil) y la barra inferior fija en móvil. El paso 6 es una tarjeta en construcción.
+- Backend: `estimate` en `POST cake-designs/price/` (el "Desde" sin sabor) y `smaller_alternatives` en `GET cake-designs/options/` (pastel de vitrina y mini del catálogo). Pruebas de backend: de 934 a 943.
+- Frontend: `models/cakeDesign.ts` y `models/cakeDesignDraft.ts`; `useCakeDesigner`, `useCakeDesignPrice`, `useCakeScene` (sale de `useHeroCake`) y la lógica pura de los pasos; `DesignerCake` y `SceneBoundary`; `ChoiceOption` acepta casillas y chips de dos líneas, y `PageHeader`, las migas de pan.
+- Pruebas E2E: `e2e/cake-designer.spec.ts`, con 15 pruebas.
+- Ronda de correcciones tras la revisión de código (D49):
+    - Los kilos por personas (regla 3.1) pasan al backend: `pricing_service.size_for_people` y `kg_for_people`; la petición del precio manda `people` y la respuesta trae `size` (kilos redondeados, kilos del pedido, mínimo y máximo). El navegador ya no calcula kilos.
+    - `estimate` sale de `CakeDesignChoice`: la vista elige `estimate_price` o `calculate_price`, y una elección normal sin sabor sigue siendo inválida.
+    - Las opciones traen `unavailable_codes`, y las frases de conflicto se arman con el código.
+    - Un precio que falla dice "Sin calcular" con su reintento, en escritorio y en la barra móvil; nunca queda el total viejo como vigente.
+    - Fresa con yogurt elegida desactiva "Dos sabores" con su motivo; un sabor guardado que ya no existe no bloquea la lista; el paso 6 no se puede confirmar.
+    - La lógica de "Continuar" (lo que falta, el texto del botón, la frase del conflicto y el cambio del borrador) pasa a `cakeDesignSteps.ts`, y el armado de la vista a `cakeDesignSummary.ts`.
+    - Pruebas de backend: de 943 a 965. `e2e/cake-designer.spec.ts`: de 15 a 24 pruebas.
+- Segunda ronda de correcciones (D49):
+    - Los kilos se calculan antes que el precio y un 400 por la elección trae `size`: el paso 1 ya no se traba si el precio falla por la elección. "Continuar" (y Enter en las personas) espera los kilos pendientes en lugar de pedir una segunda pulsación; solo una falla de red deja el reintento.
+    - El máximo en línea efectivo (`warranty_service.effective_cake_design_limits`) es el de las opciones, de los kilos por personas y de la revisión de kilos del precio; con kilos que ninguna base activa cubre, el precio dice el máximo efectivo.
+    - `is_estimate` en el desglose y en la respuesta; `size_for_people` va auditado; `CakeSize` del precio pasa a `PeopleSize` y `kg_for_people` delega en `size_for_people`.
+    - Pruebas de backend: de 965 a 971. `e2e/cake-designer.spec.ts`: de 24 a 27 pruebas.
