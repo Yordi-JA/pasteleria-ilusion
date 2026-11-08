@@ -396,22 +396,27 @@ def test_a_regular_choice_without_flavors_is_invalid():
 )
 def test_kg_for_people_rounds_half_up_and_never_goes_below_the_minimum(people, kg):
     # 47 / 7 = 6.71 sube; 31 / 7 = 4.43 baja; 32 / 7 = 4.57 sube; 3 personas dan el mínimo.
-    assert pricing_service.kg_for_people(people, settings=data.settings_repo()) == kg
+    assert pricing_service.kg_for_people(people, settings=data.settings_repo(), cake_options=data.cake_option_repo()) == kg
 
 
 def test_half_exactly_rounds_up():
     settings = data.settings_repo(cake_design=dataclasses.replace(data.CAKE_DESIGN_SETTINGS, people_per_kg=2))
-    assert pricing_service.kg_for_people(9, settings=settings) == 5  # 4.5 kg sube a 5
-    assert pricing_service.size_for_people(9, settings=settings).rounded_kg == 5
+    options = data.cake_option_repo()
+    assert pricing_service.kg_for_people(9, settings=settings, cake_options=options) == 5  # 4.5 kg sube a 5
+    assert pricing_service.size_for_people(9, settings=settings, cake_options=options).rounded_kg == 5
+
+
+def size(people, settings=None):
+    return pricing_service.size_for_people(people, settings=settings or data.settings_repo(), cake_options=data.cake_option_repo())
 
 
 def test_size_for_people_says_where_it_stands_against_the_limits():
-    settings = data.settings_repo()
-    assert pricing_service.size_for_people(15, settings=settings) == pricing_service.PeopleSize(
-        people=15, rounded_kg=2, kg=4, below_minimum=True, above_maximum=False, minimum_people=28, max_online_people=350
+    assert size(15) == pricing_service.PeopleSize(
+        people=15, rounded_kg=2, kg=4, below_minimum=True, above_maximum=False, minimum_people=28,
+        max_online_people=350, max_tiers=1,
     )
-    assert pricing_service.size_for_people(400, settings=settings).above_maximum is True
-    assert pricing_service.size_for_people(350, settings=settings).above_maximum is False
+    assert size(400).above_maximum is True
+    assert size(350).above_maximum is False
 
 
 def capped_at_25_kg():
@@ -421,9 +426,9 @@ def capped_at_25_kg():
 
 def test_the_effective_maximum_is_the_default_for_people_and_for_kilos():
     settings = capped_at_25_kg()
-    capped = pricing_service.size_for_people(200, settings=settings)
+    capped = size(200, settings)
     assert (capped.kg, capped.above_maximum, capped.max_online_people) == (29, True, 175)
-    assert pricing_service.size_for_people(175, settings=settings).above_maximum is False
+    assert size(175, settings).above_maximum is False
     assert errors_of(kg=30, settings=settings)["kg"] == ["En línea el máximo es 25 kg. Para más, escríbenos por WhatsApp."]
 
 
@@ -434,5 +439,40 @@ def test_estimates_are_marked_and_regular_prices_are_not():
 
 def test_size_for_people_rejects_non_positive_counts():
     with pytest.raises(CakeDesignError) as raised:
-        pricing_service.size_for_people(0, settings=data.settings_repo())
+        size(0)
     assert raised.value.errors == {"people": ["Indica al menos una persona."]}
+
+
+# --- Pisos: kilos mínimos que bloquean (regla 3.3, D50) ---
+
+
+@pytest.mark.parametrize(
+    ("kg", "allowed"),
+    [(4, [1]), (14, [1]), (15, [1, 2]), (17, [1, 2]), (18, [1, 2, 3]), (25, [1, 2, 3, 4]), (30, [1, 2, 3, 4, 5]), (50, [1, 2, 3, 4, 5])],
+)
+def test_allowed_tiers_follow_the_minimums(kg, allowed):
+    assert pricing_service.allowed_tiers(kg, cake_options=data.cake_option_repo()) == allowed
+
+
+@pytest.mark.parametrize(("people", "max_tiers"), [(28, 1), (105, 2), (126, 3), (175, 4), (210, 5)])
+def test_the_size_carries_the_most_tiers_the_kilos_allow(people, max_tiers):
+    assert size(people).max_tiers == max_tiers
+
+
+def test_tiers_below_their_minimum_are_rejected():
+    assert errors_of(kg=4, tiers=2) == {"tiers": ["Para 2 pisos el pedido es desde 15 kg."]}
+    assert errors_of(kg=17, tiers=3) == {"tiers": ["Para 3 pisos el pedido es desde 18 kg."]}
+    assert price(kg=15, tiers=2).kg == 15
+    assert price(kg=30, tiers=5).kg == 30
+
+
+def test_unknown_tiers_and_forms_are_rejected():
+    assert errors_of(tiers=6) == {"tiers": ["El pastel lleva de 1 a 5 pisos."]}
+    assert errors_of(tiers=0) == {"tiers": ["El pastel lleva de 1 a 5 pisos."]}
+    assert errors_of(form="hexagonal") == {"form": ["Elige una forma: redondo o rectangular."]}
+    assert price(form="rectangular").kg == 10
+
+
+def test_without_stands_there_are_no_online_orders():
+    settings = data.settings_repo(stands=[])
+    assert errors_of(settings=settings)["kg"] == ["Por ahora no tomamos pedidos en línea. Escríbenos por WhatsApp."]

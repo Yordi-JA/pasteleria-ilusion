@@ -127,7 +127,7 @@ def test_limits_colors_and_tiers_come_from_the_repositories():
     result = options()
     assert result.limits == data.CAKE_DESIGN_SETTINGS
     assert list(result.coverage_colors) == data.COVERAGE_COLORS
-    assert list(result.tier_recommendations) == data.TIERS
+    assert [(t.tiers, t.min_kg) for t in result.tier_minimums] == [(t.tiers, t.recommended_min_kg) for t in data.TIERS]
 
 
 def test_options_are_immutable():

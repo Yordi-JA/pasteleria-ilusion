@@ -79,7 +79,11 @@ def test_options_carry_the_seeded_data(api):
         "wafer_max_height_cm": "27.9",
         "message_suggested_max_words": 4,
     }
-    assert [t["tiers"] for t in body["tier_recommendations"]] == [1, 2, 3, 4, 5]
+    # Regla 3.3 (D50): kilos mínimos que bloquean, no recomendaciones.
+    assert body["tier_minimums"] == [
+        {"tiers": 1, "min_kg": 0}, {"tiers": 2, "min_kg": 15}, {"tiers": 3, "min_kg": 18},
+        {"tiers": 4, "min_kg": 25}, {"tiers": 5, "min_kg": 30},
+    ]
 
 
 def test_options_show_seeded_pending_decorations_disabled_with_their_reason(api):
@@ -140,17 +144,31 @@ def test_price_ignores_amounts_sent_by_the_client(api):
     assert (body["total"], body["price_per_kg"], body["stand"]["deposit"]) == ("3825.00", "255.00", "200.00")
 
 
-def test_price_ignores_shape_and_tiers(api):
+def test_form_and_tiers_do_not_change_the_price(api):
     plain = api.post(PRICE_URL, RULE_4_6_EXAMPLE, format="json")
-    shaped = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "shape": "rectangular", "tiers": 2}, format="json")
+    shaped = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "form": "rectangular", "tiers": 2}, format="json")
     assert (plain.status_code, shaped.status_code) == (200, 200)
     assert plain.json() == shaped.json()
 
 
-def test_price_ignores_shape_and_tiers_even_if_malformed(api):
-    """Forma y pisos se validarán con `CakeDesign`; hoy el precio no los lee."""
-    response = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "shape": "hexagonal", "tiers": "muchos"}, format="json")
-    assert response.status_code == 200
+@pytest.mark.parametrize(
+    ("extra", "errors"),
+    [
+        ({"tiers": 3}, {"tiers": ["Para 3 pisos el pedido es desde 18 kg."]}),
+        ({"tiers": 6}, {"tiers": ["El pastel lleva de 1 a 5 pisos."]}),
+        ({"tiers": "muchos"}, {"tiers": ["Los pisos van en números enteros."]}),
+        ({"form": "hexagonal"}, {"form": ["Elige una forma: redondo o rectangular."]}),
+    ],
+)
+def test_form_and_tiers_are_validated_when_sent(api, extra, errors):
+    """Regla 3.3 (D50): los kilos por pisos son mínimos que bloquean; 15 kg no llevan 3 pisos."""
+    response = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, **extra}, format="json")
+    assert response.status_code == 400
+    assert response.json() == errors
+
+
+def test_an_unknown_key_like_shape_is_still_ignored(api):
+    assert api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "shape": "hexagonal"}, format="json").status_code == 200
 
 
 def test_price_is_public_and_needs_no_csrf_even_with_a_session(customer_user):
@@ -334,7 +352,8 @@ def test_both_endpoints_are_in_the_openapi_schema(api, staff_user):
     request_schema = api.get("/api/v1/schema/", {"format": "json"}).json()["components"]["schemas"][
         "CakeDesignPriceRequest"
     ]
-    assert not {"shape", "tiers"} & set(request_schema["properties"])
+    assert {"people", "kg", "tiers", "form", "estimate"} <= set(request_schema["properties"])
+    assert "shape" not in request_schema["properties"]
 
 
 # --- Total estimado y alternativas más chicas ---
@@ -365,7 +384,7 @@ def test_price_by_people_returns_the_kilos_the_server_computed(api):
     assert (body["kg"], body["total"]) == (6, "1080.00")
     assert body["size"] == {
         "people": 40, "rounded_kg": 6, "kg": 6, "below_minimum": False, "above_maximum": False,
-        "minimum_people": 28, "max_online_people": 350,
+        "minimum_people": 28, "max_online_people": 350, "max_tiers": 1,
     }
 
 
@@ -404,7 +423,7 @@ def test_a_rejected_choice_by_people_still_returns_the_kilos(api):
         "bread": ["Ese pan no existe o no está disponible."],
         "size": {
             "people": 40, "rounded_kg": 6, "kg": 6, "below_minimum": False, "above_maximum": False,
-            "minimum_people": 28, "max_online_people": 350,
+            "minimum_people": 28, "max_online_people": 350, "max_tiers": 1,
         },
     }
 
@@ -425,6 +444,36 @@ def test_the_online_maximum_follows_the_largest_active_stand(api):
     CakeStand.objects.filter(max_kg__gt=25).update(is_active=False)
     body = api.post(PRICE_URL, {**ESTIMATE_BY_PEOPLE, "people": 200}, format="json").json()
     assert (body["size"]["above_maximum"], body["size"]["max_online_people"], body["total"]) == (True, 175, None)
+
+
+@pytest.mark.parametrize(("people", "max_tiers"), [(40, 1), (105, 2), (126, 3), (175, 4), (210, 5)])
+def test_the_size_says_how_many_tiers_the_kilos_allow(api, people, max_tiers):
+    # 105 personas son 15 kg (2 pisos); 126, 18 kg; 175, 25 kg; 210, 30 kg.
+    body = api.post(PRICE_URL, {**ESTIMATE_BY_PEOPLE, "people": people}, format="json").json()
+    assert body["size"]["max_tiers"] == max_tiers
+
+
+def test_without_active_stands_online_orders_are_not_available(api):
+    CakeStand.objects.update(is_active=False)
+    response = api.post(PRICE_URL, RULE_4_6_EXAMPLE, format="json")
+    assert response.status_code == 400
+    assert response.json()["kg"] == ["Por ahora no tomamos pedidos en línea. Escríbenos por WhatsApp."]
+
+
+def test_options_carry_the_seeded_preview_styles(api):
+    body = api.get(OPTIONS_URL).json()
+    breads = by_slug(body["breads"])
+    chocolate, vainilla = breads["chocolate"]["preview_color"], breads["vainilla"]["preview_color"]
+    assert (breads["choco_vainilla"]["preview_color"], breads["choco_vainilla"]["preview_color_bottom"]) == (chocolate, vainilla)
+    assert breads["vainilla"]["preview_color_bottom"] == ""
+    flavors = by_slug(by_slug(body["filling_bases"])["normal"]["flavors"])
+    styles = {slug: flavor["preview_style"] for slug, flavor in flavors.items()}
+    assert styles == {
+        "durazno": "fruit_slices", "fresa": "fruit_slices", "zarzamora": "smooth", "cajeta": "smooth",
+        "galleta": "cookie_chunks", "chocolate": "sprinkles", "choco_vainilla": "sprinkles",
+        "capuchino": "sprinkles", "fresa_yogurt": "smooth", "nuez": "smooth",
+    }
+    assert all(flavor["preview_color_secondary"] for flavor in flavors.values() if flavor["preview_style"] != "smooth")
 
 
 def test_options_carry_a_code_next_to_each_reason(api):

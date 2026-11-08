@@ -100,6 +100,7 @@ SEED_MIGRATIONS = [
     ("0005_seed_cake_options", "seed_cake_options"),
     ("0007_seed_stands_and_delivery", "seed_stands_and_delivery"),
     ("0009_seed_catalog", "seed_catalog"),
+    ("0015_seed_cake_preview_styles", "seed"),
 ]
 _db_blocker = None
 

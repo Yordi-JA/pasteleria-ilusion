@@ -265,9 +265,9 @@ class FillingBaseAdmin(ReadOnlySlugMixin, admin.ModelAdmin):
 
 @admin.register(FillingFlavor)
 class FillingFlavorAdmin(ReadOnlySlugMixin, CakeTypesMixin, admin.ModelAdmin):
-    list_display = ("name", "is_combinable", "sort_order", "is_active")
+    list_display = ("name", "is_combinable", "preview_style", "sort_order", "is_active")
     list_editable = ("sort_order", "is_active")
-    list_filter = ("bases", "is_combinable", "is_active")
+    list_filter = ("bases", "is_combinable", "preview_style", "is_active")
     filter_horizontal = ("bases",)
     search_fields = ("name",)
 
@@ -280,7 +280,7 @@ class FillingPriceAdmin(admin.ModelAdmin):
 
 @admin.register(TierRecommendation)
 class TierRecommendationAdmin(admin.ModelAdmin):
-    list_display = ("tiers", "recommended_min_kg", "recommended_max_kg")
+    list_display = ("tiers", "recommended_min_kg")
 
 
 @admin.register(CoverageColor)

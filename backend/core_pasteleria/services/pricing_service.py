@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from typing import NoReturn
 
-from ..models import BreadPricingMode, CakeType, DecorationPricing
+from ..models import BreadPricingMode, CakeShape, CakeType, DecorationPricing
 from ..repositories import cake_option_repo, settings_repo
 from ..repositories.records import (
     BreadRecord,
@@ -43,7 +43,7 @@ class PendingPriceError(CakeDesignError):
 
 @dataclass(frozen=True)
 class CakeDesignChoice:
-    """Lo que el cliente eligió y cambia el precio. Forma y pisos no lo cambian."""
+    """Lo que el cliente eligió. Forma y pisos no cambian el precio, pero se validan (regla 3.3) si llegan."""
 
     kg: int
     cake_type: str
@@ -52,6 +52,8 @@ class CakeDesignChoice:
     filling_flavors: tuple[str, ...] = ()
     decoration: str | None = None
     wafer: bool = False
+    tiers: int | None = None
+    form: str | None = None
 
 
 @dataclass(frozen=True)
@@ -349,9 +351,15 @@ DECORATION_PRICING_STRATEGIES = {
 # --- Cálculo ---
 
 
+NO_ONLINE_ORDERS = "Por ahora no tomamos pedidos en línea. Escríbenos por WhatsApp."
+
+
 def _check_kg(kg, limits: CakeDesignSettingsRecord) -> None:
     if isinstance(kg, bool) or not isinstance(kg, int):
         _fail("kg", "Los kilos van en números enteros.")
+    # Sin ninguna base activa el máximo efectivo es 0: no hay pedido en línea posible, no "máximo 0 kg".
+    if limits.max_online_kg <= 0:
+        _fail("kg", NO_ONLINE_ORDERS)
     if kg < limits.min_custom_kg:
         _fail("kg", f"El pedido es de mínimo {limits.min_custom_kg} kg.")
     if kg > limits.max_online_kg:
@@ -359,6 +367,29 @@ def _check_kg(kg, limits: CakeDesignSettingsRecord) -> None:
             "kg",
             f"En línea el máximo es {limits.max_online_kg} kg. Para más, escríbenos por WhatsApp.",
         )
+
+
+# --- Pisos y forma (regla 3.3, D50) ---
+
+
+def allowed_tiers(kg: int, cake_options=cake_option_repo) -> list[int]:
+    """Pisos que se pueden elegir con `kg` kilos: los de la tabla cuyo mínimo alcanzan (regla 3.3)."""
+    return [tier.tiers for tier in cake_options.list_tier_recommendations() if kg >= tier.recommended_min_kg]
+
+
+def _check_tiers(tiers, kg, cake_options) -> None:
+    if tiers is None:
+        return
+    minimums = {tier.tiers: tier.recommended_min_kg for tier in cake_options.list_tier_recommendations()}
+    if isinstance(tiers, bool) or not isinstance(tiers, int) or tiers not in minimums:
+        _fail("tiers", f"El pastel lleva de 1 a {max(minimums, default=1)} pisos.")
+    if isinstance(kg, int) and kg < minimums[tiers]:
+        _fail("tiers", f"Para {tiers} pisos el pedido es desde {minimums[tiers]} kg.")
+
+
+def _check_form(form) -> None:
+    if form is not None and form not in CakeShape.values:
+        _fail("form", "Elige una forma: redondo o rectangular.")
 
 
 def _cake_price_per_kg(choice: CakeDesignChoice, cake_options, estimate: bool = False) -> Decimal:
@@ -395,6 +426,8 @@ def _price(choice: CakeDesignChoice, cake_options, settings, estimate: bool) -> 
     limits = effective_cake_design_limits(settings)
     failures: list[DomainValidationError] = []
     attempt(failures, _check_kg, choice.kg, limits)
+    attempt(failures, _check_tiers, choice.tiers, choice.kg, cake_options)
+    attempt(failures, _check_form, choice.form)
     price_per_kg = attempt(failures, _cake_price_per_kg, choice, cake_options, estimate)
     decoration = attempt(failures, _decoration_charge, choice.decoration, cake_options)
     raise_all(failures, CakeDesignError)
@@ -457,6 +490,8 @@ class PeopleSize:
     # Personas que alcanzan el mínimo y el máximo en línea ("unas 28 personas").
     minimum_people: int
     max_online_people: int
+    # El mayor número de pisos que permiten los kilos (regla 3.3).
+    max_tiers: int
 
 
 def _rounded_kg(people: int, people_per_kg: int) -> int:
@@ -464,7 +499,7 @@ def _rounded_kg(people: int, people_per_kg: int) -> int:
 
 
 @audit_operation(expected_errors=(DomainValidationError,))
-def size_for_people(people: int, settings=settings_repo) -> PeopleSize:
+def size_for_people(people: int, settings=settings_repo, cake_options=cake_option_repo) -> PeopleSize:
     """Kilos para `people` personas (regla 3.1) con lo que la interfaz dice del mínimo y del máximo.
 
     1 kg por cada `people_per_kg`, de .5 hacia arriba, nunca menos que el
@@ -487,9 +522,10 @@ def size_for_people(people: int, settings=settings_repo) -> PeopleSize:
         above_maximum=kg > maximum,
         minimum_people=limits.min_custom_kg * limits.people_per_kg,
         max_online_people=maximum * limits.people_per_kg,
+        max_tiers=max(allowed_tiers(kg, cake_options), default=1),
     )
 
 
-def kg_for_people(people: int, settings=settings_repo) -> int:
+def kg_for_people(people: int, settings=settings_repo, cake_options=cake_option_repo) -> int:
     """Solo los kilos del pedido para `people` personas (ver `size_for_people`)."""
-    return size_for_people(people, settings=settings).kg
+    return size_for_people(people, settings=settings, cake_options=cake_options).kg

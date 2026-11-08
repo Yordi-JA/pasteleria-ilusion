@@ -17,7 +17,6 @@ from ..repositories.records import (
     DecorationRecord,
     FillingBaseRecord,
     FillingFlavorRecord,
-    TierRecommendationRecord,
 )
 from .pricing_service import (
     BREAD_PRICING_STRATEGIES,
@@ -27,6 +26,12 @@ from .pricing_service import (
     bread_unavailable,
 )
 from .warranty_service import effective_cake_design_limits
+
+
+@dataclass(frozen=True)
+class TierMinimum:
+    tiers: int
+    min_kg: int
 
 
 @dataclass(frozen=True)
@@ -44,6 +49,8 @@ class BreadInfo:
     price_per_kg: Decimal
     included_filling: str
     preview_color: str
+    # Solo en un pan de dos colores: la mitad de abajo de cada capa; vacío si es de un color.
+    preview_color_bottom: str
     # Tipos en que se puede elegir y, para los demás, el motivo.
     allowed_cake_types: tuple[str, ...]
     unavailable_reasons: Mapping[str, str]
@@ -57,6 +64,9 @@ class FillingFlavorInfo:
     slug: str
     name: str
     preview_color: str
+    # `smooth`, `fruit_slices`, `cookie_chunks` o `sprinkles`, y el color de los trozos.
+    preview_style: str
+    preview_color_secondary: str
     is_combinable: bool
     allowed_cake_types: tuple[str, ...]
     unavailable_reasons: Mapping[str, str]
@@ -100,7 +110,8 @@ class CakeDesignOptions:
     coverage_colors: tuple[CoverageColorRecord, ...]
     decorations: tuple[DecorationInfo, ...]
     limits: CakeDesignSettingsRecord
-    tier_recommendations: tuple[TierRecommendationRecord, ...]
+    # Kilos mínimos por número de pisos (regla 3.3, D50): con menos, esos pisos no se eligen.
+    tier_minimums: tuple[TierMinimum, ...]
 
 
 def _by_type(filling_by_type: dict[str, FillingPricing], answer: Callable, types=None) -> Mapping:
@@ -138,6 +149,7 @@ def _bread_info(bread: BreadRecord, filling_by_type: dict[str, FillingPricing]) 
         price_per_kg=bread.price_per_kg,
         included_filling=bread.included_filling,
         preview_color=bread.preview_color,
+        preview_color_bottom=bread.preview_color_bottom,
         allowed_cake_types=allowed,
         unavailable_reasons=reasons,
         unavailable_codes=codes,
@@ -158,6 +170,8 @@ def _flavor_info(
         slug=flavor.slug,
         name=flavor.name,
         preview_color=flavor.preview_color,
+        preview_style=flavor.preview_style,
+        preview_color_secondary=flavor.preview_color_secondary,
         is_combinable=flavor.is_combinable,
         allowed_cake_types=allowed,
         unavailable_reasons=reasons,
@@ -229,5 +243,7 @@ def get_cake_design_options(cake_options=cake_option_repo, settings=settings_rep
         coverage_colors=tuple(cake_options.list_coverage_colors()),
         decorations=tuple(map(_decoration_info, cake_options.list_decorations())),
         limits=effective_cake_design_limits(settings),
-        tier_recommendations=tuple(cake_options.list_tier_recommendations()),
+        tier_minimums=tuple(
+            TierMinimum(tier.tiers, tier.recommended_min_kg) for tier in cake_options.list_tier_recommendations()
+        ),
     )

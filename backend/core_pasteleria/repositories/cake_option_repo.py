@@ -32,6 +32,7 @@ def list_breads() -> list[BreadRecord]:
             included_filling=bread.included_filling,
             allowed_cake_types=tuple(bread.allowed_cake_types),
             preview_color=bread.preview_color,
+            preview_color_bottom=bread.preview_color_bottom,
         )
         for bread in Bread.objects.filter(is_active=True)
     ]
@@ -48,6 +49,8 @@ def list_filling_bases_with_flavors() -> list[FillingBaseRecord]:
             is_combinable=flavor.is_combinable,
             allowed_cake_types=tuple(flavor.allowed_cake_types),
             preview_color=flavor.preview_color,
+            preview_style=flavor.preview_style,
+            preview_color_secondary=flavor.preview_color_secondary,
         )
         for base in flavor.bases.all():
             flavors_by_base.setdefault(base.id, []).append(record)

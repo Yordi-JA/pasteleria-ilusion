@@ -99,7 +99,7 @@ class CakeDesignPriceView(PublicReadOnlyView):
                             "bread": ["Ese pan no existe o no está disponible."],
                             "size": {
                                 "people": 40, "rounded_kg": 6, "kg": 6, "below_minimum": False,
-                                "above_maximum": False, "minimum_people": 28, "max_online_people": 350,
+                                "above_maximum": False, "minimum_people": 28, "max_online_people": 350, "max_tiers": 1,
                             },
                         },
                     ),

@@ -71,6 +71,8 @@ class BreadRecord:
     included_filling: str
     allowed_cake_types: tuple[str, ...]
     preview_color: str
+    # Solo en un pan de dos colores: la mitad de abajo de cada capa.
+    preview_color_bottom: str = ""
 
 
 @dataclass(frozen=True)
@@ -80,6 +82,8 @@ class FillingFlavorRecord:
     is_combinable: bool
     allowed_cake_types: tuple[str, ...]
     preview_color: str
+    preview_style: str = "smooth"
+    preview_color_secondary: str = ""
 
 
 @dataclass(frozen=True)
@@ -112,6 +116,8 @@ class DecorationRecord:
 
 @dataclass(frozen=True)
 class TierRecommendationRecord:
+    """Kilos mínimos para un número de pisos (regla 3.3, D50): con menos, no se pueden elegir."""
+
     tiers: int
     recommended_min_kg: int
     recommended_max_kg: int | None

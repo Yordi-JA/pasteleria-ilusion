@@ -142,6 +142,15 @@ class Presentation(models.TextChoices):
     CUP = "cup", "Vaso"
 
 
+class FillingPreviewStyle(models.TextChoices):
+    """Cómo se ve un sabor de relleno en la vista previa de "Diseña tu pastel"."""
+
+    SMOOTH = "smooth", "Liso (mermelada o crema)"
+    FRUIT_SLICES = "fruit_slices", "Rebanadas de fruta"
+    COOKIE_CHUNKS = "cookie_chunks", "Trozos de galleta"
+    SPRINKLES = "sprinkles", "Granillo"
+
+
 class BreadPricingMode(models.TextChoices):
     """Cómo se cobra un pan; elige la estrategia de precio sin `if/elif`."""
 
@@ -603,6 +612,14 @@ class Bread(OrderedOption):
         max_length=7,
         blank=True,
         validators=[hex_color_validator],
+        help_text="Color del pan; en un pan de dos colores, la mitad de arriba de cada capa.",
+    )
+    preview_color_bottom = models.CharField(
+        "color de abajo en la vista previa",
+        max_length=7,
+        blank=True,
+        validators=[hex_color_validator],
+        help_text="Solo para un pan de dos colores (choco-vainilla): la mitad de abajo de cada capa. Vacío: un solo color.",
     )
 
     class Meta:
@@ -718,6 +735,20 @@ class FillingFlavor(OrderedOption):
     )
     is_combinable = models.BooleanField("se puede combinar", default=True)
     allowed_cake_types = cake_types_field()
+    preview_style = models.CharField(
+        "cómo se ve en la vista previa",
+        max_length=20,
+        choices=FillingPreviewStyle.choices,
+        default=FillingPreviewStyle.SMOOTH,
+        help_text="Liso, con rebanadas de fruta, con trozos de galleta o con granillo.",
+    )
+    preview_color_secondary = models.CharField(
+        "color de los trozos en la vista previa",
+        max_length=7,
+        blank=True,
+        validators=[hex_color_validator],
+        help_text="Color de las rebanadas, los trozos o el granillo. Vacío en un relleno liso.",
+    )
 
     class Meta:
         verbose_name = "sabor de relleno"
@@ -840,13 +871,17 @@ class FillingPrice(models.Model):
 
 
 class TierRecommendation(models.Model):
-    """Kilos recomendados por número de pisos (aviso, no bloquea).
+    """Kilos mínimos por número de pisos (regla 3.3, D50): un pastel con menos kilos no lleva esos pisos.
 
-    El máximo de pisos del sitio es el `tiers` más alto de esta tabla.
+    El máximo de pisos del sitio es el `tiers` más alto de esta tabla. El
+    modelo conserva su nombre y el de su campo de antes de D50 para no rehacer
+    la tabla: `recommended_min_kg` es el mínimo que bloquea.
     """
 
     tiers = models.PositiveSmallIntegerField("pisos", unique=True)
-    recommended_min_kg = models.PositiveSmallIntegerField("kilos recomendados desde")
+    recommended_min_kg = models.PositiveSmallIntegerField(
+        "kilos mínimos", help_text="Con menos kilos, el pastel no puede llevar estos pisos."
+    )
     recommended_max_kg = models.PositiveSmallIntegerField(
         "hasta (referencia)",
         null=True,
@@ -855,8 +890,8 @@ class TierRecommendation(models.Model):
     )
 
     class Meta:
-        verbose_name = "recomendación de pisos"
-        verbose_name_plural = "recomendaciones de pisos"
+        verbose_name = "mínimo de kilos por pisos"
+        verbose_name_plural = "mínimos de kilos por pisos"
         ordering = ["tiers"]
         constraints = [
             models.CheckConstraint(
@@ -892,7 +927,7 @@ class TierRecommendation(models.Model):
             ).exists()
         ):
             raise ValidationError(
-                {"recommended_min_kg": "Los kilos recomendados deben crecer con los pisos."}
+                {"recommended_min_kg": "Los kilos mínimos deben crecer con los pisos."}
             )
 
 

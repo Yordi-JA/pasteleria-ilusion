@@ -1,7 +1,7 @@
 """DTOs: validan la entrada y dan forma a la salida JSON."""
 from rest_framework import serializers
 
-from ..models import Bread, CakeType, Presentation, Product, ProductCategory, SalesChannel
+from ..models import Bread, CakeShape, CakeType, Presentation, Product, ProductCategory, SalesChannel
 from ..services.pricing_service import CakeDesignChoice
 
 # El mismo largo que el `slug` de las opciones (`Bread`, `FillingBase`, ...).
@@ -66,7 +66,8 @@ class BreadOptionSerializer(serializers.Serializer):
     pricing_mode = serializers.CharField()
     price_per_kg = money(help_text="Incremento por kilo o precio completo, según `pricing_mode`.")
     included_filling = serializers.CharField(help_text="Vacío si el pan lleva relleno aparte.")
-    preview_color = serializers.CharField()
+    preview_color = serializers.CharField(help_text="En un pan de dos colores, la mitad de arriba de cada capa.")
+    preview_color_bottom = serializers.CharField(help_text="Solo en un pan de dos colores; vacío si es de un color.")
     allowed_cake_types = cake_types()
     unavailable_reasons = reasons_by_cake_type()
     unavailable_codes = codes_by_cake_type()
@@ -80,6 +81,10 @@ class FillingFlavorOptionSerializer(serializers.Serializer):
     slug = serializers.SlugField()
     name = serializers.CharField()
     preview_color = serializers.CharField()
+    preview_style = serializers.CharField(
+        help_text="`smooth` (liso), `fruit_slices` (rebanadas de fruta), `cookie_chunks` (trozos de galleta) o `sprinkles` (granillo)."
+    )
+    preview_color_secondary = serializers.CharField(help_text="Color de los trozos; vacío en un relleno liso.")
     is_combinable = serializers.BooleanField()
     allowed_cake_types = cake_types()
     unavailable_reasons = reasons_by_cake_type()
@@ -135,10 +140,11 @@ class CakeDesignLimitsSerializer(serializers.Serializer):
     message_suggested_max_words = serializers.IntegerField()
 
 
-class TierRecommendationSerializer(serializers.Serializer):
+class TierMinimumSerializer(serializers.Serializer):
+    """Kilos mínimos para un número de pisos (regla 3.3, D50): con menos kilos, esos pisos no se eligen."""
+
     tiers = serializers.IntegerField()
-    recommended_min_kg = serializers.IntegerField()
-    recommended_max_kg = serializers.IntegerField(allow_null=True)
+    min_kg = serializers.IntegerField(help_text="Desde estos kilos se pueden elegir estos pisos.")
 
 
 class CakeSizeSerializer(serializers.Serializer):
@@ -164,7 +170,9 @@ class CakeDesignOptionsSerializer(serializers.Serializer):
     coverage_colors = CoverageColorSerializer(many=True)
     decorations = DecorationOptionSerializer(many=True)
     limits = CakeDesignLimitsSerializer()
-    tier_recommendations = TierRecommendationSerializer(many=True)
+    tier_minimums = TierMinimumSerializer(
+        many=True, help_text="Una fila por número de pisos, en orden; el último es el máximo de pisos."
+    )
     smaller_alternatives = SmallerAlternativesSerializer(
         help_text="Pastel de vitrina y pastel mini, para quien pide menos del mínimo (regla 3.1)."
     )
@@ -176,8 +184,8 @@ class CakeDesignOptionsSerializer(serializers.Serializer):
 class CakeDesignPriceRequestSerializer(serializers.Serializer):
     """Elecciones del cliente. Cualquier monto que mande se ignora: el servidor lo calcula.
 
-    Forma y pisos no cambian el precio: no se piden aquí, y si llegan se ignoran
-    como cualquier otra clave. Se validarán cuando exista `CakeDesign`.
+    Forma (`form`) y pisos (`tiers`) no cambian el precio y son opcionales;
+    si llegan, se validan (regla 3.3: los kilos mínimos por pisos bloquean).
 
     El tamaño llega como `people` (el servidor calcula los kilos, regla 3.1) o
     como `kg`, nunca los dos.
@@ -219,6 +227,17 @@ class CakeDesignPriceRequestSerializer(serializers.Serializer):
         help_text="Sin elegir, no suma nada.",
     )
     wafer = serializers.BooleanField(required=False, default=False)
+    tiers = serializers.IntegerField(
+        required=False,
+        help_text="Pisos; si llegan, se validan contra los kilos (regla 3.3). No cambian el precio.",
+        error_messages={"invalid": "Los pisos van en números enteros."},
+    )
+    form = serializers.ChoiceField(
+        choices=CakeShape.choices,
+        required=False,
+        help_text="Forma del molde; si llega, se valida. No cambia el precio.",
+        error_messages={"invalid_choice": "Elige una forma: redondo o rectangular."},
+    )
     estimate = serializers.BooleanField(
         required=False,
         default=False,
@@ -248,6 +267,8 @@ class CakeDesignPriceRequestSerializer(serializers.Serializer):
             filling_flavors=tuple(data["filling_flavors"]),
             decoration=data.get("decoration"),
             wafer=data["wafer"],
+            tiers=data.get("tiers"),
+            form=data.get("form"),
         )
 
 
@@ -272,6 +293,7 @@ class PeopleSizeSerializer(serializers.Serializer):
     above_maximum = serializers.BooleanField(help_text="Más de lo que se pide en línea: el precio sale en `null`.")
     minimum_people = serializers.IntegerField(help_text="Personas que alcanza el mínimo.")
     max_online_people = serializers.IntegerField(help_text="Personas que alcanza el máximo en línea.")
+    max_tiers = serializers.IntegerField(help_text="El mayor número de pisos que permiten los kilos (regla 3.3).")
 
 
 class CakeDesignPriceSerializer(serializers.Serializer):
