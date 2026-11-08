@@ -123,17 +123,39 @@ test('without the store number, the WhatsApp line is a pending marker, not a lin
   await expect(card.getByRole('link', { name: /WhatsApp/ })).toHaveCount(0)
 })
 
-test('fewer kilos than a tier count recommends warns without blocking', async ({ page }) => {
+test('tiers whose minimum is above the kilos are disabled with their minimum and never disappear', async ({ page }) => {
   await open(page)
+  // 40 personas son 6 kg: solo 1 piso (regla 3.3, D50).
+  await expect(page.getByRole('radio', { name: /1 piso/ })).toBeEnabled()
+  for (const [tiers, minimum] of [[2, 15], [3, 18], [4, 25], [5, 30]]) {
+    const chip = page.getByRole('radio', { name: new RegExp(`${tiers} pisos`) })
+    await expect(chip).toBeDisabled()
+    await expect(page.getByText(`Desde ${minimum} kg`, { exact: true })).toBeVisible()
+  }
+  await expect(page.getByText('Cualquier peso', { exact: true })).toBeVisible()
+  await expect(page.getByText(/Recomendado/)).toHaveCount(0)
+
+  // 130 personas son 19 kg: de 1 a 3 pisos.
   await setPeople(page, 130)
-  await page.getByText('4 pisos', { exact: true }).click()
-  await expect(page.getByRole('radio', { name: /4 pisos/ })).toBeChecked()
-  const warning = page.getByRole('status').filter({ hasText: 'Para 4 pisos la pastelería recomienda al menos 25 kg' })
-  await expect(warning).toContainText('Con 19 kg los pisos quedarían bajos. Puedes seguir así o elegir 3 pisos')
-  await expect(page.getByText('Para 130 personas, aprox. 19 kg, redondo de 4 pisos')).toBeVisible()
-  await expect(total(page)).toHaveText('Desde $3,420 MXN')
+  await expect(page.getByRole('radio', { name: /3 pisos/ })).toBeEnabled()
+  await expect(page.getByRole('radio', { name: /4 pisos/ })).toBeDisabled()
+  await page.getByText('3 pisos', { exact: true }).click()
+  await expect(page.getByText('Para 130 personas, aprox. 19 kg, redondo de 3 pisos')).toBeVisible()
+})
+
+test('lowering the people below the tiers minimum drops the tiers and says so', async ({ page }) => {
+  await open(page)
+  await setPeople(page, 105)
+  await page.getByText('2 pisos', { exact: true }).click()
+  await expect(page.getByRole('radio', { name: /2 pisos/ })).toBeChecked()
+  // 60 personas son 9 kg: el pastel va de 1 piso.
+  await setPeople(page, 60)
+  await expect(page.getByRole('radio', { name: /1 piso/ })).toBeChecked()
+  await expect(page.getByRole('status').filter({ hasText: 'Con 9 kg el pastel va de 1 piso.' })).toBeVisible()
+  await expect(page.getByText('Para 60 personas, aprox. 9 kg, redondo', { exact: true })).toBeVisible()
   await proceed(page)
   await expect(stepTitle(page)).toHaveText('2. Tipo de pastel')
+  await expect(shown(page, '60 personas, 9 kg, redondo')).toBeVisible()
 })
 
 test('a failed price never shows the old total as current, on desktop or in the mobile bar, and retry works', async ({ page }) => {
@@ -176,7 +198,9 @@ test('a rejected choice still brings the kilos, so step 1 shows them and continu
   await page.goto('/pedido/disena')
   await expect(kilos(page)).toHaveText('Aprox. 6 kg para 40 personas')
   await expect(total(page)).toHaveText('Sin calcular')
-  await expect(page.getByText('No se pudo calcular el total.').filter({ visible: true })).toBeVisible()
+  // Un rechazo dice su motivo y no ofrece reintentar: daría lo mismo.
+  await expect(page.getByText('Ese pan no existe o no está disponible.').filter({ visible: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Volver a intentar' }).filter({ visible: true })).toHaveCount(0)
   await proceed(page)
   await expect(stepTitle(page)).toHaveText('2. Tipo de pastel')
   await expect(shown(page, '40 personas, 6 kg, redondo')).toBeVisible()
@@ -201,6 +225,40 @@ test('clicking Continuar right after typing also waits for the kilos instead of 
   await expect(stepTitle(page)).toHaveText('2. Tipo de pastel')
   // Bajo el mínimo sigue con el mínimo, aunque los kilos llegaran después de la pulsación.
   await expect(shown(page, '28 personas, 4 kg, redondo')).toBeVisible()
+})
+
+test('a rejected choice on step 4 shows its reason instead of a retry', async ({ page }) => {
+  await mockCakeDesignOptions(page)
+  await page.route(PRICE_PATH, async (route) => {
+    const body = route.request().postDataJSON()
+    if (body.filling_flavors?.includes('durazno')) {
+      // Por ejemplo, el admin retiró el sabor mientras la persona lo elegía.
+      const rejected = { filling_flavors: ['Durazno no se ofrece en la base Normal.'], size: sizeFor(body.people) }
+      await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify(rejected) })
+      return
+    }
+    const response = priceResponse(body)
+    await route.fulfill({ status: response.status, contentType: 'application/json', body: JSON.stringify(response.body) })
+  })
+  await page.goto('/pedido/disena')
+  await toBreadStep(page)
+  await page.getByRole('radio', { name: /^Vainilla/ }).check()
+  await proceed(page)
+  await page.getByRole('radio', { name: /^Normal/ }).check()
+  await page.getByRole('radio', { name: /^Durazno/ }).check()
+  await expect(total(page)).toHaveText('Sin calcular')
+  await expect(page.getByText('Durazno no se ofrece en la base Normal.').filter({ visible: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Volver a intentar' }).filter({ visible: true })).toHaveCount(0)
+})
+
+test('a double Continuar while the kilos are pending moves only one step', async ({ page }) => {
+  await open(page)
+  await expect(total(page)).toHaveText('Desde $1,080 MXN')
+  await people(page).fill('47')
+  await page.getByTestId('tarjeta-paso').getByRole('button', { name: 'Continuar' }).dblclick()
+  await expect(stepTitle(page)).toHaveText('2. Tipo de pastel')
+  await expect(page).toHaveURL(/\?paso=2$/)
+  await expect(page.getByRole('alert')).toHaveCount(0)
 })
 
 test('a slow old answer never replaces the newer one', async ({ page }) => {

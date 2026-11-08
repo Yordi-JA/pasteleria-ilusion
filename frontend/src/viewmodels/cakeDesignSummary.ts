@@ -105,7 +105,7 @@ function showcaseText(size: CakeSize | null) {
 }
 
 /** Lo que pinta el paso 1, con los kilos, el mínimo y el máximo que calculó la API. */
-export function sizeStepView(draft: CakeDesignDraft, design: DesignDerived, options: CakeDesignOptions) {
+export function sizeStepView(draft: CakeDesignDraft, design: DesignDerived, options: CakeDesignOptions, tierNotice: string | null) {
   const size = design.size
   const { showcaseCake, miniCake } = options.smallerAlternatives
   return {
@@ -126,24 +126,28 @@ export function sizeStepView(draft: CakeDesignDraft, design: DesignDerived, opti
           }
         : null,
     tooLarge: design.aboveMaximum && size
-      ? {
-          title: `Para más de ${options.limits.maxOnlineKg} kg, escríbenos por WhatsApp`,
-          body: `En línea tomamos pedidos de hasta ${options.limits.maxOnlineKg} kg, unas ${size.maxOnlinePeople} personas. Uno más grande lo platicamos contigo.`,
-        }
+      ? options.limits.maxOnlineKg <= 0
+        ? {
+            // Sin ninguna base activa no hay pedido en línea posible (D50).
+            title: 'Por ahora no tomamos pedidos en línea',
+            body: 'Escríbenos por WhatsApp y lo vemos contigo.',
+          }
+        : {
+            title: `Para más de ${options.limits.maxOnlineKg} kg, escríbenos por WhatsApp`,
+            body: `En línea tomamos pedidos de hasta ${options.limits.maxOnlineKg} kg, unas ${size.maxOnlinePeople} personas. Uno más grande lo platicamos contigo.`,
+          }
       : null,
-    tiers: options.tierRecommendations.map((tier) => ({
+    // Regla 3.3 (D50): los kilos por pisos son mínimos que bloquean. Los pisos que los kilos de ahora no permiten
+    // se ven desactivados con su mínimo; nunca desaparecen.
+    tiers: options.tierMinimums.map((tier) => ({
       value: tier.tiers,
       label: `${tier.tiers} ${tier.tiers === 1 ? 'piso' : 'pisos'}`,
-      description: tier.minKg > 0 ? `Recomendado desde ${tier.minKg} kg` : 'Cualquier peso',
+      description: tier.minKg > 0 ? `Desde ${tier.minKg} kg` : 'Cualquier peso',
       checked: draft.tiers === tier.tiers,
+      disabled: design.allowedTiers !== null && tier.tiers > design.allowedTiers,
     })),
-    tierWarning:
-      design.tierShortfall && design.kg !== null
-        ? {
-            title: `Para ${design.tierShortfall.tiers} pisos la pastelería recomienda al menos ${design.tierShortfall.minKg} kg`,
-            body: `Con ${design.kg} kg los pisos quedarían bajos. Puedes seguir así o elegir ${design.suggestedTiers} ${design.suggestedTiers === 1 ? 'piso' : 'pisos'}, que es lo recomendado para tu pastel.`,
-          }
-        : null,
+    /** "Con 10 kg el pastel va de 1 piso." después de bajar los pisos solos. */
+    tierNotice,
   }
 }
 
@@ -160,13 +164,19 @@ export type PriceView = {
   failed: boolean
   /** "Con pan de vainilla y relleno normal." mientras el total es un estimado. */
   assumed: string | null
+  /** La API rechazó la elección: su primer motivo, sin reintento (repetir daría lo mismo). */
+  rejectedReason: string | null
 }
 
 export function priceView(price: PriceState, plan: PricePlan | null, design: DesignDerived): PriceView {
-  const base = { updating: false, failed: false, assumed: null, isFigure: false }
+  const base = { updating: false, failed: false, assumed: null, isFigure: false, rejectedReason: null }
   if (design.aboveMaximum) return { ...base, amount: 'Por WhatsApp' }
-  // Una falla de red o una elección rechazada (400 con los kilos) no dejan total: se dice y se ofrece reintentar.
-  if (price.failed || (price.quote?.rejected && !price.updating)) return { ...base, amount: 'Sin calcular', failed: true }
+  // Una falla de red (429, 5xx, tiempo agotado) no deja total y ofrece reintentar.
+  if (price.failed) return { ...base, amount: 'Sin calcular', failed: true }
+  // Una elección rechazada (400 con los kilos) tampoco deja total, pero reintentar daría lo mismo: se dice por qué.
+  if (price.quote?.rejected && !price.updating) {
+    return { ...base, amount: 'Sin calcular', rejectedReason: price.quote.rejectedReason ?? 'No se pudo calcular el total con lo elegido.' }
+  }
   if (!plan) return { ...base, amount: 'Sin calcular' }
   const total = price.quote?.total ? formatPrice(price.quote.total) : null
   // Sin cifra que dejar tenue, mientras llega la nueva se dice "Calculando…", venga de donde venga la anterior.
@@ -176,7 +186,7 @@ export function priceView(price: PriceState, plan: PricePlan | null, design: Des
     : plan.assumedBase
       ? `Con relleno ${lowerFirst(plan.assumedBase.name)}.`
       : null
-  return { amount: price.estimate ? `Desde ${total}` : total, isFigure: true, updating: price.updating, failed: false, assumed }
+  return { amount: price.estimate ? `Desde ${total}` : total, isFigure: true, updating: price.updating, failed: false, assumed, rejectedReason: null }
 }
 
 type ViewInput = {
@@ -186,10 +196,14 @@ type ViewInput = {
   current: number
   price: PriceState
   plan: PricePlan | null
+  /** El aviso de los pisos que bajaron solos, o `null`. */
+  tierNotice: string | null
+  /** "Continuar" espera los kilos del paso 1: el botón se desactiva mientras tanto. */
+  proceeding: boolean
 }
 
 /** Todo lo que pinta la pantalla, armado con lo elegido, las opciones y el precio. */
-export function designerView({ draft, design, options, current, price, plan }: ViewInput) {
+export function designerView({ draft, design, options, current, price, plan, tierNotice, proceeding }: ViewInput) {
   const conflict = current === 2 && design.cakeType ? conflictTarget(design) : null
   const reachableUpTo = firstIncompleteStep(design, draft)
   return {
@@ -206,7 +220,7 @@ export function designerView({ draft, design, options, current, price, plan }: V
         : null,
     changedType: Boolean(design.breadIssue ?? design.fillingIssue),
     sizeLine: sizeLine(draft, design, current === 1),
-    sizeStep: sizeStepView(draft, design, options),
+    sizeStep: sizeStepView(draft, design, options, tierNotice),
     price: priceView(price, plan, design),
     choices: {
       cakeTypes: cakeTypeChoices(draft, options),
@@ -220,7 +234,8 @@ export function designerView({ draft, design, options, current, price, plan }: V
     continueShort:
       current === 1 && design.belowMinimum && !design.aboveMaximum && design.size ? `Continuar con ${design.size.kg} kg` : 'Continuar',
     // El paso 1 arriba del máximo y los pasos que esta versión aún no arma no se pueden confirmar.
-    continueDisabled: (current === 1 && design.aboveMaximum) || current > LAST_BUILT_STEP,
+    continueDisabled: (current === 1 && design.aboveMaximum) || current > LAST_BUILT_STEP || proceeding,
+    proceeding,
   }
 }
 

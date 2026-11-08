@@ -147,6 +147,7 @@ function Designer({ designer, hintId }: { designer: CakeDesignerView; hintId: st
             error={designer.stepError}
             continueLabel={view.continueLabel}
             continueDisabled={view.continueDisabled}
+            busy={view.proceeding}
             onContinue={actions.proceed}
             onBack={actions.back}
           >
@@ -159,6 +160,7 @@ function Designer({ designer, hintId }: { designer: CakeDesignerView; hintId: st
         continueLabel={view.continueShort}
         onContinue={actions.proceed}
         disabled={view.continueDisabled}
+        busy={view.proceeding}
         onRetry={designer.retryPrice}
       />
     </>

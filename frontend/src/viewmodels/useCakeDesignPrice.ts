@@ -86,13 +86,21 @@ type Pending = { key: string; run: () => void; done: Promise<Settled | null> }
  * nuevo, se ve el anterior con `updating`. Si falla, no queda ningún precio vigente (`failed`). `flush` lanza la
  * petición de ahora sin esperar y da su respuesta, para quien la necesita ya (por ejemplo, "Continuar" en el paso 1).
  */
-export function useCakeDesignPrice(request: CakeDesignPriceRequest | null): PriceState & {
+export function useCakeDesignPrice(
+  request: CakeDesignPriceRequest | null,
+  /** Se llama con cada respuesta vigente (también un rechazo con los kilos), fuera del render. */
+  onQuote?: (quote: CakeDesignQuote) => void,
+): PriceState & {
   retry: () => void
   flush: () => Promise<Settled | null>
 } {
   const [settled, setSettled] = useState<Settled>(NOTHING)
   const [attempt, setAttempt] = useState(0)
   const pending = useRef<Pending | null>(null)
+  const latestOnQuote = useRef(onQuote)
+  useEffect(() => {
+    latestOnQuote.current = onQuote
+  }, [onQuote])
   // La petición se compara por valor (su JSON): el view-model la arma de nuevo en cada render.
   const key = request === null ? null : JSON.stringify(request)
 
@@ -115,7 +123,10 @@ export function useCakeDesignPrice(request: CakeDesignPriceRequest | null): Pric
       getCakeDesignQuote(current, controller.signal).then(
         (quote) => {
           const result = { key, attempt, quote, estimate: current.estimate, failed: false }
-          if (!controller.signal.aborted) setSettled(result)
+          if (!controller.signal.aborted) {
+            setSettled(result)
+            latestOnQuote.current?.(quote)
+          }
           finish(controller.signal.aborted ? null : result)
         },
         (error: unknown) => {

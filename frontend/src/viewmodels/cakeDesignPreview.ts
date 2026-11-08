@@ -1,17 +1,19 @@
-import type { BreadOption, CakeDesignOptions } from '../models/cakeDesign.ts'
+import type { BreadOption, CakeDesignOptions, FillingFlavorOption } from '../models/cakeDesign.ts'
 import type { CakeDesignDraft } from '../models/cakeDesignDraft.ts'
-import type { CakeLayer, CakeShape, CakeTier, ShapeColor } from '../three/cakeShape.ts'
+import type { CakeLayer, CakePieces, CakeShape, CakeTier, ShapeColor } from '../three/cakeShape.ts'
 import type { DataColor, SceneColor } from '../three/palette.ts'
 import type { DesignDerived } from './cakeDesignSteps.ts'
 
 /**
  * La vista previa de "Diseña tu pastel" por etapas, como `design/referencia/pastel-css3d.js` y el libro de marca
- * ("Cotizador 3D"): el pan con su forma y sus pisos; el matiz del tipo (tres leches más claro, envinado hacia el
- * vino); el color del pan; el relleno como franja al centro del costado (mitad y mitad con dos sabores, entre capas de
- * crema con queso o flan); y, desde el paso 5, la cobertura en su color con la fila de perlas de abajo.
+ * ("Cotizador 3D"), con lo que pidió la dueña (D50): el pan con miga, en dos colores si el pan los tiene (choco-vainilla:
+ * chocolate arriba y vainilla abajo en cada capa); el matiz del tipo (tres leches más claro, envinado hacia el vino); el
+ * relleno al centro del costado con su estilo (liso, rebanadas de fruta, trozos de galleta o granillo; mitad y mitad
+ * con dos sabores); con queso o con flan, la crema abajo y el sabor arriba; y, desde el paso 5, la cobertura de crema
+ * pastelera en su color, sin perlas (la duya es de la decoración, paso 6).
  *
- * Los colores de la comida son los `preview_color` de la API, que la pastelería edita; los matices y la corteza se
- * mezclan con tokens de la marca. Sin React ni three.
+ * Los colores de la comida son los `preview_color` de la API, que la pastelería edita; los matices, la corteza y el
+ * fondo cremoso de algunos rellenos se describen como mezclas con tokens y los resuelve la escena. Sin React ni three.
  */
 
 /** Radio y alto de cada piso, de abajo hacia arriba, en unidades de escena (100 px del prototipo). */
@@ -32,41 +34,69 @@ const TYPE_TINT: Record<string, { toward: SceneColor; amount: number }> = {
   envinado: { toward: 'mermelada', amount: 0.2 },
 }
 const CRUST = { toward: 'mermelada' as const, amount: 0.18 }
+/** Fondo de crema de los rellenos con trozos de galleta o granillo: `betun` con un poco del color del sabor. */
+const CREAMY_BODY = 0.35
 /** Respaldo del pan si ninguna opción trae color: un token, nunca un color inventado. */
 const FALLBACK_BREAD: SceneColor = 'harina'
+
+const mix = (from: ShapeColor, toward: ShapeColor, amount: number): ShapeColor => ({ mix: [from, toward], amount })
 
 /** Los colores de la API ya llegan validados como `#rrggbb` (`models/cakeDesign.ts`). */
 function dataColor(value: string | null | undefined): DataColor | null {
   return value ? (value as DataColor) : null
 }
 
-const mixColors = (from: ShapeColor, toward: SceneColor, amount: number): ShapeColor => ({ mix: [from, toward], amount })
-
 function tierSize(index: number) {
   const last = TIER_SIZES[TIER_SIZES.length - 1]
   return TIER_SIZES[index] ?? { radius: last.radius * 0.8 ** (index - TIER_SIZES.length + 1), height: last.height }
 }
 
-function layers(bread: ShapeColor, filling: ShapeColor[], cream: ShapeColor | null): CakeLayer[] {
-  const crust = mixColors(bread, CRUST.toward, CRUST.amount)
-  const top: CakeLayer = { height: 0.05, colors: [crust] }
-  const bottom: CakeLayer = { height: 0.04, colors: [crust] }
-  if (filling.length === 0) {
-    return [bottom, { height: 0.46, colors: [bread] }, { height: 0.45, colors: [bread] }, top]
+/** Cómo se ve un sabor: el color de la franja y, si los lleva, sus trozos (estilo que elige la pastelería). */
+function flavorLook(flavor: FillingFlavorOption): { body: ShapeColor; pieces: CakePieces | null } | null {
+  const color = dataColor(flavor.previewColor)
+  if (!color) return null
+  const accent = dataColor(flavor.previewColorSecondary)
+  if (!accent || flavor.previewStyle === 'smooth') return { body: color, pieces: null }
+  switch (flavor.previewStyle) {
+    case 'fruit_slices':
+      return { body: color, pieces: { style: 'fruit_slices', colors: [accent] } }
+    case 'cookie_chunks':
+      return { body: mix('betun', color, CREAMY_BODY), pieces: { style: 'cookie_chunks', colors: [accent] } }
+    case 'sprinkles':
+      return { body: mix('betun', color, CREAMY_BODY), pieces: { style: 'sprinkles', colors: [accent, color] } }
   }
-  const flavors: CakeLayer['colors'] = filling.length === 2 ? [filling[0], filling[1]] : [filling[0]]
-  if (cream) {
-    return [
-      bottom,
-      { height: 0.32, colors: [bread] },
-      { height: 0.07, colors: [cream] },
-      { height: 0.14, colors: flavors },
-      { height: 0.07, colors: [cream] },
-      { height: 0.31, colors: [bread] },
-      top,
-    ]
+}
+
+type Bread = { top: ShapeColor; bottom: ShapeColor }
+
+/** Una capa de pan: de un color, o en dos mitades (abajo y arriba) si el pan es de dos colores. */
+function breadLayers(height: number, bread: Bread): CakeLayer[] {
+  if (bread.top === bread.bottom) return [{ height, colors: [bread.top], crumb: true }]
+  return [
+    { height: height / 2, colors: [bread.bottom], crumb: true },
+    { height: height / 2, colors: [bread.top], crumb: true },
+  ]
+}
+
+type FillingLook = { flavors: { body: ShapeColor; pieces: CakePieces | null }[]; cream: ShapeColor | null }
+
+/** Las capas del costado de abajo hacia arriba: corteza, pan, relleno (si hay), pan y corteza. */
+function layers(bread: Bread, filling: FillingLook | null): CakeLayer[] {
+  const crustBottom: CakeLayer = { height: 0.04, colors: [mix(bread.bottom, CRUST.toward, CRUST.amount)], crumb: true }
+  const crustTop: CakeLayer = { height: 0.05, colors: [mix(bread.top, CRUST.toward, CRUST.amount)], crumb: true }
+  if (!filling || filling.flavors.length === 0) {
+    return [crustBottom, ...breadLayers(0.46, bread), ...breadLayers(0.45, bread), crustTop]
   }
-  return [bottom, { height: 0.38, colors: [bread] }, { height: 0.16, colors: flavors }, { height: 0.37, colors: [bread] }, top]
+  const [first, second] = filling.flavors
+  const flavorLayer = (height: number): CakeLayer =>
+    second
+      ? { height, colors: [first.body, second.body], pieces: [first.pieces, second.pieces] }
+      : { height, colors: [first.body], pieces: [first.pieces] }
+  if (filling.cream) {
+    // Con queso o con flan (decisión de la dueña, D50): la crema abajo y el sabor arriba, en el mismo espesor.
+    return [crustBottom, ...breadLayers(0.32, bread), { height: 0.14, colors: [filling.cream] }, flavorLayer(0.14), ...breadLayers(0.31, bread), crustTop]
+  }
+  return [crustBottom, ...breadLayers(0.38, bread), flavorLayer(0.16), ...breadLayers(0.37, bread), crustTop]
 }
 
 type PreviewInput = {
@@ -80,17 +110,20 @@ type PreviewInput = {
 
 export function designPreview({ draft, design, options, current, defaultBread }: PreviewInput): CakeShape {
   const bread = design.bread ?? defaultBread
-  const plain = dataColor(bread?.previewColor) ?? dataColor(defaultBread?.previewColor) ?? FALLBACK_BREAD
+  const top = dataColor(bread?.previewColor) ?? dataColor(defaultBread?.previewColor) ?? FALLBACK_BREAD
+  // Un pan de dos colores trae el de abajo aparte (el admin lo controla); sin él, es de un solo color.
+  const bottom = dataColor(bread?.previewColorBottom) ?? top
   const tint = design.cakeType ? TYPE_TINT[design.cakeType.value] : undefined
-  const breadColor = tint ? mixColors(plain, tint.toward, tint.amount) : plain
+  const tinted = (color: ShapeColor) => (tint ? mix(color, tint.toward, tint.amount) : color)
+  const breadColors: Bread = { top: tinted(top), bottom: bottom === top ? tinted(top) : tinted(bottom) }
 
   const showFilling = !design.fillingIncluded && design.base !== null && design.flavors.length > 0
-  const filling = showFilling ? design.flavors.map((flavor) => dataColor(flavor.previewColor)).filter((c): c is DataColor => c !== null) : []
-  const cream = showFilling ? dataColor(design.base?.previewColor) : null
+  const looks = showFilling ? design.flavors.map(flavorLook).filter((look): look is NonNullable<typeof look> => look !== null) : []
+  const filling: FillingLook | null = looks.length ? { flavors: looks, cream: dataColor(design.base?.previewColor) } : null
   const frosting = current >= 5 && design.coverage ? (dataColor(design.coverage.previewColor) ?? undefined) : undefined
 
   const count = Math.min(Math.max(draft.tiers, 1), Math.max(design.maxTiers, 1))
-  const sides = layers(breadColor, filling, cream)
+  const sides = layers(breadColors, filling)
   const tiers: CakeTier[] = Array.from({ length: count }, (_, index) => ({
     ...tierSize(index),
     ...(frosting ? { frosting } : { layers: sides }),
@@ -101,7 +134,8 @@ export function designPreview({ draft, design, options, current, defaultBread }:
   const byKg = SMALLEST_SCALE + (1 - SMALLEST_SCALE) * Math.min(1, kg / Math.max(options.limits.maxOnlineKg, 1))
   return {
     tiers,
-    festoons: frosting ? 'bottom' : false,
+    // La cobertura es solo crema pastelera: las perlas y la duya llegan con la decoración (paso 6, D50).
+    festoons: false,
     stand: true,
     candle: false,
     form: draft.form,

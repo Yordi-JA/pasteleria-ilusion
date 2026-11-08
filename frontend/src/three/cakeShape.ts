@@ -16,12 +16,23 @@ export type ShapeColor = SceneColor | { mix: readonly [ShapeColor, ShapeColor]; 
  * perlas de abajo. La portada usa siempre la etapa final.
  */
 
+/** Trozos que asoman en el costado del relleno (D50): rebanadas de fruta, trozos de galleta o granillo. */
+export type CakePieces = {
+  style: 'fruit_slices' | 'cookie_chunks' | 'sprinkles'
+  /** Colores de los trozos; con dos o más, se reparten entre ellos. */
+  colors: readonly ShapeColor[]
+}
+
 /** Una capa del costado de un piso sin cobertura. */
 export type CakeLayer = {
   /** Fracción del alto del piso, de abajo hacia arriba; las capas de un piso suman 1. */
   height: number
   /** Un color para toda la capa, o dos para mitad y mitad (dos sabores de relleno). */
   colors: readonly [ShapeColor] | readonly [ShapeColor, ShapeColor]
+  /** Pan: lleva la textura de miga. */
+  crumb?: boolean
+  /** Trozos de cada mitad, en el orden de `colors`; `null` en una mitad lisa. */
+  pieces?: readonly (CakePieces | null)[]
 }
 
 export type CakeTier = {
@@ -38,7 +49,7 @@ export type CakeShape = {
   tiers: readonly CakeTier[]
   /**
    * Festones de duya: `true` es una fila de perlas en el borde de arriba y otra en el de abajo de cada piso (portada);
-   * `'bottom'`, solo la de abajo (la cobertura de "Diseña tu pastel").
+   * `'bottom'`, solo la de abajo (para la decoración con duya del paso 6). La cobertura sola no lleva perlas (D50).
    */
   festoons: boolean | 'bottom'
   stand: boolean

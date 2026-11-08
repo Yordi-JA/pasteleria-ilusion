@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { getCakeDesignOptions } from '../models/cakeDesign.ts'
-import type { CakeDesignOptions } from '../models/cakeDesign.ts'
+import type { CakeDesignOptions, CakeDesignQuote } from '../models/cakeDesign.ts'
 import { MAX_PEOPLE_INPUT, readDraft, writeDraft } from '../models/cakeDesignDraft.ts'
 import type { CakeDesignDraft, CakeForm } from '../models/cakeDesignDraft.ts'
 import type { CakeShape } from '../three/cakeShape.ts'
@@ -18,6 +18,7 @@ import {
   previousStep,
   STEP_COUNT,
   stepAfter,
+  tierLimitSentence,
 } from './cakeDesignSteps.ts'
 import type { DesignDerived } from './cakeDesignSteps.ts'
 import { designerView } from './cakeDesignSummary.ts'
@@ -39,6 +40,15 @@ function allowedStep(requested: number, design: DesignDerived, draft: CakeDesign
 }
 
 const OPTIONS_FAILURE = 'No se pudieron cargar las opciones de "Diseña tu pastel".'
+
+/** Los campos que `confirmStep` cambió, para aplicarlos sobre el borrador más reciente. */
+function diffOf(before: CakeDesignDraft, after: CakeDesignDraft): Partial<CakeDesignDraft> {
+  return Object.fromEntries(
+    (Object.keys(after) as (keyof CakeDesignDraft)[])
+      .filter((field) => JSON.stringify(before[field]) !== JSON.stringify(after[field]))
+      .map((field) => [field, after[field]]),
+  ) as Partial<CakeDesignDraft>
+}
 
 /** Mientras llegan las opciones no hay pastel que dibujar; la escena no se monta hasta tenerlas. */
 const EMPTY_SHAPE: CakeShape = { tiers: [], festoons: false, stand: true, candle: false }
@@ -67,7 +77,22 @@ export function useCakeDesigner() {
   // lee lo que no depende del tamaño, así que se arma con un diseño sin él.
   const sizeless = useMemo(() => (options ? deriveDesign(draft, options, null) : null), [draft, options])
   const plan = useMemo(() => (sizeless && options ? planPrice(draft, sizeless, options) : null), [draft, options, sizeless])
-  const price = useCakeDesignPrice(plan?.request ?? null)
+
+  // Regla 3.3 (D50): si los kilos que llegan ya no permiten los pisos elegidos, bajan solos al máximo permitido y se
+  // avisa ("Con 10 kg el pastel va de 1 piso."). Se decide con el borrador más reciente, no con el del render.
+  const latestDraft = useRef(draft)
+  useEffect(() => {
+    latestDraft.current = draft
+  }, [draft])
+  const [tierNotice, setTierNotice] = useState<string | null>(null)
+  const onQuote = useCallback((quote: CakeDesignQuote) => {
+    const size = quote.size
+    const now = latestDraft.current
+    if (!size || size.people !== now.people || now.tiers <= size.maxTiers) return
+    setDraft((d) => (d.people === size.people && d.tiers > size.maxTiers ? { ...d, tiers: size.maxTiers } : d))
+    setTierNotice(tierLimitSentence(size.kg, size.maxTiers))
+  }, [])
+  const price = useCakeDesignPrice(plan?.request ?? null, onQuote)
   const apiSize = price.quote?.size ?? null
   const design = useMemo(() => (options ? deriveDesign(draft, options, apiSize) : null), [apiSize, draft, options])
 
@@ -122,7 +147,13 @@ export function useCakeDesigner() {
   )
   const settlePeople = useCallback(() => setPeopleText(String(draft.people)), [draft.people])
   const setForm = useCallback((form: CakeForm) => update((d) => ({ ...d, form })), [update])
-  const setTiers = useCallback((tiers: number) => update((d) => ({ ...d, tiers })), [update])
+  const setTiers = useCallback(
+    (tiers: number) => {
+      setTierNotice(null)
+      update((d) => ({ ...d, tiers }))
+    },
+    [update],
+  )
 
   // --- Pasos 2 a 5 ---
   const setCakeType = useCallback((cakeType: string) => update((d) => ({ ...d, cakeType })), [update])
@@ -172,31 +203,52 @@ export function useCakeDesigner() {
 
   // --- Avance ---
   const { flush } = price
+  // Un solo "Continuar" a la vez: un doble clic o Enter sostenido mientras se esperan los kilos no navega dos veces.
+  const proceedingRef = useRef(false)
+  const [proceeding, setProceeding] = useState(false)
   const proceed = useCallback(async () => {
-    if (!design || !options || current > LAST_BUILT_STEP) return
-    let stepDesign = design
-    let size = apiSize
-    if (current === 1 && !design.size?.current) {
-      // Los kilos de estas personas todavía no llegan: se pide ya (sin esperar el fin de los cambios) y se espera la
-      // respuesta, así "Continuar" funciona con una sola pulsación. Solo una falla de red deja el error con reintento.
-      const settled = await flush()
-      if (!settled || settled.failed) {
-        setStepError(settled?.failed ? 'No pudimos calcular los kilos. Vuelve a intentarlo.' : missingChoice(1, design, draft))
+    if (!design || !options || current > LAST_BUILT_STEP || proceedingRef.current) return
+    proceedingRef.current = true
+    setProceeding(true)
+    try {
+      let stepDesign = design
+      let size = apiSize
+      let base = draft
+      if (current === 1 && !design.size?.current) {
+        // Los kilos de estas personas todavía no llegan: se pide ya (sin esperar el fin de los cambios) y se espera la
+        // respuesta, así basta una pulsación. Solo una falla de red deja el error con reintento.
+        const settled = await flush()
+        if (!settled || settled.failed) {
+          setStepError(settled?.failed ? 'No pudimos calcular los kilos. Vuelve a intentarlo.' : missingChoice(1, design, draft))
+          return
+        }
+        size = settled.quote?.size ?? null
+        // Lo que cambió durante la espera (por ejemplo, la forma) cuenta: se parte del borrador más reciente.
+        base = latestDraft.current
+        if (!size || size.people !== base.people) {
+          setStepError(missingChoice(1, design, base))
+          return
+        }
+        // Si los kilos no permiten los pisos, bajan aquí también (la respuesta pudo llegar en esta misma espera).
+        if (base.tiers > size.maxTiers) base = { ...base, tiers: size.maxTiers }
+        stepDesign = deriveDesign(base, options, size)
+      }
+      const missing = missingChoice(current, stepDesign, base)
+      if (missing) {
+        setStepError(missing)
         return
       }
-      size = settled.quote?.size ?? null
-      stepDesign = deriveDesign(draft, options, size)
+      const next = confirmStep(current, stepDesign, base)
+      if (next.people !== base.people) setPeopleText(String(next.people))
+      // Funcional: lo que este paso confirma se aplica sobre el borrador más reciente, sin pisar otros cambios.
+      const changes = diffOf(latestDraft.current, next)
+      setDraft((latest) => ({ ...latest, ...changes }))
+      const after = deriveDesign(next, options, next.people === base.people ? size : null)
+      navigate({ search: `?paso=${stepAfter(current, stepDesign, after, next)}` })
+    } finally {
+      proceedingRef.current = false
+      setProceeding(false)
     }
-    const missing = missingChoice(current, stepDesign, draft)
-    if (missing) {
-      setStepError(missing)
-      return
-    }
-    const next = confirmStep(current, stepDesign, draft)
-    if (next.people !== draft.people) setPeopleText(String(next.people))
-    setDraft(next)
-    const after = deriveDesign(next, options, next.people === draft.people ? size : null)
-    navigate({ search: `?paso=${stepAfter(current, stepDesign, after, next)}` })
   }, [apiSize, current, design, draft, flush, navigate, options])
 
   const back = useCallback(() => {
@@ -217,7 +269,7 @@ export function useCakeDesigner() {
     retryOptions,
     retryPrice: price.retry,
     draft,
-    view: design && options ? designerView({ draft, design, options, current, price, plan }) : null,
+    view: design && options ? designerView({ draft, design, options, current, price, plan, tierNotice, proceeding }) : null,
     current,
     stepTitle,
     direction,

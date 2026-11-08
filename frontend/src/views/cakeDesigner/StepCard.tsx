@@ -13,6 +13,8 @@ type StepCardProps = {
   error: string | null
   continueLabel: string
   continueDisabled?: boolean
+  /** "Continuar" espera algo (los kilos del paso 1): el botón se desactiva y lo dice con `aria-busy`. */
+  busy?: boolean
   onContinue: () => void
   onBack: () => void
   children: ReactNode
@@ -33,6 +35,7 @@ export default function StepCard({
   error,
   continueLabel,
   continueDisabled = false,
+  busy = false,
   onContinue,
   onBack,
   children,
@@ -59,7 +62,7 @@ export default function StepCard({
           </p>
         )}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <Button onClick={onContinue} disabled={continueDisabled}>
+          <Button onClick={onContinue} disabled={continueDisabled} aria-busy={busy || undefined}>
             {continueLabel}
           </Button>
           <button

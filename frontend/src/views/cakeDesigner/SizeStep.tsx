@@ -66,7 +66,8 @@ export default function SizeStep({
             onChange={(event) => onTypePeople(event.target.value)}
             onBlur={onSettlePeople}
             onKeyDown={(event) => {
-              if (event.key === 'Enter') onSubmit()
+              // Mantener Enter presionado no continúa varias veces.
+              if (event.key === 'Enter' && !event.repeat) onSubmit()
             }}
             className={`h-10 w-16 rounded-sm bg-transparent text-center text-titulo-3 tabular-nums ${focusRing}`}
           />
@@ -162,17 +163,14 @@ export default function SizeStep({
               label={tier.label}
               description={tier.description}
               checked={tier.checked}
+              disabled={tier.disabled}
               onChange={() => onTiers(tier.value)}
             />
           ))}
         </div>
       </fieldset>
 
-      {view.tierWarning && (
-        <Notice title={view.tierWarning.title}>
-          <p>{view.tierWarning.body}</p>
-        </Notice>
-      )}
+      {view.tierNotice && <Notice title={view.tierNotice} />}
 
       <p className="text-nota">La vista previa se irá armando con cada paso. Por ahora, solo el pan.</p>
     </>

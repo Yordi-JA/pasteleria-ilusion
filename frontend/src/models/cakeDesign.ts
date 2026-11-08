@@ -31,8 +31,10 @@ export type BreadOption = {
   pricingMode: BreadPricingMode
   /** Relleno que trae el pan de precio completo ("Crema de chocolate sabor helado"); vacío si lleva relleno aparte. */
   includedFilling: string
-  /** Color del pan en la vista previa, `#rrggbb` del admin; `null` si no lo tiene. */
+  /** Color del pan en la vista previa, `#rrggbb` del admin; `null` si no lo tiene. En un pan de dos colores, la mitad de arriba. */
   previewColor: string | null
+  /** Solo en un pan de dos colores (choco-vainilla): la mitad de abajo de cada capa. */
+  previewColorBottom: string | null
   allowedCakeTypes: string[]
   unavailableReasons: ReasonsByCakeType
   unavailableCodes: CodesByCakeType
@@ -40,10 +42,16 @@ export type BreadOption = {
   pricePerKgFrom: PriceByCakeType
 }
 
+/** Cómo se ve un sabor en la vista previa; lo elige la pastelería en el admin (D50). */
+export type FillingPreviewStyle = 'smooth' | 'fruit_slices' | 'cookie_chunks' | 'sprinkles'
+
 export type FillingFlavorOption = {
   slug: string
   name: string
   previewColor: string | null
+  previewStyle: FillingPreviewStyle
+  /** Color de las rebanadas, los trozos o el granillo; `null` en un relleno liso. */
+  previewColorSecondary: string | null
   isCombinable: boolean
   allowedCakeTypes: string[]
   unavailableReasons: ReasonsByCakeType
@@ -70,7 +78,8 @@ export type CoverageColorOption = { slug: string; name: string; previewColor: st
 
 export type CakeDesignLimits = { peoplePerKg: number; minCustomKg: number; maxOnlineKg: number }
 
-export type TierRecommendation = { tiers: number; minKg: number; maxKg: number | null }
+/** Kilos mínimos para un número de pisos (regla 3.3, D50): con menos kilos, esos pisos no se eligen. */
+export type TierMinimum = { tiers: number; minKg: number }
 
 /** Peso y personas de un pastel del catálogo; `null` es un dato que aún no se define. */
 export type CakeSize = { approxWeightKg: string | null; servings: number | null }
@@ -84,7 +93,7 @@ export type CakeDesignOptions = {
   coverageColors: CoverageColorOption[]
   limits: CakeDesignLimits
   /** Una por número de pisos, en orden; su largo es el máximo de pisos. */
-  tierRecommendations: TierRecommendation[]
+  tierMinimums: TierMinimum[]
   smallerAlternatives: SmallerAlternatives
 }
 
@@ -110,6 +119,8 @@ export type PeopleSize = {
   aboveMaximum: boolean
   minimumPeople: number
   maxOnlinePeople: number
+  /** El mayor número de pisos que permiten los kilos (regla 3.3, lo decide la API). */
+  maxTiers: number
 }
 
 /**
@@ -123,6 +134,8 @@ export type CakeDesignQuote = {
   /** El total es un estimado sin sabores: ningún pedido lo acepta. */
   isEstimate: boolean
   rejected: boolean
+  /** Con `rejected`, el primer motivo de la API ("Ese pan no existe o no está disponible."). */
+  rejectedReason: string | null
 }
 
 type Raw = Record<string, unknown>
@@ -134,6 +147,8 @@ const WEIGHT = /^\d{1,2}(?:\.\d)?$/
 const MAX_NAME_LENGTH = 120
 const BREAD_MODES = new Set<string>(['extra_per_kg', 'full_price_per_kg'])
 const CODES = new Set<string>(['not_offered', 'not_combinable', 'only_in'])
+// Un estilo que esta versión no conoce se ve liso.
+const PREVIEW_STYLES = new Set<string>(['smooth', 'fruit_slices', 'cookie_chunks', 'sprinkles'])
 
 function code(value: unknown): UnavailableCode | null {
   return typeof value === 'string' && CODES.has(value) ? (value as UnavailableCode) : null
@@ -209,6 +224,7 @@ function parseBread(data: unknown): BreadOption | null {
     pricingMode: data.pricing_mode as BreadPricingMode,
     includedFilling: optionalText(data.included_filling),
     previewColor: color(data.preview_color),
+    previewColorBottom: color(data.preview_color_bottom),
     allowedCakeTypes: slugList(data.allowed_cake_types),
     unavailableReasons: textByType(data.unavailable_reasons, name),
     unavailableCodes: textByType(data.unavailable_codes, code) as CodesByCakeType,
@@ -225,6 +241,8 @@ function parseFlavor(data: unknown): FillingFlavorOption | null {
     slug: flavorSlug,
     name: flavorName,
     previewColor: color(data.preview_color),
+    previewStyle: typeof data.preview_style === 'string' && PREVIEW_STYLES.has(data.preview_style) ? (data.preview_style as FillingPreviewStyle) : 'smooth',
+    previewColorSecondary: color(data.preview_color_secondary),
     isCombinable: data.is_combinable === true,
     allowedCakeTypes: slugList(data.allowed_cake_types),
     unavailableReasons: textByType(data.unavailable_reasons, name),
@@ -262,12 +280,11 @@ function parseCoverageColor(data: unknown): CoverageColorOption | null {
   return colorSlug && colorName && preview ? { slug: colorSlug, name: colorName, previewColor: preview } : null
 }
 
-function parseTier(data: unknown): TierRecommendation | null {
+function parseTier(data: unknown): TierMinimum | null {
   if (!isRecord(data)) return null
   const tiers = count(data.tiers, 1)
-  const minKg = count(data.recommended_min_kg)
-  // Sin tope (`null`) o con un tope que no se entiende, la recomendación queda abierta.
-  return tiers !== null && minKg !== null ? { tiers, minKg, maxKg: count(data.recommended_max_kg) } : null
+  const minKg = count(data.min_kg)
+  return tiers !== null && minKg !== null ? { tiers, minKg } : null
 }
 
 function parseSize(data: unknown): CakeSize | null {
@@ -301,7 +318,7 @@ export function parseCakeDesignOptions(data: unknown): CakeDesignOptions {
     coverageColors: list(data.coverage_colors, parseCoverageColor, 'colores de cobertura'),
     limits: parseLimits(data.limits),
     // Los pisos van del 1 al máximo, sin huecos: se cortan en el primero que falte.
-    tierRecommendations: list(data.tier_recommendations, parseTier, 'pisos recomendados')
+    tierMinimums: list(data.tier_minimums, parseTier, 'mínimos por pisos')
       .sort((a, b) => a.tiers - b.tiers)
       .filter((tier, index) => tier.tiers === index + 1),
     smallerAlternatives: {
@@ -309,7 +326,7 @@ export function parseCakeDesignOptions(data: unknown): CakeDesignOptions {
       miniCake: isRecord(data.smaller_alternatives) ? parseSize(data.smaller_alternatives.mini_cake) : null,
     },
   }
-  const missing = (['cakeTypes', 'breads', 'fillingBases', 'coverageColors', 'tierRecommendations'] as const).filter(
+  const missing = (['cakeTypes', 'breads', 'fillingBases', 'coverageColors', 'tierMinimums'] as const).filter(
     (key) => options[key].length === 0,
   )
   if (missing.length > 0) throw new TypeError(`Faltan opciones de "Diseña tu pastel": ${missing.join(', ')}.`)
@@ -323,7 +340,10 @@ function parseSizeBlock(data: unknown): PeopleSize | null {
   const kg = count(data.kg, 1)
   const minimumPeople = count(data.minimum_people)
   const maxOnlinePeople = count(data.max_online_people)
-  if (people === null || roundedKg === null || kg === null || minimumPeople === null || maxOnlinePeople === null) return null
+  const maxTiers = count(data.max_tiers, 1)
+  if (people === null || roundedKg === null || kg === null || minimumPeople === null || maxOnlinePeople === null || maxTiers === null) {
+    return null
+  }
   return {
     people,
     roundedKg,
@@ -332,6 +352,7 @@ function parseSizeBlock(data: unknown): PeopleSize | null {
     aboveMaximum: data.above_maximum === true,
     minimumPeople,
     maxOnlinePeople,
+    maxTiers,
   }
 }
 
@@ -343,18 +364,25 @@ export function parseCakeDesignQuote(data: unknown): CakeDesignQuote {
   if (!isRecord(data)) throw new TypeError('El precio no tiene la forma esperada.')
   const size = parseSizeBlock(data.size)
   if (data.size !== null && data.size !== undefined && size === null) throw new TypeError('El tamaño no tiene la forma esperada.')
-  if (size?.aboveMaximum) return { total: null, pricePerKg: null, size, isEstimate: false, rejected: false }
+  if (size?.aboveMaximum) return { total: null, pricePerKg: null, size, isEstimate: false, rejected: false, rejectedReason: null }
   const total = money(data.total)
   const pricePerKg = money(data.price_per_kg)
   if (total === null || pricePerKg === null) throw new TypeError('El precio no tiene la forma esperada.')
-  return { total, pricePerKg, size, isEstimate: data.is_estimate === true, rejected: false }
+  return { total, pricePerKg, size, isEstimate: data.is_estimate === true, rejected: false, rejectedReason: null }
 }
 
 /** Un 400 de la elección que trae `size`: sin total, pero con los kilos. Sin `size`, `null` (es una falla). */
 function rejectedQuote(error: unknown): CakeDesignQuote | null {
   if (!(error instanceof ApiError) || error.status !== 400 || !isRecord(error.body)) return null
   const size = parseSizeBlock(error.body.size)
-  return size ? { total: null, pricePerKg: null, size, isEstimate: false, rejected: true } : null
+  if (!size) return null
+  // El 400 trae los errores por campo junto a `size` (forma plana, ver la descripción del endpoint): el primero se muestra.
+  const reasons = Object.entries(error.body)
+    .filter(([field]) => field !== 'size')
+    .flatMap(([, value]) => (Array.isArray(value) ? value : []))
+    .map((reason) => name(reason))
+    .filter((reason): reason is string => reason !== null)
+  return { total: null, pricePerKg: null, size, isEstimate: false, rejected: true, rejectedReason: reasons[0] ?? null }
 }
 
 /**
@@ -391,10 +419,6 @@ export async function getCakeDesignQuote(request: CakeDesignPriceRequest, signal
   return parseCakeDesignQuote(data)
 }
 
-/** El mayor número de pisos cuyo mínimo recomendado alcanzan los kilos (regla 3.3). */
-export function recommendedTiers(kg: number, recommendations: TierRecommendation[]): number {
-  return recommendations.reduce((best, tier) => (kg >= tier.minKg ? Math.max(best, tier.tiers) : best), 1)
-}
 
 /** Para comparar dos montos de la API (nunca para calcular uno). */
 export function compareMoney(a: string, b: string): number {

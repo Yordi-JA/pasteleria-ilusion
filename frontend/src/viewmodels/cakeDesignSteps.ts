@@ -1,4 +1,3 @@
-import { recommendedTiers } from '../models/cakeDesign.ts'
 import type {
   BreadOption,
   CakeDesignOptions,
@@ -47,10 +46,8 @@ export type DesignDerived = {
   belowMinimum: boolean
   aboveMaximum: boolean
   maxTiers: number
-  /** Pisos que la pastelería recomienda para los kilos. */
-  suggestedTiers: number
-  /** Los pisos elegidos piden más kilos: el mínimo recomendado de ese número de pisos. */
-  tierShortfall: { tiers: number; minKg: number } | null
+  /** El mayor número de pisos que permiten los kilos (regla 3.3, de la API); `null` sin tamaño. */
+  allowedTiers: number | null
   cakeType: CakeTypeOption | null
   bread: BreadOption | null
   breadIssue: Issue | null
@@ -80,11 +77,10 @@ export function choosableFlavors(base: FillingBaseOption | null, cakeType: strin
 }
 
 export function deriveDesign(draft: CakeDesignDraft, options: CakeDesignOptions, apiSize: PeopleSize | null): DesignDerived {
-  const { tierRecommendations } = options
+  const { tierMinimums } = options
   const size = apiSize ? { ...apiSize, current: apiSize.people === draft.people } : null
   const kg = size?.kg ?? null
-  const maxTiers = tierRecommendations.length
-  const tierMin = tierRecommendations.find((tier) => tier.tiers === draft.tiers)?.minKg ?? 0
+  const maxTiers = tierMinimums.length
 
   const cakeType = options.cakeTypes.find((type) => type.value === draft.cakeType) ?? null
   const typeValue = cakeType?.value ?? null
@@ -107,8 +103,7 @@ export function deriveDesign(draft: CakeDesignDraft, options: CakeDesignOptions,
     belowMinimum: Boolean(size?.belowMinimum),
     aboveMaximum,
     maxTiers,
-    suggestedTiers: kg === null ? 1 : Math.min(recommendedTiers(kg, tierRecommendations), maxTiers),
-    tierShortfall: kg !== null && kg < tierMin ? { tiers: draft.tiers, minKg: tierMin } : null,
+    allowedTiers: size ? Math.min(size.maxTiers, maxTiers) : null,
     cakeType,
     bread,
     breadIssue,
@@ -122,7 +117,8 @@ export function deriveDesign(draft: CakeDesignDraft, options: CakeDesignOptions,
     valid: [],
   }
   design.valid = [
-    draft.people >= 1 && !aboveMaximum && draft.tiers >= 1 && draft.tiers <= maxTiers,
+    // Regla 3.3 (D50): los pisos no pasan de lo que permiten los kilos de ahora.
+    draft.people >= 1 && !aboveMaximum && draft.tiers >= 1 && draft.tiers <= maxTiers && !(size?.current && draft.tiers > size.maxTiers),
     Boolean(cakeType),
     breadValid,
     fillingProblem(design, draft) === null,
@@ -148,6 +144,11 @@ export function fillingProblem(design: DesignDerived, draft: CakeDesignDraft): s
   if (design.flavors.length > design.flavorsNeeded) return 'Elige un solo sabor.'
   const single = design.flavorsNeeded === 2 ? design.flavors.find((flavor) => !flavor.isCombinable) : undefined
   return single ? `${single.name} no se combina con otro sabor.` : null
+}
+
+/** "Con 10 kg el pastel va de 1 piso." o "Con 20 kg el pastel va de hasta 3 pisos." (regla 3.3, D50). */
+export function tierLimitSentence(kg: number, maxTiers: number) {
+  return maxTiers === 1 ? `Con ${kg} kg el pastel va de 1 piso.` : `Con ${kg} kg el pastel va de hasta ${maxTiers} pisos.`
 }
 
 /** El paso 4 no se elige cuando el pan trae su relleno. */
@@ -201,7 +202,8 @@ export function missingChoice(step: number, design: DesignDerived, draft: CakeDe
   switch (step) {
     case 1:
       if (!design.size || !design.size.current) return 'Todavía calculamos los kilos. Intenta de nuevo en un momento.'
-      return design.aboveMaximum ? 'Para tantas personas, escríbenos por WhatsApp.' : null
+      if (design.aboveMaximum) return 'Para tantas personas, escríbenos por WhatsApp.'
+      return draft.tiers > design.size.maxTiers ? tierLimitSentence(design.size.kg, design.size.maxTiers) : null
     case 2:
       return design.cakeType ? null : 'Elige el tipo de pastel.'
     case 3:

@@ -2,8 +2,10 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { CanvasTexture, Color, DoubleSide, ExtrudeGeometry, Object3D, RepeatWrapping, Shape, SRGBColorSpace, Vector2 } from 'three'
-import type { Group, InstancedMesh, MeshStandardMaterial } from 'three'
+import type { Group, InstancedMesh, MeshStandardMaterial, Texture } from 'three'
 import type { CakeLayer, CakeShape, CakeTier } from './cakeShape.ts'
+import { CRUMB_TILE, useCrumbTexture } from './crumb.ts'
+import FillingPieces from './FillingPieces.tsx'
 import type { ShapeColor } from './cakeShape.ts'
 import { brandColor, resolveColor } from './palette.ts'
 
@@ -169,7 +171,15 @@ function Pearls({ tier, form, top }: { tier: CakeTier; form: Form; top: boolean 
  * Material de un color que puede cambiar (pan, relleno, cobertura). El cambio dura 300 ms; con "reducir movimiento"
  * (`animate` en falso) es inmediato. Mientras dura, pide cuadros a la escena, que usa `frameloop="demand"`.
  */
-function FoodMaterial({ color, roughness, animate }: { color: ShapeColor; roughness: number; animate: boolean }) {
+type FoodMaterialProps = {
+  color: ShapeColor
+  roughness: number
+  animate: boolean
+  /** La miga del pan (color y relieve); el color del pan la tiñe. */
+  crumb?: Texture | null
+}
+
+function FoodMaterial({ color, roughness, animate, crumb = null }: FoodMaterialProps) {
   const material = useRef<MeshStandardMaterial>(null)
   const invalidate = useThree((state) => state.invalidate)
   const transition = useRef<{ from: Color; to: Color; elapsed: number } | null>(null)
@@ -189,6 +199,11 @@ function FoodMaterial({ color, roughness, animate }: { color: ShapeColor; roughn
     }
     invalidate()
   }, [animate, hex, invalidate])
+  // Con o sin miga es otro programa de sombreado: el material se recompila cuando cambia.
+  useEffect(() => {
+    if (material.current) material.current.needsUpdate = true
+    invalidate()
+  }, [crumb, invalidate])
   useFrame((_, delta) => {
     const step = transition.current
     const target = material.current
@@ -199,7 +214,16 @@ function FoodMaterial({ color, roughness, animate }: { color: ShapeColor; roughn
     if (t < 1) invalidate()
     else transition.current = null
   })
-  return <meshStandardMaterial ref={material} color={initial} roughness={roughness} />
+  return (
+    <meshStandardMaterial
+      ref={material}
+      color={initial}
+      roughness={roughness}
+      map={crumb}
+      bumpMap={crumb}
+      bumpScale={crumb ? 1.4 : 1}
+    />
+  )
 }
 
 type Split = 'whole' | 'left' | 'right'
@@ -235,33 +259,64 @@ function RectSlab({ tier, height, split }: { tier: CakeTier; height: number; spl
   return <primitive object={geometry} attach="geometry" />
 }
 
-type LayerProps = { tier: CakeTier; form: Form; layer: CakeLayer; bottom: number; animate: boolean }
+type LayerProps = { tier: CakeTier; form: Form; layer: CakeLayer; bottom: number; animate: boolean; seed: number }
+
+/** Una mitad (o toda) la capa: su forma, su material y, si el relleno los lleva, sus trozos. */
+function LayerPart({ tier, form, layer, index, height, animate, seed }: Omit<LayerProps, 'bottom'> & { index: number; height: number }) {
+  const halves = layer.colors.length === 2
+  const color = layer.colors[index] ?? layer.colors[0]
+  const pieces = layer.pieces?.[index] ?? null
+  // La miga se repite cada `CRUMB_TILE`: en redondo, el ancho de la textura es el arco de la pieza; en rectangular, la
+  // extrusión ya usa coordenadas de escena.
+  const arc = (halves ? Math.PI : Math.PI * 2) * tier.radius
+  const crumb = useCrumbTexture(
+    Boolean(layer.crumb),
+    form === 'round' ? Math.max(1, Math.round(arc / CRUMB_TILE)) : 1 / CRUMB_TILE,
+    form === 'round' ? Math.max(height / CRUMB_TILE, 0.05) : 1 / CRUMB_TILE,
+  )
+  return (
+    <>
+      <mesh position-y={form === 'round' ? height / 2 : 0}>
+        {form === 'round' ? (
+          <cylinderGeometry
+            args={[tier.radius, tier.radius, height, 64, 1, false, halves ? index * Math.PI : 0, halves ? Math.PI : Math.PI * 2]}
+          />
+        ) : (
+          <RectSlab tier={tier} height={height} split={halves ? (index === 0 ? 'left' : 'right') : 'whole'} />
+        )}
+        <FoodMaterial color={color} roughness={layer.crumb ? 0.95 : 0.85} animate={animate} crumb={crumb} />
+      </mesh>
+      {pieces && (
+        <FillingPieces
+          pieces={pieces}
+          radius={tier.radius}
+          form={form}
+          halfWidth={(tier.radius * RECT.width) / 2}
+          halfDepth={(tier.radius * RECT.depth) / 2}
+          height={height}
+          half={halves ? (index as 0 | 1) : 'whole'}
+          seed={seed * 2 + index}
+        />
+      )}
+    </>
+  )
+}
 
 /** Una capa del costado: un cilindro (o dos medios) en redondo, una losa (o dos mitades) en rectangular. */
-function Layer({ tier, form, layer, bottom, animate }: LayerProps) {
+function Layer({ tier, form, layer, bottom, animate, seed }: LayerProps) {
   const height = layer.height * tier.height
-  const halves = layer.colors.length === 2
   return (
     <group position-y={bottom}>
-      {layer.colors.map((color, i) => (
-        <mesh key={i} position-y={form === 'round' ? height / 2 : 0}>
-          {form === 'round' ? (
-            <cylinderGeometry
-              args={[tier.radius, tier.radius, height, 64, 1, false, halves ? i * Math.PI : 0, halves ? Math.PI : Math.PI * 2]}
-            />
-          ) : (
-            <RectSlab tier={tier} height={height} split={halves ? (i === 0 ? 'left' : 'right') : 'whole'} />
-          )}
-          <FoodMaterial color={color} roughness={0.9} animate={animate} />
-        </mesh>
+      {layer.colors.map((_, i) => (
+        <LayerPart key={i} tier={tier} form={form} layer={layer} index={i} height={height} animate={animate} seed={seed} />
       ))}
     </group>
   )
 }
 
-type TierProps = { tier: CakeTier; festoons: CakeShape['festoons']; form: Form; animate: boolean }
+type TierProps = { tier: CakeTier; festoons: CakeShape['festoons']; form: Form; animate: boolean; index: number }
 
-function Tier({ tier, festoons, form, animate }: TierProps) {
+function Tier({ tier, festoons, form, animate, index }: TierProps) {
   const profile = useMemo(() => roundedProfile(tier.radius, tier.height, EDGE), [tier.height, tier.radius])
   const layers = tier.frosting ? [] : (tier.layers ?? [])
   const bottoms = layers.map((_, i) => layers.slice(0, i).reduce((sum, layer) => sum + layer.height * tier.height, 0))
@@ -274,7 +329,7 @@ function Tier({ tier, festoons, form, animate }: TierProps) {
         </mesh>
       )}
       {layers.map((layer, i) => (
-        <Layer key={i} tier={tier} form={form} layer={layer} bottom={bottoms[i]} animate={animate} />
+        <Layer key={i} tier={tier} form={form} layer={layer} bottom={bottoms[i]} animate={animate} seed={index * 101 + i * 13 + 7} />
       ))}
       {festoons && <Pearls tier={tier} form={form} top={festoons === true} />}
     </>
@@ -395,7 +450,7 @@ export default function CakeModel({ shape, motion, flicker, animateColors = fals
             }}
             position-y={bases[i]}
           >
-            <Tier tier={tier} festoons={shape.festoons} form={form} animate={animateColors} />
+            <Tier tier={tier} festoons={shape.festoons} form={form} animate={animateColors} index={i} />
           </group>
         ))}
         {shape.candle && (

@@ -2,7 +2,7 @@ import type { Page, Request } from '@playwright/test'
 
 /**
  * "Diseña tu pastel" sin backend: las opciones de la semilla (`GET cake-designs/options/`, copiadas de la API el
- * 7 de noviembre de 2026) y un precio simulado como el del backend: los kilos por personas de la regla 3.1 y la
+ * 7 de noviembre de 2026, con los mínimos por pisos y los estilos de la vista previa de D50) y un precio simulado como el del backend: los kilos por personas de la regla 3.1 y la
  * fórmula de la regla 4.6 con esas cifras, para que las pruebas lean kilos y totales reales ("Desde $1,080") sin
  * Django.
  */
@@ -34,6 +34,7 @@ export const cakeDesignOptions = {
       "price_per_kg": "0.00",
       "included_filling": "",
       "preview_color": "#F0CE8A",
+      "preview_color_bottom": "",
       "allowed_cake_types": [
         "tres_leches",
         "seco",
@@ -55,6 +56,7 @@ export const cakeDesignOptions = {
       "price_per_kg": "5.00",
       "included_filling": "",
       "preview_color": "#805438",
+      "preview_color_bottom": "",
       "allowed_cake_types": [
         "tres_leches",
         "seco",
@@ -75,7 +77,8 @@ export const cakeDesignOptions = {
       "pricing_mode": "extra_per_kg",
       "price_per_kg": "5.00",
       "included_filling": "",
-      "preview_color": "",
+      "preview_color": "#805438",
+      "preview_color_bottom": "#F0CE8A",
       "allowed_cake_types": [
         "tres_leches",
         "seco",
@@ -97,6 +100,7 @@ export const cakeDesignOptions = {
       "price_per_kg": "250.00",
       "included_filling": "Crema de chocolate sabor helado",
       "preview_color": "#603C2A",
+      "preview_color_bottom": "",
       "allowed_cake_types": [
         "tres_leches",
         "seco"
@@ -120,6 +124,7 @@ export const cakeDesignOptions = {
       "price_per_kg": "280.00",
       "included_filling": "Relleno típico de red velvet",
       "preview_color": "#B8363A",
+      "preview_color_bottom": "",
       "allowed_cake_types": [
         "seco"
       ],
@@ -161,6 +166,8 @@ export const cakeDesignOptions = {
           "slug": "durazno",
           "name": "Durazno",
           "preview_color": "#F6B054",
+          "preview_style": "fruit_slices",
+          "preview_color_secondary": "#FBD08F",
           "is_combinable": true,
           "allowed_cake_types": [
             "tres_leches",
@@ -175,6 +182,8 @@ export const cakeDesignOptions = {
           "slug": "fresa",
           "name": "Fresa",
           "preview_color": "#E25468",
+          "preview_style": "fruit_slices",
+          "preview_color_secondary": "#C8283A",
           "is_combinable": true,
           "allowed_cake_types": [
             "tres_leches",
@@ -189,6 +198,8 @@ export const cakeDesignOptions = {
           "slug": "zarzamora",
           "name": "Zarzamora",
           "preview_color": "#702C5A",
+          "preview_style": "smooth",
+          "preview_color_secondary": "",
           "is_combinable": true,
           "allowed_cake_types": [
             "tres_leches",
@@ -203,6 +214,8 @@ export const cakeDesignOptions = {
           "slug": "cajeta",
           "name": "Cajeta",
           "preview_color": "#BC7630",
+          "preview_style": "smooth",
+          "preview_color_secondary": "",
           "is_combinable": true,
           "allowed_cake_types": [
             "tres_leches",
@@ -217,6 +230,8 @@ export const cakeDesignOptions = {
           "slug": "galleta",
           "name": "Galleta",
           "preview_color": "#CEA876",
+          "preview_style": "cookie_chunks",
+          "preview_color_secondary": "#2B1D1A",
           "is_combinable": true,
           "allowed_cake_types": [
             "tres_leches",
@@ -231,6 +246,8 @@ export const cakeDesignOptions = {
           "slug": "chocolate",
           "name": "Chocolate",
           "preview_color": "#5C3826",
+          "preview_style": "sprinkles",
+          "preview_color_secondary": "#3A2218",
           "is_combinable": true,
           "allowed_cake_types": [
             "tres_leches",
@@ -245,6 +262,8 @@ export const cakeDesignOptions = {
           "slug": "choco_vainilla",
           "name": "Choco vainilla",
           "preview_color": "#966846",
+          "preview_style": "sprinkles",
+          "preview_color_secondary": "#FFFBFB",
           "is_combinable": true,
           "allowed_cake_types": [
             "tres_leches",
@@ -259,6 +278,8 @@ export const cakeDesignOptions = {
           "slug": "capuchino",
           "name": "Capuchino",
           "preview_color": "#AA7A56",
+          "preview_style": "sprinkles",
+          "preview_color_secondary": "#5A3A28",
           "is_combinable": true,
           "allowed_cake_types": [
             "tres_leches",
@@ -273,6 +294,8 @@ export const cakeDesignOptions = {
           "slug": "fresa_yogurt",
           "name": "Fresa con yogurt",
           "preview_color": "#F0A4B2",
+          "preview_style": "smooth",
+          "preview_color_secondary": "",
           "is_combinable": false,
           "allowed_cake_types": [
             "tres_leches",
@@ -293,6 +316,8 @@ export const cakeDesignOptions = {
           "slug": "nuez",
           "name": "Nuez",
           "preview_color": "#B08A60",
+          "preview_style": "smooth",
+          "preview_color_secondary": "",
           "is_combinable": true,
           "allowed_cake_types": [
             "tres_leches",
@@ -333,6 +358,8 @@ export const cakeDesignOptions = {
           "slug": "zarzamora",
           "name": "Zarzamora",
           "preview_color": "#702C5A",
+          "preview_style": "smooth",
+          "preview_color_secondary": "",
           "is_combinable": true,
           "allowed_cake_types": [
             "tres_leches",
@@ -347,6 +374,8 @@ export const cakeDesignOptions = {
           "slug": "chocolate",
           "name": "Chocolate",
           "preview_color": "#5C3826",
+          "preview_style": "sprinkles",
+          "preview_color_secondary": "#3A2218",
           "is_combinable": true,
           "allowed_cake_types": [
             "tres_leches",
@@ -383,6 +412,8 @@ export const cakeDesignOptions = {
           "slug": "zarzamora",
           "name": "Zarzamora",
           "preview_color": "#702C5A",
+          "preview_style": "smooth",
+          "preview_color_secondary": "",
           "is_combinable": true,
           "allowed_cake_types": [
             "tres_leches",
@@ -397,6 +428,8 @@ export const cakeDesignOptions = {
           "slug": "cajeta",
           "name": "Cajeta",
           "preview_color": "#BC7630",
+          "preview_style": "smooth",
+          "preview_color_secondary": "",
           "is_combinable": true,
           "allowed_cake_types": [
             "tres_leches",
@@ -533,31 +566,26 @@ export const cakeDesignOptions = {
     "wafer_max_height_cm": "27.9",
     "message_suggested_max_words": 4
   },
-  "tier_recommendations": [
+  "tier_minimums": [
     {
       "tiers": 1,
-      "recommended_min_kg": 0,
-      "recommended_max_kg": null
+      "min_kg": 0
     },
     {
       "tiers": 2,
-      "recommended_min_kg": 15,
-      "recommended_max_kg": null
+      "min_kg": 15
     },
     {
       "tiers": 3,
-      "recommended_min_kg": 18,
-      "recommended_max_kg": 20
+      "min_kg": 18
     },
     {
       "tiers": 4,
-      "recommended_min_kg": 25,
-      "recommended_max_kg": null
+      "min_kg": 25
     },
     {
       "tiers": 5,
-      "recommended_min_kg": 30,
-      "recommended_max_kg": 35
+      "min_kg": 30
     }
   ],
   "smaller_alternatives": {
@@ -630,6 +658,8 @@ export function sizeFor(people: number) {
     above_maximum: kg > max_online_kg,
     minimum_people: min_custom_kg * people_per_kg,
     max_online_people: max_online_kg * people_per_kg,
+    // Regla 3.3 (D50): el mayor número de pisos cuyo mínimo alcanzan los kilos.
+    max_tiers: Math.max(1, ...cakeDesignOptions.tier_minimums.filter((tier) => kg >= tier.min_kg).map((tier) => tier.tiers)),
   }
 }
 

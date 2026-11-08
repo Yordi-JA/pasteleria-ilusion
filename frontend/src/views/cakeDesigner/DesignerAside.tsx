@@ -47,6 +47,15 @@ function RetryPrice({ onRetry, compact = false }: { onRetry: () => void; compact
   )
 }
 
+/** La API rechazó la elección: dice por qué, sin "Volver a intentar" (daría lo mismo). */
+function RejectedPrice({ reason }: { reason: string }) {
+  return (
+    <p role="alert" className="text-nota font-semibold">
+      {reason}
+    </p>
+  )
+}
+
 type PriceCardProps = { price: PriceView; sizeLine: string; hintId: string; sceneReady: boolean; onRetry: () => void }
 
 /** "Total estimado" de escritorio, bajo la vista previa. En móvil lo sustituye la barra inferior. */
@@ -59,6 +68,7 @@ export function PriceCard({ price, sizeLine, hintId, sceneReady, onRetry }: Pric
       </div>
       <p className="text-cuerpo font-semibold">{sizeLine}</p>
       {price.failed && <RetryPrice onRetry={onRetry} />}
+      {price.rejectedReason && <RejectedPrice reason={price.rejectedReason} />}
       {(price.assumed || sceneReady) && (
         <p className="text-nota text-mermelada-suave">
           {price.assumed}
@@ -83,10 +93,17 @@ export function MobileHint({ visible }: { visible: boolean }) {
   )
 }
 
-type MobileBarProps = { price: PriceView; continueLabel: string; onContinue: () => void; disabled: boolean; onRetry: () => void }
+type MobileBarProps = {
+  price: PriceView
+  continueLabel: string
+  onContinue: () => void
+  disabled: boolean
+  busy: boolean
+  onRetry: () => void
+}
 
 /** Barra inferior fija en móvil: el total y el botón para continuar (libro de marca, "Cotizador 3D"). */
-export function MobileBar({ price, continueLabel, onContinue, disabled, onRetry }: MobileBarProps) {
+export function MobileBar({ price, continueLabel, onContinue, disabled, busy, onRetry }: MobileBarProps) {
   return (
     <div data-testid="barra-movil" className="sticky bottom-0 z-20 -mx-6 hidden border-t border-relieve bg-betun max-[900px]:block max-[600px]:-mx-4">
       <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-4 py-3">
@@ -94,8 +111,9 @@ export function MobileBar({ price, continueLabel, onContinue, disabled, onRetry 
           <p className="text-nota text-mermelada-suave">Total estimado</p>
           <Amount price={price} currency={false} className="text-cuerpo font-semibold" />
           {price.failed && <RetryPrice onRetry={onRetry} compact />}
+          {price.rejectedReason && <RejectedPrice reason={price.rejectedReason} />}
         </div>
-        <Button onClick={onContinue} disabled={disabled} className="shrink-0">
+        <Button onClick={onContinue} disabled={disabled} aria-busy={busy || undefined} className="shrink-0">
           {continueLabel}
         </Button>
       </div>
