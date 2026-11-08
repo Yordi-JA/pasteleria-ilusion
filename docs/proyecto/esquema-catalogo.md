@@ -122,7 +122,8 @@ Restricciones: `1 <= max_upload_mb <= 10` y `1 <= max_reference_images <= 3` (lo
 - `price_per_kg`: Decimal(8,2), "precio por kilo" (incremento o precio completo según el modo).
 - `included_filling`: CharField(120) opcional, "relleno incluido" (por ejemplo "Crema de chocolate sabor helado").
 - `allowed_cake_types`: `ArrayField(CharField(choices=CakeType))`, "tipos de pastel en que se ofrece"; por defecto los tres; en el admin, casillas (`CheckboxSelectMultiple`).
-- `preview_color`: CharField(7) opcional, validado `#RRGGBB`, "color en la vista previa".
+- `preview_color`: CharField(7) opcional, validado `#RRGGBB`, "color en la vista previa"; en un pan de dos colores, la mitad de arriba de cada capa.
+- `preview_color_bottom` (D50, migración `0014`): CharField(7) opcional, validado `#RRGGBB`, "color de abajo en la vista previa"; solo para un pan de dos colores (choco-vainilla, sembrado en `0015` con los colores de chocolate y vainilla).
 - Restricciones: `price_per_kg >= 0`; con `full_price_per_kg`, `included_filling != ''` y `price_per_kg > 0`; con `extra_per_kg`, `included_filling == ''`; `allowed_cake_types__len__gt=0` (confirmar con prueba que un arreglo vacío da 0 y no NULL); `allowed_cake_types__contained_by` los tres códigos.
 
 ### `FillingBase` ("base de relleno"), hereda de `OrderedOption`
@@ -138,6 +139,7 @@ Restricciones: `1 <= max_upload_mb <= 10` y `1 <= max_reference_images <= 3` (lo
 - `bases`: M2M a `FillingBase`, `related_name="flavors"`, "bases en que se ofrece" (no vacío, validado en `clean()` del admin).
 - `is_combinable`: Bool, `True` por defecto, "se puede combinar".
 - `allowed_cake_types`: igual que en `Bread`, con las mismas restricciones.
+- `preview_style` (D50, migración `0014`): choices `FillingPreviewStyle` (`smooth` liso, `fruit_slices` rebanadas de fruta, `cookie_chunks` trozos de galleta, `sprinkles` granillo), `smooth` por defecto, "cómo se ve en la vista previa"; `preview_color_secondary`: CharField(7) opcional, validado `#RRGGBB`, "color de los trozos". La migración `0015` siembra durazno y fresa con rebanadas, galleta con trozos y choco vainilla, capuchino y chocolate con granillo; los demás quedan lisos.
 
 ### `FillingPrice` ("precio del relleno por kilo")
 
@@ -148,9 +150,9 @@ Copia la tabla 4.5 de las reglas.
 - `clean()`: el sabor pertenece a la base y su `allowed_cake_types` incluye `cake_type`. Un sabor con precio propio no puede costar menos que el precio general de su base en el mismo tipo, y tampoco se puede subir el precio general por encima de un sabor (se revisa de los dos lados, D39).
 - Regla del servicio: una base está disponible en un tipo si tiene su fila general y al menos un sabor que se ofrezca en ese tipo; un sabor con fila propia reemplaza el precio general; con dos sabores se toma el mayor y se suma `base.combined_extra_per_kg` (así sale "Nuez + $5").
 
-### `TierRecommendation` ("recomendación de pisos")
+### `TierRecommendation` ("mínimo de kilos por pisos", D50)
 
-- `tiers` PositiveSmallInteger único `>= 1`, "pisos"; `recommended_min_kg` PositiveSmallInteger, "kilos recomendados desde"; `recommended_max_kg` PositiveSmallInteger `null=True`, "hasta (referencia)", solo informativo.
+- `tiers` PositiveSmallInteger único `>= 1`, "pisos"; `recommended_min_kg` PositiveSmallInteger, "kilos mínimos" (desde D50 es un mínimo que bloquea; el modelo y el campo conservan su nombre para no rehacer la tabla, y la API los entrega como `tier_minimums` con `min_kg`); `recommended_max_kg` PositiveSmallInteger `null=True`, "hasta (referencia)", solo informativo y fuera de la API.
 - Restricción: `recommended_max_kg IS NULL OR >= recommended_min_kg`; `clean()` revisa que los kilos crezcan con los pisos.
 - El máximo de pisos es el `tiers` más alto de la tabla (una sola fuente, sin un "5" aparte).
 

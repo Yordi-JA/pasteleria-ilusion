@@ -89,21 +89,21 @@ def kg_for_people(people: int) -> int:
 
 ### 3.3 Pisos
 
-Máximo **5 pisos**, en redondo o rectangular. Los kilos por número de pisos son **recomendaciones** para que los pisos queden bien, **no bloqueos**: si el cliente elige menos kilos de lo recomendado, se muestra un aviso y se sugiere el número de pisos adecuado, pero puede continuar.
+Máximo **5 pisos**, en redondo o rectangular. Los kilos por número de pisos son **mínimos**: con menos kilos, ese número de pisos no se puede elegir (corrección de la dueña del 7 de noviembre de 2026, D50). Con 4 kg el pastel va de 1 piso; desde 15 kg puede ir de 1 o 2; desde 18 kg, de 1 a 3; desde 25 kg, de 1 a 4; desde 30 kg, de 1 a 5. Los pisos que no se pueden elegir se muestran desactivados con su mínimo ("Desde 15 kg"); nunca desaparecen. Si el cliente baja las personas y los pisos elegidos ya no caben, bajan solos al máximo que permiten los kilos y se avisa ("Con 10 kg el pastel va de 1 piso.").
 
-| Pisos | Kilos recomendados |
+| Pisos | Kilos mínimos |
 |---|---|
 | 1 | Cualquier peso |
 | 2 | Desde 15 kg |
-| 3 | Desde 18 kg (18–20) |
+| 3 | Desde 18 kg |
 | 4 | Desde 25 kg |
-| 5 | Desde 30 kg (30–35) |
+| 5 | Desde 30 kg |
 
 ```python
-RECOMMENDED_MIN_KG_BY_TIERS = {1: 0, 2: 15, 3: 18, 4: 25, 5: 30}
+MIN_KG_BY_TIERS = {1: 0, 2: 15, 3: 18, 4: 25, 5: 30}
 MAX_TIERS = 5
-def recommended_tiers(kg: int) -> int:
-    return max(t for t, k in RECOMMENDED_MIN_KG_BY_TIERS.items() if kg >= k)
+def allowed_tiers(kg: int) -> list[int]:
+    return [t for t, k in MIN_KG_BY_TIERS.items() if kg >= k]
 ```
 
 ---

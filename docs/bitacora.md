@@ -316,3 +316,10 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
     - El máximo en línea efectivo (`warranty_service.effective_cake_design_limits`) es el de las opciones, de los kilos por personas y de la revisión de kilos del precio; con kilos que ninguna base activa cubre, el precio dice el máximo efectivo.
     - `is_estimate` en el desglose y en la respuesta; `size_for_people` va auditado; `CakeSize` del precio pasa a `PeopleSize` y `kg_for_people` delega en `size_for_people`.
     - Pruebas de backend: de 965 a 971. `e2e/cake-designer.spec.ts`: de 24 a 27 pruebas.
+
+### Sábado 7 de noviembre (tarde): pisos con mínimos y pastel con textura
+
+- Decisión D50 en [`proyecto/decisiones.md`](proyecto/decisiones.md), rama `feat/disena-pisos-y-texturas`, sin desplegar. La dueña corrigió la regla 3.3: los kilos por pisos son mínimos que bloquean. Los pisos que no caben se ven desactivados con "Desde 15 kg" y, si bajan las personas, los pisos bajan solos con el aviso "Con 10 kg el pastel va de 1 piso.". El backend valida `tiers` y `form` en el precio y `size` trae `max_tiers`; las opciones traen `tier_minimums`.
+- Vista previa: miga en el pan (textura generada en un lienzo), choco-vainilla en dos colores (`Bread.preview_color_bottom`), rellenos con rebanadas de fruta, trozos de galleta o granillo (`FillingFlavor.preview_style` y `preview_color_secondary`, migraciones `0014` y `0015`), con queso o con flan con la crema abajo y el sabor arriba, y la cobertura sin perlas.
+- Correcciones de la revisión: "Continuar" no corre dos veces, un cambio durante la espera no se pierde, un rechazo dice su motivo sin reintento y sin bases activas el mensaje dice que no hay pedidos en línea.
+- Pruebas de backend: de 971 a 998. `e2e/cake-designer.spec.ts`: de 27 a 30 pruebas.
