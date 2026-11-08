@@ -1,10 +1,11 @@
-import { useFrame } from '@react-three/fiber'
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
-import { CanvasTexture, DoubleSide, Object3D, RepeatWrapping, Shape, SRGBColorSpace, Vector2 } from 'three'
-import type { Group, InstancedMesh } from 'three'
-import type { CakeShape, CakeTier } from './cakeShape.ts'
-import { brandColor } from './palette.ts'
+import { CanvasTexture, Color, DoubleSide, ExtrudeGeometry, Object3D, RepeatWrapping, Shape, SRGBColorSpace, Vector2 } from 'three'
+import type { Group, InstancedMesh, MeshStandardMaterial } from 'three'
+import type { CakeLayer, CakeShape, CakeTier } from './cakeShape.ts'
+import type { ShapeColor } from './cakeShape.ts'
+import { brandColor, resolveColor } from './palette.ts'
 
 /**
  * Modelo paramétrico del pastel, el mismo de la portada y de "Diseña tu pastel": dibuja un `CakeShape`
@@ -27,6 +28,10 @@ const EDGE = 0.06
 const PEARL_RADIUS = 0.085
 /** Una perla cada 22 px de contorno, como el prototipo. */
 const PEARL_SPACING = 0.22
+/** Molde rectangular: ancho y fondo respecto al radio del piso, como el prototipo. */
+const RECT = { width: 2.1, depth: 1.4, corner: 0.08 }
+/** Cambio de color de una capa o de la cobertura (libro de marca, "Cotizador 3D"). */
+const COLOR_TRANSITION_S = 0.3
 const CANDLE = { radius: 0.07, height: 0.54, gap: 0.06 }
 /** La flama del logo mide 43 × 72 en su viewBox; en el mockup ocupa 27 px de alto. */
 const FLAME_SCALE = 0.27 / 72
@@ -102,41 +107,176 @@ function candleStripes() {
   return texture
 }
 
-function Pearls({ tier }: { tier: CakeTier }) {
+type Form = NonNullable<CakeShape['form']>
+
+/** Puntos de una fila de perlas alrededor del piso, a `offset` pasos del inicio (la de abajo va a medio paso). */
+function pearlRow(tier: Pick<CakeTier, 'radius'>, form: Form, y: number, offset: number): [number, number, number][] {
+  if (form === 'round') {
+    const ring = tier.radius + 0.03
+    const count = Math.round((2 * Math.PI * tier.radius) / PEARL_SPACING)
+    return Array.from({ length: count }, (_, i) => {
+      const a = ((i + offset) / count) * Math.PI * 2
+      return [Math.sin(a) * ring, y, Math.cos(a) * ring]
+    })
+  }
+  // Rectangular: una fila por lado, repartida a lo largo de cada uno, como el prototipo.
+  const halfW = (tier.radius * RECT.width) / 2 + 0.03
+  const halfD = (tier.radius * RECT.depth) / 2 + 0.03
+  const sides: [number, number, number, number][] = [
+    [-halfW, halfD, halfW, halfD],
+    [halfW, halfD, halfW, -halfD],
+    [halfW, -halfD, -halfW, -halfD],
+    [-halfW, -halfD, -halfW, halfD],
+  ]
+  return sides.flatMap(([x0, z0, x1, z1]) => {
+    const count = Math.max(2, Math.round(Math.hypot(x1 - x0, z1 - z0) / PEARL_SPACING))
+    return Array.from({ length: count }, (_, i): [number, number, number] => {
+      const t = (i + 0.5) / count
+      return [x0 + (x1 - x0) * t, y, z0 + (z1 - z0) * t]
+    })
+  })
+}
+
+function Pearls({ tier, form, top }: { tier: CakeTier; form: Form; top: boolean }) {
   const ref = useRef<InstancedMesh>(null)
-  const perRow = Math.round((2 * Math.PI * tier.radius) / PEARL_SPACING)
+  // La fila de abajo va a medio paso de la de arriba, como en el mockup.
+  const { radius, height } = tier
+  const points = useMemo(
+    () => [...(top ? pearlRow({ radius }, form, height, 0) : []), ...pearlRow({ radius }, form, 0.04, 0.5)],
+    [form, height, radius, top],
+  )
   useLayoutEffect(() => {
     const mesh = ref.current
     if (!mesh) return
     const dummy = new Object3D()
-    const ring = tier.radius + 0.03
-    for (let i = 0; i < perRow * 2; i++) {
-      const top = i < perRow
-      // La fila de abajo va a medio paso de la de arriba, como en el mockup.
-      const a = (((i % perRow) + (top ? 0 : 0.5)) / perRow) * Math.PI * 2
-      dummy.position.set(Math.sin(a) * ring, top ? tier.height : 0.04, Math.cos(a) * ring)
+    points.forEach(([x, y, z], i) => {
+      dummy.position.set(x, y, z)
       dummy.updateMatrix()
       mesh.setMatrixAt(i, dummy.matrix)
-    }
+    })
     mesh.instanceMatrix.needsUpdate = true
-  }, [perRow, tier.height, tier.radius])
+  }, [points])
+  // El número de instancias es fijo al crear la malla: con otro número de perlas, se crea otra.
   return (
-    <instancedMesh ref={ref} args={[undefined, undefined, perRow * 2]} frustumCulled={false}>
+    <instancedMesh key={points.length} ref={ref} args={[undefined, undefined, points.length]} frustumCulled={false}>
       <sphereGeometry args={[PEARL_RADIUS, 12, 8]} />
       <meshStandardMaterial color={brandColor('betun')} roughness={0.4} />
     </instancedMesh>
   )
 }
 
-function Tier({ tier, festoons }: { tier: CakeTier; festoons: boolean }) {
+/**
+ * Material de un color que puede cambiar (pan, relleno, cobertura). El cambio dura 300 ms; con "reducir movimiento"
+ * (`animate` en falso) es inmediato. Mientras dura, pide cuadros a la escena, que usa `frameloop="demand"`.
+ */
+function FoodMaterial({ color, roughness, animate }: { color: ShapeColor; roughness: number; animate: boolean }) {
+  const material = useRef<MeshStandardMaterial>(null)
+  const invalidate = useThree((state) => state.invalidate)
+  const transition = useRef<{ from: Color; to: Color; elapsed: number } | null>(null)
+  // Se compara por el hexadecimal: una mezcla igual armada de nuevo no reinicia la transición.
+  const hex = resolveColor(color)
+  // El color con que nace el material; los cambios siguientes los aplica el efecto, con o sin transición.
+  const [initial] = useState(hex)
+  useEffect(() => {
+    const target = material.current
+    if (!target) return
+    const to = new Color(hex)
+    if (!animate || target.color.equals(to)) {
+      transition.current = null
+      target.color.copy(to)
+    } else {
+      transition.current = { from: target.color.clone(), to, elapsed: 0 }
+    }
+    invalidate()
+  }, [animate, hex, invalidate])
+  useFrame((_, delta) => {
+    const step = transition.current
+    const target = material.current
+    if (!step || !target) return
+    step.elapsed = Math.min(COLOR_TRANSITION_S, step.elapsed + Math.min(delta, 0.05))
+    const t = step.elapsed / COLOR_TRANSITION_S
+    target.color.copy(step.from).lerp(step.to, 1 - (1 - t) ** 3)
+    if (t < 1) invalidate()
+    else transition.current = null
+  })
+  return <meshStandardMaterial ref={material} color={initial} roughness={roughness} />
+}
+
+type Split = 'whole' | 'left' | 'right'
+
+/** Losa rectangular con las esquinas de afuera redondeadas; `split` dice qué mitad (o toda). */
+function rectSlab(radius: number, height: number, split: Split) {
+  const halfW = (radius * RECT.width) / 2
+  const halfD = (radius * RECT.depth) / 2
+  const x0 = split === 'right' ? 0 : -halfW
+  const x1 = split === 'left' ? 0 : halfW
+  const left = split === 'right' ? 0 : RECT.corner
+  const right = split === 'left' ? 0 : RECT.corner
+  const shape = new Shape()
+  shape.moveTo(x0 + left, -halfD)
+  shape.lineTo(x1 - right, -halfD)
+  shape.quadraticCurveTo(x1, -halfD, x1, -halfD + right)
+  shape.lineTo(x1, halfD - right)
+  shape.quadraticCurveTo(x1, halfD, x1 - right, halfD)
+  shape.lineTo(x0 + left, halfD)
+  shape.quadraticCurveTo(x0, halfD, x0, halfD - left)
+  shape.lineTo(x0, -halfD + left)
+  shape.quadraticCurveTo(x0, -halfD, x0 + left, -halfD)
+  const geometry = new ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, curveSegments: 6 })
+  // La extrusión sale a lo largo de z: se gira para que la losa crezca hacia arriba.
+  geometry.rotateX(-Math.PI / 2)
+  return geometry
+}
+
+function RectSlab({ tier, height, split }: { tier: CakeTier; height: number; split: Split }) {
+  const { radius } = tier
+  const geometry = useMemo(() => rectSlab(radius, height, split), [height, radius, split])
+  useEffect(() => () => geometry.dispose(), [geometry])
+  return <primitive object={geometry} attach="geometry" />
+}
+
+type LayerProps = { tier: CakeTier; form: Form; layer: CakeLayer; bottom: number; animate: boolean }
+
+/** Una capa del costado: un cilindro (o dos medios) en redondo, una losa (o dos mitades) en rectangular. */
+function Layer({ tier, form, layer, bottom, animate }: LayerProps) {
+  const height = layer.height * tier.height
+  const halves = layer.colors.length === 2
+  return (
+    <group position-y={bottom}>
+      {layer.colors.map((color, i) => (
+        <mesh key={i} position-y={form === 'round' ? height / 2 : 0}>
+          {form === 'round' ? (
+            <cylinderGeometry
+              args={[tier.radius, tier.radius, height, 64, 1, false, halves ? i * Math.PI : 0, halves ? Math.PI : Math.PI * 2]}
+            />
+          ) : (
+            <RectSlab tier={tier} height={height} split={halves ? (i === 0 ? 'left' : 'right') : 'whole'} />
+          )}
+          <FoodMaterial color={color} roughness={0.9} animate={animate} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+type TierProps = { tier: CakeTier; festoons: CakeShape['festoons']; form: Form; animate: boolean }
+
+function Tier({ tier, festoons, form, animate }: TierProps) {
   const profile = useMemo(() => roundedProfile(tier.radius, tier.height, EDGE), [tier.height, tier.radius])
+  const layers = tier.frosting ? [] : (tier.layers ?? [])
+  const bottoms = layers.map((_, i) => layers.slice(0, i).reduce((sum, layer) => sum + layer.height * tier.height, 0))
   return (
     <>
-      <mesh>
-        <latheGeometry args={[profile, 64]} />
-        <meshStandardMaterial color={brandColor(tier.frosting)} roughness={0.8} />
-      </mesh>
-      {festoons && <Pearls tier={tier} />}
+      {tier.frosting && (
+        <mesh>
+          {form === 'round' ? <latheGeometry args={[profile, 64]} /> : <RectSlab tier={tier} height={tier.height} split="whole" />}
+          <FoodMaterial color={tier.frosting} roughness={0.8} animate={animate} />
+        </mesh>
+      )}
+      {layers.map((layer, i) => (
+        <Layer key={i} tier={tier} form={form} layer={layer} bottom={bottoms[i]} animate={animate} />
+      ))}
+      {festoons && <Pearls tier={tier} form={form} top={festoons === true} />}
     </>
   )
 }
@@ -218,10 +358,13 @@ type CakeModelProps = {
   motion: RefObject<CakeMotion>
   /** Titileo de la flama; se apaga con "reducir movimiento". */
   flicker: boolean
+  /** Transición de 300 ms al cambiar un color; se apaga con "reducir movimiento". */
+  animateColors?: boolean
 }
 
 /** El pastel con el plato a la altura 0. La escena lo gira, lo inclina y lo encuadra. */
-export default function CakeModel({ shape, motion, flicker }: CakeModelProps) {
+export default function CakeModel({ shape, motion, flicker, animateColors = false }: CakeModelProps) {
+  const form = shape.form ?? 'round'
   const tierRefs = useRef<(Group | null)[]>([])
   const candleRef = useRef<Group>(null)
   // Cada piso descansa sobre la suma de los de abajo.
@@ -242,22 +385,25 @@ export default function CakeModel({ shape, motion, flicker }: CakeModelProps) {
   return (
     <group>
       {shape.stand && <Stand />}
-      {shape.tiers.map((tier, i) => (
-        <group
-          key={i}
-          ref={(group) => {
-            tierRefs.current[i] = group
-          }}
-          position-y={bases[i]}
-        >
-          <Tier tier={tier} festoons={shape.festoons} />
-        </group>
-      ))}
-      {shape.candle && (
-        <group ref={candleRef} position-y={top}>
-          <Candle motion={motion} flicker={flicker} />
-        </group>
-      )}
+      {/* La escala acerca o aleja los pisos sobre el plato, que no cambia: el plato está en la altura 0. */}
+      <group scale={shape.scale ?? 1}>
+        {shape.tiers.map((tier, i) => (
+          <group
+            key={i}
+            ref={(group) => {
+              tierRefs.current[i] = group
+            }}
+            position-y={bases[i]}
+          >
+            <Tier tier={tier} festoons={shape.festoons} form={form} animate={animateColors} />
+          </group>
+        ))}
+        {shape.candle && (
+          <group ref={candleRef} position-y={top}>
+            <Candle motion={motion} flicker={flicker} />
+          </group>
+        )}
+      </group>
     </group>
   )
 }

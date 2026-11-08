@@ -17,6 +17,8 @@ type ChoiceOptionProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'c
    * aplica a `chip`.
    */
   onColor?: boolean
+  /** `checkbox` para elegir varias (por ejemplo, dos sabores de relleno); por omisión, `radio`. */
+  type?: 'radio' | 'checkbox'
 }
 
 // Cada estado (habilitado o no) arma sus clases completas: ninguna depende del orden del CSS generado.
@@ -54,6 +56,7 @@ export default function ChoiceOption({
   id,
   disabled,
   onColor = false,
+  type = 'radio',
   ...rest
 }: ChoiceOptionProps) {
   const autoId = useId()
@@ -64,16 +67,18 @@ export default function ChoiceOption({
   const chipOnColor = isChip && onColor
   const chipState = chipOnColor ? chipOnColorEnabled : chipEnabled
   const state = disabled ? (isChip ? chipDisabled : cardDisabled) : isChip ? chipState : cardEnabled
-  const style = `${isChip ? chipBase : cardBase} ${state} ${chipOnColor ? focusRingWithinOnColor : focusRingWithin}`
+  // Un chip de dos líneas (los pisos) llena su celda: todos los de la cuadrícula miden lo mismo.
+  const twoLineChip = isChip && Boolean(description)
+  const style = `${isChip ? chipBase : cardBase} ${twoLineChip ? 'justify-center' : ''} ${state} ${chipOnColor ? focusRingWithinOnColor : focusRingWithin}`
   const titleStyle = disabled ? '' : 'group-hover:underline group-hover:underline-offset-4'
 
   return (
-    <div className={`flex flex-col gap-1 ${isChip ? 'items-start' : ''}`}>
+    <div className={`flex flex-col gap-1 ${isChip && !twoLineChip ? 'items-start' : ''}`}>
       <label htmlFor={inputId} className={style}>
         <input
           {...rest}
           id={inputId}
-          type="radio"
+          type={type}
           disabled={disabled}
           aria-describedby={describedBy}
           className={
@@ -83,7 +88,15 @@ export default function ChoiceOption({
           }
         />
         {isChip ? (
-          <span className={titleStyle}>{label}</span>
+          description ? (
+            // Chip de dos líneas (los pisos): el dato va en `nota` y toma el color del chip, también elegido.
+            <span className="flex flex-col items-center py-2 text-center">
+              <span className={titleStyle}>{label}</span>
+              <span className="text-nota">{description}</span>
+            </span>
+          ) : (
+            <span className={titleStyle}>{label}</span>
+          )
         ) : (
           <>
             <span className="flex flex-1 flex-col">

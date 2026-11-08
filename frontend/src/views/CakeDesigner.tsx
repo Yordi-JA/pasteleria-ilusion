@@ -1,10 +1,191 @@
+import { useId } from 'react'
+import { Link } from 'react-router'
+import DesignerCake from '../components/DesignerCake.tsx'
+import { focusRing } from '../components/focus.ts'
+import LoadErrorNotice from '../components/LoadErrorNotice.tsx'
 import PageHeader from '../components/PageHeader.tsx'
+import Skeleton, { LoadingRegion } from '../components/Skeleton.tsx'
+import { DESIGN_STEPS, STEP_COUNT } from '../viewmodels/cakeDesignSteps.ts'
+import { useCakeDesigner } from '../viewmodels/useCakeDesigner.ts'
+import type { CakeDesignerView } from '../viewmodels/useCakeDesigner.ts'
 import { usePageTitle } from '../viewmodels/usePageTitle.ts'
+import { BreadStep, CakeTypeStep, CoverageStep, FillingStep, UpcomingStep } from './cakeDesigner/ChoiceSteps.tsx'
+import { MobileBar, MobileHint, PriceCard, SummaryCard, SummaryDisclosure } from './cakeDesigner/DesignerAside.tsx'
+import SizeStep from './cakeDesigner/SizeStep.tsx'
+import StepBar from './cakeDesigner/StepBar.tsx'
+import StepCard from './cakeDesigner/StepCard.tsx'
 
 const TITLE = 'Diseña tu pastel'
 
-/** `/pedido/disena`. Vista vacía: por ahora solo muestra su título. */
+const crumbLink = `inline-flex min-h-11 items-center rounded-sm underline underline-offset-4 ${focusRing}`
+
+function Breadcrumb() {
+  return (
+    <nav aria-label="Ruta">
+      <ol className="flex flex-wrap items-center gap-x-1.5 text-nota">
+        <li>
+          <Link to="/" className={crumbLink}>
+            Inicio
+          </Link>
+        </li>
+        <li aria-hidden="true">/</li>
+        <li>
+          <Link to="/pedido" className={crumbLink}>
+            Realizar pedido
+          </Link>
+        </li>
+        <li aria-hidden="true">/</li>
+        <li aria-current="page">{TITLE}</li>
+      </ol>
+    </nav>
+  )
+}
+
+/** Mientras llegan las opciones: la misma estructura (barra, vista previa, total y tarjeta), como `CotizadorCargando`. */
+function DesignerSkeleton() {
+  return (
+    <div className="flex flex-col gap-8">
+      <div className="grid grid-cols-8 gap-2 max-[600px]:hidden">
+        {DESIGN_STEPS.map((step) => (
+          <div key={step.short} className="flex flex-col items-center gap-2">
+            <Skeleton className="h-[30px] w-[30px] !rounded-full" />
+            <Skeleton className="h-3.5 w-16" />
+          </div>
+        ))}
+      </div>
+      <Skeleton className="hidden h-5 w-48 max-[600px]:block" />
+      <div className="grid grid-cols-2 gap-9 max-[900px]:grid-cols-1">
+        <div className="flex flex-col gap-4">
+          <Skeleton radius="md" className="h-[350px] max-[600px]:h-[220px]" />
+          <Skeleton radius="md" className="h-[148px] max-[900px]:hidden" />
+        </div>
+        <div className="flex flex-col gap-5 rounded-lg border border-relieve bg-betun p-6 max-[600px]:p-4">
+          <Skeleton className="h-8 w-2/3" />
+          <Skeleton className="h-4 w-1/3" />
+          <Skeleton radius="md" className="h-12 w-44" />
+          <Skeleton radius="md" className="h-20" />
+          <Skeleton radius="md" className="h-16" />
+          <Skeleton radius="md" className="h-11 w-32" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CurrentStep({ designer }: { designer: CakeDesignerView }) {
+  const { current, draft, view, actions } = designer
+  if (!view) return null
+  switch (current) {
+    case 1:
+      return (
+        <SizeStep
+          view={view.sizeStep}
+          people={draft.people}
+          form={draft.form}
+          peopleText={designer.peopleText}
+          whatsapp={designer.whatsapp}
+          onPeople={actions.setPeople}
+          onTypePeople={actions.typePeople}
+          onSettlePeople={actions.settlePeople}
+          onForm={actions.setForm}
+          onTiers={actions.setTiers}
+          onSubmit={actions.proceed}
+        />
+      )
+    case 2:
+      return <CakeTypeStep choices={view.choices.cakeTypes} conflict={view.conflict} onChoose={actions.setCakeType} />
+    case 3:
+      return <BreadStep groups={view.choices.breads} onChoose={actions.setBread} />
+    case 4:
+      return (
+        <FillingStep
+          view={view.choices.filling}
+          onBase={actions.setFillingBase}
+          onCount={actions.setFlavorCount}
+          onFlavor={actions.chooseFlavor}
+        />
+      )
+    case 5:
+      return <CoverageStep colors={view.choices.colors} includedFilling={view.choices.includedFilling} onChoose={actions.setCoverage} />
+    default:
+      return <UpcomingStep />
+  }
+}
+
+function Designer({ designer, hintId }: { designer: CakeDesignerView; hintId: string }) {
+  const { view, current, actions } = designer
+  if (!view) return null
+  const step = DESIGN_STEPS[current - 1]
+  return (
+    <>
+      <div className="flex flex-col gap-8 max-[600px]:gap-6">
+        <StepBar steps={view.steps} current={current} />
+        <div className="grid grid-cols-2 items-start gap-9 max-[900px]:grid-cols-1 max-[900px]:gap-5">
+          {/* La columna izquierda queda fija al hacer scroll en escritorio (libro de marca, "Cotizador 3D"). */}
+          <div className="sticky top-28 flex flex-col gap-4 max-[900px]:static">
+            <SummaryDisclosure rows={view.summary} />
+            <div className="h-[350px] overflow-hidden rounded-lg border border-relieve bg-betun max-[600px]:h-[220px]">
+              <DesignerCake scene={designer.scene} hintId={hintId} />
+            </div>
+            <MobileHint visible={designer.scene.status === 'ready'} />
+            <PriceCard
+              price={view.price}
+              sizeLine={view.sizeLine}
+              hintId={hintId}
+              sceneReady={designer.scene.status === 'ready'}
+              onRetry={designer.retryPrice}
+            />
+            <SummaryCard rows={view.summary} />
+          </div>
+          <StepCard
+            key={current}
+            number={current}
+            title={step.title}
+            total={STEP_COUNT}
+            titleRef={designer.stepTitle}
+            direction={designer.direction}
+            error={designer.stepError}
+            continueLabel={view.continueLabel}
+            continueDisabled={view.continueDisabled}
+            onContinue={actions.proceed}
+            onBack={actions.back}
+          >
+            <CurrentStep designer={designer} />
+          </StepCard>
+        </div>
+      </div>
+      <MobileBar
+        price={view.price}
+        continueLabel={view.continueShort}
+        onContinue={actions.proceed}
+        disabled={view.continueDisabled}
+        onRetry={designer.retryPrice}
+      />
+    </>
+  )
+}
+
+/** `/pedido/disena`: "Diseña tu pastel", pasos 1 a 5 (los pasos 6 a 8 llegan en las tandas siguientes). */
 export default function CakeDesigner() {
   usePageTitle(TITLE)
-  return <PageHeader title={TITLE} />
+  const designer = useCakeDesigner()
+  const hintId = useId()
+  return (
+    <>
+      <PageHeader title={TITLE} before={<Breadcrumb />}>
+        <p className="text-cuerpo text-mermelada-suave">
+          {designer.view?.changedType ? 'Cambiaste el tipo de pastel. Revisa cómo afecta a lo que ya elegiste.' : 'Elige paso a paso.'}
+        </p>
+      </PageHeader>
+      <div className="mx-auto max-w-[1200px] px-6 pb-16 pt-10 max-[600px]:px-4 max-[600px]:pt-8">
+        {designer.status === 'error' ? (
+          <LoadErrorNotice title="No se pudieron cargar las opciones de tu pastel" onRetry={designer.retryOptions} />
+        ) : (
+          <LoadingRegion loading={designer.status === 'loading'} label="Cargando las opciones de tu pastel…" skeleton={<DesignerSkeleton />}>
+            <Designer designer={designer} hintId={hintId} />
+          </LoadingRegion>
+        )}
+      </div>
+    </>
+  )
 }
