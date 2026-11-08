@@ -112,7 +112,10 @@ def test_price_of_the_rule_4_6_example_with_its_stand_deposit(api):
         "decoration": "0.00",
         "total": "3825.00",
         "requires_quote": False,
+        "is_estimate": False,
         "stand": {"min_kg": 15, "max_kg": 15, "deposit": "200.00"},
+        # Con `kg` no hay cálculo por personas.
+        "size": None,
     }
 
 
@@ -178,10 +181,11 @@ def test_public_endpoints_use_the_anonymous_rate(api, monkeypatch, url, customer
 
 
 def test_kilos_beyond_the_active_stands_are_rejected_by_field(api):
+    """Sin base para esos kilos, el máximo efectivo baja a la base más grande y lo dice una sola vez."""
     CakeStand.objects.filter(max_kg__gt=40).update(is_active=False)
     response = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "kg": 45}, format="json")
     assert response.status_code == 400
-    assert response.json() == {"kg": ["No hay una base para 45 kg. Escríbenos por WhatsApp."]}
+    assert response.json() == {"kg": ["En línea el máximo es 40 kg. Para más, escríbenos por WhatsApp."]}
 
 
 @pytest.mark.parametrize(
@@ -209,7 +213,7 @@ def test_price_and_stand_errors_come_back_together(api):
     assert response.status_code == 400
     assert response.json() == {
         "bread": ["Red velvet: solo en pastel seco."],
-        "kg": ["No hay una base para 45 kg. Escríbenos por WhatsApp."],
+        "kg": ["En línea el máximo es 40 kg. Para más, escríbenos por WhatsApp."],
     }
 
 
@@ -331,3 +335,108 @@ def test_both_endpoints_are_in_the_openapi_schema(api, staff_user):
         "CakeDesignPriceRequest"
     ]
     assert not {"shape", "tiers"} & set(request_schema["properties"])
+
+
+# --- Total estimado y alternativas más chicas ---
+
+
+def test_price_estimate_without_flavor_is_the_from_price(api):
+    body = api.post(
+        PRICE_URL,
+        {"kg": 6, "cake_type": "tres_leches", "bread": "vainilla", "filling_base": "normal", "estimate": True},
+        format="json",
+    ).json()
+    assert (body["price_per_kg"], body["total"], body["size"]) == ("180.00", "1080.00", None)
+
+
+def test_price_without_estimate_still_asks_for_the_flavor(api):
+    response = api.post(
+        PRICE_URL, {"kg": 6, "cake_type": "tres_leches", "bread": "vainilla", "filling_base": "normal"}, format="json"
+    )
+    assert response.status_code == 400
+    assert response.json() == {"filling_flavors": ["Elige el sabor del relleno."]}
+
+
+ESTIMATE_BY_PEOPLE = {"cake_type": "tres_leches", "bread": "vainilla", "filling_base": "normal", "estimate": True}
+
+
+def test_price_by_people_returns_the_kilos_the_server_computed(api):
+    body = api.post(PRICE_URL, {**ESTIMATE_BY_PEOPLE, "people": 40}, format="json").json()
+    assert (body["kg"], body["total"]) == (6, "1080.00")
+    assert body["size"] == {
+        "people": 40, "rounded_kg": 6, "kg": 6, "below_minimum": False, "above_maximum": False,
+        "minimum_people": 28, "max_online_people": 350,
+    }
+
+
+def test_price_by_people_below_the_minimum_prices_the_minimum(api):
+    body = api.post(PRICE_URL, {**ESTIMATE_BY_PEOPLE, "people": 15}, format="json").json()
+    assert (body["kg"], body["total"], body["size"]["rounded_kg"], body["size"]["below_minimum"]) == (4, "720.00", 2, True)
+
+
+def test_price_by_people_above_the_online_maximum_has_no_amounts(api):
+    response = api.post(PRICE_URL, {**ESTIMATE_BY_PEOPLE, "people": 400}, format="json")
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["total"], body["kg"], body["stand"]) == (None, None, None)
+    assert (body["size"]["rounded_kg"], body["size"]["above_maximum"]) == (57, True)
+
+
+@pytest.mark.parametrize(
+    ("extra", "errors"),
+    [
+        ({"people": 40, "kg": 6}, {"people": ["Indica las personas o los kilos, no los dos."]}),
+        ({}, {"people": ["Indica para cuántas personas es el pastel."]}),
+        ({"people": 0}, {"people": ["Indica al menos una persona."]}),
+        ({"people": "muchas"}, {"people": ["Las personas van en números enteros."]}),
+    ],
+)
+def test_people_and_kilos_are_validated_in_spanish(api, extra, errors):
+    response = api.post(PRICE_URL, {**ESTIMATE_BY_PEOPLE, **extra}, format="json")
+    assert response.status_code == 400
+    assert response.json() == errors
+
+
+def test_a_rejected_choice_by_people_still_returns_the_kilos(api):
+    response = api.post(PRICE_URL, {**ESTIMATE_BY_PEOPLE, "people": 40, "bread": "brioche"}, format="json")
+    assert response.status_code == 400
+    assert response.json() == {
+        "bread": ["Ese pan no existe o no está disponible."],
+        "size": {
+            "people": 40, "rounded_kg": 6, "kg": 6, "below_minimum": False, "above_maximum": False,
+            "minimum_people": 28, "max_online_people": 350,
+        },
+    }
+
+
+def test_a_rejected_choice_by_kilos_has_no_size(api):
+    response = api.post(PRICE_URL, {**ESTIMATE_BY_PEOPLE, "kg": 6, "bread": "brioche"}, format="json")
+    assert response.status_code == 400
+    assert "size" not in response.json()
+
+
+def test_the_response_says_whether_the_total_is_an_estimate(api):
+    estimate = api.post(PRICE_URL, {**ESTIMATE_BY_PEOPLE, "people": 40}, format="json").json()
+    regular = api.post(PRICE_URL, RULE_4_6_EXAMPLE, format="json").json()
+    assert (estimate["is_estimate"], regular["is_estimate"]) == (True, False)
+
+
+def test_the_online_maximum_follows_the_largest_active_stand(api):
+    CakeStand.objects.filter(max_kg__gt=25).update(is_active=False)
+    body = api.post(PRICE_URL, {**ESTIMATE_BY_PEOPLE, "people": 200}, format="json").json()
+    assert (body["size"]["above_maximum"], body["size"]["max_online_people"], body["total"]) == (True, 175, None)
+
+
+def test_options_carry_a_code_next_to_each_reason(api):
+    breads = by_slug(api.get(OPTIONS_URL).json()["breads"])
+    assert breads["choco_pinguino"]["unavailable_codes"] == {"envinado": "not_combinable"}
+    assert breads["red_velvet"]["unavailable_codes"] == {"tres_leches": "only_in", "envinado": "only_in"}
+    yogurt = by_slug(by_slug(api.get(OPTIONS_URL).json()["filling_bases"])["normal"]["flavors"])["fresa_yogurt"]
+    assert yogurt["unavailable_codes"] == {"envinado": "not_offered"}
+
+
+def test_options_carry_the_smaller_alternatives_from_the_catalog(api):
+    assert api.get(OPTIONS_URL).json()["smaller_alternatives"] == {
+        "showcase_cake": {"approx_weight_kg": "2.7", "servings": 19},
+        "mini_cake": {"approx_weight_kg": None, "servings": 3},
+    }

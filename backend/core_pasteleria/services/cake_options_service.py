@@ -5,7 +5,7 @@ cálculo del precio (`pricing_service`), así lo que la interfaz desactiva es lo
 mismo que el servidor rechaza.
 """
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from decimal import Decimal
 from types import MappingProxyType
 
@@ -24,9 +24,9 @@ from .pricing_service import (
     CAKE_TYPE_LABELS,
     DECORATION_PRICING_STRATEGIES,
     FillingPricing,
-    bread_unavailable_reason,
+    bread_unavailable,
 )
-from .warranty_service import largest_stand_kg
+from .warranty_service import effective_cake_design_limits
 
 
 @dataclass(frozen=True)
@@ -47,6 +47,8 @@ class BreadInfo:
     # Tipos en que se puede elegir y, para los demás, el motivo.
     allowed_cake_types: tuple[str, ...]
     unavailable_reasons: Mapping[str, str]
+    # Código de cada motivo (`not_offered`, `not_combinable`, `only_in`), para la interfaz.
+    unavailable_codes: Mapping[str, str]
     price_per_kg_from: Mapping[str, Decimal]
 
 
@@ -58,6 +60,7 @@ class FillingFlavorInfo:
     is_combinable: bool
     allowed_cake_types: tuple[str, ...]
     unavailable_reasons: Mapping[str, str]
+    unavailable_codes: Mapping[str, str]
     price_per_kg_by_cake_type: Mapping[str, Decimal]
 
 
@@ -71,6 +74,7 @@ class FillingBaseInfo:
     combined_extra_per_kg: Decimal
     allowed_cake_types: tuple[str, ...]
     unavailable_reasons: Mapping[str, str]
+    unavailable_codes: Mapping[str, str]
     price_per_kg_by_cake_type: Mapping[str, Decimal]
     flavors: tuple[FillingFlavorInfo, ...]
 
@@ -109,13 +113,22 @@ def _by_type(filling_by_type: dict[str, FillingPricing], answer: Callable, types
     return MappingProxyType({t: v for t, v in values.items() if v is not None})
 
 
+def _reasons_and_codes(filling_by_type: dict[str, FillingPricing], answer: Callable) -> tuple[Mapping, Mapping]:
+    """Motivo y código por tipo de pastel de una misma pregunta (`answer` da `Unavailable` o `None`)."""
+    found = _by_type(filling_by_type, answer)
+    return (
+        MappingProxyType({t: u.reason for t, u in found.items()}),
+        MappingProxyType({t: u.code for t, u in found.items()}),
+    )
+
+
 def _allowed(reasons: Mapping[str, str]) -> tuple[str, ...]:
     return tuple(cake_type for cake_type in CAKE_TYPE_LABELS if cake_type not in reasons)
 
 
 def _bread_info(bread: BreadRecord, filling_by_type: dict[str, FillingPricing]) -> BreadInfo:
     strategy = BREAD_PRICING_STRATEGIES[bread.pricing_mode]
-    reasons = _by_type(filling_by_type, lambda filling: bread_unavailable_reason(bread, filling))
+    reasons, codes = _reasons_and_codes(filling_by_type, lambda filling: bread_unavailable(bread, filling))
     allowed = _allowed(reasons)
     return BreadInfo(
         slug=bread.slug,
@@ -127,6 +140,7 @@ def _bread_info(bread: BreadRecord, filling_by_type: dict[str, FillingPricing]) 
         preview_color=bread.preview_color,
         allowed_cake_types=allowed,
         unavailable_reasons=reasons,
+        unavailable_codes=codes,
         price_per_kg_from=_by_type(
             filling_by_type,
             lambda filling: strategy.price_per_kg_from(bread, filling.cheapest_general_price()),
@@ -138,7 +152,7 @@ def _bread_info(bread: BreadRecord, filling_by_type: dict[str, FillingPricing]) 
 def _flavor_info(
     flavor: FillingFlavorRecord, base: FillingBaseRecord, filling_by_type: dict[str, FillingPricing]
 ) -> FillingFlavorInfo:
-    reasons = _by_type(filling_by_type, lambda filling: filling.flavor_unavailable_reason(flavor))
+    reasons, codes = _reasons_and_codes(filling_by_type, lambda filling: filling.flavor_unavailable(flavor))
     allowed = _allowed(reasons)
     return FillingFlavorInfo(
         slug=flavor.slug,
@@ -147,6 +161,7 @@ def _flavor_info(
         is_combinable=flavor.is_combinable,
         allowed_cake_types=allowed,
         unavailable_reasons=reasons,
+        unavailable_codes=codes,
         price_per_kg_by_cake_type=_by_type(
             filling_by_type, lambda filling: filling.own_price(base, flavor), allowed
         ),
@@ -154,7 +169,7 @@ def _flavor_info(
 
 
 def _base_info(base: FillingBaseRecord, filling_by_type: dict[str, FillingPricing]) -> FillingBaseInfo:
-    reasons = _by_type(filling_by_type, lambda filling: filling.base_unavailable_reason(base))
+    reasons, codes = _reasons_and_codes(filling_by_type, lambda filling: filling.base_unavailable(base))
     allowed = _allowed(reasons)
     return FillingBaseInfo(
         slug=base.slug,
@@ -165,6 +180,7 @@ def _base_info(base: FillingBaseRecord, filling_by_type: dict[str, FillingPricin
         combined_extra_per_kg=base.combined_extra_per_kg,
         allowed_cake_types=allowed,
         unavailable_reasons=reasons,
+        unavailable_codes=codes,
         price_per_kg_by_cake_type=_by_type(
             filling_by_type, lambda filling: filling.general_price(base), allowed
         ),
@@ -186,11 +202,6 @@ def _decoration_info(decoration: DecorationRecord) -> DecorationInfo:
         available=reason is None,
         unavailable_reason=reason,
     )
-
-
-def _effective_limits(settings) -> CakeDesignSettingsRecord:
-    limits = settings.get_cake_design_settings()
-    return replace(limits, max_online_kg=min(limits.max_online_kg, largest_stand_kg(settings)))
 
 
 def get_cake_design_options(cake_options=cake_option_repo, settings=settings_repo) -> CakeDesignOptions:
@@ -217,6 +228,6 @@ def get_cake_design_options(cake_options=cake_option_repo, settings=settings_rep
         filling_bases=tuple(_base_info(base, filling_by_type) for base in bases),
         coverage_colors=tuple(cake_options.list_coverage_colors()),
         decorations=tuple(map(_decoration_info, cake_options.list_decorations())),
-        limits=_effective_limits(settings),
+        limits=effective_cake_design_limits(settings),
         tier_recommendations=tuple(cake_options.list_tier_recommendations()),
     )

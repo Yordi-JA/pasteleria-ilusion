@@ -11,7 +11,7 @@ las pruebas, los de `repositories/memory.py`). Forma y pisos no cambian el
 precio. Los montos son `Decimal` con dos decimales.
 """
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import NoReturn
 
 from ..models import BreadPricingMode, CakeType, DecorationPricing
@@ -25,6 +25,7 @@ from ..repositories.records import (
 )
 from .audit import audit_operation
 from .errors import DomainValidationError, attempt, raise_all
+from .warranty_service import effective_cake_design_limits
 
 ZERO = Decimal("0.00")
 CENT = Decimal("0.01")
@@ -64,6 +65,8 @@ class PriceBreakdown:
     decoration: Decimal
     total: Decimal
     requires_quote: bool
+    # Un estimado ("Desde $X") puede ir sin sabores: ningún pedido debe aceptar un desglose así.
+    is_estimate: bool = False
 
 
 # --- Motivos por tipo de pastel (regla 4.7) ---
@@ -73,20 +76,39 @@ def _type_name(cake_type: str) -> str:
     return f"pastel {CAKE_TYPE_LABELS[cake_type].lower()}"
 
 
-def _not_offered(cake_type: str) -> str:
-    """Motivo de un pan, base o sabor que no se ofrece en ese tipo por los datos (D32)."""
-    return f"No disponible en {_type_name(cake_type)}"
+# Códigos del motivo, para que la interfaz arme sus frases sin leer el texto.
+NOT_OFFERED = "not_offered"
+NOT_COMBINABLE = "not_combinable"
+ONLY_IN = "only_in"
 
 
-def _bread_type_reason(bread: BreadRecord, cake_type: str) -> str | None:
+@dataclass(frozen=True)
+class Unavailable:
+    """Por qué una opción no se ofrece en un tipo de pastel: un código estable y el texto de la regla 4.7."""
+
+    code: str
+    reason: str
+
+
+def _not_offered(cake_type: str) -> Unavailable:
+    """Un pan, base o sabor que no se ofrece en ese tipo por los datos (D32)."""
+    return Unavailable(NOT_OFFERED, f"No disponible en {_type_name(cake_type)}")
+
+
+def _bread_type_unavailable(bread: BreadRecord, cake_type: str) -> Unavailable | None:
     """Motivo por `allowed_cake_types` del pan, con el texto de la regla 4.7."""
     allowed = bread.allowed_cake_types
     if cake_type in allowed:
         return None
     # Un pan de un solo tipo dice cuál es ("Solo en pastel seco"); los demás,
     # con qué tipo no van ("No se combina con pastel envinado").
-    only_in = _type_name(allowed[0]) if len(allowed) == 1 else None
-    return f"Solo en {only_in}" if only_in else f"No se combina con {_type_name(cake_type)}"
+    if len(allowed) == 1:
+        return Unavailable(ONLY_IN, f"Solo en {_type_name(allowed[0])}")
+    return Unavailable(NOT_COMBINABLE, f"No se combina con {_type_name(cake_type)}")
+
+
+def _reason(unavailable: Unavailable | None) -> str | None:
+    return None if unavailable is None else unavailable.reason
 
 
 def _as_sentence(name: str, reason: str) -> str:
@@ -130,14 +152,20 @@ class FillingPricing:
     def own_price(self, base: FillingBaseRecord, flavor: FillingFlavorRecord) -> Decimal | None:
         return self._prices.get((self.cake_type, base.slug, flavor.slug))
 
-    def flavor_unavailable_reason(self, flavor: FillingFlavorRecord) -> str | None:
+    def flavor_unavailable(self, flavor: FillingFlavorRecord) -> Unavailable | None:
         return None if self.cake_type in flavor.allowed_cake_types else _not_offered(self.cake_type)
 
-    def base_unavailable_reason(self, base: FillingBaseRecord) -> str | None:
+    def flavor_unavailable_reason(self, flavor: FillingFlavorRecord) -> str | None:
+        return _reason(self.flavor_unavailable(flavor))
+
+    def base_unavailable(self, base: FillingBaseRecord) -> Unavailable | None:
         offered = self.general_price(base) is not None and any(
-            self.flavor_unavailable_reason(flavor) is None for flavor in base.flavors
+            self.flavor_unavailable(flavor) is None for flavor in base.flavors
         )
         return None if offered else _not_offered(self.cake_type)
+
+    def base_unavailable_reason(self, base: FillingBaseRecord) -> str | None:
+        return _reason(self.base_unavailable(base))
 
     def available_bases(self) -> list[FillingBaseRecord]:
         return [base for base in self._bases.values() if self.base_unavailable_reason(base) is None]
@@ -145,12 +173,17 @@ class FillingPricing:
     def cheapest_general_price(self) -> Decimal | None:
         return min(map(self.general_price, self.available_bases()), default=None)
 
-    def price_per_kg(self, base_slug: str | None, flavor_slugs: tuple[str, ...]) -> Decimal:
+    def price_per_kg(
+        self, base_slug: str | None, flavor_slugs: tuple[str, ...], estimate: bool = False
+    ) -> Decimal:
+        """Precio por kilo del relleno. En un estimado sin sabores, el precio general de la base."""
         base = self._base(base_slug)
         reason = self.base_unavailable_reason(base)
         if reason:
             _fail("filling_base", _as_sentence(base.name, reason))
         general = self.general_price(base)
+        if estimate and not flavor_slugs:
+            return general
         flavors = self._flavors(base, flavor_slugs)
         own_prices = [p for p in (self.own_price(base, f) for f in flavors) if p is not None]
         price = max(own_prices, default=general)
@@ -199,12 +232,12 @@ class FillingPricing:
 class ExtraPerKgBreadPricing:
     """Pan con incremento por kilo: relleno elegido + incremento del pan."""
 
-    def unavailable_reason(self, filling: FillingPricing) -> str | None:
+    def unavailable(self, filling: FillingPricing) -> Unavailable | None:
         """Sin ninguna base que se ofrezca en el tipo, el pan no se puede armar."""
         return None if filling.available_bases() else _not_offered(filling.cake_type)
 
-    def filling_per_kg(self, choice: CakeDesignChoice, filling: FillingPricing) -> Decimal:
-        return filling.price_per_kg(choice.filling_base, choice.filling_flavors)
+    def filling_per_kg(self, choice: CakeDesignChoice, filling: FillingPricing, estimate: bool = False) -> Decimal:
+        return filling.price_per_kg(choice.filling_base, choice.filling_flavors, estimate)
 
     def price_per_kg(self, bread: BreadRecord, filling_per_kg: Decimal) -> Decimal:
         return filling_per_kg + bread.price_per_kg
@@ -217,10 +250,10 @@ class ExtraPerKgBreadPricing:
 class FullPriceBreadPricing:
     """Pan de precio completo (Choco-pingüino, Red velvet): trae su relleno y no lleva otro."""
 
-    def unavailable_reason(self, filling: FillingPricing) -> str | None:
+    def unavailable(self, filling: FillingPricing) -> Unavailable | None:
         return None
 
-    def filling_per_kg(self, choice: CakeDesignChoice, filling: FillingPricing) -> Decimal:
+    def filling_per_kg(self, choice: CakeDesignChoice, filling: FillingPricing, estimate: bool = False) -> Decimal:
         if choice.filling_base or choice.filling_flavors:
             field = "filling_base" if choice.filling_base else "filling_flavors"
             _fail(field, "Este pan ya trae su relleno; no se elige otro.")
@@ -239,14 +272,18 @@ BREAD_PRICING_STRATEGIES = {
 }
 
 
-def bread_unavailable_reason(bread: BreadRecord, filling: FillingPricing) -> str | None:
+def bread_unavailable(bread: BreadRecord, filling: FillingPricing) -> Unavailable | None:
     """Por qué el pan no se ofrece en el tipo de `filling`, o `None` si se ofrece.
 
     Primero su `allowed_cake_types` (regla 4.7); después, lo que diga su
     estrategia sobre el relleno de ese tipo.
     """
     strategy = BREAD_PRICING_STRATEGIES[bread.pricing_mode]
-    return _bread_type_reason(bread, filling.cake_type) or strategy.unavailable_reason(filling)
+    return _bread_type_unavailable(bread, filling.cake_type) or strategy.unavailable(filling)
+
+
+def bread_unavailable_reason(bread: BreadRecord, filling: FillingPricing) -> str | None:
+    return _reason(bread_unavailable(bread, filling))
 
 
 # --- Estrategias de la decoración ---
@@ -324,7 +361,7 @@ def _check_kg(kg, limits: CakeDesignSettingsRecord) -> None:
         )
 
 
-def _cake_price_per_kg(choice: CakeDesignChoice, cake_options) -> Decimal:
+def _cake_price_per_kg(choice: CakeDesignChoice, cake_options, estimate: bool = False) -> Decimal:
     if choice.cake_type not in CAKE_TYPE_LABELS:
         _fail("cake_type", "Ese tipo de pastel no existe.")
     bread = next((b for b in cake_options.list_breads() if b.slug == choice.bread), None)
@@ -339,7 +376,7 @@ def _cake_price_per_kg(choice: CakeDesignChoice, cake_options) -> Decimal:
     if reason:
         _fail("bread", _as_sentence(bread.name, reason))
     strategy = BREAD_PRICING_STRATEGIES[bread.pricing_mode]
-    return strategy.price_per_kg(bread, strategy.filling_per_kg(choice, filling))
+    return strategy.price_per_kg(bread, strategy.filling_per_kg(choice, filling, estimate))
 
 
 def _decoration_charge(slug: str | None, cake_options) -> tuple[Decimal, bool]:
@@ -353,20 +390,12 @@ def _decoration_charge(slug: str | None, cake_options) -> tuple[Decimal, bool]:
     return strategy.amount(decoration), strategy.requires_quote
 
 
-@audit_operation(expected_errors=(DomainValidationError,))
-def calculate_price(
-    choice: CakeDesignChoice, cake_options=cake_option_repo, settings=settings_repo
-) -> PriceBreakdown:
-    """Precio de un diseño con las cifras vigentes.
-
-    Valida kilos, pan, relleno y decoración por separado y, si algo falla,
-    lanza `CakeDesignError` con todos los errores por campo
-    (`PendingPriceError` si lo único que falla es una decoración sin precio).
-    """
-    limits = settings.get_cake_design_settings()
+def _price(choice: CakeDesignChoice, cake_options, settings, estimate: bool) -> PriceBreakdown:
+    # El máximo es el efectivo, el mismo que anuncian las opciones y que usan los kilos por personas.
+    limits = effective_cake_design_limits(settings)
     failures: list[DomainValidationError] = []
     attempt(failures, _check_kg, choice.kg, limits)
-    price_per_kg = attempt(failures, _cake_price_per_kg, choice, cake_options)
+    price_per_kg = attempt(failures, _cake_price_per_kg, choice, cake_options, estimate)
     decoration = attempt(failures, _decoration_charge, choice.decoration, cake_options)
     raise_all(failures, CakeDesignError)
     decoration_amount, requires_quote = decoration
@@ -381,4 +410,86 @@ def calculate_price(
         decoration=decoration_amount,
         total=cake_subtotal + wafer + decoration_amount,
         requires_quote=requires_quote,
+        is_estimate=estimate,
     )
+
+
+@audit_operation(expected_errors=(DomainValidationError,))
+def calculate_price(
+    choice: CakeDesignChoice, cake_options=cake_option_repo, settings=settings_repo
+) -> PriceBreakdown:
+    """Precio de un diseño con las cifras vigentes.
+
+    Valida kilos, pan, relleno y decoración por separado y, si algo falla,
+    lanza `CakeDesignError` con todos los errores por campo
+    (`PendingPriceError` si lo único que falla es una decoración sin precio).
+    El relleno pide su base y sus sabores: es el precio que llevaría un pedido.
+    """
+    return _price(choice, cake_options, settings, estimate=False)
+
+
+@audit_operation(expected_errors=(DomainValidationError,))
+def estimate_price(
+    choice: CakeDesignChoice, cake_options=cake_option_repo, settings=settings_repo
+) -> PriceBreakdown:
+    """Total estimado mientras se arma el pastel ("Desde $X").
+
+    Igual que `calculate_price`, salvo que la base del relleno puede ir sin
+    sabores: entonces cuenta su precio general. Ningún pedido usa este precio.
+    """
+    return _price(choice, cake_options, settings, estimate=True)
+
+
+# --- Kilos por personas (regla 3.1) ---
+
+
+@dataclass(frozen=True)
+class PeopleSize:
+    """Kilos para un número de personas y dónde quedan contra los límites vigentes."""
+
+    people: int
+    # Personas entre personas por kilo, de .5 hacia arriba, sin el mínimo.
+    rounded_kg: int
+    # Kilos del pedido: nunca menos que el mínimo.
+    kg: int
+    below_minimum: bool
+    above_maximum: bool
+    # Personas que alcanzan el mínimo y el máximo en línea ("unas 28 personas").
+    minimum_people: int
+    max_online_people: int
+
+
+def _rounded_kg(people: int, people_per_kg: int) -> int:
+    return int((Decimal(people) / people_per_kg).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+@audit_operation(expected_errors=(DomainValidationError,))
+def size_for_people(people: int, settings=settings_repo) -> PeopleSize:
+    """Kilos para `people` personas (regla 3.1) con lo que la interfaz dice del mínimo y del máximo.
+
+    1 kg por cada `people_per_kg`, de .5 hacia arriba, nunca menos que el
+    mínimo. El máximo es el efectivo (`effective_cake_design_limits`), el mismo
+    que anuncian las opciones y que revisa el precio. Va auditado: con más
+    personas de las que se piden en línea, la vista responde sin calcular el
+    precio y esta es la operación que queda en el registro.
+    """
+    if isinstance(people, bool) or not isinstance(people, int) or people < 1:
+        _fail("people", "Indica al menos una persona.")
+    limits = effective_cake_design_limits(settings)
+    maximum = limits.max_online_kg
+    rounded = _rounded_kg(people, limits.people_per_kg)
+    kg = max(rounded, limits.min_custom_kg)
+    return PeopleSize(
+        people=people,
+        rounded_kg=rounded,
+        kg=kg,
+        below_minimum=rounded < limits.min_custom_kg,
+        above_maximum=kg > maximum,
+        minimum_people=limits.min_custom_kg * limits.people_per_kg,
+        max_online_people=maximum * limits.people_per_kg,
+    )
+
+
+def kg_for_people(people: int, settings=settings_repo) -> int:
+    """Solo los kilos del pedido para `people` personas (ver `size_for_people`)."""
+    return size_for_people(people, settings=settings).kg

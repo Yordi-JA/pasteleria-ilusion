@@ -1,9 +1,9 @@
 """Préstamo de bases: depósito, retención y reembolso."""
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 
 from ..repositories import settings_repo
-from ..repositories.records import StandSizeRecord
+from ..repositories.records import CakeDesignSettingsRecord, StandSizeRecord
 from .errors import DomainValidationError
 
 NO_DEPOSIT = Decimal("0.00")
@@ -53,3 +53,15 @@ def largest_stand_kg(settings=settings_repo) -> int:
     Más kilos que esto no tienen depósito y `get_stand_deposit` los rechaza.
     """
     return max((stand.max_kg for stand in settings.list_stand_sizes()), default=0)
+
+
+def effective_cake_design_limits(settings=settings_repo) -> CakeDesignSettingsRecord:
+    """Los límites de "Diseña tu pastel" con el máximo en línea que de verdad se puede pedir.
+
+    `max_online_kg` es el menor entre el de la configuración y lo que cubre la
+    base activa más grande (sin bases activas, 0: ningún kilo tiene base). Lo
+    usan las opciones, los kilos por personas y la revisión de kilos del precio,
+    así los tres anuncian y rechazan lo mismo.
+    """
+    limits = settings.get_cake_design_settings()
+    return replace(limits, max_online_kg=min(limits.max_online_kg, largest_stand_kg(settings)))

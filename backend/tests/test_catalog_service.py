@@ -4,6 +4,7 @@ El servicio decide qué es "hoy", qué cuenta como "En vitrina hoy", qué sale e
 "Pasteles de la casa" y qué es PENDIENTE (`None`); el repositorio solo consulta.
 """
 import ast
+import dataclasses
 import inspect
 from datetime import date, datetime, timedelta
 from datetime import timezone as dt_timezone
@@ -261,3 +262,34 @@ def test_the_layer_check_would_catch_a_model_import():
     assert any(name.startswith("django.db") for name, _ in imported)
     model_names = [n for name, names in imported if name == "..models" for n in names]
     assert not all(issubclass(getattr(models, n), Choices) for n in model_names)
+
+
+# --- Alternativas más chicas de "Diseña tu pastel" ---
+
+
+def test_smaller_alternatives_take_the_lightest_showcase_cake_and_the_smallest_mini():
+    mini = product(8, "mini", presentations=("whole", "mini"))
+    light = product(9, "ligero")
+    light = dataclasses.replace(
+        light,
+        offerings=tuple(
+            dataclasses.replace(o, approx_weight_kg=Decimal("1.5"), servings=10) if o.presentation == "whole" else o
+            for o in light.offerings
+        ),
+    )
+    mini = dataclasses.replace(
+        mini, offerings=tuple(dataclasses.replace(o, servings=3) if o.presentation == "mini" else o for o in mini.offerings)
+    )
+    result = catalog_service.get_smaller_alternatives(products=repo([*CATALOG, mini, light]), today=TODAY)
+    assert result.showcase_cake == catalog_service.CakeSize(Decimal("1.5"), 10)
+    assert result.mini_cake == catalog_service.CakeSize(None, 3)
+
+
+def test_smaller_alternatives_skip_order_only_cakes_desserts_and_missing_data():
+    order_only = product(8, "red-velvet", sales_channel="order_only")
+    order_only = dataclasses.replace(
+        order_only,
+        offerings=tuple(dataclasses.replace(o, approx_weight_kg=Decimal("1.0")) for o in order_only.offerings),
+    )
+    result = catalog_service.get_smaller_alternatives(products=repo([order_only, product(1, "flan", "dessert")]), today=TODAY)
+    assert result == catalog_service.SmallerAlternatives(showcase_cake=None, mini_cake=None)

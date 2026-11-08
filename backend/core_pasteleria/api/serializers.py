@@ -9,6 +9,8 @@ SLUG_MAX_LENGTH = Bread._meta.get_field("slug").max_length
 # Tope técnico del tamaño de la petición. El máximo real de sabores es el de la
 # base (`FillingBase.max_flavors`) y lo aplica el servicio con su mensaje.
 MAX_FLAVORS_IN_REQUEST = 5
+# Tope técnico de las personas, como el de los kilos: el máximo real lo aplica el servicio.
+MAX_PEOPLE_IN_REQUEST = 10000
 # Tope técnico de los kilos. El rango de la regla (4 a 50 kg al inicio) vive en
 # `CakeDesignSettings` y lo aplica el servicio con su mensaje, también por abajo.
 MAX_KG_IN_REQUEST = 1000
@@ -26,6 +28,17 @@ def reasons_by_cake_type():
     return serializers.DictField(
         child=serializers.CharField(),
         help_text="Motivo por cada tipo de pastel en que la opción no se ofrece.",
+    )
+
+
+def codes_by_cake_type():
+    return serializers.DictField(
+        child=serializers.CharField(),
+        help_text=(
+            "Código de cada motivo, por tipo de pastel: `not_offered` (no se ofrece en ese tipo), "
+            "`not_combinable` (no se combina con ese tipo) u `only_in` (solo va en los tipos de "
+            "`allowed_cake_types`). La interfaz arma sus frases con el código, no con el texto."
+        ),
     )
 
 
@@ -56,6 +69,7 @@ class BreadOptionSerializer(serializers.Serializer):
     preview_color = serializers.CharField()
     allowed_cake_types = cake_types()
     unavailable_reasons = reasons_by_cake_type()
+    unavailable_codes = codes_by_cake_type()
     price_per_kg_from = money_by_cake_type(
         "Precio por kilo que se muestra en el paso del pan, por tipo de pastel: relleno "
         "más barato del tipo elegido + incremento del pan, o el precio completo."
@@ -69,6 +83,7 @@ class FillingFlavorOptionSerializer(serializers.Serializer):
     is_combinable = serializers.BooleanField()
     allowed_cake_types = cake_types()
     unavailable_reasons = reasons_by_cake_type()
+    unavailable_codes = codes_by_cake_type()
     price_per_kg_by_cake_type = money_by_cake_type(
         "Precio propio por kilo en esta base, por tipo de pastel; vacío si usa el de la base."
     )
@@ -83,6 +98,7 @@ class FillingBaseOptionSerializer(serializers.Serializer):
     combined_extra_per_kg = money()
     allowed_cake_types = cake_types()
     unavailable_reasons = reasons_by_cake_type()
+    unavailable_codes = codes_by_cake_type()
     price_per_kg_by_cake_type = money_by_cake_type("Precio general por kilo, por tipo de pastel.")
     flavors = FillingFlavorOptionSerializer(many=True)
 
@@ -125,6 +141,22 @@ class TierRecommendationSerializer(serializers.Serializer):
     recommended_max_kg = serializers.IntegerField(allow_null=True)
 
 
+class CakeSizeSerializer(serializers.Serializer):
+    approx_weight_kg = serializers.DecimalField(
+        max_digits=4, decimal_places=1, allow_null=True, help_text="`null`: aún no se define."
+    )
+    servings = serializers.IntegerField(allow_null=True, help_text="Personas que rinde; `null`: aún no se define.")
+
+
+class SmallerAlternativesSerializer(serializers.Serializer):
+    """Lo que se ofrece a quien pide menos del mínimo; `null` si el catálogo no tiene el dato."""
+
+    showcase_cake = CakeSizeSerializer(
+        allow_null=True, help_text="El pastel completo más ligero que se vende en vitrina."
+    )
+    mini_cake = CakeSizeSerializer(allow_null=True, help_text="El pastel mini que rinde menos.")
+
+
 class CakeDesignOptionsSerializer(serializers.Serializer):
     cake_types = CakeTypeSerializer(many=True)
     breads = BreadOptionSerializer(many=True)
@@ -133,6 +165,9 @@ class CakeDesignOptionsSerializer(serializers.Serializer):
     decorations = DecorationOptionSerializer(many=True)
     limits = CakeDesignLimitsSerializer()
     tier_recommendations = TierRecommendationSerializer(many=True)
+    smaller_alternatives = SmallerAlternativesSerializer(
+        help_text="Pastel de vitrina y pastel mini, para quien pide menos del mínimo (regla 3.1)."
+    )
 
 
 # --- Precio (entrada y salida) ---
@@ -143,9 +178,24 @@ class CakeDesignPriceRequestSerializer(serializers.Serializer):
 
     Forma y pisos no cambian el precio: no se piden aquí, y si llegan se ignoran
     como cualquier otra clave. Se validarán cuando exista `CakeDesign`.
+
+    El tamaño llega como `people` (el servidor calcula los kilos, regla 3.1) o
+    como `kg`, nunca los dos.
     """
 
+    people = serializers.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=MAX_PEOPLE_IN_REQUEST,
+        help_text="Personas; el servidor calcula los kilos y los devuelve en `size`.",
+        error_messages={
+            "invalid": "Las personas van en números enteros.",
+            "min_value": "Indica al menos una persona.",
+            "max_value": "Son demasiadas personas para pedir en línea. Escríbenos por WhatsApp.",
+        },
+    )
     kg = serializers.IntegerField(
+        required=False,
         max_value=MAX_KG_IN_REQUEST,
         error_messages={
             "invalid": "Los kilos van en números enteros.",
@@ -169,11 +219,29 @@ class CakeDesignPriceRequestSerializer(serializers.Serializer):
         help_text="Sin elegir, no suma nada.",
     )
     wafer = serializers.BooleanField(required=False, default=False)
+    estimate = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text=(
+            "Total estimado mientras el cliente arma el pastel: con la base del relleno y sin "
+            "sabores, cuenta el precio general de la base. Solo cambia qué cálculo se usa; no "
+            "es parte de la elección y ningún pedido lo lleva."
+        ),
+    )
 
-    def to_choice(self) -> CakeDesignChoice:
+    def validate(self, attrs):
+        has_people, has_kg = attrs.get("people") is not None, attrs.get("kg") is not None
+        if has_people and has_kg:
+            raise serializers.ValidationError({"people": ["Indica las personas o los kilos, no los dos."]})
+        if not has_people and not has_kg:
+            raise serializers.ValidationError({"people": ["Indica para cuántas personas es el pastel."]})
+        return attrs
+
+    def to_choice(self, kg: int) -> CakeDesignChoice:
+        """La elección con los kilos ya resueltos (los mandados o los calculados por personas)."""
         data = self.validated_data
         return CakeDesignChoice(
-            kg=data["kg"],
+            kg=kg,
             cake_type=data["cake_type"],
             bread=data["bread"],
             filling_base=data.get("filling_base"),
@@ -194,20 +262,42 @@ class StandDepositSerializer(serializers.Serializer):
         return None if instance.stand is None else super().to_representation(instance)
 
 
+class PeopleSizeSerializer(serializers.Serializer):
+    """Kilos calculados por personas (regla 3.1) y dónde quedan contra el mínimo y el máximo en línea."""
+
+    people = serializers.IntegerField()
+    rounded_kg = serializers.IntegerField(help_text="Personas entre personas por kilo, de .5 hacia arriba, sin el mínimo.")
+    kg = serializers.IntegerField(help_text="Kilos del pedido: nunca menos que el mínimo.")
+    below_minimum = serializers.BooleanField()
+    above_maximum = serializers.BooleanField(help_text="Más de lo que se pide en línea: el precio sale en `null`.")
+    minimum_people = serializers.IntegerField(help_text="Personas que alcanza el mínimo.")
+    max_online_people = serializers.IntegerField(help_text="Personas que alcanza el máximo en línea.")
+
+
 class CakeDesignPriceSerializer(serializers.Serializer):
-    price_per_kg = money(source="breakdown.price_per_kg")
-    kg = serializers.IntegerField(source="breakdown.kg")
-    cake_subtotal = money(source="breakdown.cake_subtotal")
-    wafer = money(source="breakdown.wafer")
+    """Desglose del precio. Con `size.above_maximum`, los montos, `kg` y `stand` salen en `null`."""
+
+    price_per_kg = money(source="breakdown.price_per_kg", allow_null=True)
+    kg = serializers.IntegerField(source="breakdown.kg", allow_null=True)
+    cake_subtotal = money(source="breakdown.cake_subtotal", allow_null=True)
+    wafer = money(source="breakdown.wafer", allow_null=True)
     decoration = money(
-        source="breakdown.decoration", help_text="Con una decoración por cotizar es 0: no se suma."
+        source="breakdown.decoration", allow_null=True, help_text="Con una decoración por cotizar es 0: no se suma."
     )
-    total = money(source="breakdown.total", help_text="Sin el depósito de la base, que va aparte.")
+    total = money(source="breakdown.total", allow_null=True, help_text="Sin el depósito de la base, que va aparte.")
     requires_quote = serializers.BooleanField(
         source="breakdown.requires_quote",
+        allow_null=True,
         help_text="La decoración la cotiza la pastelería; el pedido queda en pausa hasta entonces.",
     )
+    is_estimate = serializers.BooleanField(
+        source="breakdown.is_estimate",
+        allow_null=True,
+        read_only=True,
+        help_text="El total es un estimado sin sabores (`estimate`): ningún pedido lo acepta.",
+    )
     stand = StandDepositSerializer(source="stand_deposit", allow_null=True)
+    size = PeopleSizeSerializer(allow_null=True, help_text="Solo si la petición trae `people`; si no, `null`.")
 
 
 # --- Datos del negocio (salida) ---
