@@ -31,9 +31,9 @@ export type BreadOption = {
   pricingMode: BreadPricingMode
   /** Relleno que trae el pan de precio completo ("Crema de chocolate sabor helado"); vacío si lleva relleno aparte. */
   includedFilling: string
-  /** Color del pan en la vista previa, `#rrggbb` del admin; `null` si no lo tiene. En un pan de dos colores, la mitad de arriba. */
+  /** Color del pan en la vista previa, `#rrggbb` del admin; `null` si no lo tiene. En un pan de dos colores, el del pan que va encima del relleno. */
   previewColor: string | null
-  /** Solo en un pan de dos colores (choco-vainilla): la mitad de abajo de cada capa. */
+  /** Solo en un pan de dos colores (choco-vainilla): el del pan que va debajo del relleno. */
   previewColorBottom: string | null
   allowedCakeTypes: string[]
   unavailableReasons: ReasonsByCakeType
@@ -43,7 +43,7 @@ export type BreadOption = {
 }
 
 /** Cómo se ve un sabor en la vista previa; lo elige la pastelería en el admin (D50). */
-export type FillingPreviewStyle = 'smooth' | 'fruit_slices' | 'cookie_chunks' | 'sprinkles'
+export type FillingPreviewStyle = 'smooth' | 'fruit_slices' | 'fruit_chunks' | 'cookie_chunks' | 'sprinkles'
 
 export type FillingFlavorOption = {
   slug: string
@@ -148,7 +148,7 @@ const MAX_NAME_LENGTH = 120
 const BREAD_MODES = new Set<string>(['extra_per_kg', 'full_price_per_kg'])
 const CODES = new Set<string>(['not_offered', 'not_combinable', 'only_in'])
 // Un estilo que esta versión no conoce se ve liso.
-const PREVIEW_STYLES = new Set<string>(['smooth', 'fruit_slices', 'cookie_chunks', 'sprinkles'])
+const PREVIEW_STYLES = new Set<string>(['smooth', 'fruit_slices', 'fruit_chunks', 'cookie_chunks', 'sprinkles'])
 
 function code(value: unknown): UnavailableCode | null {
   return typeof value === 'string' && CODES.has(value) ? (value as UnavailableCode) : null
@@ -418,7 +418,6 @@ export async function getCakeDesignQuote(request: CakeDesignPriceRequest, signal
   }
   return parseCakeDesignQuote(data)
 }
-
 
 /** Para comparar dos montos de la API (nunca para calcular uno). */
 export function compareMoney(a: string, b: string): number {

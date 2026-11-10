@@ -45,10 +45,16 @@ function drawCrumb(): HTMLCanvasElement {
   const random = seededRandom(20261107)
   const dot = (x: number, y: number, radius: number, alpha: number) => {
     context.fillStyle = `rgba(${pore}, ${alpha})`
-    for (const dx of [-CRUMB_SIZE, 0, CRUMB_SIZE]) {
-      for (const dy of [-CRUMB_SIZE, 0, CRUMB_SIZE]) {
+    // La forma del poro se decide una sola vez: sus copias al otro lado del borde son idénticas y la costura calza.
+    const minor = radius * (0.6 + random() * 0.5)
+    const rotation = random() * Math.PI
+    // El semieje mayor no pasa de 1.1 veces el radio: solo se copia del otro lado lo que cruza el borde.
+    const reach = radius * 1.1
+    const shifts = (at: number) => [0, ...(at - reach < 0 ? [CRUMB_SIZE] : []), ...(at + reach > CRUMB_SIZE ? [-CRUMB_SIZE] : [])]
+    for (const dx of shifts(x)) {
+      for (const dy of shifts(y)) {
         context.beginPath()
-        context.ellipse(x + dx, y + dy, radius, radius * (0.6 + random() * 0.5), random() * Math.PI, 0, Math.PI * 2)
+        context.ellipse(x + dx, y + dy, radius, minor, rotation, 0, Math.PI * 2)
         context.fill()
       }
     }
@@ -60,47 +66,37 @@ function drawCrumb(): HTMLCanvasElement {
   return canvas
 }
 
-// Un solo lienzo y una sola textura base para toda la escena, contados por uso: se liberan cuando nadie los usa.
-let shared: { texture: CanvasTexture; users: number } | null = null
+// Un solo lienzo y una sola textura base para toda la escena, que se dibujan la primera vez que se piden y se quedan
+// (256 x 256 px, unos 256 kB): volver al paso 4 desde el 5 no repinta los miles de poros. La base nunca se dibuja en
+// la escena, solo da su imagen a los clones, así que no ocupa la GPU; cada clon libera la suya al desmontarse.
+let template: CanvasTexture | null = null
 
-function acquireCrumb(): CanvasTexture {
-  if (!shared) {
-    const texture = new CanvasTexture(drawCrumb())
-    texture.colorSpace = SRGBColorSpace
-    texture.wrapS = RepeatWrapping
-    texture.wrapT = RepeatWrapping
-    texture.anisotropy = 4
-    shared = { texture, users: 0 }
+function crumbTemplate(): CanvasTexture {
+  if (!template) {
+    template = new CanvasTexture(drawCrumb())
+    template.colorSpace = SRGBColorSpace
+    template.wrapS = RepeatWrapping
+    template.wrapT = RepeatWrapping
+    template.anisotropy = 4
   }
-  shared.users += 1
-  return shared.texture
-}
-
-function releaseCrumb() {
-  if (!shared) return
-  shared.users -= 1
-  if (shared.users <= 0) {
-    shared.texture.dispose()
-    shared = null
-  }
+  return template
 }
 
 /**
  * La miga con la repetición de una capa: un clon que comparte la imagen (se sube una vez a la GPU) y lleva su propia
- * repetición. Se libera al desmontar la capa.
+ * repetición. Crearlo no toma ninguna cuenta (un render descartado no deja nada), y al desmontar la capa se libera su
+ * textura en la GPU; la imagen compartida se libera sola cuando el último clon la suelta.
  */
 export function useCrumbTexture(enabled: boolean, repeatX: number, repeatY: number): Texture | null {
   const texture = useMemo(() => {
     if (!enabled) return null
-    const clone = acquireCrumb().clone()
+    const clone = crumbTemplate().clone()
     clone.repeat.set(repeatX, repeatY)
     return clone
   }, [enabled, repeatX, repeatY])
   useEffect(
     () => () => {
-      if (!texture) return
-      texture.dispose()
-      releaseCrumb()
+      texture?.dispose()
     },
     [texture],
   )

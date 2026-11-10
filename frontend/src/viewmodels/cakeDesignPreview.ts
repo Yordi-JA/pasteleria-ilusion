@@ -6,11 +6,12 @@ import type { DesignDerived } from './cakeDesignSteps.ts'
 
 /**
  * La vista previa de "Diseña tu pastel" por etapas, como `design/referencia/pastel-css3d.js` y el libro de marca
- * ("Cotizador 3D"), con lo que pidió la dueña (D50): el pan con miga, en dos colores si el pan los tiene (choco-vainilla:
- * chocolate arriba y vainilla abajo en cada capa); el matiz del tipo (tres leches más claro, envinado hacia el vino); el
- * relleno al centro del costado con su estilo (liso, rebanadas de fruta, trozos de galleta o granillo; mitad y mitad
- * con dos sabores); con queso o con flan, la crema abajo y el sabor arriba; y, desde el paso 5, la cobertura de crema
- * pastelera en su color, sin perlas (la duya es de la decoración, paso 6).
+ * ("Cotizador 3D"), con lo que pidió la dueña (D50 y D51): el pan con miga, en dos colores si el pan los tiene
+ * (choco-vainilla: en cada piso, todo el pan que va debajo del relleno es de vainilla y todo el que va encima, de
+ * chocolate); el matiz del tipo (tres leches más claro, envinado hacia el vino); el relleno al centro del costado con
+ * su estilo (liso, rebanadas o trozos de fruta, trozos de galleta o granillo; mitad y mitad con dos sabores); con
+ * queso o con flan, la crema abajo y el sabor arriba; y, desde el paso 5, la cobertura de crema pastelera en su
+ * color, sin perlas (la duya es de la decoración, paso 6).
  *
  * Los colores de la comida son los `preview_color` de la API, que la pastelería edita; los matices, la corteza y el
  * fondo cremoso de algunos rellenos se describen como mezclas con tokens y los resuelve la escena. Sin React ni three.
@@ -60,6 +61,8 @@ function flavorLook(flavor: FillingFlavorOption): { body: ShapeColor; pieces: Ca
   switch (flavor.previewStyle) {
     case 'fruit_slices':
       return { body: color, pieces: { style: 'fruit_slices', colors: [accent] } }
+    case 'fruit_chunks':
+      return { body: color, pieces: { style: 'fruit_chunks', colors: [accent] } }
     case 'cookie_chunks':
       return { body: mix('betun', color, CREAMY_BODY), pieces: { style: 'cookie_chunks', colors: [accent] } }
     case 'sprinkles':
@@ -69,23 +72,20 @@ function flavorLook(flavor: FillingFlavorOption): { body: ShapeColor; pieces: Ca
 
 type Bread = { top: ShapeColor; bottom: ShapeColor }
 
-/** Una capa de pan: de un color, o en dos mitades (abajo y arriba) si el pan es de dos colores. */
-function breadLayers(height: number, bread: Bread): CakeLayer[] {
-  if (bread.top === bread.bottom) return [{ height, colors: [bread.top], crumb: true }]
-  return [
-    { height: height / 2, colors: [bread.bottom], crumb: true },
-    { height: height / 2, colors: [bread.top], crumb: true },
-  ]
-}
+/** Una capa de pan de un solo color, con miga. */
+const breadLayer = (height: number, color: ShapeColor): CakeLayer => ({ height, colors: [color], crumb: true })
 
 type FillingLook = { flavors: { body: ShapeColor; pieces: CakePieces | null }[]; cream: ShapeColor | null }
 
-/** Las capas del costado de abajo hacia arriba: corteza, pan, relleno (si hay), pan y corteza. */
+/**
+ * Las capas del costado de abajo hacia arriba: corteza, pan, relleno (si hay), pan y corteza. En un pan de dos
+ * colores, el pan de abajo (y su corteza) es todo del color de abajo y el de arriba, todo del de arriba (D51).
+ */
 function layers(bread: Bread, filling: FillingLook | null): CakeLayer[] {
   const crustBottom: CakeLayer = { height: 0.04, colors: [mix(bread.bottom, CRUST.toward, CRUST.amount)], crumb: true }
   const crustTop: CakeLayer = { height: 0.05, colors: [mix(bread.top, CRUST.toward, CRUST.amount)], crumb: true }
   if (!filling || filling.flavors.length === 0) {
-    return [crustBottom, ...breadLayers(0.46, bread), ...breadLayers(0.45, bread), crustTop]
+    return [crustBottom, breadLayer(0.46, bread.bottom), breadLayer(0.45, bread.top), crustTop]
   }
   const [first, second] = filling.flavors
   const flavorLayer = (height: number): CakeLayer =>
@@ -94,9 +94,9 @@ function layers(bread: Bread, filling: FillingLook | null): CakeLayer[] {
       : { height, colors: [first.body], pieces: [first.pieces] }
   if (filling.cream) {
     // Con queso o con flan (decisión de la dueña, D50): la crema abajo y el sabor arriba, en el mismo espesor.
-    return [crustBottom, ...breadLayers(0.32, bread), { height: 0.14, colors: [filling.cream] }, flavorLayer(0.14), ...breadLayers(0.31, bread), crustTop]
+    return [crustBottom, breadLayer(0.32, bread.bottom), { height: 0.14, colors: [filling.cream] }, flavorLayer(0.14), breadLayer(0.31, bread.top), crustTop]
   }
-  return [crustBottom, ...breadLayers(0.38, bread), flavorLayer(0.16), ...breadLayers(0.37, bread), crustTop]
+  return [crustBottom, breadLayer(0.38, bread.bottom), flavorLayer(0.16), breadLayer(0.37, bread.top), crustTop]
 }
 
 type PreviewInput = {

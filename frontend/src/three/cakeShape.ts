@@ -16,9 +16,9 @@ export type ShapeColor = SceneColor | { mix: readonly [ShapeColor, ShapeColor]; 
  * perlas de abajo. La portada usa siempre la etapa final.
  */
 
-/** Trozos que asoman en el costado del relleno (D50): rebanadas de fruta, trozos de galleta o granillo. */
+/** Trozos que asoman en el costado del relleno (D50, D51): rebanadas o trozos de fruta, trozos de galleta o granillo. */
 export type CakePieces = {
-  style: 'fruit_slices' | 'cookie_chunks' | 'sprinkles'
+  style: 'fruit_slices' | 'fruit_chunks' | 'cookie_chunks' | 'sprinkles'
   /** Colores de los trozos; con dos o más, se reparten entre ellos. */
   colors: readonly ShapeColor[]
 }

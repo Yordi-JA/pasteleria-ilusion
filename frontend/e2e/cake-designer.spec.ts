@@ -158,6 +158,21 @@ test('lowering the people below the tiers minimum drops the tiers and says so', 
   await expect(shown(page, '60 personas, 9 kg, redondo')).toBeVisible()
 })
 
+test('the tiers notice goes away when the people change again', async ({ page }) => {
+  await open(page)
+  await setPeople(page, 105)
+  await page.getByText('2 pisos', { exact: true }).click()
+  await setPeople(page, 60)
+  const notice = page.getByRole('status').filter({ hasText: 'Con 9 kg el pastel va de 1 piso.' })
+  await expect(notice).toBeVisible()
+  // Con más personas el aviso ya no vale, al cambiar las personas.
+  await setPeople(page, 105)
+  await expect(notice).toHaveCount(0)
+  await expect(page.getByRole('radio', { name: /1 piso/ })).toBeChecked()
+  await setPeople(page, 60)
+  await expect(page.getByRole('status').filter({ hasText: /Con \d+ kg el pastel va de/ })).toHaveCount(0)
+})
+
 test('a failed price never shows the old total as current, on desktop or in the mobile bar, and retry works', async ({ page }) => {
   let fail = false
   await mockCakeDesignOptions(page)

@@ -2,7 +2,8 @@ import type { Page, Request } from '@playwright/test'
 
 /**
  * "Diseña tu pastel" sin backend: las opciones de la semilla (`GET cake-designs/options/`, copiadas de la API el
- * 7 de noviembre de 2026, con los mínimos por pisos y los estilos de la vista previa de D50) y un precio simulado como el del backend: los kilos por personas de la regla 3.1 y la
+ * 7 de noviembre de 2026, con los mínimos por pisos y los estilos de la vista previa de D50; durazno y fresa con
+ * el estilo `fruit_chunks` de D51) y un precio simulado como el del backend: los kilos por personas de la regla 3.1 y la
  * fórmula de la regla 4.6 con esas cifras, para que las pruebas lean kilos y totales reales ("Desde $1,080") sin
  * Django.
  */
@@ -166,7 +167,7 @@ export const cakeDesignOptions = {
           "slug": "durazno",
           "name": "Durazno",
           "preview_color": "#F6B054",
-          "preview_style": "fruit_slices",
+          "preview_style": "fruit_chunks",
           "preview_color_secondary": "#FBD08F",
           "is_combinable": true,
           "allowed_cake_types": [
@@ -182,7 +183,7 @@ export const cakeDesignOptions = {
           "slug": "fresa",
           "name": "Fresa",
           "preview_color": "#E25468",
-          "preview_style": "fruit_slices",
+          "preview_style": "fruit_chunks",
           "preview_color_secondary": "#C8283A",
           "is_combinable": true,
           "allowed_cake_types": [
