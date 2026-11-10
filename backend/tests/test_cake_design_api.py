@@ -157,6 +157,10 @@ def test_form_and_tiers_do_not_change_the_price(api):
         ({"tiers": 3}, {"tiers": ["Para 3 pisos el pedido es desde 18 kg."]}),
         ({"tiers": 6}, {"tiers": ["El pastel lleva de 1 a 5 pisos."]}),
         ({"tiers": "muchos"}, {"tiers": ["Los pisos van en números enteros."]}),
+        ({"tiers": 0}, {"tiers": ["El pastel lleva al menos un piso."]}),
+        ({"tiers": -2}, {"tiers": ["El pastel lleva al menos un piso."]}),
+        ({"tiers": 21}, {"tiers": ["Son demasiados pisos para pedir en línea. Escríbenos por WhatsApp."]}),
+        ({"tiers": 10**30}, {"tiers": ["Son demasiados pisos para pedir en línea. Escríbenos por WhatsApp."]}),
         ({"form": "hexagonal"}, {"form": ["Elige una forma: redondo o rectangular."]}),
     ],
 )
@@ -469,7 +473,7 @@ def test_options_carry_the_seeded_preview_styles(api):
     flavors = by_slug(by_slug(body["filling_bases"])["normal"]["flavors"])
     styles = {slug: flavor["preview_style"] for slug, flavor in flavors.items()}
     assert styles == {
-        "durazno": "fruit_slices", "fresa": "fruit_slices", "zarzamora": "smooth", "cajeta": "smooth",
+        "durazno": "fruit_chunks", "fresa": "fruit_chunks", "zarzamora": "smooth", "cajeta": "smooth",
         "galleta": "cookie_chunks", "chocolate": "sprinkles", "choco_vainilla": "sprinkles",
         "capuchino": "sprinkles", "fresa_yogurt": "smooth", "nuez": "smooth",
     }

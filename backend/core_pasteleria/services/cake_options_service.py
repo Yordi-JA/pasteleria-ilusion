@@ -64,7 +64,7 @@ class FillingFlavorInfo:
     slug: str
     name: str
     preview_color: str
-    # `smooth`, `fruit_slices`, `cookie_chunks` o `sprinkles`, y el color de los trozos.
+    # `smooth`, `fruit_slices`, `fruit_chunks`, `cookie_chunks` o `sprinkles`, y el color de los trozos.
     preview_style: str
     preview_color_secondary: str
     is_combinable: bool

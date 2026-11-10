@@ -147,6 +147,7 @@ class FillingPreviewStyle(models.TextChoices):
 
     SMOOTH = "smooth", "Liso (mermelada o crema)"
     FRUIT_SLICES = "fruit_slices", "Rebanadas de fruta"
+    FRUIT_CHUNKS = "fruit_chunks", "Trozos de fruta"
     COOKIE_CHUNKS = "cookie_chunks", "Trozos de galleta"
     SPRINKLES = "sprinkles", "Granillo"
 
@@ -612,14 +613,14 @@ class Bread(OrderedOption):
         max_length=7,
         blank=True,
         validators=[hex_color_validator],
-        help_text="Color del pan; en un pan de dos colores, la mitad de arriba de cada capa.",
+        help_text="Color del pan; en un pan de dos colores, el del pan que va encima del relleno en cada piso.",
     )
     preview_color_bottom = models.CharField(
         "color de abajo en la vista previa",
         max_length=7,
         blank=True,
         validators=[hex_color_validator],
-        help_text="Solo para un pan de dos colores (choco-vainilla): la mitad de abajo de cada capa. Vacío: un solo color.",
+        help_text="Solo para un pan de dos colores (choco-vainilla): el del pan que va debajo del relleno en cada piso. Vacío: un solo color.",
     )
 
     class Meta:
@@ -740,7 +741,7 @@ class FillingFlavor(OrderedOption):
         max_length=20,
         choices=FillingPreviewStyle.choices,
         default=FillingPreviewStyle.SMOOTH,
-        help_text="Liso, con rebanadas de fruta, con trozos de galleta o con granillo.",
+        help_text="Liso, con rebanadas de fruta, con trozos de fruta, con trozos de galleta o con granillo.",
     )
     preview_color_secondary = models.CharField(
         "color de los trozos en la vista previa",

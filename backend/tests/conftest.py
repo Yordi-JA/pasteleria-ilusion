@@ -88,9 +88,13 @@ def load_settings(monkeypatch):
 # --- La semilla sobrevive a las pruebas transaccionales ---
 
 # Las pruebas con hilos (`transaction=True`) necesitan filas confirmadas, y al
-# terminar pytest-django vacía todas las tablas, semilla incluida. Las migraciones
-# de datos usan `get_or_create`, así que basta volver a correrlas: la base queda
-# como recién migrada y ninguna prueba depende del orden en que se ejecuten.
+# terminar pytest-django vacía todas las tablas, semilla incluida. Se vuelven a
+# correr las migraciones de datos, en el orden de `SEED_MIGRATIONS` (que importa:
+# las que actualizan filas, como la `0015` y la `0017`, dependen de las que las
+# crean), y la base queda como recién migrada. Por eso cada semilla debe ser
+# idempotente: correrla otra vez no duplica filas ni pisa lo que ya cambió otra
+# prueba o el admin. Las que crean usan `get_or_create`; las que actualizan filtran
+# por el valor sembrado (estilo y color) y solo tocan lo que sigue así.
 #
 # Toda migración de datos nueva debe agregarse a `SEED_MIGRATIONS` (una prueba de
 # `test_seed_migrations.py` falla si falta alguna). Y ninguna prueba debe fijar
@@ -101,6 +105,7 @@ SEED_MIGRATIONS = [
     ("0007_seed_stands_and_delivery", "seed_stands_and_delivery"),
     ("0009_seed_catalog", "seed_catalog"),
     ("0015_seed_cake_preview_styles", "seed"),
+    ("0017_seed_fruit_chunks_style", "seed"),
 ]
 _db_blocker = None
 

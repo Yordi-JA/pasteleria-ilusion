@@ -14,6 +14,8 @@ MAX_PEOPLE_IN_REQUEST = 10000
 # Tope técnico de los kilos. El rango de la regla (4 a 50 kg al inicio) vive en
 # `CakeDesignSettings` y lo aplica el servicio con su mensaje, también por abajo.
 MAX_KG_IN_REQUEST = 1000
+# Tope técnico de los pisos: el máximo real es el de la tabla de kilos mínimos y lo aplica el servicio.
+MAX_TIERS_IN_REQUEST = 20
 
 
 def money(**kwargs):
@@ -66,8 +68,10 @@ class BreadOptionSerializer(serializers.Serializer):
     pricing_mode = serializers.CharField()
     price_per_kg = money(help_text="Incremento por kilo o precio completo, según `pricing_mode`.")
     included_filling = serializers.CharField(help_text="Vacío si el pan lleva relleno aparte.")
-    preview_color = serializers.CharField(help_text="En un pan de dos colores, la mitad de arriba de cada capa.")
-    preview_color_bottom = serializers.CharField(help_text="Solo en un pan de dos colores; vacío si es de un color.")
+    preview_color = serializers.CharField(help_text="En un pan de dos colores, el del pan que va encima del relleno en cada piso.")
+    preview_color_bottom = serializers.CharField(
+        help_text="Solo en un pan de dos colores: el del pan que va debajo del relleno en cada piso; vacío si es de un color."
+    )
     allowed_cake_types = cake_types()
     unavailable_reasons = reasons_by_cake_type()
     unavailable_codes = codes_by_cake_type()
@@ -82,7 +86,10 @@ class FillingFlavorOptionSerializer(serializers.Serializer):
     name = serializers.CharField()
     preview_color = serializers.CharField()
     preview_style = serializers.CharField(
-        help_text="`smooth` (liso), `fruit_slices` (rebanadas de fruta), `cookie_chunks` (trozos de galleta) o `sprinkles` (granillo)."
+        help_text=(
+            "`smooth` (liso), `fruit_slices` (rebanadas de fruta), `fruit_chunks` (trozos de fruta), "
+            "`cookie_chunks` (trozos de galleta) o `sprinkles` (granillo)."
+        )
     )
     preview_color_secondary = serializers.CharField(help_text="Color de los trozos; vacío en un relleno liso.")
     is_combinable = serializers.BooleanField()
@@ -229,8 +236,14 @@ class CakeDesignPriceRequestSerializer(serializers.Serializer):
     wafer = serializers.BooleanField(required=False, default=False)
     tiers = serializers.IntegerField(
         required=False,
+        min_value=1,
+        max_value=MAX_TIERS_IN_REQUEST,
         help_text="Pisos; si llegan, se validan contra los kilos (regla 3.3). No cambian el precio.",
-        error_messages={"invalid": "Los pisos van en números enteros."},
+        error_messages={
+            "invalid": "Los pisos van en números enteros.",
+            "min_value": "El pastel lleva al menos un piso.",
+            "max_value": "Son demasiados pisos para pedir en línea. Escríbenos por WhatsApp.",
+        },
     )
     form = serializers.ChoiceField(
         choices=CakeShape.choices,

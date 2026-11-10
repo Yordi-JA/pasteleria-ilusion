@@ -348,6 +348,87 @@ def test_flavor_needs_at_least_one_base_in_the_admin(superuser_client):
     assert not FillingFlavor.objects.filter(slug="mango").exists()
 
 
+BREAD_PREVIEW_COLOR_ERROR = (
+    'Un pan de dos colores también lleva el color de arriba ("color en la vista previa"). Escríbelo o borra este.'
+)
+FLAVOR_PIECES_COLOR_ERROR = 'Escribe el color de los trozos o elige el estilo "Liso".'
+
+
+def bread_change_data(bread, **overrides):
+    return {
+        "name": bread.name, "pricing_mode": bread.pricing_mode, "price_per_kg": "0.00", "included_filling": "",
+        "preview_color": "#805438", "preview_color_bottom": "", "allowed_cake_types": ["seco"],
+        "sort_order": 1, "is_active": "on", **overrides,
+    }
+
+
+def flavor_change_data(flavor, **overrides):
+    return {
+        "name": flavor.name, "bases": [flavor.bases.first().pk], "allowed_cake_types": ["seco"], "is_combinable": "on",
+        "preview_color": "#E25468", "preview_style": "smooth", "preview_color_secondary": "",
+        "sort_order": 1, "is_active": "on", **overrides,
+    }
+
+
+def test_the_bread_form_needs_the_top_color_of_a_two_color_bread(superuser_client):
+    bread = Bread.objects.get(slug="vainilla")
+    url = reverse("admin:core_pasteleria_bread_change", args=[bread.pk])
+    rejected_response = superuser_client.post(url, bread_change_data(bread, preview_color="", preview_color_bottom="#F0CE8A"))
+    assert rejected_response.status_code == 200
+    assert rejected_response.context["adminform"].form.errors == {"preview_color_bottom": [BREAD_PREVIEW_COLOR_ERROR]}
+    for good in ({"preview_color_bottom": "#F0CE8A"}, {"preview_color_bottom": ""}):
+        assert superuser_client.post(url, bread_change_data(bread, **good)).status_code == 302
+    # Sin color de arriba y sin color de abajo, el pan se pinta con el respaldo: es válido.
+    assert superuser_client.post(url, bread_change_data(bread, preview_color="")).status_code == 302
+
+
+@pytest.mark.parametrize("style", ["fruit_slices", "fruit_chunks", "cookie_chunks", "sprinkles"])
+def test_the_flavor_form_needs_the_color_of_the_pieces(superuser_client, style):
+    flavor = FillingFlavor.objects.get(slug="zarzamora")
+    url = reverse("admin:core_pasteleria_fillingflavor_change", args=[flavor.pk])
+    rejected_response = superuser_client.post(url, flavor_change_data(flavor, preview_style=style))
+    assert rejected_response.status_code == 200
+    assert rejected_response.context["adminform"].form.errors == {"preview_color_secondary": [FLAVOR_PIECES_COLOR_ERROR]}
+    saved = superuser_client.post(url, flavor_change_data(flavor, preview_style=style, preview_color_secondary="#C8283A"))
+    assert saved.status_code == 302
+    flavor.refresh_from_db()
+    assert (flavor.preview_style, flavor.preview_color_secondary) == (style, "#C8283A")
+
+
+def test_a_smooth_flavor_needs_no_color_for_pieces_in_the_admin(superuser_client):
+    flavor = FillingFlavor.objects.get(slug="zarzamora")
+    url = reverse("admin:core_pasteleria_fillingflavor_change", args=[flavor.pk])
+    assert superuser_client.post(url, flavor_change_data(flavor)).status_code == 302
+
+
+def changelist_save(client, model_name, row, **fields):
+    """Guarda una fila desde la lista, como el botón "Guardar" con `list_editable` (sort_order e is_active)."""
+    data = {
+        "form-TOTAL_FORMS": "1", "form-INITIAL_FORMS": "1", "form-MIN_NUM_FORMS": "0", "form-MAX_NUM_FORMS": "1000",
+        "form-0-id": str(row.pk), "form-0-sort_order": "9", "_save": "Guardar", **fields,
+    }
+    return client.post(reverse(f"admin:core_pasteleria_{model_name}_changelist"), data)
+
+
+def test_reordering_or_deactivating_an_inconsistent_bread_from_the_list_does_not_fail(superuser_client):
+    # Una fila que ya estaba así (creada sin pasar por el formulario): la lista solo edita orden y activo.
+    Bread.objects.filter(slug="vainilla").update(preview_color="", preview_color_bottom="#F0CE8A")
+    bread = Bread.objects.get(slug="vainilla")
+    response = changelist_save(superuser_client, "bread", bread)
+    assert response.status_code == 302
+    bread.refresh_from_db()
+    assert (bread.sort_order, bread.is_active) == (9, False)
+
+
+def test_reordering_or_deactivating_an_inconsistent_flavor_from_the_list_does_not_fail(superuser_client):
+    FillingFlavor.objects.filter(slug="zarzamora").update(preview_style="fruit_chunks", preview_color_secondary="")
+    flavor = FillingFlavor.objects.get(slug="zarzamora")
+    response = changelist_save(superuser_client, "fillingflavor", flavor)
+    assert response.status_code == 302
+    flavor.refresh_from_db()
+    assert (flavor.sort_order, flavor.is_active) == (9, False)
+
+
 def test_admin_pages_of_every_option_load(superuser_client):
     for name in (
         "bread", "fillingbase", "fillingflavor", "fillingprice",

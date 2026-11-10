@@ -28,6 +28,7 @@ from .models import (
     DeliveryFeeBand,
     FillingBase,
     FillingFlavor,
+    FillingPreviewStyle,
     FillingPrice,
     Inventory,
     SalesChannel,
@@ -248,8 +249,40 @@ class CakeTypesMixin:
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 
 
+class BreadForm(forms.ModelForm):
+    """Formulario de cambio del pan.
+
+    La regla vive aquí y no en `Bread.clean()`: un error con clave de campo en el
+    modelo revienta (500) al guardar desde la lista, cuyo formulario solo trae
+    `sort_order` e `is_active`, si la fila ya estaba así.
+    """
+
+    def clean(self):
+        cleaned = super().clean()
+        # Sin el color de arriba, el de abajo no se usa: la vista previa pinta un solo color.
+        if cleaned.get("preview_color_bottom") and not cleaned.get("preview_color") and "preview_color" not in self.errors:
+            self.add_error(
+                "preview_color_bottom",
+                'Un pan de dos colores también lleva el color de arriba ("color en la vista previa"). Escríbelo o borra este.',
+            )
+        return cleaned
+
+
+class FillingFlavorForm(forms.ModelForm):
+    """Formulario de cambio del sabor; ver `BreadForm` para por qué la regla no está en el modelo."""
+
+    def clean(self):
+        cleaned = super().clean()
+        # Un estilo con trozos sin su color no dibuja nada: se ve liso aunque el admin diga otra cosa.
+        style = cleaned.get("preview_style")
+        if style and style != FillingPreviewStyle.SMOOTH and not cleaned.get("preview_color_secondary") and "preview_color_secondary" not in self.errors:
+            self.add_error("preview_color_secondary", 'Escribe el color de los trozos o elige el estilo "Liso".')
+        return cleaned
+
+
 @admin.register(Bread)
 class BreadAdmin(ReadOnlySlugMixin, CakeTypesMixin, admin.ModelAdmin):
+    form = BreadForm
     list_display = ("name", "pricing_mode", "price_per_kg", "sort_order", "is_active")
     list_editable = ("sort_order", "is_active")
     list_filter = ("pricing_mode", "is_active")
@@ -265,6 +298,7 @@ class FillingBaseAdmin(ReadOnlySlugMixin, admin.ModelAdmin):
 
 @admin.register(FillingFlavor)
 class FillingFlavorAdmin(ReadOnlySlugMixin, CakeTypesMixin, admin.ModelAdmin):
+    form = FillingFlavorForm
     list_display = ("name", "is_combinable", "preview_style", "sort_order", "is_active")
     list_editable = ("sort_order", "is_active")
     list_filter = ("bases", "is_combinable", "preview_style", "is_active")
