@@ -122,8 +122,8 @@ Restricciones: `1 <= max_upload_mb <= 10` y `1 <= max_reference_images <= 3` (lo
 - `price_per_kg`: Decimal(8,2), "precio por kilo" (incremento o precio completo según el modo).
 - `included_filling`: CharField(120) opcional, "relleno incluido" (por ejemplo "Crema de chocolate sabor helado").
 - `allowed_cake_types`: `ArrayField(CharField(choices=CakeType))`, "tipos de pastel en que se ofrece"; por defecto los tres; en el admin, casillas (`CheckboxSelectMultiple`).
-- `preview_color`: CharField(7) opcional, validado `#RRGGBB`, "color en la vista previa"; en un pan de dos colores, la mitad de arriba de cada capa.
-- `preview_color_bottom` (D50, migración `0014`): CharField(7) opcional, validado `#RRGGBB`, "color de abajo en la vista previa"; solo para un pan de dos colores (choco-vainilla, sembrado en `0015` con los colores de chocolate y vainilla).
+- `preview_color`: CharField(7) opcional, validado `#RRGGBB`, "color en la vista previa"; en un pan de dos colores, el del pan que va encima del relleno en cada piso (D51).
+- `preview_color_bottom` (D50, migración `0014`): CharField(7) opcional, validado `#RRGGBB`, "color de abajo en la vista previa"; solo para un pan de dos colores (choco-vainilla, sembrado en `0015` con los colores de chocolate y vainilla); es el del pan que va debajo del relleno en cada piso (D51). El formulario de cambio del admin (`BreadForm`, no el modelo) lo rechaza si falta `preview_color`.
 - Restricciones: `price_per_kg >= 0`; con `full_price_per_kg`, `included_filling != ''` y `price_per_kg > 0`; con `extra_per_kg`, `included_filling == ''`; `allowed_cake_types__len__gt=0` (confirmar con prueba que un arreglo vacío da 0 y no NULL); `allowed_cake_types__contained_by` los tres códigos.
 
 ### `FillingBase` ("base de relleno"), hereda de `OrderedOption`
@@ -139,7 +139,7 @@ Restricciones: `1 <= max_upload_mb <= 10` y `1 <= max_reference_images <= 3` (lo
 - `bases`: M2M a `FillingBase`, `related_name="flavors"`, "bases en que se ofrece" (no vacío, validado en `clean()` del admin).
 - `is_combinable`: Bool, `True` por defecto, "se puede combinar".
 - `allowed_cake_types`: igual que en `Bread`, con las mismas restricciones.
-- `preview_style` (D50, migración `0014`): choices `FillingPreviewStyle` (`smooth` liso, `fruit_slices` rebanadas de fruta, `cookie_chunks` trozos de galleta, `sprinkles` granillo), `smooth` por defecto, "cómo se ve en la vista previa"; `preview_color_secondary`: CharField(7) opcional, validado `#RRGGBB`, "color de los trozos". La migración `0015` siembra durazno y fresa con rebanadas, galleta con trozos y choco vainilla, capuchino y chocolate con granillo; los demás quedan lisos.
+- `preview_style` (D50, migración `0014`): choices `FillingPreviewStyle` (`smooth` liso, `fruit_slices` rebanadas de fruta, `fruit_chunks` trozos de fruta (D51, migración `0016`), `cookie_chunks` trozos de galleta, `sprinkles` granillo), `smooth` por defecto, "cómo se ve en la vista previa"; `preview_color_secondary`: CharField(7) opcional, validado `#RRGGBB`, "color de los trozos". El formulario de cambio del admin (`FillingFlavorForm`, no el modelo) rechaza un estilo distinto de `smooth` sin `preview_color_secondary`. La migración `0015` siembra durazno y fresa con rebanadas (la `0017`, de D51, los pasa a trozos de fruta mientras sigan como los dejó la `0015`), galleta con trozos y choco vainilla, capuchino y chocolate con granillo; los demás quedan lisos.
 
 ### `FillingPrice` ("precio del relleno por kilo")
 

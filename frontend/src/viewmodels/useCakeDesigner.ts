@@ -132,6 +132,8 @@ export function useCakeDesigner() {
     (people: number) => {
       const value = Math.min(Math.max(Math.round(people), 1), MAX_PEOPLE_INPUT)
       setPeopleText(String(value))
+      // El aviso de pisos habla de las personas de antes: con otras personas, ya no vale.
+      setTierNotice(null)
       update((d) => ({ ...d, people: value }))
     },
     [update],
@@ -141,7 +143,10 @@ export function useCakeDesigner() {
       const digits = text.replace(/\D/g, '').slice(0, String(MAX_PEOPLE_INPUT).length)
       setPeopleText(digits)
       const value = Number(digits)
-      if (digits && value >= 1) update((d) => ({ ...d, people: Math.min(value, MAX_PEOPLE_INPUT) }))
+      if (digits && value >= 1) {
+        setTierNotice(null)
+        update((d) => ({ ...d, people: Math.min(value, MAX_PEOPLE_INPUT) }))
+      }
     },
     [update],
   )
