@@ -5,6 +5,7 @@ import type { CakeDesignOptions, CakeDesignQuote } from '../models/cakeDesign.ts
 import { MAX_PEOPLE_INPUT, readDraft, writeDraft } from '../models/cakeDesignDraft.ts'
 import type { CakeDesignDraft, CakeForm } from '../models/cakeDesignDraft.ts'
 import type { CakeShape } from '../three/cakeShape.ts'
+import { defaultPickedColor } from './cakeDecorations.ts'
 import { designPreview } from './cakeDesignPreview.ts'
 import {
   choosableFlavors,
@@ -24,6 +25,7 @@ import type { DesignDerived } from './cakeDesignSteps.ts'
 import { designerView } from './cakeDesignSummary.ts'
 import { planPrice, useCakeDesignPrice } from './useCakeDesignPrice.ts'
 import { useCakeScene } from './useCakeScene.ts'
+import { useDecorationImage } from './useDecorationImage.ts'
 import { useRemoteData } from './useRemoteData.ts'
 import { useStoreDetails } from './useStoreInfo.ts'
 
@@ -65,6 +67,8 @@ export function useCakeDesigner() {
   const [draft, setDraft] = useState<CakeDesignDraft>(readDraft)
   const [peopleText, setPeopleText] = useState(() => String(draft.people))
   const [stepError, setStepError] = useState<string | null>(null)
+  const decorationImage = useDecorationImage()
+  const imageReady = decorationImage.image !== null
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const store = useStoreDetails()
@@ -75,7 +79,7 @@ export function useCakeDesigner() {
 
   // El precio (y los kilos) se piden con lo elegido; el tamaño que responde la API alimenta el diseño. El plan solo
   // lee lo que no depende del tamaño, así que se arma con un diseño sin él.
-  const sizeless = useMemo(() => (options ? deriveDesign(draft, options, null) : null), [draft, options])
+  const sizeless = useMemo(() => (options ? deriveDesign(draft, options, null, imageReady) : null), [draft, imageReady, options])
   const plan = useMemo(() => (sizeless && options ? planPrice(draft, sizeless, options) : null), [draft, options, sizeless])
 
   // Regla 3.3 (D50): si los kilos que llegan ya no permiten los pisos elegidos, bajan solos al máximo permitido y se
@@ -94,7 +98,7 @@ export function useCakeDesigner() {
   }, [])
   const price = useCakeDesignPrice(plan?.request ?? null, onQuote)
   const apiSize = price.quote?.size ?? null
-  const design = useMemo(() => (options ? deriveDesign(draft, options, apiSize) : null), [apiSize, draft, options])
+  const design = useMemo(() => (options ? deriveDesign(draft, options, apiSize, imageReady) : null), [apiSize, draft, imageReady, options])
 
   const requested = requestedStep(searchParams.get('paso'))
   const current = design ? allowedStep(requested, design, draft) : requested
@@ -206,6 +210,41 @@ export function useCakeDesigner() {
   )
   const setCoverage = useCallback((coverageColor: string) => update((d) => ({ ...d, coverageColor })), [update])
 
+  // --- Paso 6 ---
+  const clearImage = decorationImage.clear
+  /** Elegir otra decoración descarta la imagen de "Otra decoración": solo vive mientras esa opción está elegida. */
+  const setDecoration = useCallback(
+    (slug: string) => {
+      const keepsImage = options?.decorations.find((option) => option.slug === slug)?.requiresQuote ?? false
+      if (!keepsImage) clearImage()
+      update((d) => ({ ...d, decoration: slug, decorationImageName: keepsImage ? d.decorationImageName : null }))
+    },
+    [clearImage, options, update],
+  )
+  /** `null` es "Automático"; un identificador, ese color de la cobertura. */
+  const setDecorationColor = useCallback((decorationColor: string | null) => update((d) => ({ ...d, decorationColor })), [update])
+  const chooseOwnColor = useCallback(() => {
+    if (options) update((d) => ({ ...d, decorationColor: d.decorationColor ?? defaultPickedColor(options, d.coverageColor) }))
+  }, [options, update])
+  const { pick: pickImage } = decorationImage
+  const chooseImage = useCallback(
+    async (file: File | undefined) => {
+      // El nombre llega ya limpio (sin caracteres de control ni de formato): es el que se guarda y se muestra.
+      const name = await pickImage(file)
+      if (name) update((d) => ({ ...d, decorationImageName: name }))
+    },
+    [pickImage, update],
+  )
+  const removeImage = useCallback(() => {
+    clearImage()
+    update((d) => ({ ...d, decorationImageName: null }))
+  }, [clearImage, update])
+  const { onUnreadable } = decorationImage
+  const imageUnreadable = useCallback(() => {
+    onUnreadable()
+    update((d) => ({ ...d, decorationImageName: null }))
+  }, [onUnreadable, update])
+
   // --- Avance ---
   const { flush } = price
   // Un solo "Continuar" a la vez: un doble clic o Enter sostenido mientras se esperan los kilos no navega dos veces.
@@ -236,9 +275,9 @@ export function useCakeDesigner() {
         }
         // Si los kilos no permiten los pisos, bajan aquí también (la respuesta pudo llegar en esta misma espera).
         if (base.tiers > size.maxTiers) base = { ...base, tiers: size.maxTiers }
-        stepDesign = deriveDesign(base, options, size)
+        stepDesign = deriveDesign(base, options, size, imageReady)
       }
-      const missing = missingChoice(current, stepDesign, base)
+      const missing = missingChoice(current, stepDesign, base, imageReady)
       if (missing) {
         setStepError(missing)
         return
@@ -248,13 +287,13 @@ export function useCakeDesigner() {
       // Funcional: lo que este paso confirma se aplica sobre el borrador más reciente, sin pisar otros cambios.
       const changes = diffOf(latestDraft.current, next)
       setDraft((latest) => ({ ...latest, ...changes }))
-      const after = deriveDesign(next, options, next.people === base.people ? size : null)
+      const after = deriveDesign(next, options, next.people === base.people ? size : null, imageReady)
       navigate({ search: `?paso=${stepAfter(current, stepDesign, after, next)}` })
     } finally {
       proceedingRef.current = false
       setProceeding(false)
     }
-  }, [apiSize, current, design, draft, flush, navigate, options])
+  }, [apiSize, current, design, draft, flush, imageReady, navigate, options])
 
   const back = useCallback(() => {
     if (current === 1 || !design) navigate('/pedido')
@@ -282,6 +321,7 @@ export function useCakeDesigner() {
     peopleText,
     whatsapp: store.status === 'loading' ? undefined : store.whatsapp,
     scene,
+    decorationImage: { image: decorationImage.image, error: decorationImage.error },
     actions: {
       setPeople,
       typePeople,
@@ -294,6 +334,12 @@ export function useCakeDesigner() {
       setFlavorCount,
       chooseFlavor,
       setCoverage,
+      setDecoration,
+      setDecorationColor,
+      chooseOwnColor,
+      chooseImage,
+      removeImage,
+      imageUnreadable,
       proceed,
       back,
     },

@@ -193,10 +193,17 @@ def test_included_decoration_with_a_price_is_rejected():
     )
 
 
-def test_second_included_decoration_is_rejected():
+def test_several_included_decorations_are_allowed():
+    # Los diseños sencillos van incluidos (regla 6.1, D54): ya no hay una sola fila "Incluido".
+    DecorationOption.objects.create(name="Otra sin decoración", slug="otra-sin", description="x", pricing="included")
+    assert DecorationOption.objects.filter(pricing="included").count() == 9
+
+
+def test_sprinkles_cannot_come_from_a_flavor_and_a_bread_at_once():
     rejected(
         lambda: DecorationOption.objects.create(
-            name="Otra sin decoración", slug="otra-sin", description="x", pricing="included"
+            name="Chispas dobles", slug="chispas-dobles", description="x", pricing="included",
+            preview_flavor=FillingFlavor.objects.get(slug="capuchino"), preview_bread=Bread.objects.get(slug="choco_pinguino"),
         )
     )
 
@@ -227,7 +234,7 @@ def test_second_fixed_decoration_is_allowed():
     DecorationOption.objects.create(
         name="Moños", slug="monos", description="x", pricing="fixed", price=Decimal("30")
     )
-    assert DecorationOption.objects.filter(pricing="fixed").count() == 4
+    assert DecorationOption.objects.filter(pricing="fixed").count() == 2
 
 
 def test_tier_max_below_min_is_rejected():
@@ -319,6 +326,7 @@ def test_bread_form_shows_cake_types_as_checkboxes_and_requires_one(superuser_cl
     data = {
         "name": bread.name, "pricing_mode": bread.pricing_mode, "price_per_kg": "0.00",
         "included_filling": "", "preview_color": "#F0CE8A", "sort_order": 1,
+        "included_filling_preview_style": "smooth",
     }
     rejected_response = superuser_client.post(url, {**data})
     assert rejected_response.status_code == 200
@@ -358,6 +366,7 @@ def bread_change_data(bread, **overrides):
     return {
         "name": bread.name, "pricing_mode": bread.pricing_mode, "price_per_kg": "0.00", "included_filling": "",
         "preview_color": "#805438", "preview_color_bottom": "", "allowed_cake_types": ["seco"],
+        "included_filling_preview_style": "smooth", "included_filling_preview_color_secondary": "",
         "sort_order": 1, "is_active": "on", **overrides,
     }
 
@@ -382,7 +391,9 @@ def test_the_bread_form_needs_the_top_color_of_a_two_color_bread(superuser_clien
     assert superuser_client.post(url, bread_change_data(bread, preview_color="")).status_code == 302
 
 
-@pytest.mark.parametrize("style", ["fruit_slices", "fruit_chunks", "cookie_chunks", "sprinkles"])
+@pytest.mark.parametrize(
+    "style", ["fruit_slices", "fruit_chunks", "cookie_chunks", "sprinkles", "crumbles", "nut_pieces", "round_chips"]
+)
 def test_the_flavor_form_needs_the_color_of_the_pieces(superuser_client, style):
     flavor = FillingFlavor.objects.get(slug="zarzamora")
     url = reverse("admin:core_pasteleria_fillingflavor_change", args=[flavor.pk])
@@ -393,6 +404,50 @@ def test_the_flavor_form_needs_the_color_of_the_pieces(superuser_client, style):
     assert saved.status_code == 302
     flavor.refresh_from_db()
     assert (flavor.preview_style, flavor.preview_color_secondary) == (style, "#C8283A")
+
+
+BREAD_FILLING_COLOR_ERROR = 'Escribe el color de los trozos del relleno incluido o elige el estilo "Liso".'
+
+
+def test_the_bread_form_needs_the_color_of_the_pieces_of_an_included_filling(superuser_client):
+    bread = Bread.objects.get(slug="choco_pinguino")
+    url = reverse("admin:core_pasteleria_bread_change", args=[bread.pk])
+    base = bread_change_data(bread, pricing_mode="full_price_per_kg", price_per_kg="250.00", included_filling="Crema")
+    rejected_response = superuser_client.post(url, {**base, "included_filling_preview_style": "round_chips"})
+    assert rejected_response.status_code == 200
+    assert rejected_response.context["adminform"].form.errors == {
+        "included_filling_preview_color_secondary": [BREAD_FILLING_COLOR_ERROR]
+    }
+    saved = superuser_client.post(
+        url,
+        {**base, "included_filling_preview_style": "round_chips", "included_filling_preview_color_secondary": "#3A2218"},
+    )
+    assert saved.status_code == 302
+    # Un relleno liso no necesita color.
+    assert superuser_client.post(url, {**base, "included_filling_preview_style": "smooth"}).status_code == 302
+
+
+def test_a_bread_without_an_included_filling_cannot_have_a_style_for_it(superuser_client):
+    bread = Bread.objects.get(slug="vainilla")
+    url = reverse("admin:core_pasteleria_bread_change", args=[bread.pk])
+    response = superuser_client.post(
+        url,
+        {**bread_change_data(bread), "included_filling_preview_style": "sprinkles", "included_filling_preview_color_secondary": "#C8283A"},
+    )
+    assert response.status_code == 200
+    assert "included_filling_preview_style" in response.context["adminform"].form.errors
+
+
+def test_a_color_without_a_style_is_cleared_when_the_bread_is_saved(superuser_client):
+    bread = Bread.objects.get(slug="choco_pinguino")
+    url = reverse("admin:core_pasteleria_bread_change", args=[bread.pk])
+    data = bread_change_data(bread, pricing_mode="full_price_per_kg", price_per_kg="250.00", included_filling="Crema")
+    saved = superuser_client.post(
+        url, {**data, "included_filling_preview_style": "smooth", "included_filling_preview_color_secondary": "#3A2218"}
+    )
+    assert saved.status_code == 302
+    bread.refresh_from_db()
+    assert (bread.included_filling_preview_style, bread.included_filling_preview_color_secondary) == ("smooth", "")
 
 
 def test_a_smooth_flavor_needs_no_color_for_pieces_in_the_admin(superuser_client):
@@ -519,15 +574,17 @@ def test_seeded_coverage_colors_match_section_5():
     assert all(color.preview_color for color in CoverageColor.objects.all())
 
 
-def test_seeded_decorations_match_section_6_1_with_pending_prices():
+def test_seeded_decorations_match_section_6_1_with_the_confirmed_prices():
     decorations = {d.slug: d for d in DecorationOption.objects.all()}
-    assert len(decorations) == 5
-    assert decorations["ninguna"].pricing == "included"
+    assert len(decorations) == 10
     assert decorations["otra"].pricing == "quote"
-    for slug in ("duya", "flores", "chispas"):
-        assert decorations[slug].pricing == "fixed"
-    # PENDIENTE: ninguna decoración trae un precio supuesto.
-    assert all(d.price is None for d in decorations.values())
+    assert (decorations["flores"].pricing, decorations["flores"].price) == ("fixed", Decimal("120.00"))
+    # Los diseños sencillos y los tres tipos de chispas van incluidos, sin precio.
+    for slug in ("ninguna", "duya", "rosetones", "festones", "olanes", "chispas", "chispas-chocolate", "chispas-choco-vainilla"):
+        assert (decorations[slug].pricing, decorations[slug].price) == ("included", None)
+    assert decorations["chispas"].preview_flavor.slug == "capuchino"
+    assert decorations["chispas-chocolate"].preview_bread.slug == "choco_pinguino"
+    assert decorations["chispas-choco-vainilla"].preview_flavor.slug == "choco_vainilla"
 
 
 def test_every_seeded_row_passes_full_validation():
@@ -602,3 +659,50 @@ def test_the_general_price_cannot_go_above_a_flavor_price_of_the_same_type():
 def test_seeded_flavor_prices_are_never_below_their_base():
     for price in FillingPrice.objects.all():
         price.full_clean()
+
+
+# --- Chispas con origen desactivado (D54) ---
+
+
+def test_sprinkles_whose_flavor_is_inactive_are_unavailable_and_send_no_source():
+    from core_pasteleria.repositories import cake_option_repo
+    from core_pasteleria.services.cake_options_service import get_cake_design_options
+
+    FillingFlavor.objects.filter(slug="capuchino").update(is_active=False)
+    record = next(d for d in cake_option_repo.list_decorations() if d.slug == "chispas")
+    assert (record.preview_flavor, record.preview_bread, record.preview_source_inactive) == (None, None, True)
+    info = {d.slug: d for d in get_cake_design_options().decorations}
+    assert (info["chispas"].available, info["chispas"].unavailable_reason) == (False, "No disponible por ahora")
+    # Las demás siguen disponibles.
+    assert info["chispas-chocolate"].available and info["flores"].available
+
+
+def test_sprinkles_whose_bread_is_inactive_are_unavailable_and_the_rest_are_untouched():
+    from core_pasteleria.services.cake_options_service import get_cake_design_options
+
+    Bread.objects.filter(slug="choco_pinguino").update(is_active=False)
+    info = {d.slug: d for d in get_cake_design_options().decorations}
+    assert (info["chispas-chocolate"].available, info["chispas-chocolate"].preview_bread) == (False, None)
+    assert (info["chispas"].preview_flavor, info["chispas"].available) == ("capuchino", True)
+
+
+def test_the_admin_only_offers_active_sources_for_the_sprinkles():
+    for name in ("preview_flavor", "preview_bread"):
+        assert DecorationOption._meta.get_field(name).remote_field.limit_choices_to == {"is_active": True}
+
+
+def test_a_flavor_or_bread_linked_to_sprinkles_cannot_be_deleted():
+    from django.db.models import ProtectedError
+
+    for model, slug in ((FillingFlavor, "capuchino"), (Bread, "choco_pinguino")):
+        with pytest.raises(ProtectedError), transaction.atomic():
+            model.objects.get(slug=slug).delete()
+
+
+def test_sprinkles_whose_flavor_has_no_active_base_are_unavailable():
+    from core_pasteleria.services.cake_options_service import get_cake_design_options
+
+    flavor = FillingFlavor.objects.get(slug="capuchino")
+    flavor.bases.update(is_active=False)
+    info = {d.slug: d for d in get_cake_design_options().decorations}
+    assert (info["chispas"].available, info["chispas"].unavailable_reason, info["chispas"].preview_flavor) == (False, "No disponible por ahora", None)

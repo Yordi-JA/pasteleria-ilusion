@@ -5,6 +5,8 @@
  * empieza de nuevo.
  */
 
+import { displayFileName } from './decorationImage.ts'
+
 export type CakeForm = 'round' | 'rectangular'
 
 export type CakeDesignDraft = {
@@ -18,6 +20,15 @@ export type CakeDesignDraft = {
   flavorCount: 1 | 2
   flavors: string[]
   coverageColor: string | null
+  /** La decoración o el diseño elegido en el paso 6 (su identificador). */
+  decoration: string | null
+  /** Color de la decoración con duya o de rosas: el identificador de un color de la cobertura, o `null` si es automático. */
+  decorationColor: string | null
+  /**
+   * Nombre de la imagen de "Otra decoración". La imagen solo vive en la memoria de la pestaña (todavía no hay dónde
+   * guardarla, D53): al recargar queda el nombre y se pide elegirla otra vez.
+   */
+  decorationImageName: string | null
   /** Pasos que la persona ya confirmó con "Continuar". Un paso está completo si es válido y está aquí. */
   confirmed: number[]
 }
@@ -43,6 +54,9 @@ export function emptyDraft(): CakeDesignDraft {
     flavorCount: 1,
     flavors: [],
     coverageColor: null,
+    decoration: null,
+    decorationColor: null,
+    decorationImageName: null,
     confirmed: [],
   }
 }
@@ -74,6 +88,9 @@ export function parseDraft(data: unknown): CakeDesignDraft {
     flavorCount: raw.flavorCount === 2 ? 2 : 1,
     flavors: [...new Set(flavors)].slice(0, MAX_FLAVORS),
     coverageColor: slugOrNull(raw.coverageColor),
+    decoration: slugOrNull(raw.decoration),
+    decorationColor: slugOrNull(raw.decorationColor),
+    decorationImageName: displayFileName(raw.decorationImageName),
     confirmed: [...new Set(confirmed)].sort((a, b) => a - b),
   }
 }

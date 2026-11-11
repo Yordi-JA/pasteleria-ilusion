@@ -539,9 +539,13 @@ def test_filling_bases_use_three_queries_and_skip_inactive_flavors(django_assert
 def test_coverage_colors_decorations_and_tiers():
     assert len(cake_option_repo.list_coverage_colors()) == 11
     decorations = {d.slug: d for d in cake_option_repo.list_decorations()}
-    assert [d.slug for d in cake_option_repo.list_decorations()] == ["ninguna", "duya", "flores", "chispas", "otra"]
-    # PENDIENTE: las decoraciones fijas llegan sin precio, nunca con 0.
-    assert [decorations[s].price for s in ("duya", "flores", "chispas")] == [None, None, None]
+    assert [d.slug for d in cake_option_repo.list_decorations()] == [
+        "ninguna", "duya", "rosetones", "festones", "olanes", "flores", "chispas", "chispas-chocolate", "chispas-choco-vainilla", "otra",
+    ]
+    # Rosas lleva su precio fijo; lo incluido llega sin precio, nunca con 0 (regla 6.1).
+    assert decorations["flores"].price == Decimal("120.00")
+    assert [decorations[s].price for s in ("duya", "rosetones", "festones", "olanes", "chispas")] == [None] * 5
+    assert (decorations["chispas"].preview_flavor, decorations["chispas-chocolate"].preview_bread) == ("capuchino", "choco_pinguino")
     DecorationOption.objects.filter(slug="flores").update(price=Decimal("90"))
     assert next(d for d in cake_option_repo.list_decorations() if d.slug == "flores").price == Decimal("90.00")
     tiers = cake_option_repo.list_tier_recommendations()
@@ -755,10 +759,11 @@ def test_memory_cake_option_and_settings_repos_return_the_same_records():
         cake_option_repo.list_coverage_colors(),
         cake_option_repo.list_decorations(),
         cake_option_repo.list_tier_recommendations(),
+        cake_option_repo.list_cake_molds(),
     )
     for name in (
         "list_breads", "list_filling_bases_with_flavors", "get_filling_price_table",
-        "list_coverage_colors", "list_decorations", "list_tier_recommendations",
+        "list_coverage_colors", "list_decorations", "list_tier_recommendations", "list_cake_molds",
     ):
         assert getattr(options, name)() == getattr(cake_option_repo, name)(), name
     CakeStand.objects.filter(max_kg=12).update(is_active=False)

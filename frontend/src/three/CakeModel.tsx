@@ -6,6 +6,11 @@ import type { Group, InstancedMesh, MeshStandardMaterial, Texture } from 'three'
 import type { CakeLayer, CakeShape, CakeTier } from './cakeShape.ts'
 import { CRUMB_TILE, useCrumbTexture } from './crumb.ts'
 import FillingPieces from './FillingPieces.tsx'
+import { halfExtents, PLATE_GAP, standScale } from './cakeMetrics.ts'
+import Decoration from './Decoration.tsx'
+import { tierDecoration } from './decorationLayout.ts'
+import type { TierDecoration } from './decorationLayout.ts'
+import { pieceDensityScale } from './pieceBudget.ts'
 import type { ShapeColor } from './cakeShape.ts'
 import { brandColor, resolveColor } from './palette.ts'
 
@@ -24,14 +29,16 @@ export type CakeMotion = {
 
 /** Lo que sube cada piso por encima del de abajo con la separación completa (38 px en el mockup). */
 const TIER_LIFT = 0.38
-/** Holgura entre el plato y el primer piso (2 px en el mockup). */
-const PLATE_GAP = 0.02
+/** Lo que tarda un piso en pasar de su tamaño anterior al nuevo cuando cambian los kilos. */
+const SIZE_TRANSITION_S = 0.3
 const EDGE = 0.06
 const PEARL_RADIUS = 0.085
 /** Una perla cada 22 px de contorno, como el prototipo. */
 const PEARL_SPACING = 0.22
-/** Molde rectangular: ancho y fondo respecto al radio del piso, como el prototipo. */
-const RECT = { width: 2.1, depth: 1.4, corner: 0.08 }
+/** Tope de perlas por fila (por lado en rectangular: la cuarta parte): un piso de muchos kilos no pide miles de instancias. */
+const MAX_PEARLS_PER_ROW = 300
+/** Esquinas redondeadas del molde rectangular. */
+const RECT_CORNER = 0.08
 /** Cambio de color de una capa o de la cobertura (libro de marca, "Cotizador 3D"). */
 const COLOR_TRANSITION_S = 0.3
 const CANDLE = { radius: 0.07, height: 0.54, gap: 0.06 }
@@ -112,18 +119,19 @@ function candleStripes() {
 type Form = NonNullable<CakeShape['form']>
 
 /** Puntos de una fila de perlas alrededor del piso, a `offset` pasos del inicio (la de abajo va a medio paso). */
-function pearlRow(tier: Pick<CakeTier, 'radius'>, form: Form, y: number, offset: number): [number, number, number][] {
+function pearlRow(tier: Pick<CakeTier, 'radius' | 'halfWidth' | 'halfDepth'>, form: Form, y: number, offset: number): [number, number, number][] {
   if (form === 'round') {
     const ring = tier.radius + 0.03
-    const count = Math.round((2 * Math.PI * tier.radius) / PEARL_SPACING)
+    const count = Math.min(MAX_PEARLS_PER_ROW, Math.round((2 * Math.PI * tier.radius) / PEARL_SPACING))
     return Array.from({ length: count }, (_, i) => {
       const a = ((i + offset) / count) * Math.PI * 2
       return [Math.sin(a) * ring, y, Math.cos(a) * ring]
     })
   }
   // Rectangular: una fila por lado, repartida a lo largo de cada uno, como el prototipo.
-  const halfW = (tier.radius * RECT.width) / 2 + 0.03
-  const halfD = (tier.radius * RECT.depth) / 2 + 0.03
+  const extents = halfExtents(tier, form)
+  const halfW = extents.x + 0.03
+  const halfD = extents.z + 0.03
   const sides: [number, number, number, number][] = [
     [-halfW, halfD, halfW, halfD],
     [halfW, halfD, halfW, -halfD],
@@ -131,7 +139,7 @@ function pearlRow(tier: Pick<CakeTier, 'radius'>, form: Form, y: number, offset:
     [-halfW, -halfD, -halfW, halfD],
   ]
   return sides.flatMap(([x0, z0, x1, z1]) => {
-    const count = Math.max(2, Math.round(Math.hypot(x1 - x0, z1 - z0) / PEARL_SPACING))
+    const count = Math.min(MAX_PEARLS_PER_ROW / 4, Math.max(2, Math.round(Math.hypot(x1 - x0, z1 - z0) / PEARL_SPACING)))
     return Array.from({ length: count }, (_, i): [number, number, number] => {
       const t = (i + 0.5) / count
       return [x0 + (x1 - x0) * t, y, z0 + (z1 - z0) * t]
@@ -142,10 +150,10 @@ function pearlRow(tier: Pick<CakeTier, 'radius'>, form: Form, y: number, offset:
 function Pearls({ tier, form, top }: { tier: CakeTier; form: Form; top: boolean }) {
   const ref = useRef<InstancedMesh>(null)
   // La fila de abajo va a medio paso de la de arriba, como en el mockup.
-  const { radius, height } = tier
+  const { radius, halfWidth, halfDepth, height } = tier
   const points = useMemo(
-    () => [...(top ? pearlRow({ radius }, form, height, 0) : []), ...pearlRow({ radius }, form, 0.04, 0.5)],
-    [form, height, radius, top],
+    () => [...(top ? pearlRow({ radius, halfWidth, halfDepth }, form, height, 0) : []), ...pearlRow({ radius, halfWidth, halfDepth }, form, 0.04, 0.5)],
+    [form, halfDepth, halfWidth, height, radius, top],
   )
   useLayoutEffect(() => {
     const mesh = ref.current
@@ -172,6 +180,8 @@ function Pearls({ tier, form, top }: { tier: CakeTier; form: Form; top: boolean 
  * (`animate` en falso) es inmediato. Mientras dura, pide cuadros a la escena, que usa `frameloop="demand"`.
  */
 type FoodMaterialProps = {
+  /** Con una malla de varios materiales (el cilindro: costado, tapa de arriba y de abajo), cuál le toca. */
+  attach?: string
   color: ShapeColor
   roughness: number
   animate: boolean
@@ -179,7 +189,7 @@ type FoodMaterialProps = {
   crumb?: Texture | null
 }
 
-function FoodMaterial({ color, roughness, animate, crumb = null }: FoodMaterialProps) {
+function FoodMaterial({ attach, color, roughness, animate, crumb = null }: FoodMaterialProps) {
   const material = useRef<MeshStandardMaterial>(null)
   const invalidate = useThree((state) => state.invalidate)
   const transition = useRef<{ from: Color; to: Color; elapsed: number } | null>(null)
@@ -216,6 +226,7 @@ function FoodMaterial({ color, roughness, animate, crumb = null }: FoodMaterialP
   })
   return (
     <meshStandardMaterial
+      attach={attach}
       ref={material}
       color={initial}
       roughness={roughness}
@@ -229,13 +240,11 @@ function FoodMaterial({ color, roughness, animate, crumb = null }: FoodMaterialP
 type Split = 'whole' | 'left' | 'right'
 
 /** Losa rectangular con las esquinas de afuera redondeadas; `split` dice qué mitad (o toda). */
-function rectSlab(radius: number, height: number, split: Split) {
-  const halfW = (radius * RECT.width) / 2
-  const halfD = (radius * RECT.depth) / 2
+function rectSlab(halfW: number, halfD: number, height: number, split: Split) {
   const x0 = split === 'right' ? 0 : -halfW
   const x1 = split === 'left' ? 0 : halfW
-  const left = split === 'right' ? 0 : RECT.corner
-  const right = split === 'left' ? 0 : RECT.corner
+  const left = split === 'right' ? 0 : RECT_CORNER
+  const right = split === 'left' ? 0 : RECT_CORNER
   const shape = new Shape()
   shape.moveTo(x0 + left, -halfD)
   shape.lineTo(x1 - right, -halfD)
@@ -253,16 +262,16 @@ function rectSlab(radius: number, height: number, split: Split) {
 }
 
 function RectSlab({ tier, height, split }: { tier: CakeTier; height: number; split: Split }) {
-  const { radius } = tier
-  const geometry = useMemo(() => rectSlab(radius, height, split), [height, radius, split])
+  const { x, z } = halfExtents(tier, 'rectangular')
+  const geometry = useMemo(() => rectSlab(x, z, height, split), [height, split, x, z])
   useEffect(() => () => geometry.dispose(), [geometry])
   return <primitive object={geometry} attach="geometry" />
 }
 
-type LayerProps = { tier: CakeTier; form: Form; layer: CakeLayer; bottom: number; animate: boolean; seed: number }
+type LayerProps = { tier: CakeTier; form: Form; layer: CakeLayer; bottom: number; animate: boolean; seed: number; densityScale: number }
 
 /** Una mitad (o toda) la capa: su forma, su material y, si el relleno los lleva, sus trozos. */
-function LayerPart({ tier, form, layer, index, height, animate, seed }: Omit<LayerProps, 'bottom'> & { index: number; height: number }) {
+function LayerPart({ tier, form, layer, index, height, animate, seed, densityScale }: Omit<LayerProps, 'bottom'> & { index: number; height: number }) {
   const halves = layer.colors.length === 2
   const color = layer.colors[index] ?? layer.colors[0]
   const pieces = layer.pieces?.[index] ?? null
@@ -274,6 +283,10 @@ function LayerPart({ tier, form, layer, index, height, animate, seed }: Omit<Lay
     form === 'round' ? Math.max(1, Math.round(arc / CRUMB_TILE)) : 1 / CRUMB_TILE,
     form === 'round' ? Math.max(height / CRUMB_TILE, 0.05) : 1 / CRUMB_TILE,
   )
+  // Las tapas del cilindro (que ahora se ven desde arriba) reparten la textura por el diámetro, no como el costado.
+  const capRepeat = (2 * tier.radius) / CRUMB_TILE
+  const cap = useCrumbTexture(Boolean(layer.crumb) && form === 'round', capRepeat, capRepeat)
+  const roughness = layer.crumb ? 0.95 : 0.85
   return (
     <>
       <mesh position-y={form === 'round' ? height / 2 : 0}>
@@ -284,18 +297,27 @@ function LayerPart({ tier, form, layer, index, height, animate, seed }: Omit<Lay
         ) : (
           <RectSlab tier={tier} height={height} split={halves ? (index === 0 ? 'left' : 'right') : 'whole'} />
         )}
-        <FoodMaterial color={color} roughness={layer.crumb ? 0.95 : 0.85} animate={animate} crumb={crumb} />
+        {form === 'round' && crumb ? (
+          <>
+            <FoodMaterial attach="material-0" color={color} roughness={roughness} animate={animate} crumb={crumb} />
+            <FoodMaterial attach="material-1" color={color} roughness={roughness} animate={animate} crumb={cap} />
+            <FoodMaterial attach="material-2" color={color} roughness={roughness} animate={animate} crumb={cap} />
+          </>
+        ) : (
+          <FoodMaterial color={color} roughness={roughness} animate={animate} crumb={crumb} />
+        )}
       </mesh>
       {pieces && (
         <FillingPieces
           pieces={pieces}
           radius={tier.radius}
           form={form}
-          halfWidth={(tier.radius * RECT.width) / 2}
-          halfDepth={(tier.radius * RECT.depth) / 2}
+          halfWidth={halfExtents(tier, form).x}
+          halfDepth={halfExtents(tier, form).z}
           height={height}
           half={halves ? (index as 0 | 1) : 'whole'}
           seed={seed * 2 + index}
+          densityScale={densityScale}
         />
       )}
     </>
@@ -303,20 +325,20 @@ function LayerPart({ tier, form, layer, index, height, animate, seed }: Omit<Lay
 }
 
 /** Una capa del costado: un cilindro (o dos medios) en redondo, una losa (o dos mitades) en rectangular. */
-function Layer({ tier, form, layer, bottom, animate, seed }: LayerProps) {
+function Layer({ tier, form, layer, bottom, animate, seed, densityScale }: LayerProps) {
   const height = layer.height * tier.height
   return (
     <group position-y={bottom}>
       {layer.colors.map((_, i) => (
-        <LayerPart key={i} tier={tier} form={form} layer={layer} index={i} height={height} animate={animate} seed={seed} />
+        <LayerPart key={i} tier={tier} form={form} layer={layer} index={i} height={height} animate={animate} seed={seed} densityScale={densityScale} />
       ))}
     </group>
   )
 }
 
-type TierProps = { tier: CakeTier; festoons: CakeShape['festoons']; form: Form; animate: boolean; index: number }
+type TierProps = { tier: CakeTier; festoons: CakeShape['festoons']; form: Form; animate: boolean; index: number; densityScale: number; decoration: TierDecoration }
 
-function Tier({ tier, festoons, form, animate, index }: TierProps) {
+function Tier({ tier, festoons, form, animate, index, densityScale, decoration }: TierProps) {
   const profile = useMemo(() => roundedProfile(tier.radius, tier.height, EDGE), [tier.height, tier.radius])
   const layers = tier.frosting ? [] : (tier.layers ?? [])
   const bottoms = layers.map((_, i) => layers.slice(0, i).reduce((sum, layer) => sum + layer.height * tier.height, 0))
@@ -329,9 +351,10 @@ function Tier({ tier, festoons, form, animate, index }: TierProps) {
         </mesh>
       )}
       {layers.map((layer, i) => (
-        <Layer key={i} tier={tier} form={form} layer={layer} bottom={bottoms[i]} animate={animate} seed={index * 101 + i * 13 + 7} />
+        <Layer key={i} tier={tier} form={form} layer={layer} bottom={bottoms[i]} animate={animate} seed={index * 101 + i * 13 + 7} densityScale={densityScale} />
       ))}
       {festoons && <Pearls tier={tier} form={form} top={festoons === true} />}
+      <Decoration layout={decoration} tier={tier} form={form} />
     </>
   )
 }
@@ -415,33 +438,123 @@ type CakeModelProps = {
   flicker: boolean
   /** Transición de 300 ms al cambiar un color; se apaga con "reducir movimiento". */
   animateColors?: boolean
+  /** Transición de 300 ms al cambiar el tamaño de un piso (los kilos); se apaga con "reducir movimiento". */
+  animateSize?: boolean
+}
+
+/**
+ * La transición de tamaño: de dónde parte cada piso (su tamaño de ahora entre el nuevo, en x y en z; la malla ya tiene el
+ * tamaño nuevo) y la escala del plato de la que parte (llega a la nueva).
+ */
+type SizeTransition = { tiers: [number, number][]; standFrom: number; elapsed: number }
+
+/** Una clave con las medidas de los pisos y del plato: cambia solo si cambia el tamaño, no con cualquier objeto nuevo. */
+function sizeKey(form: Form, extents: { x: number; z: number }[], plate: number) {
+  return [form, plate.toFixed(4), ...extents.map((e) => `${e.x.toFixed(4)}x${e.z.toFixed(4)}`)].join('|')
+}
+
+/**
+ * Un valor que se vuelve a calcular solo cuando cambia su clave. `useMemo` lo haría con las dependencias que lee la
+ * función; aquí la clave es lo único que importa, y el `CakeShape` nuevo de cada respuesta de precio no debe recolocar
+ * las piezas (D51: un objeto nuevo en cada render recalculaba todas las instancias).
+ */
+function useKeyed<T>(key: string, compute: () => T): T {
+  const [cache, setCache] = useState(() => ({ key, value: compute() }))
+  if (cache.key === key) return cache.value
+  // Se actualiza durante el render, como pide React para un valor derivado de otro: sin efecto ni segundo dibujo.
+  const next = { key, value: compute() }
+  setCache(next)
+  return next.value
 }
 
 /** El pastel con el plato a la altura 0. La escena lo gira, lo inclina y lo encuadra. */
-export default function CakeModel({ shape, motion, flicker, animateColors = false }: CakeModelProps) {
+export default function CakeModel({ shape, motion, flicker, animateColors = false, animateSize = false }: CakeModelProps) {
   const form = shape.form ?? 'round'
   const tierRefs = useRef<(Group | null)[]>([])
+  const standRef = useRef<Group>(null)
   const candleRef = useRef<Group>(null)
+  const invalidate = useThree((state) => state.invalidate)
   // Cada piso descansa sobre la suma de los de abajo.
   const bases = useMemo(
     () => shape.tiers.map((_, i) => shape.tiers.slice(0, i).reduce((sum, tier) => sum + tier.height, PLATE_GAP)),
     [shape.tiers],
   )
   const top = bases.length ? bases[bases.length - 1] + shape.tiers[shape.tiers.length - 1].height : PLATE_GAP
+  const extents = useMemo(() => shape.tiers.map((tier) => halfExtents(tier, form)), [form, shape.tiers])
+  const plate = standScale(shape)
+  // El presupuesto de triángulos y la colocación de la decoración cuestan (hay que armar todas las piezas para contarlas):
+  // se hacen una vez por forma, medidas, capas y decoración, no con cada `CakeShape` nuevo que arma una respuesta de precio.
+  const shapeKey = JSON.stringify([form, shape.decoration ?? null, shape.tiers])
+  const { densityScale, decorations } = useKeyed(shapeKey, () => {
+    const scale = pieceDensityScale(shape)
+    return { densityScale: scale, decorations: shape.tiers.map((_, i) => tierDecoration(shape, i, scale)) }
+  })
+  const key = sizeKey(form, extents, plate)
+  const latest = useRef({ extents, plate })
+  // Se guarda antes de la transición (los efectos corren en orden), no durante el render.
+  useLayoutEffect(() => {
+    latest.current = { extents, plate }
+  })
 
-  useFrame(() => {
+  // Al cambiar el tamaño, la malla nueva ya tiene las medidas nuevas: se escala hacia atrás para que parezca lo que se veía
+  // en ese instante (aunque otro cambio llegue a media transición) y se deja llegar a su medida. Un piso nuevo, o un cambio
+  // de molde, no tiene tamaño anterior y entra sin transición. Solo corre si cambia el tamaño (`key`), no con cada objeto nuevo.
+  const previous = useRef<{ form: Form; extents: { x: number; z: number }[] } | null>(null)
+  const transition = useRef<SizeTransition | null>(null)
+  useLayoutEffect(() => {
+    const { extents: now, plate: plateNow } = latest.current
+    const before = previous.current
+    previous.current = { form, extents: now }
+    const sameMold = before !== null && before.form === form
+    const shown = (i: number): [number, number] => {
+      const group = tierRefs.current[i]
+      return [group?.scale.x ?? 1, group?.scale.z ?? 1]
+    }
+    transition.current = animateSize && sameMold
+      ? {
+          tiers: now.map((size, i) => {
+            const was = before.extents[i]
+            if (!was) return [1, 1]
+            const [sx, sz] = shown(i)
+            return [(was.x * sx) / size.x, (was.z * sz) / size.z]
+          }),
+          standFrom: standRef.current?.scale.x ?? plateNow,
+          elapsed: 0,
+        }
+      : null
+    const step = transition.current
+    tierRefs.current.forEach((group, i) => group?.scale.set(step?.tiers[i]?.[0] ?? 1, 1, step?.tiers[i]?.[1] ?? 1))
+    standRef.current?.scale.setScalar(step?.standFrom ?? plateNow)
+    invalidate()
+  }, [animateSize, form, invalidate, key])
+
+  useFrame((_, delta) => {
     const lift = motion.current.separation * TIER_LIFT
     tierRefs.current.forEach((group, i) => {
       if (group) group.position.y = bases[i] + i * lift
     })
     if (candleRef.current) candleRef.current.position.y = top + (bases.length - 1) * lift
+    const step = transition.current
+    if (!step) return
+    step.elapsed = Math.min(SIZE_TRANSITION_S, step.elapsed + Math.min(delta, 0.05))
+    const t = step.elapsed / SIZE_TRANSITION_S
+    const eased = 1 - (1 - t) ** 3
+    const toward = (from: number) => from + (1 - from) * eased
+    tierRefs.current.forEach((group, i) => group?.scale.set(toward(step.tiers[i]?.[0] ?? 1), 1, toward(step.tiers[i]?.[1] ?? 1)))
+    standRef.current?.scale.setScalar(step.standFrom + (plate - step.standFrom) * eased)
+    if (t < 1) invalidate()
+    else transition.current = null
   })
 
   return (
     <group>
-      {shape.stand && <Stand />}
-      {/* La escala acerca o aleja los pisos sobre el plato, que no cambia: el plato está en la altura 0. */}
-      <group scale={shape.scale ?? 1}>
+      {shape.stand && (
+        // El plato crece con el piso de abajo para que no se salga de él.
+        <group ref={standRef}>
+          <Stand />
+        </group>
+      )}
+      <group>
         {shape.tiers.map((tier, i) => (
           <group
             key={i}
@@ -450,7 +563,7 @@ export default function CakeModel({ shape, motion, flicker, animateColors = fals
             }}
             position-y={bases[i]}
           >
-            <Tier tier={tier} festoons={shape.festoons} form={form} animate={animateColors} index={i} />
+            <Tier tier={tier} festoons={shape.festoons} form={form} animate={animateColors} index={i} densityScale={densityScale} decoration={decorations[i]} />
           </group>
         ))}
         {shape.candle && (

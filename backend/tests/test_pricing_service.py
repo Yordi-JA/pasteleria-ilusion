@@ -19,6 +19,9 @@ from core_pasteleria.services.pricing_service import (
 )
 from tests import memory_cake_design as data
 
+# Los diseños de precio fijo del paso 6 (D53): cada uno tiene su propio precio.
+FIXED_DESIGNS = ["duya", "rosetones", "festones", "olanes", "flores", "chispas"]
+
 
 def price(cake_options=None, settings=None, **choice):
     """Calcula con los datos de las reglas; `choice` sobrescribe un pedido válido."""
@@ -258,18 +261,26 @@ def test_without_decoration_nothing_is_added():
         assert breakdown.total == breakdown.cake_subtotal
 
 
-@pytest.mark.parametrize("slug", ["duya", "flores", "chispas"])
+@pytest.mark.parametrize("slug", FIXED_DESIGNS)
 def test_a_fixed_decoration_with_a_pending_price_cannot_be_chosen(slug):
     with pytest.raises(PendingPriceError) as raised:
         price(decoration=slug)
     assert raised.value.errors == {"decoration": ["Precio por confirmar"]}
 
 
-def test_a_fixed_decoration_with_a_price_is_added():
-    options = data.cake_option_repo(decorations=data.with_decoration_price("flores", "150"))
-    breakdown = price(cake_options=options, decoration="flores")
+@pytest.mark.parametrize("slug", FIXED_DESIGNS)
+def test_a_fixed_decoration_with_a_price_is_added(slug):
+    options = data.cake_option_repo(decorations=data.with_decoration_price(slug, "150"))
+    breakdown = price(cake_options=options, decoration=slug)
     assert breakdown.decoration == Decimal("150.00")
     assert breakdown.total == Decimal("1950.00")
+
+
+def test_each_design_has_its_own_price_and_the_others_stay_pending():
+    options = data.cake_option_repo(decorations=data.with_decoration_price("rosetones", "95"))
+    assert price(cake_options=options, decoration="rosetones").decoration == Decimal("95.00")
+    with pytest.raises(PendingPriceError):
+        price(cake_options=options, decoration="festones")
 
 
 def test_otra_decoracion_requires_a_quote_and_adds_nothing():
@@ -321,7 +332,7 @@ def test_decoration_strategies_say_when_the_price_is_pending():
     assert strategies["fixed"].is_price_pending(priced) is False
     # "Sin decoración" y "Otra decoración" llevan el precio vacío a propósito.
     assert strategies["included"].is_price_pending(data.DECORATIONS[0]) is False
-    assert strategies["quote"].is_price_pending(data.DECORATIONS[4]) is False
+    assert strategies["quote"].is_price_pending(data.DECORATIONS[7]) is False
 
 
 # --- Disponibilidad que depende de los datos ---

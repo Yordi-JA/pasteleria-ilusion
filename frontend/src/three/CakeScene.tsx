@@ -7,12 +7,29 @@ import { focusRing } from '../components/focus.ts'
 import CakeModel from './CakeModel.tsx'
 import type { CakeMotion } from './CakeModel.tsx'
 import type { CakeShape } from './cakeShape.ts'
+import { contentOf, fitScale, lookAtHeight, referenceContent, standScale } from './cakeMetrics.ts'
+import type { Content } from './cakeMetrics.ts'
 import { brandColor } from './palette.ts'
-import { aimTilt, clamp, createSpin, createTilt, endDrag, moveDrag, needsFullRate, nudge, startDrag, stepSpin, stepTilt } from './spin.ts'
+import {
+  aimTilt,
+  approach,
+  clamp,
+  createSpin,
+  createTilt,
+  ELEVATION,
+  endDrag,
+  moveDrag,
+  needsFullRate,
+  nudge,
+  nudgeElevation,
+  startDrag,
+  stepSpin,
+  stepTilt,
+} from './spin.ts'
 import type { Spin, Tilt } from './spin.ts'
 
-/** La cámara mira desde unos 15° arriba, el ángulo de las fotos del catálogo (libro de marca). */
-const CAMERA_ELEVATION = 15
+/** La cámara de la portada mira desde unos 15° arriba, el ángulo de las fotos del catálogo (libro de marca). */
+const CAMERA_ELEVATION = ELEVATION.initial
 const CAMERA_DISTANCE = 11
 /** Ángulo inicial del mockup. */
 const INITIAL_ANGLE = -28
@@ -46,6 +63,9 @@ export type SceneFraming = typeof FRAME & { overflowTop: number }
 
 const HERO_FRAMING: SceneFraming = { ...FRAME, overflowTop: OVERFLOW_TOP }
 
+/** Constante de tiempo (s) con la que la cámara de la vista libre se acerca a su encuadre cuando cambia el pastel. */
+const FREE_FRAMING_RESPONSE = 0.1
+
 export type CakeSceneProps = {
   shape: CakeShape
   /** Nombre accesible de la escena. */
@@ -63,22 +83,34 @@ export type CakeSceneProps = {
   onKeyboardFocusChange?: (keyboard: boolean) => void
   /** Si la escena tiene el foco cuando se pierde el contexto, lo pasa a otro control antes de desaparecer. */
   onFocusEscape?: () => void
-  /** Encuadre propio ("Diseña tu pastel"); sin él, el de la portada. */
+  /** Encuadre propio; sin él, el de la portada. Con `freeLook` no se usa. */
   framing?: SceneFraming
+  /**
+   * Vista libre ("Diseña tu pastel"): arrastrar en vertical cambia la elevación de la cámara, las flechas de arriba y
+   * abajo también, y la cámara se encuadra al pastel (escala fija para un pastel grande de un piso, más lejos solo si no
+   * cabe). Sin ella, la portada: giro horizontal e inclinación hacia el puntero.
+   */
+  freeLook?: boolean
 }
 
 /** Lo que leen las pruebas en desarrollo, sin acoplarlas a three: cuadros dibujados, ángulo y separación. */
-type Probe = { frames: number; angle: number; separation: number }
+type Probe = { frames: number; angle: number; separation: number; elevation: number; scale: number }
 
-function writeProbe(el: HTMLElement, probe: Probe, angle: number, separation: number) {
+function writeProbe(el: HTMLElement, probe: Probe, angle: number, separation: number, elevation: number, scale: number) {
   probe.frames += 1
   el.dataset.frames = String(probe.frames)
   const shownAngle = Math.round(angle)
   const shownSeparation = Math.round(separation * 100) / 100
+  const shownElevation = Math.round(elevation)
+  const shownScale = Math.round(scale)
   if (shownAngle !== probe.angle) el.dataset.angle = String(shownAngle)
   if (shownSeparation !== probe.separation) el.dataset.separation = String(shownSeparation)
+  if (shownElevation !== probe.elevation) el.dataset.elevation = String(shownElevation)
+  if (shownScale !== probe.scale) el.dataset.scale = String(shownScale)
   probe.angle = shownAngle
   probe.separation = shownSeparation
+  probe.elevation = shownElevation
+  probe.scale = shownScale
 }
 
 /** Coloca la cámara: la escala del mockup (100 px por unidad a 600 px de alto) y el plato al 70% de la caja. */
@@ -93,6 +125,38 @@ function frameCamera(camera: PerspectiveCamera, width: number, height: number, f
   camera.position.set(0, target.y + CAMERA_DISTANCE * Math.sin(elevation), CAMERA_DISTANCE * Math.cos(elevation))
   camera.lookAt(target)
   camera.updateProjectionMatrix()
+}
+
+/** El encuadre de la vista libre: píxeles por unidad y altura (en la escena) del punto al que mira la cámara. */
+type FreeView = { scale: number; centerY: number }
+
+/**
+ * Coloca la cámara de la vista libre y dice si todavía se acerca a su encuadre. La escala es la de un pastel grande de un
+ * piso en esta caja (siempre la misma, así uno chico se ve chico y uno grande, grande) y solo baja cuando el pastel no cabe
+ * con ella, a esa elevación; el punto al que mira deja al pastel con su base centrado en vertical. Con `animate`, la
+ * escala y el centro se acercan al nuevo encuadre en vez de saltar.
+ */
+function stepFreeCamera(camera: PerspectiveCamera, box: { width: number; height: number }, view: FreeView, content: Content, reference: Content, elevation: number, dt: number, animate: boolean) {
+  const scale = Math.min(fitScale(reference, box, ELEVATION.initial), fitScale(content, box, elevation))
+  const centerY = lookAtHeight(content, elevation)
+  if (view.scale === 0 || !animate) {
+    view.scale = scale
+    view.centerY = centerY
+  } else {
+    view.scale = approach(view.scale, scale, dt, FREE_FRAMING_RESPONSE)
+    view.centerY = approach(view.centerY, centerY, dt, FREE_FRAMING_RESPONSE)
+  }
+  const settled = Math.abs(view.scale - scale) < 0.05 && Math.abs(view.centerY - centerY) < 0.0005
+  if (settled) {
+    view.scale = scale
+    view.centerY = centerY
+  }
+  const angle = (elevation * Math.PI) / 180
+  camera.fov = (2 * Math.atan(box.height / view.scale / 2 / CAMERA_DISTANCE) * 180) / Math.PI
+  camera.position.set(0, view.centerY + CAMERA_DISTANCE * Math.sin(angle), CAMERA_DISTANCE * Math.cos(angle))
+  camera.lookAt(0, view.centerY, 0)
+  camera.updateProjectionMatrix()
+  return !settled
 }
 
 /** Sombra de contacto: un degradado radial en `mermelada`, sin mapas de sombra. */
@@ -116,23 +180,25 @@ function contactShadowTexture() {
   return texture
 }
 
-function ContactShadow() {
+/** `scale` sigue al plato de la base cuando crece con el piso de abajo. */
+function ContactShadow({ scale }: { scale: number }) {
   const texture = useMemo(() => contactShadowTexture(), [])
   useEffect(() => () => texture.dispose(), [texture])
   return (
-    <mesh rotation-x={-Math.PI / 2} position-y={-0.815}>
+    <mesh rotation-x={-Math.PI / 2} position-y={-0.815 * scale} scale={scale}>
       <planeGeometry args={[3.6, 3.6]} />
       <meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} />
     </mesh>
   )
 }
 
-/** Vuelve a encuadrar cada vez que cambia el tamaño del lienzo. */
-function useFraming(framing: SceneFraming) {
+/** Vuelve a encuadrar cada vez que cambia el tamaño del lienzo. Sin encuadre fijo (vista libre), no hace nada. */
+function useFraming(framing: SceneFraming | null) {
   const get = useThree((state) => state.get)
   const size = useThree((state) => state.size)
   const invalidate = useThree((state) => state.invalidate)
   useLayoutEffect(() => {
+    if (!framing) return
     frameCamera(get().camera as PerspectiveCamera, size.width, size.height, framing)
     invalidate()
   }, [framing, get, invalidate, size.height, size.width])
@@ -148,12 +214,17 @@ type RigProps = {
   separateOnScroll: boolean
   onReady: () => void
   framing: SceneFraming
+  freeLook: boolean
 }
 
-function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnScroll, onReady, framing }: RigProps) {
+function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnScroll, onReady, framing, freeLook }: RigProps) {
   const cake = useRef<Group>(null)
   const motion = useRef<CakeMotion>({ separation: 0, yaw: 0 })
-  const probe = useRef<Probe>({ frames: 0, angle: NaN, separation: NaN })
+  const probe = useRef<Probe>({ frames: 0, angle: NaN, separation: NaN, elevation: NaN, scale: NaN })
+  const freeView = useRef<FreeView>({ scale: 0, centerY: 0 })
+  const content = useMemo(() => contentOf(shape), [shape])
+  const reference = useMemo(() => referenceContent(shape), [shape])
+  const plate = standScale(shape)
   const ready = useRef(false)
   // El primer cuadro tras una pausa (o el primero de todos) trae un intervalo enorme; solo ese se acota.
   const resumed = useRef(true)
@@ -173,9 +244,9 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnS
       idleTimer.current = null
     }
   }, [running, reducedMotion, invalidate])
-  useFraming(framing)
+  useFraming(freeLook ? null : framing)
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     lastFrameAt.current = performance.now()
     const dt = resumed.current ? Math.min(delta, 0.05) : delta
     resumed.current = false
@@ -186,6 +257,8 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnS
     // El scroll se lee aquí, dentro del cuadro que ya se dibuja por el giro: sin escuchar el evento `scroll`, sin
     // medir el diseño (leer `scrollY` no fuerza un reflow) y sin escribir en el DOM. Solo mueve la escena WebGL.
     const separation = separateOnScroll && !reducedMotion ? clamp(window.scrollY / SEPARATION_SCROLL, 0, 1) : 0
+    // En la vista libre la cámara sube y baja con la elevación y se encuadra al pastel.
+    const reframing = freeLook && stepFreeCamera(state.camera as PerspectiveCamera, state.size, freeView.current, content, reference, s.elevation, dt, !reducedMotion)
     const yaw = ((s.angle + t.x * TILT.yaw) * Math.PI) / 180
     motion.current.separation = separation
     motion.current.yaw = yaw
@@ -199,9 +272,9 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnS
     const scrolled = Math.abs(separation - lastSeparation.current) > 0.0005
     lastSeparation.current = separation
     if (reducedMotion) {
-      if (moving) invalidate()
+      if (moving || reframing) invalidate()
     } else if (running) {
-      if (scrolled || needsFullRate(s, t, true)) invalidate()
+      if (scrolled || reframing || needsFullRate(s, t, true)) invalidate()
       else if (idleTimer.current === null) {
         // El temporizador pide el cuadro y este llega en el siguiente refresco: sin margen, caería justo después
         // del refresco de los 33 ms y esperaría al de los 50 (unos 20 fps). Con 6 ms de margen alcanza el de 33.
@@ -217,7 +290,7 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnS
       onReady()
     }
     // Solo en desarrollo: en producción este bloque no existe.
-    if (import.meta.env.DEV && container.current) writeProbe(container.current, probe.current, s.angle, separation)
+    if (import.meta.env.DEV && container.current) writeProbe(container.current, probe.current, s.angle, separation, s.elevation, freeView.current.scale)
   })
 
   return (
@@ -227,9 +300,9 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnS
       <hemisphereLight args={[brandColor('betun'), brandColor('nata'), 2.6]} />
       <directionalLight color={brandColor('betun')} intensity={1.1} position={[-3, 5, 4]} />
       <group ref={cake}>
-        <CakeModel shape={shape} motion={motion} flicker={!reducedMotion} animateColors={!reducedMotion} />
+        <CakeModel shape={shape} motion={motion} flicker={!reducedMotion} animateColors={!reducedMotion} animateSize={!reducedMotion} />
       </group>
-      <ContactShadow />
+      <ContactShadow scale={plate} />
     </>
   )
 }
@@ -250,6 +323,7 @@ export default function CakeScene({
   onKeyboardFocusChange,
   onFocusEscape,
   framing = HERO_FRAMING,
+  freeLook = false,
 }: CakeSceneProps) {
   const container = useRef<HTMLDivElement>(null)
   const spin = useRef(createSpin(INITIAL_ANGLE))
@@ -271,17 +345,18 @@ export default function CakeScene({
     // Un segundo dedo no toma el pastel a medio arrastre.
     if (spin.current.dragging) return
     event.currentTarget.setPointerCapture(event.pointerId)
-    startDrag(spin.current, event.pointerId, event.clientX, event.timeStamp)
+    startDrag(spin.current, event.pointerId, event.clientX, event.timeStamp, freeLook ? { y: event.clientY, touch: event.pointerType === 'touch' } : undefined)
     redraw()
   }
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === 'mouse' && !reducedMotion) {
+    // La vista libre no se inclina hacia el puntero: el arrastre ya mueve los dos ejes.
+    if (!freeLook && event.pointerType === 'mouse' && !reducedMotion) {
       const el = event.currentTarget
       aimTilt(tilt.current, (event.nativeEvent.offsetX / el.clientWidth - 0.5) * 2, (event.nativeEvent.offsetY / el.clientHeight - 0.5) * 2)
       redraw()
     }
     if (!spin.current.dragging) return
-    moveDrag(spin.current, event.pointerId, event.clientX, event.timeStamp)
+    moveDrag(spin.current, event.pointerId, event.clientX, event.timeStamp, event.clientY)
     redraw()
   }
   const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
@@ -298,9 +373,11 @@ export default function CakeScene({
     redraw()
   }
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+    const vertical = freeLook && (event.key === 'ArrowUp' || event.key === 'ArrowDown')
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight' && !vertical) return
     event.preventDefault()
-    nudge(spin.current, event.key === 'ArrowRight' ? 1 : -1, !reducedMotion)
+    if (vertical) nudgeElevation(spin.current, event.key === 'ArrowUp' ? 1 : -1, !reducedMotion)
+    else nudge(spin.current, event.key === 'ArrowRight' ? 1 : -1, !reducedMotion)
     redraw()
   }
 
@@ -332,7 +409,7 @@ export default function CakeScene({
         flat
         gl={{ antialias: true, alpha: true, powerPreference: 'low-power' }}
         camera={{ near: 1, far: 30 }}
-        style={{ position: 'absolute', top: -framing.overflowTop, right: 0, bottom: 0, left: 0, width: 'auto', height: 'auto', pointerEvents: 'none' }}
+        style={{ position: 'absolute', top: freeLook ? 0 : -framing.overflowTop, right: 0, bottom: 0, left: 0, width: 'auto', height: 'auto', pointerEvents: 'none' }}
         onCreated={({ gl, invalidate }) => {
           invalidateRef.current = invalidate
           gl.domElement.addEventListener(
@@ -358,6 +435,7 @@ export default function CakeScene({
           separateOnScroll={separateOnScroll}
           onReady={onReady}
           framing={framing}
+          freeLook={freeLook}
         />
       </Canvas>
     </div>

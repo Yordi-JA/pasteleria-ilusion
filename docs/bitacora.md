@@ -334,3 +334,28 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - La revisión cerró ese mismo día tras dos rondas con el veredicto "se puede subir" del revisor y del auditor, más una corrección final: la validación del color de los trozos y del color de arriba pasó del modelo (`clean()`) a los formularios de cambio del admin (`BreadForm`, `FillingFlavorForm`), porque en el modelo reventaba (500) al reordenar o desactivar desde la lista una fila ya inconsistente. Se aclararon el docstring de la `0017` y el comentario de `SEED_MIGRATIONS`. Pruebas de backend: 1 018.
 - Ajuste de los trozos de fruta tras verlos en capturas a 1440 px y 390 px (más grandes, más densos y con el tono sesgado a oscurecer). Chunk de la escena: de 940.23 kB a 940.75 kB (de 250.96 kB a 251.24 kB con gzip).
 - Pruebas: backend de 998 a 1 016 (1 018 tras la corrección final); `e2e/cake-designer.spec.ts`, de 30 a 31, y `e2e/cake-design-preview.spec.ts`, 9 nuevas.
+
+### Martes 10 de noviembre: moldes reales, encuadre, giro en dos ejes y rellenos nuevos
+
+- La dueña revisó la vista previa de "Diseña tu pastel" (D50 y D51). Decisión D52 en [`proyecto/decisiones.md`](proyecto/decisiones.md), rama `feat/disena-moldes-y-rellenos`, sin desplegar.
+- El tamaño del pastel sigue los kilos con los moldes de la pastelería: modelo `CakeMold` editable en el admin, sembrado en la migración `0019` y expuesto como `cake_molds` en `GET /api/v1/cake-designs/options/`. Todos los pisos miden lo mismo de alto, el rectangular toma su proporción de los moldes y con varios pisos cada uno es más chico que el de abajo.
+- La cámara conserva la escala de un pastel grande de un piso, con el pastel centrado, y se aleja solo cuando no cabe. El arrastre gira en los dos ejes (la elevación va de -10° a 82°; en táctil, un gesto que empieza en vertical es el scroll) y las flechas de arriba y abajo cambian la elevación. La portada no cambia.
+- Rellenos: capas delgadas de crema pastelera arriba y abajo del sabor, grumitos en la fresa con yogurt, trozos de nuez, más fruta y más galleta, y el relleno de Choco-pingüino (chispas redondas de chocolate) y de Red velvet (granillo rojo) se ve desde la elección del pan (`Bread.included_filling_preview_style`, migraciones `0020` y `0021`). Los colores nuevos esperan el visto bueno de la dueña (pendiente 14).
+- Pruebas: backend de 1 018 a 1 043; E2E nuevas en `cake-design-preview.spec.ts`, `spin-model.spec.ts`, `cake-designer.spec.ts` y `hero-cake.spec.ts` (la portada no cambia).
+- Chunk de la escena: de 940.75 kB (251.24 kB con gzip) a 947.04 kB (253.30 kB con gzip) y el principal, de 402.79 kB a 405.67 kB.
+
+### Martes 10 de noviembre: decoración (paso 6 de "Diseña tu pastel")
+
+- Decisión D53 en [`proyecto/decisiones.md`](proyecto/decisiones.md), misma rama, sin desplegar. El paso 6 ya existe: "Sin decoración", "Patrón con duya" con cuatro diseños (borde de conchas, rosetones, festones colgantes y olanes), flores, chispas y "Otra decoración".
+- Backend: la migración de datos `0023_seed_decoration_designs` renombra `duya` como "Borde de conchas", agrega `rosetones`, `festones` y `olanes` sin precio y reordena, sin pisar lo que la pastelería haya editado. No hay cambios de API ni de esquema: el precio ya aceptaba `decoration`. Cada diseño sale PENDIENTE ("Precio por confirmar") hasta que la pastelería capture su precio.
+- Color de la duya y de las rosas: "Automático" (tonos más oscuro y más claro de la cobertura, calculados en OKLab) o uno de los 11 colores de la cobertura. Las hojas van siempre en verde y las chispas no llevan selector.
+- "Otra decoración": la imagen se elige y se revisa en el navegador (JPG, PNG o WebP, hasta 5 MB, propuesta por confirmar), con miniatura, "Quitar" y el aviso de pausa; no se sube, y tras recargar el paso pide elegirla otra vez.
+- Vista previa: cada diseño se dibuja con mallas instanciadas sobre la cobertura de todos los pisos (las rosas, en una fila en el borde de arriba de cada piso) y cuenta contra el presupuesto de 150 000 triángulos.
+- Pendientes nuevos en [`pendientes.md`](pendientes.md) (sección de D53): precios, límite de la imagen, almacenamiento y visto bueno de la dueña.
+
+### Martes 10 de noviembre: precios de la decoración, tipos de chispas y grupos desplegables (D54)
+
+- La dueña confirmó los precios: Rosas $120 y todo lo demás incluido (D54, regla 6.1). Migración `0025` (quita `decorationoption_single_included`, agrega `preview_flavor` y `preview_bread`) y migración de datos `0026_seed_decoration_prices`, que no pisa lo editado en el admin. En la base local, las seis filas con el precio de prueba de $1.00 se regresaron a vacío antes de migrar.
+- Chispas: tres tipos (capuchino, chocolate y choco-vainilla) que copian el estilo y los colores del sabor o del pan de la pastelería; van solo en los costados, no en la cara de arriba. `GET /api/v1/cake-designs/options/` suma `preview_flavor` y `preview_bread` a cada decoración.
+- Paso 6: "Patrón con duya" y "Chispas" son un radio más de la lista y sus diseños se despliegan solo al elegirlos.
+- Rosas y rosetones (corrección de la revisión de D53): la fila de rosas y de rosetones en rectangular ya no se encima en las esquinas; en un escalón angosto la rosa se achica y queda dentro del escalón; `displayFileName` devuelve `null` si solo quedan U+200D.

@@ -10,7 +10,7 @@ from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from core_pasteleria.api.parsers import MAX_JSON_BODY_BYTES, BoundedJSONParser, RequestBodyTooLarge
-from core_pasteleria.models import CakeDesignSettings, CakeStand, DecorationOption
+from core_pasteleria.models import CakeDesignSettings, CakeMold, CakeStand, DecorationOption
 
 OPTIONS_URL = "/api/v1/cake-designs/options/"
 PRICE_URL = "/api/v1/cake-designs/price/"
@@ -86,16 +86,31 @@ def test_options_carry_the_seeded_data(api):
     ]
 
 
-def test_options_show_seeded_pending_decorations_disabled_with_their_reason(api):
+def test_options_show_the_confirmed_decoration_prices_and_sprinkle_sources(api):
     decorations = by_slug(api.get(OPTIONS_URL).json()["decorations"])
-    assert list(decorations) == ["ninguna", "duya", "flores", "chispas", "otra"]
-    # La semilla deja PENDIENTE las decoraciones fijas: se muestran, desactivadas.
-    for slug in ("duya", "flores", "chispas"):
-        assert decorations[slug]["available"] is False
-        assert decorations[slug]["unavailable_reason"] == "Precio por confirmar"
-        assert (decorations[slug]["price"], decorations[slug]["price_pending"]) == (None, True)
+    assert list(decorations) == [
+        "ninguna", "duya", "rosetones", "festones", "olanes", "flores", "chispas", "chispas-chocolate", "chispas-choco-vainilla", "otra",
+    ]
+    # Los diseños sencillos y los tres tipos de chispas van incluidos: no suman (regla 6.1).
+    for slug in ("ninguna", "duya", "rosetones", "festones", "olanes", "chispas", "chispas-chocolate", "chispas-choco-vainilla"):
+        assert (decorations[slug]["pricing"], decorations[slug]["price"], decorations[slug]["available"]) == ("included", None, True)
+    assert (decorations["flores"]["pricing"], decorations["flores"]["price"], decorations["flores"]["available"]) == ("fixed", "120.00", True)
     assert decorations["otra"]["requires_quote"] is True
     assert decorations["otra"]["available"] is True
+    # Las chispas dicen de qué sabor o pan salen su estilo y sus colores; lo demás, nada.
+    sources = {slug: (d["preview_flavor"], d["preview_bread"]) for slug, d in decorations.items()}
+    assert sources["chispas"] == ("capuchino", None)
+    assert sources["chispas-chocolate"] == (None, "choco_pinguino")
+    assert sources["chispas-choco-vainilla"] == ("choco_vainilla", None)
+    assert sources["flores"] == (None, None)
+
+
+def test_rosas_adds_its_fixed_price_and_the_included_designs_add_nothing(api):
+    rosas = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "decoration": "flores"}, format="json").json()
+    assert (rosas["decoration"], rosas["total"]) == ("120.00", "3945.00")
+    for slug in ("duya", "olanes", "chispas-chocolate"):
+        body = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "decoration": slug}, format="json").json()
+        assert (body["decoration"], body["total"]) == ("0.00", "3825.00")
 
 
 def test_options_reject_post(api):
@@ -133,8 +148,8 @@ def test_price_with_wafer_and_otra_decoracion(api):
 
 def test_price_reads_the_current_settings(api):
     CakeDesignSettings.objects.filter(pk=1).update(wafer_price=Decimal("130"))
-    DecorationOption.objects.filter(slug="duya").update(price=Decimal("90"))
-    body = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "wafer": True, "decoration": "duya"}, format="json").json()
+    DecorationOption.objects.filter(slug="flores").update(price=Decimal("90"))
+    body = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "wafer": True, "decoration": "flores"}, format="json").json()
     assert (body["wafer"], body["decoration"], body["total"]) == ("130.00", "90.00", "4045.00")
 
 
@@ -300,10 +315,41 @@ def test_price_rejects_get(api):
     assert api.get(PRICE_URL).status_code == 405
 
 
-def test_seeded_pending_decoration_is_rejected_by_field(api):
-    response = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "decoration": "flores"}, format="json")
+DESIGNS = ("duya", "rosetones", "festones", "olanes", "flores", "chispas")
+
+
+@pytest.fixture
+def pending_designs(db):
+    """Los diseños como los dejó la pastelería sin definir su precio (PENDIENTE): cobro fijo y sin precio."""
+    DecorationOption.objects.filter(slug__in=DESIGNS).update(pricing="fixed", price=None)
+
+
+@pytest.mark.parametrize("slug", DESIGNS)
+def test_pending_decoration_is_rejected_by_field(api, pending_designs, slug):
+    response = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "decoration": slug}, format="json")
     assert response.status_code == 400
     assert response.json() == {"decoration": ["Precio por confirmar"]}
+
+
+@pytest.mark.parametrize("slug", DESIGNS)
+def test_each_design_is_accepted_with_its_own_price_and_becomes_available(api, pending_designs, slug):
+    DecorationOption.objects.filter(slug=slug).update(price=Decimal("85"))
+    option = by_slug(api.get(OPTIONS_URL).json()["decorations"])[slug]
+    assert (option["available"], option["price"], option["price_pending"]) == (True, "85.00", False)
+    body = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "decoration": slug}, format="json").json()
+    assert (body["decoration"], body["total"], body["requires_quote"]) == ("85.00", "3910.00", False)
+
+
+def test_a_priced_design_does_not_make_the_others_available(api, pending_designs):
+    DecorationOption.objects.filter(slug="rosetones").update(price=Decimal("85"))
+    decorations = by_slug(api.get(OPTIONS_URL).json()["decorations"])
+    assert decorations["festones"]["available"] is False
+    assert api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "decoration": "festones"}, format="json").status_code == 400
+
+
+def test_otra_decoracion_needs_no_price_and_adds_nothing(api):
+    body = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "decoration": "otra"}, format="json").json()
+    assert (body["decoration"], body["total"], body["requires_quote"]) == ("0.00", "3825.00", True)
 
 
 def test_business_errors_come_back_by_field_in_spanish(api):
@@ -475,9 +521,40 @@ def test_options_carry_the_seeded_preview_styles(api):
     assert styles == {
         "durazno": "fruit_chunks", "fresa": "fruit_chunks", "zarzamora": "smooth", "cajeta": "smooth",
         "galleta": "cookie_chunks", "chocolate": "sprinkles", "choco_vainilla": "sprinkles",
-        "capuchino": "sprinkles", "fresa_yogurt": "smooth", "nuez": "smooth",
+        "capuchino": "sprinkles", "fresa_yogurt": "crumbles", "nuez": "nut_pieces",
     }
     assert all(flavor["preview_color_secondary"] for flavor in flavors.values() if flavor["preview_style"] != "smooth")
+    # Choco-pingüino y Red velvet traen cómo se ve su relleno incluido (crema pastelera con chispas o granillo rojo).
+    assert (
+        breads["choco_pinguino"]["included_filling_preview_style"],
+        breads["choco_pinguino"]["included_filling_preview_color_secondary"],
+    ) == ("round_chips", "#3A2218")
+    assert (
+        breads["red_velvet"]["included_filling_preview_style"],
+        breads["red_velvet"]["included_filling_preview_color_secondary"],
+    ) == ("sprinkles", "#C8283A")
+    # Los panes sin relleno incluido quedan lisos y sin color.
+    assert (breads["vainilla"]["included_filling_preview_style"], breads["vainilla"]["included_filling_preview_color_secondary"]) == ("smooth", "")
+
+
+def test_options_carry_the_cake_molds_for_the_preview(api):
+    molds = api.get(OPTIONS_URL).json()["cake_molds"]
+    rounds = [m for m in molds if m["form"] == "round"]
+    rectangles = [m for m in molds if m["form"] == "rectangular"]
+    assert [(m["kg"], m["length_cm"]) for m in rounds] == [
+        ("2.7", "28.0"), ("4.0", "34.0"), ("6.0", "37.0"), ("8.0", "41.0"), ("10.0", "47.0"), ("12.0", "51.5"),
+    ]
+    assert all(m["width_cm"] is None for m in rounds)
+    assert [(m["kg"], m["length_cm"], m["width_cm"]) for m in rectangles] == [
+        ("4.0", "41.0", "26.0"), ("5.0", "42.0", "28.0"), ("6.0", "45.4", "29.5"), ("7.0", "48.0", "33.0"),
+        ("8.0", "50.0", "33.0"), ("9.0", "53.5", "41.0"), ("10.0", "60.0", "44.0"),
+    ]
+
+
+def test_a_mold_the_bakery_adds_in_the_admin_reaches_the_options(api):
+    CakeMold.objects.create(form="round", kg=Decimal("14"), length_cm=Decimal("55"))
+    molds = api.get(OPTIONS_URL).json()["cake_molds"]
+    assert {"form": "round", "kg": "14.0", "length_cm": "55.0", "width_cm": None} in molds
 
 
 def test_options_carry_a_code_next_to_each_reason(api):
@@ -493,3 +570,14 @@ def test_options_carry_the_smaller_alternatives_from_the_catalog(api):
         "showcase_cake": {"approx_weight_kg": "2.7", "servings": 19},
         "mini_cake": {"approx_weight_kg": None, "servings": 3},
     }
+
+
+def test_price_rejects_sprinkles_whose_source_is_inactive_like_the_options_say(api):
+    from core_pasteleria.models import FillingFlavor
+
+    FillingFlavor.objects.filter(slug="capuchino").update(is_active=False)
+    option = by_slug(api.get(OPTIONS_URL).json()["decorations"])["chispas"]
+    assert (option["available"], option["unavailable_reason"]) == (False, "No disponible por ahora")
+    response = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "decoration": "chispas"}, format="json")
+    assert response.status_code == 400
+    assert response.json() == {"decoration": ["No disponible por ahora"]}

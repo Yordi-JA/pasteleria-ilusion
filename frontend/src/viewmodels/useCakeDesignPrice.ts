@@ -39,7 +39,9 @@ export function planPrice(draft: CakeDesignDraft, design: DesignDerived, options
   const chosenBread = design.bread && !design.breadIssue ? design.bread : null
   const bread = chosenBread ?? cheapest(options.breads, fromPrice(cakeType))
   if (!bread) return null
-  const base = { people: draft.people, cakeType, bread: bread.slug }
+  // Una decoración sin precio (PENDIENTE) no se pide: el precio la rechazaría (D39).
+  const decoration = design.decoration?.available ? design.decoration.slug : null
+  const base = { people: draft.people, cakeType, bread: bread.slug, decoration }
   const assumedBread = chosenBread ? null : bread
   if (bread.pricingMode === 'full_price_per_kg') {
     return { request: { ...base, fillingBase: null, fillingFlavors: [], estimate: false }, assumedBread, assumedBase: null }

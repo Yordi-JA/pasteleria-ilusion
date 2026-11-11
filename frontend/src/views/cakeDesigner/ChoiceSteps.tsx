@@ -8,7 +8,7 @@ import type { BreadGroups, Choice, FillingView } from '../../viewmodels/cakeDesi
 
 const inlineLink = `rounded-sm font-semibold underline underline-offset-4 ${focusRing}`
 
-function Options({ name, choices, onChoose, type = 'radio', columns = '' }: {
+export function Options({ name, choices, onChoose, type = 'radio', columns = '' }: {
   name: string
   choices: Choice[]
   onChoose: (value: string) => void
@@ -36,7 +36,7 @@ function Options({ name, choices, onChoose, type = 'radio', columns = '' }: {
   )
 }
 
-function Group({ legend, children, describedBy }: { legend: string; children: ReactNode; describedBy?: string }) {
+export function Group({ legend, children, describedBy }: { legend: string; children: ReactNode; describedBy?: string }) {
   return (
     <fieldset className="flex flex-col gap-2.5" aria-describedby={describedBy}>
       <legend className="float-left mb-2.5 text-etiqueta">{legend}</legend>
@@ -130,7 +130,43 @@ export function FillingStep({ view, onBase, onCount, onFlavor }: FillingStepProp
   )
 }
 
-type CoverageChoice = { value: string; label: string; color: string; checked: boolean }
+export type ColorChoice = { value: string; label: string; color: string; checked: boolean }
+
+/**
+ * Los colores de la cobertura como círculos que se eligen (regla 5): los usa el paso 5 y, con otro `name`, el color de la
+ * decoración (paso 6). El color es el que la pastelería guarda en el admin para la vista previa: es comida, no interfaz.
+ */
+export function ColorGrid({ legend, name, colors, onChoose }: { legend: string; name: string; colors: ColorChoice[]; onChoose: (value: string) => void }) {
+  return (
+    <fieldset className="flex flex-col gap-2.5">
+      <legend className="float-left mb-2.5 text-etiqueta">{legend}</legend>
+      <div className="clear-both grid grid-cols-5 gap-2 max-[600px]:grid-cols-3">
+        {colors.map((color) => (
+          <label
+            key={color.value}
+            className={`relative flex min-h-11 cursor-pointer flex-col items-center gap-2 rounded-md border px-1 py-3 text-center text-nota font-semibold hover:bg-harina has-[:checked]:border-2 has-[:checked]:border-mermelada has-[:checked]:px-[3px] has-[:checked]:py-[11px] ${color.checked ? '' : 'border-relieve'} ${focusRingWithin}`}
+          >
+            <input
+              type="radio"
+              name={name}
+              value={color.value}
+              checked={color.checked}
+              onChange={() => onChoose(color.value)}
+              className="sr-only"
+            />
+            <span aria-hidden="true" className="h-8 w-8 rounded-full border border-relieve" style={{ backgroundColor: color.color }} />
+            {color.label}
+            {color.checked && (
+              <span aria-hidden="true" className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-mermelada text-sobre-color">
+                <Check size={12} weight="bold" />
+              </span>
+            )}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  )
+}
 
 /** Paso 5: crema pastelera y su color (regla 5). Con el relleno incluido, primero dice por qué se saltó el paso 4. */
 export function CoverageStep({
@@ -138,7 +174,7 @@ export function CoverageStep({
   includedFilling,
   onChoose,
 }: {
-  colors: CoverageChoice[]
+  colors: ColorChoice[]
   includedFilling: { bread: string; filling: string } | null
   onChoose: (value: string) => void
 }) {
@@ -160,34 +196,7 @@ export function CoverageStep({
         </p>
         <p className="text-nota text-mermelada-suave">La única que manejamos</p>
       </div>
-      <fieldset className="flex flex-col gap-2.5">
-        <legend className="float-left mb-2.5 text-etiqueta">Elige el color</legend>
-        <div className="clear-both grid grid-cols-5 gap-2 max-[600px]:grid-cols-3">
-          {colors.map((color) => (
-            <label
-              key={color.value}
-              className={`relative flex min-h-11 cursor-pointer flex-col items-center gap-2 rounded-md border px-1 py-3 text-center text-nota font-semibold hover:bg-harina has-[:checked]:border-2 has-[:checked]:border-mermelada has-[:checked]:px-[3px] has-[:checked]:py-[11px] ${color.checked ? '' : 'border-relieve'} ${focusRingWithin}`}
-            >
-              <input
-                type="radio"
-                name="color"
-                value={color.value}
-                checked={color.checked}
-                onChange={() => onChoose(color.value)}
-                className="sr-only"
-              />
-              {/* El color es el que la pastelería guarda en el admin para la vista previa: es la cobertura, no la interfaz. */}
-              <span aria-hidden="true" className="h-8 w-8 rounded-full border border-relieve" style={{ backgroundColor: color.color }} />
-              {color.label}
-              {color.checked && (
-                <span aria-hidden="true" className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-mermelada text-sobre-color">
-                  <Check size={12} weight="bold" />
-                </span>
-              )}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <ColorGrid legend="Elige el color" name="color" colors={colors} onChoose={onChoose} />
       <p className="text-nota">
         ¿Varios colores o un diseño específico?{' '}
         <Link to="/pedido/referencia" className={inlineLink}>
@@ -199,7 +208,7 @@ export function CoverageStep({
   )
 }
 
-/** Pasos 6 a 8: llegan en las tandas siguientes. Mientras tanto el paso 6 lo dice, sin datos inventados, y no se puede confirmar. */
+/** Pasos 7 y 8: llegan en la tanda siguiente. Mientras tanto lo dicen, sin datos inventados, y no se pueden confirmar. */
 export function UpcomingStep() {
   return <p className="text-cuerpo">Este paso está en construcción.</p>
 }

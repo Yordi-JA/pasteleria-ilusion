@@ -20,6 +20,7 @@ export type BrandColor =
   | 'mermelada'
   | 'mermelada-suave'
   | 'frambuesa'
+  | 'exito'
 
 /** Un color de la pastelería, `#rrggbb`, tal como lo guarda el admin. */
 export type DataColor = `#${string}`

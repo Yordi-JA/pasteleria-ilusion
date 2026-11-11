@@ -3,6 +3,7 @@ import type {
   CakeDesignOptions,
   CakeTypeOption,
   CoverageColorOption,
+  DecorationOption,
   FillingBaseOption,
   FillingFlavorOption,
   PeopleSize,
@@ -29,8 +30,9 @@ export const DESIGN_STEPS = [
 
 export const STEP_COUNT = DESIGN_STEPS.length
 export const FILLING_STEP = 4
-/** Último paso que esta versión arma; del 6 en adelante llegan en las tandas 2 y 3. */
-export const LAST_BUILT_STEP = 5
+export const DECORATION_STEP = 6
+/** Último paso que esta versión arma; del 7 en adelante llegan en la tanda 3. */
+export const LAST_BUILT_STEP = 6
 
 /** Una opción elegida que el tipo de pastel ya no admite: nombre, motivo y código de la API. */
 export type Issue = { name: string; reason: string; code: UnavailableCode | null; allowedCakeTypes: string[] }
@@ -59,6 +61,8 @@ export type DesignDerived = {
   /** Sabores que pide el modo elegido: 1, o 2 con una base que los admite. */
   flavorsNeeded: number
   coverage: CoverageColorOption | null
+  /** La decoración elegida (esté o no disponible); `null` si no se eligió o ya no existe. */
+  decoration: DecorationOption | null
   /** Si los datos de cada paso (1 a 8) están completos y son válidos. */
   valid: boolean[]
 }
@@ -76,7 +80,11 @@ export function choosableFlavors(base: FillingBaseOption | null, cakeType: strin
   return (base?.flavors ?? []).filter((flavor) => !cakeType || !flavor.unavailableReasons[cakeType])
 }
 
-export function deriveDesign(draft: CakeDesignDraft, options: CakeDesignOptions, apiSize: PeopleSize | null): DesignDerived {
+/**
+ * `imageReady`: la imagen de "Otra decoración" está en la memoria de la pestaña. No va en el borrador porque no se
+ * guarda (D53): tras recargar, el borrador conserva su nombre pero la imagen se tiene que elegir otra vez.
+ */
+export function deriveDesign(draft: CakeDesignDraft, options: CakeDesignOptions, apiSize: PeopleSize | null, imageReady = false): DesignDerived {
   const { tierMinimums } = options
   const size = apiSize ? { ...apiSize, current: apiSize.people === draft.people } : null
   const kg = size?.kg ?? null
@@ -95,6 +103,7 @@ export function deriveDesign(draft: CakeDesignDraft, options: CakeDesignOptions,
   const fillingIssue = base ? (issueIn(base, typeValue) ?? flavors.map((flavor) => issueIn(flavor, typeValue)).find(Boolean) ?? null) : null
 
   const coverage = options.coverageColors.find((option) => option.slug === draft.coverageColor) ?? null
+  const decoration = options.decorations.find((option) => option.slug === draft.decoration) ?? null
   // Arriba del máximo solo cuenta lo que la API dijo de las personas de ahora.
   const aboveMaximum = Boolean(size?.current && size.aboveMaximum)
   const design: DesignDerived = {
@@ -114,6 +123,7 @@ export function deriveDesign(draft: CakeDesignDraft, options: CakeDesignOptions,
     fillingIssue: fillingIncluded || !bread ? null : fillingIssue,
     flavorsNeeded,
     coverage,
+    decoration,
     valid: [],
   }
   design.valid = [
@@ -123,7 +133,7 @@ export function deriveDesign(draft: CakeDesignDraft, options: CakeDesignOptions,
     breadValid,
     fillingProblem(design, draft) === null,
     Boolean(coverage),
-    false,
+    decorationProblem(decoration, imageReady, draft) === null,
     false,
     false,
   ]
@@ -144,6 +154,19 @@ export function fillingProblem(design: DesignDerived, draft: CakeDesignDraft): s
   if (design.flavors.length > design.flavorsNeeded) return 'Elige un solo sabor.'
   const single = design.flavorsNeeded === 2 ? design.flavors.find((flavor) => !flavor.isCombinable) : undefined
   return single ? `${single.name} no se combina con otro sabor.` : null
+}
+
+/**
+ * Qué le falta a la decoración para continuar, o `null` si está completa. Una opción sin precio (PENDIENTE) no se
+ * puede elegir (D39); "Otra decoración" nunca sigue sin su imagen (D53).
+ */
+export function decorationProblem(decoration: DecorationOption | null, imageReady: boolean, draft: Pick<CakeDesignDraft, 'decorationImageName'>): string | null {
+  if (!decoration) return 'Elige una decoración.'
+  if (!decoration.available) return `${decoration.name} todavía no tiene precio. Elige otra decoración.`
+  if (decoration.requiresQuote && !imageReady) {
+    return draft.decorationImageName ? 'Tu imagen no se conservó al recargar. Elígela otra vez.' : 'Elige la imagen de la decoración.'
+  }
+  return null
 }
 
 /** "Con 10 kg el pastel va de 1 piso." o "Con 20 kg el pastel va de hasta 3 pisos." (regla 3.3, D50). */
@@ -198,7 +221,7 @@ export function stepStatus(step: number, current: number, design: DesignDerived,
 // --- Continuar ---
 
 /** Lo que falta para confirmar el paso, o `null` si se puede. */
-export function missingChoice(step: number, design: DesignDerived, draft: CakeDesignDraft): string | null {
+export function missingChoice(step: number, design: DesignDerived, draft: CakeDesignDraft, imageReady = false): string | null {
   switch (step) {
     case 1:
       if (!design.size || !design.size.current) return 'Todavía calculamos los kilos. Intenta de nuevo en un momento.'
@@ -212,6 +235,8 @@ export function missingChoice(step: number, design: DesignDerived, draft: CakeDe
       return fillingProblem(design, draft)
     case 5:
       return design.coverage ? null : 'Elige el color de la cobertura.'
+    case DECORATION_STEP:
+      return decorationProblem(design.decoration, imageReady, draft)
     default:
       return 'Este paso todavía no se puede completar.'
   }

@@ -170,12 +170,18 @@ test.describe('hero cake: scene', () => {
   })
 
   test('leaving and coming back to the portada three times leaves exactly one canvas', async ({ page }) => {
+    // Cuatro cargas de la escena con WebGL por software tardan unos 8 s cada una: con los 30 s por omisión la prueba
+    // queda al borde y falla a ratos. Fallaba igual en `main` (5 de 8 repeticiones el 10 de noviembre de 2026) y con
+    // este tiempo pasan 8 de 8.
+    test.setTimeout(90_000)
     await openReady(page)
     const banner = page.getByRole('banner')
     for (let i = 0; i < 3; i++) {
       await banner.getByRole('link', { name: 'Vitrina', exact: true }).click()
       await expect(page).toHaveURL(/\/vitrina$/)
-      await expect(page.locator('canvas')).toHaveCount(0)
+      // React Router aplica la navegación con `startTransition`: la portada sigue en pantalla un rato hasta que la ruta
+      // nueva termina de prepararse, y con WebGL por software eso puede pasar de los 5 s de siempre.
+      await expect(page.locator('canvas')).toHaveCount(0, { timeout: 15_000 })
       await banner.locator('a[href="/"]').first().click()
       await waitReady(page)
     }
@@ -218,6 +224,23 @@ test.describe('hero cake: keyboard and pointer', () => {
     await expect
       .poll(async () => (await num(page, 'data-angle')) - (middle + (7 * (Date.now() - since)) / 1000))
       .toBeLessThan(-30)
+  })
+
+  test('the up and down arrows and a vertical drag do not change the view of the hero', async ({ page }) => {
+    await openReady(page)
+    await scene(page).focus()
+    const elevation = await num(page, 'data-elevation')
+    await page.keyboard.press('ArrowUp')
+    await page.keyboard.press('ArrowDown')
+    const rect = (await scene(page).boundingBox())!
+    const x = rect.x + rect.width / 2
+    const y = rect.y + rect.height / 2
+    await page.mouse.move(x, y)
+    await page.mouse.down()
+    await page.mouse.move(x, y + 80, { steps: 5 })
+    await page.mouse.up()
+    await page.waitForTimeout(300)
+    expect(await num(page, 'data-elevation')).toBe(elevation)
   })
 
   test('dragging turns it', async ({ page }) => {

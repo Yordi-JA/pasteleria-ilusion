@@ -1,5 +1,4 @@
 import { lazy, Suspense } from 'react'
-import type { SceneFraming } from '../three/CakeScene.tsx'
 import type { CakeSceneView } from '../viewmodels/useCakeScene.ts'
 import SceneBoundary from './SceneBoundary.tsx'
 
@@ -8,12 +7,6 @@ const CakeScene = lazy(() => import('../three/CakeScene.tsx'))
 
 /** Nombre de la escena para el lector de pantalla. No anuncia el 3D (libro de marca, "Redacción"). */
 const SCENE_LABEL = 'Vista previa de tu pastel'
-
-/**
- * Encuadre de la vista previa: el plato al 78% de la caja y un pastel de 5 pisos cabe en 440 × 470 px del prototipo.
- * Sin lienzo extra arriba: aquí los pisos no se separan y la vela no aparece hasta la revisión.
- */
-const FRAMING: SceneFraming = { plate: 0.78, width: 440, height: 470, scale: 1, overflowTop: 0 }
 
 /** El dibujo de pisos de la marca (`assets/motivos/dibujo-pisos.svg`), en línea `mermelada-suave`. */
 function PreviewDrawing() {
@@ -74,7 +67,7 @@ export default function DesignerCake({ scene, hintId }: { scene: CakeSceneView; 
                 onReady={view.onReady}
                 onContextLost={view.onContextLost}
                 onKeyboardFocusChange={view.onKeyboardFocusChange}
-                framing={FRAMING}
+                freeLook
               />
             </div>
           </Suspense>

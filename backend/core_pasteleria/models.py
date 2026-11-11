@@ -1,5 +1,6 @@
 """Tablas y relaciones del dominio (ORM sobre PostgreSQL)."""
 import unicodedata
+from decimal import Decimal
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
@@ -150,6 +151,9 @@ class FillingPreviewStyle(models.TextChoices):
     FRUIT_CHUNKS = "fruit_chunks", "Trozos de fruta"
     COOKIE_CHUNKS = "cookie_chunks", "Trozos de galleta"
     SPRINKLES = "sprinkles", "Granillo"
+    CRUMBLES = "crumbles", "Grumitos"
+    NUT_PIECES = "nut_pieces", "Trozos de nuez"
+    ROUND_CHIPS = "round_chips", "Chispas redondas"
 
 
 class BreadPricingMode(models.TextChoices):
@@ -622,6 +626,23 @@ class Bread(OrderedOption):
         validators=[hex_color_validator],
         help_text="Solo para un pan de dos colores (choco-vainilla): el del pan que va debajo del relleno en cada piso. Vacío: un solo color.",
     )
+    included_filling_preview_style = models.CharField(
+        "cómo se ve el relleno incluido en la vista previa",
+        max_length=20,
+        choices=FillingPreviewStyle.choices,
+        default=FillingPreviewStyle.SMOOTH,
+        help_text=(
+            "Solo para un pan con relleno incluido (Choco-pingüino, Red velvet): se ve desde que se elige el pan. "
+            "Siempre es crema pastelera blanca; aquí se elige lo que lleva encima."
+        ),
+    )
+    included_filling_preview_color_secondary = models.CharField(
+        "color de los trozos del relleno incluido en la vista previa",
+        max_length=7,
+        blank=True,
+        validators=[hex_color_validator],
+        help_text="Color de las chispas, los trozos o el granillo del relleno incluido. Vacío si es liso.",
+    )
 
     class Meta:
         verbose_name = "pan"
@@ -741,14 +762,17 @@ class FillingFlavor(OrderedOption):
         max_length=20,
         choices=FillingPreviewStyle.choices,
         default=FillingPreviewStyle.SMOOTH,
-        help_text="Liso, con rebanadas de fruta, con trozos de fruta, con trozos de galleta o con granillo.",
+        help_text=(
+            "Liso, con rebanadas de fruta, con trozos de fruta, con trozos de galleta, con granillo, con grumitos, "
+            "con trozos de nuez o con chispas redondas."
+        ),
     )
     preview_color_secondary = models.CharField(
         "color de los trozos en la vista previa",
         max_length=7,
         blank=True,
         validators=[hex_color_validator],
-        help_text="Color de las rebanadas, los trozos o el granillo. Vacío en un relleno liso.",
+        help_text="Color de las rebanadas, los trozos, el granillo o los grumitos más rojos. Vacío en un relleno liso.",
     )
 
     class Meta:
@@ -932,6 +956,78 @@ class TierRecommendation(models.Model):
             )
 
 
+# Topes de un molde (D52): más allá es un dedazo del admin, no un molde. La base también los exige (así rechaza un NaN).
+MOLD_MAX_KG = Decimal("100")
+MOLD_MAX_CM = Decimal("150")
+
+
+class CakeMold(models.Model):
+    """Molde de la pastelería con los kilos que rinde y sus medidas (D52).
+
+    La vista previa de "Diseña tu pastel" toma de aquí el tamaño del pastel
+    según los kilos: la pastelería agrega un molde cuando compra uno. Un molde
+    redondo lleva solo el diámetro; uno rectangular, el largo y el ancho. El alto
+    no se guarda: es el mismo en la vista previa.
+    """
+
+    form = models.CharField("forma", max_length=12, choices=CakeShape.choices)
+    kg = models.DecimalField(
+        "kilos que rinde",
+        max_digits=4,
+        decimal_places=1,
+        validators=[MinValueValidator(Decimal("0.1")), MaxValueValidator(MOLD_MAX_KG)],
+        help_text="Hasta 100 kg.",
+    )
+    length_cm = models.DecimalField(
+        "diámetro o largo (cm)",
+        max_digits=4,
+        decimal_places=1,
+        validators=[MinValueValidator(Decimal("0.1")), MaxValueValidator(MOLD_MAX_CM)],
+        help_text="El diámetro en un molde redondo; el largo en uno rectangular. Hasta 150 cm.",
+    )
+    width_cm = models.DecimalField(
+        "ancho (cm)",
+        max_digits=4,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0.1")), MaxValueValidator(MOLD_MAX_CM)],
+        help_text="Solo en un molde rectangular. Hasta 150 cm.",
+    )
+
+    class Meta:
+        verbose_name = "molde"
+        verbose_name_plural = "moldes"
+        ordering = ["form", "kg"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["form", "kg"],
+                name="cakemold_unique_form_kg",
+                violation_error_message="Ya hay un molde de esa forma para esos kilos.",
+            ),
+            models.CheckConstraint(
+                condition=Q(kg__gt=0, kg__lte=MOLD_MAX_KG) & Q(length_cm__gt=0, length_cm__lte=MOLD_MAX_CM),
+                name="cakemold_sizes_in_range",
+                violation_error_message="Los kilos (hasta 100) y las medidas (hasta 150 cm) deben ser mayores que 0.",
+            ),
+            models.CheckConstraint(
+                condition=~Q(form=CakeShape.ROUND) | Q(width_cm__isnull=True),
+                name="cakemold_round_has_no_width",
+                violation_error_message="Un molde redondo solo lleva el diámetro: deja el ancho vacío.",
+            ),
+            models.CheckConstraint(
+                condition=~Q(form=CakeShape.RECTANGULAR)
+                | (Q(width_cm__isnull=False) & Q(width_cm__gt=0) & Q(width_cm__lte=MOLD_MAX_CM)),
+                name="cakemold_rectangular_needs_width",
+                violation_error_message="Un molde rectangular lleva largo y ancho (hasta 150 cm).",
+            ),
+        ]
+
+    def __str__(self):
+        shape = "redondo" if self.form == CakeShape.ROUND else "rectangular"
+        return f"Molde {shape} de {self.kg} kg"
+
+
 class CoverageColor(OrderedOption):
     """Color de la crema pastelera (paso 5). La cobertura es siempre crema pastelera."""
 
@@ -986,6 +1082,32 @@ class DecorationOption(OrderedOption):
             "no pongas un valor supuesto."
         ),
     )
+    preview_flavor = models.ForeignKey(
+        "FillingFlavor",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="+",
+        limit_choices_to={"is_active": True},
+        verbose_name="chispas del sabor",
+        help_text=(
+            "Solo para las chispas: el sabor de relleno cuyo granillo se dibuja (estilo y colores de ese sabor). "
+            "Déjalo vacío si no son chispas o si salen de un pan."
+        ),
+    )
+    preview_bread = models.ForeignKey(
+        "Bread",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="+",
+        limit_choices_to={"is_active": True},
+        verbose_name="chispas del pan",
+        help_text=(
+            "Solo para las chispas: el pan cuyo relleno incluido se dibuja (por ejemplo, las chispas de Choco-pingüino). "
+            "Déjalo vacío si no son chispas o si salen de un sabor."
+        ),
+    )
 
     class Meta:
         verbose_name = "decoración"
@@ -1004,11 +1126,10 @@ class DecorationOption(OrderedOption):
                 name="decorationoption_price_positive",
                 violation_error_message="El precio debe ser mayor que 0.",
             ),
-            models.UniqueConstraint(
-                fields=["pricing"],
-                condition=Q(pricing=DecorationPricing.INCLUDED),
-                name="decorationoption_single_included",
-                violation_error_message='Solo puede haber una decoración "Incluido".',
+            models.CheckConstraint(
+                condition=Q(preview_flavor__isnull=True) | Q(preview_bread__isnull=True),
+                name="decorationoption_single_preview_source",
+                violation_error_message="Elige el sabor o el pan de donde salen las chispas, no los dos.",
             ),
             models.UniqueConstraint(
                 fields=["pricing"],

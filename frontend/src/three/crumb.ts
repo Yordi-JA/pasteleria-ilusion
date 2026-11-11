@@ -2,23 +2,13 @@ import { useEffect, useMemo } from 'react'
 import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from 'three'
 import type { Texture } from 'three'
 import { brandColor } from './palette.ts'
+import { seededRandom } from './seededRandom.ts'
 
 /**
  * La miga del pan de "Diseña tu pastel" (D50), como textura generada en un lienzo (sin imágenes que descargar), y el
- * generador con semilla que comparten la miga y los trozos del relleno. Vive en el chunk diferido de la escena.
+ * generador con semilla que comparten la miga, los trozos del relleno y la decoración (`seededRandom.ts`). Vive en el
+ * chunk diferido de la escena.
  */
-
-/** Generador pseudoaleatorio con semilla (mulberry32): el mismo número da siempre las mismas posiciones. */
-export function seededRandom(seed: number) {
-  let state = seed >>> 0
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0
-    let t = state
-    t = Math.imul(t ^ (t >>> 15), t | 1)
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
 
 const CRUMB_SIZE = 256
 /** Una repetición de la miga cada 0.5 unidades de escena (50 px del prototipo). */
