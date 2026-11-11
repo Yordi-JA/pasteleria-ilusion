@@ -86,6 +86,7 @@ def kg_for_people(people: int) -> int:
 - Moldes: **Redondo** y **Rectangular**. Otras formas se sacan cortando el pan de esos moldes y se piden por **envío de referencia** (sección 9).
 - Todos los pisos llevan la misma forma (no se mezclan).
 - Un piso puede pesar más de 12 kg: **no hay límite de kilos por piso** y el redondo no obliga a tener pisos.
+- La vista previa de "Diseña tu pastel" toma el tamaño del pastel de los moldes de la pastelería según los kilos. Los moldes son datos que la pastelería edita en el admin (D52).
 
 ### 3.3 Pisos
 
@@ -220,15 +221,29 @@ Las opciones no disponibles **se muestran desactivadas con su motivo; nunca desa
 
 ### 6.1 Decoración
 
-| Opción | Precio |
-|---|---|
-| Sin decoración | Incluido |
-| Patrón con duya | PENDIENTE (precio fijo) |
-| Flores | PENDIENTE (precio fijo) |
-| Chispas | PENDIENTE (precio fijo) |
-| Otra decoración (el cliente sube una imagen) | Por cotizar: **el pedido queda en pausa** hasta que la pastelería dé el precio; se avisa por correo y en la cuenta |
+Se elige **una sola** opción por pedido. La dueña confirmó los precios el 10 de noviembre de 2026 (D54): Rosas cuesta $120 fijos y los demás diseños, que son sencillos, van incluidos y no suman al total. Lo complejo se pide por "Otra decoración", con una imagen de referencia. "Patrón con duya" y "Chispas" son grupos: sus diseños (los cuatro de duya, los tres tipos de chispas) se despliegan solo al elegir el grupo y queda elegido el primero.
 
-Mientras el precio de una decoración fija siga PENDIENTE, se muestra desactivada con "Precio por confirmar" y no se puede elegir (D39).
+| Opción | Diseño | Precio |
+|---|---|---|
+| Sin decoración | Solo la cobertura | Incluido |
+| Patrón con duya | Borde de conchas: la concha clásica de duya estrella en el borde de arriba y en el de abajo de cada piso | Incluido |
+| Patrón con duya | Rosetones: rosetas en espiral alrededor del borde de arriba | Incluido |
+| Patrón con duya | Festones colgantes: guirnaldas curvas que cuelgan del borde de arriba por el costado, con perlitas en las uniones | Incluido |
+| Patrón con duya | Olanes: ondas o volantes de crema por el costado, con duya de pétalo | Incluido |
+| Rosas | Rosas de crema hechas con duya con la técnica de modelado en clavo: cada rosa tiene su botón central, pétalos que se abren en capas y un par de hojitas verdes. Van en una fila en la orilla del borde de arriba de cada piso, dando la vuelta completa y tocándose sin encimarse (en los pisos de abajo, en el escalón que deja libre el piso de encima); el centro de la cara de arriba del último piso queda libre, porque ahí puede ir una oblea o un texto | $120 (precio fijo) |
+| Chispas | Tres tipos, solo en los costados del pastel (nada en la cara de arriba): chispas de capuchino (granillo café), chispas de chocolate (chispas redondas, como las del relleno de Choco-pingüino) y chispas choco-vainilla (granillo blanco y de chocolate). Son las mismas de los rellenos que ya maneja la pastelería | Incluido |
+| Otra decoración (el cliente sube una imagen) | La pastelería la cotiza | Por cotizar: **el pedido queda en pausa** hasta que la pastelería dé el precio; se avisa por correo y en la cuenta |
+
+Si la pastelería deja una decoración de precio fijo sin precio en el admin (PENDIENTE), se muestra desactivada con "Precio por confirmar" y no se puede elegir (D39). Se activa sola cuando la pastelería captura el precio en el admin. La pastelería puede desactivar cualquier opción (por ejemplo, un tipo de chispas) o cambiar su cobro y su precio en el admin; puede haber varias opciones "Incluido".
+
+**Color (patrón con duya y rosas).** El cliente elige entre dos modos:
+
+- **Automático** (por defecto): la decoración toma el color de la cobertura y usa otros tonos del mismo color, uno más oscuro y otro más claro, para que contraste y quede en armonía (con cobertura lila, flores en lila profundo y lila claro).
+- **Elegir un color:** uno de los 11 colores de la cobertura (sección 5).
+
+Las hojas de las rosas siempre van en verde. Las chispas no llevan selector: su estilo y sus colores salen del relleno que copian (sabor o pan), que la pastelería edita en el admin. El color elegido se guarda con el diseño y llega al pedido. Los tonos automáticos son colores de la vista previa, no de la interfaz; su criterio está en D53.
+
+**Otra decoración.** El cliente elige una imagen (JPG, PNG o WebP). El pedido no sigue sin ella. El tamaño máximo en el navegador es de 5 MB, el mismo que fija el servidor al inicio para las imágenes de clientes; es una propuesta que la pastelería debe confirmar (`docs/pendientes.md`). La imagen se guarda cuando exista el pedido (Etapa 4), no antes.
 
 ### 6.2 Mensaje
 
@@ -400,7 +415,7 @@ La dirección y el WhatsApp siguen PENDIENTE. La pastelería los captura en el a
 
 ## 14. Lista de pendientes
 
-1. Precio de las decoraciones fijas: patrón con duya, flores, chispas (se define después).
+1. Los precios de las decoraciones quedaron resueltos (D54, regla 6.1). Falta el tamaño máximo de la imagen de "Otra decoración" (propuesta: 5 MB).
 2. ¿Repartidor propio o aplicación para los envíos?
 3. Vigencia de una cotización por referencia (la respuesta es en máximo 1 hora; falta cuánto tiempo es válida).
 4. Políticas de cambios y cancelaciones, y qué pasa si la base regresa dañada: el equipo prepara un texto base y la pastelería lo completa.

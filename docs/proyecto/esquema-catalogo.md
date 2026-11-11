@@ -124,6 +124,7 @@ Restricciones: `1 <= max_upload_mb <= 10` y `1 <= max_reference_images <= 3` (lo
 - `allowed_cake_types`: `ArrayField(CharField(choices=CakeType))`, "tipos de pastel en que se ofrece"; por defecto los tres; en el admin, casillas (`CheckboxSelectMultiple`).
 - `preview_color`: CharField(7) opcional, validado `#RRGGBB`, "color en la vista previa"; en un pan de dos colores, el del pan que va encima del relleno en cada piso (D51).
 - `preview_color_bottom` (D50, migración `0014`): CharField(7) opcional, validado `#RRGGBB`, "color de abajo en la vista previa"; solo para un pan de dos colores (choco-vainilla, sembrado en `0015` con los colores de chocolate y vainilla); es el del pan que va debajo del relleno en cada piso (D51). El formulario de cambio del admin (`BreadForm`, no el modelo) lo rechaza si falta `preview_color`.
+- `included_filling_preview_style` y `included_filling_preview_color_secondary` (D52, migración `0020`): choices `FillingPreviewStyle` (`smooth` por defecto) y CharField(7) opcional `#RRGGBB`; solo para un pan con relleno incluido (Choco-pingüino, Red velvet): lo que lleva encima la crema pastelera blanca en la vista previa, que se ve desde que se elige el pan. `BreadForm` rechaza un estilo distinto de `smooth` sin su color. La migración `0021` siembra Choco-pingüino con chispas redondas (`round_chips`, `#3A2218`) y Red velvet con granillo rojo (`sprinkles`, `#C8283A`) solo si siguen lisos y sin color.
 - Restricciones: `price_per_kg >= 0`; con `full_price_per_kg`, `included_filling != ''` y `price_per_kg > 0`; con `extra_per_kg`, `included_filling == ''`; `allowed_cake_types__len__gt=0` (confirmar con prueba que un arreglo vacío da 0 y no NULL); `allowed_cake_types__contained_by` los tres códigos.
 
 ### `FillingBase` ("base de relleno"), hereda de `OrderedOption`
@@ -139,7 +140,7 @@ Restricciones: `1 <= max_upload_mb <= 10` y `1 <= max_reference_images <= 3` (lo
 - `bases`: M2M a `FillingBase`, `related_name="flavors"`, "bases en que se ofrece" (no vacío, validado en `clean()` del admin).
 - `is_combinable`: Bool, `True` por defecto, "se puede combinar".
 - `allowed_cake_types`: igual que en `Bread`, con las mismas restricciones.
-- `preview_style` (D50, migración `0014`): choices `FillingPreviewStyle` (`smooth` liso, `fruit_slices` rebanadas de fruta, `fruit_chunks` trozos de fruta (D51, migración `0016`), `cookie_chunks` trozos de galleta, `sprinkles` granillo), `smooth` por defecto, "cómo se ve en la vista previa"; `preview_color_secondary`: CharField(7) opcional, validado `#RRGGBB`, "color de los trozos". El formulario de cambio del admin (`FillingFlavorForm`, no el modelo) rechaza un estilo distinto de `smooth` sin `preview_color_secondary`. La migración `0015` siembra durazno y fresa con rebanadas (la `0017`, de D51, los pasa a trozos de fruta mientras sigan como los dejó la `0015`), galleta con trozos y choco vainilla, capuchino y chocolate con granillo; los demás quedan lisos.
+- `preview_style` (D50, migración `0014`): choices `FillingPreviewStyle` (`smooth` liso, `fruit_slices` rebanadas de fruta, `fruit_chunks` trozos de fruta (D51, migración `0016`), `cookie_chunks` trozos de galleta, `sprinkles` granillo, y desde D52 (migración `0020`) `crumbles` grumitos, `nut_pieces` trozos de nuez y `round_chips` chispas redondas), `smooth` por defecto, "cómo se ve en la vista previa"; `preview_color_secondary`: CharField(7) opcional, validado `#RRGGBB`, "color de los trozos". El formulario de cambio del admin (`FillingFlavorForm`, no el modelo) rechaza un estilo distinto de `smooth` sin `preview_color_secondary`. La migración `0015` siembra durazno y fresa con rebanadas (la `0017`, de D51, los pasa a trozos de fruta mientras sigan como los dejó la `0015`), galleta con trozos y choco vainilla, capuchino y chocolate con granillo; los demás quedan lisos. La `0021` (D52) pasa la fresa con yogurt a grumitos (`crumbles`, `#D95F76` para los más rojos) y la nuez a trozos de nuez (`nut_pieces`, `#7A5230`) solo si siguen lisos y sin color; los dos colores esperan el visto bueno de la dueña.
 
 ### `FillingPrice` ("precio del relleno por kilo")
 
@@ -156,6 +157,12 @@ Copia la tabla 4.5 de las reglas.
 - Restricción: `recommended_max_kg IS NULL OR >= recommended_min_kg`; `clean()` revisa que los kilos crezcan con los pisos.
 - El máximo de pisos es el `tiers` más alto de la tabla (una sola fuente, sin un "5" aparte).
 
+### `CakeMold` ("molde", D52)
+
+- `form` CharField(12), choices `CakeShape` (redondo o rectangular), "forma"; `kg` Decimal(4,1), "kilos que rinde"; `length_cm` Decimal(4,1), "diámetro o largo (cm)"; `width_cm` Decimal(4,1) `null=True`, "ancho (cm)", solo en rectangular. No se guarda el alto.
+- Restricciones: `UniqueConstraint(form, kg)`; `0 < kg <= 100` y `0 < length_cm <= 150` (la migración `0022` los agregó también como validadores del formulario; con el tope, el `CheckConstraint` rechaza un `NaN`); un redondo no lleva ancho; un rectangular lleva ancho de 0 a 150 cm. El admin avisa, sin bloquear, si un molde rompe el orden creciente de medidas de su forma.
+- Lo editan en el admin (la pastelería agrega un molde cuando compra uno) y lo lee la vista previa de "Diseña tu pastel" para dar el tamaño del pastel según los kilos. La API los entrega en `GET cake-designs/options/` como `cake_molds`. La migración `0019` siembra los moldes con `get_or_create` por forma y kilos.
+
 ### `CoverageColor` ("color de cobertura"), hereda de `OrderedOption`
 
 - `name` y `slug` únicos; `preview_color` CharField(7) **obligatorio**. La cobertura "crema pastelera" es una sola opción y no lleva tabla.
@@ -164,7 +171,9 @@ Copia la tabla 4.5 de las reglas.
 
 - `name` y `slug` únicos (la vista previa traduce el `slug` a una geometría), `description` CharField(120).
 - `pricing`: choices `DecorationPricing`; `price`: Decimal(8,2) `null=True, blank=True`, `help_text` "PENDIENTE si está vacío".
-- Restricciones: `Q(pricing="fixed") | Q(price__isnull=True)`; `price IS NULL OR price > 0`; `UniqueConstraint(fields=["pricing"], condition=Q(pricing="included"))` y otra igual para `quote` (un solo "Sin decoración" y un solo "Otra decoración").
+- Un `slug` por diseño (D53): `ninguna`, `duya` (borde de conchas), `rosetones`, `festones`, `olanes`, `flores` (se muestra como "Rosas" desde la `0024`; el `slug` no cambia), `chispas` y `otra`. El frontend agrupa los de duya bajo "Patrón con duya" y decide qué dibuja cada uno por su `slug`; no hay campo de grupo. Una decoración que la versión del frontend no conoce se ofrece igual y la vista previa muestra solo la cobertura.
+- `preview_flavor` y `preview_bread` (D54): FK opcionales a `FillingFlavor` y a `Bread`, solo para las chispas: de ahí salen el estilo y los colores que dibuja la vista previa (`preview_style` y `preview_color_secondary` del sabor, o `included_filling_preview_*` del pan). Tres filas de chispas: `chispas` ("Chispas de capuchino", sabor `capuchino`), `chispas-chocolate` (pan `choco_pinguino`) y `chispas-choco-vainilla` (sabor `choco_vainilla`).
+- Restricciones: `Q(pricing="fixed") | Q(price__isnull=True)`; `price IS NULL OR price > 0`; `UniqueConstraint(fields=["pricing"], condition=Q(pricing="quote"))` (un solo "Otra decoración"); y no tener sabor y pan a la vez. Desde la `0025` puede haber varias filas "included" (antes había una sola, `decorationoption_single_included`).
 
 ## Bases y envío
 
@@ -265,7 +274,7 @@ Las restricciones que el backend debe rechazar (lista de `backend/AGENTS.md`) so
 
 ## PENDIENTE
 
-- **En este alcance:** precios de patrón con duya, flores y chispas; política de base dañada; fotos de producto; conservación y transporte; base física para 26–50 kg; peso del Red velvet completo; dirección y WhatsApp de la pastelería (`StoreSettings`, vacíos, D41). La cota de 50 kg es PROPUESTA (tiene valor, con marca en el `help_text`).
+- **En este alcance:** precios de patrón con duya, rosas y chispas; política de base dañada; fotos de producto; conservación y transporte; base física para 26–50 kg; peso del Red velvet completo; dirección y WhatsApp de la pastelería (`StoreSettings`, vacíos, D41). La cota de 50 kg es PROPUESTA (tiene valor, con marca en el `help_text`).
 - **Modelo:** `null=True, blank=True` (o `blank=True` en textos), sin valor por defecto y nunca 0. `help_text`: "PENDIENTE: la pastelería aún no lo define. Déjalo vacío; no pongas un valor supuesto."
 - **Admin:** `empty_value_display = "PENDIENTE"` y filtro lateral "Con precio pendiente" (`price__isnull`).
 - **API:** el serializador manda `price: null` y `price_pending: true`.
@@ -279,10 +288,14 @@ Migraciones de datos (`RunPython`), no fixtures: llegan igual a producción, des
 Se implementó un par de migraciones (esquema y semilla) por paso, para que cada paso quedara verde y se pudiera revertir por separado. Son 9 migraciones en lugar de las 4 previstas:
 
 - `0002_settings` y `0003_seed_settings`: las 4 configuraciones y su fila.
-- `0004_cake_options` y `0005_seed_cake_options`: 5 panes, 3 bases de relleno, 10 sabores con su M2M, 14 `FillingPrice`, 5 `TierRecommendation`, 11 colores y 5 decoraciones (3 con precio vacío).
+- `0004_cake_options` y `0005_seed_cake_options`: 5 panes, 3 bases de relleno, 10 sabores con su M2M, 14 `FillingPrice`, 5 `TierRecommendation`, 11 colores y 5 decoraciones (3 con precio vacío). La `0023_seed_decoration_designs` (D53) llega a 8: renombra `duya` como "Borde de conchas" y agrega `rosetones`, `festones` y `olanes`, todos de precio fijo y con el precio vacío, sin pisar lo que la pastelería haya cambiado.
 - `0006_stands_and_delivery` y `0007_seed_stands_and_delivery`: 10 `CakeStand` y 4 bandas de envío.
 - `0008_catalog` y `0009_seed_catalog`: 20 `CatalogPrice`, los productos del mockup (14 pasteles y 8 postres) y sus 47 `ProductOffering`.
 - `0010_inventory`: `Inventory` y sus proxies. El inventario no se siembra.
+- `0014` a `0017` (D50 y D51): los estilos de la vista previa y los trozos de fruta.
+- `0018_cake_molds` y `0019_seed_cake_molds` (D52): la tabla de moldes y sus 13 filas (6 redondos y 7 rectangulares).
+- `0022_cake_mold_limits` (D52): topes de los moldes.
+- `0020_cake_preview_filling_styles` y `0021_seed_filling_styles` (D52): los estilos `crumbles`, `nut_pieces` y `round_chips`, el relleno incluido de los panes y su semilla.
 
 Los valores vienen de `docs/reglas-de-negocio.md`; las descripciones cortas, del mockup; los colores de vista previa, de `pastel-css3d.js`: el primer tono de cada pan, sabor y color de cobertura, y el tono de la capa de crema de las bases con queso y con flan (`BASEREL`). La base Normal y el pan Choco-vainilla no tienen color propio en el prototipo y quedan vacíos. El inventario no se siembra; para la demo, un comando `seed_demo_inventory` que se niega a correr con `DEBUG=False`.
 
@@ -335,7 +348,7 @@ Detalles de la implementación (el código manda):
 Antes de empezar: `django.contrib.postgres` y `UPLOAD_HARD_LIMIT_MB` en settings; al terminar, actualizar la tabla de entidades de [`arquitectura.md`](arquitectura.md#entidades-previstas), el estado de `backend/AGENTS.md` y la bitácora.
 
 1. **Opciones en código, `OrderedOption`, `SingletonSettings` y las 4 configuraciones, con semilla y admin.** Pruebas: segunda fila → `IntegrityError`; el admin no deja agregar ni borrar; la base rechaza `opens >= closes` y `max_upload_mb = 11`, y el formulario también; los valores sembrados coinciden con las reglas.
-2. **`Bread`, `FillingBase`, `FillingFlavor`, `FillingPrice`, `TierRecommendation`, `CoverageColor`, `DecorationOption`, con semilla.** Pruebas: pan de precio completo sin relleno incluido rechazado; `max_flavors = 3` rechazado; cargo de combinado con `max_flavors = 1` rechazado; dos filas generales iguales en `FillingPrice` rechazadas; decoración incluida con precio rechazada y segundo "incluido" rechazado; `allowed_cake_types` vacío rechazado; `clean()` rechaza un precio de sabor en un tipo no permitido; la tabla sembrada es igual a la 4.5 y las restricciones sembradas cumplen las reglas.
+2. **`Bread`, `FillingBase`, `FillingFlavor`, `FillingPrice`, `TierRecommendation`, `CoverageColor`, `DecorationOption`, con semilla.** Pruebas: pan de precio completo sin relleno incluido rechazado; `max_flavors = 3` rechazado; cargo de combinado con `max_flavors = 1` rechazado; dos filas generales iguales en `FillingPrice` rechazadas; decoración incluida con precio rechazada (varias "incluidas" son válidas desde D54); `allowed_cake_types` vacío rechazado; `clean()` rechaza un precio de sabor en un tipo no permitido; la tabla sembrada es igual a la 4.5 y las restricciones sembradas cumplen las reglas.
 3. **`CakeStand` y `DeliveryFeeBand`, con semilla.** Pruebas: rangos encimados y `min > max` rechazados; depósito por kilos: 3 → sin base, 9 → $150, 13 → $200, 16 → $250, 26 → $300, 50 → $500; bandas: 3 km → $50, 3.1 → $80, 15.1 → sin banda.
 4. **`Product`, `CatalogPrice`, `ProductOffering`, con semilla.** Pruebas: postre con tipo de pastel, sabor sin base y presentación repetida rechazados; sin mini con queso o flan; gelatinas en vaso `showcase_only`; Red velvet `order_only`; 14 pasteles y 8 postres.
 5. **`Inventory` y los proxies del admin.** Pruebas: "una de dos" entre vitrina y pan; una fila por presentación y día; cantidad negativa rechazada; descuento atómico (con 1 pieza, de dos descuentos solo pasa uno, prueba transaccional); `clean()` rechaza vitrina para `order_only`; "hoy" en zona de Ciudad de México (a las 23:30 locales sigue siendo el mismo día).
