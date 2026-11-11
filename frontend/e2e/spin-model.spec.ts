@@ -127,3 +127,149 @@ test('a drag under the 4 px threshold does not turn the cake', async ({ page }) 
   }, SPIN)
   expect(result).toEqual({ angle: 10, velocity: 0 })
 })
+
+// --- Elevación de la cámara: arrastre en dos ejes y flechas de arriba y abajo (D52) ---
+
+test('a mouse drag turns both axes: dragging down raises the camera half a degree per pixel and it stays where it is left', async ({ page }) => {
+  const result = await page.evaluate(async (url) => {
+    const { createSpin, startDrag, moveDrag, endDrag, stepSpin } = await import(url)
+    const spin = createSpin(0)
+    const initial = spin.elevation
+    startDrag(spin, 1, 100, 0, { y: 200, touch: false })
+    // Un arrastre en vertical, sin moverse en horizontal: con mouse también toma el pastel.
+    moveDrag(spin, 1, 100, 20, 204)
+    const underThreshold = { angle: spin.angle, elevation: spin.elevation }
+    moveDrag(spin, 1, 100, 40, 260)
+    moveDrag(spin, 1, 140, 60, 260)
+    endDrag(spin, 1, 200, true)
+    // Mucho tiempo después: la elevación no se mueve sola (no hay inercia ni se regresa).
+    for (let i = 0; i < 300; i++) stepSpin(spin, 1 / 60, true)
+    return { initial, underThreshold, elevation: spin.elevation, angle: spin.angle }
+  }, SPIN)
+  // 4 px de umbral en vertical: no cuentan; los 56 px siguientes son 28 grados.
+  expect(result.underThreshold).toEqual({ angle: 0, elevation: result.initial })
+  expect(result.elevation).toBeCloseTo(result.initial + 28, 6)
+  // Y el giro horizontal sigue como antes: 40 px a medio grado por píxel, más el giro solo de 5 segundos.
+  expect(result.angle).toBeGreaterThan(20)
+})
+
+test('dragging up lowers the camera below the horizon and the elevation never leaves its range', async ({ page }) => {
+  const result = await page.evaluate(async (url) => {
+    const { createSpin, startDrag, moveDrag, endDrag, ELEVATION } = await import(url)
+    const spin = createSpin(0)
+    startDrag(spin, 1, 0, 0, { y: 500, touch: false })
+    moveDrag(spin, 1, 0, 10, 100)
+    const low = spin.elevation
+    moveDrag(spin, 1, 0, 20, 1200)
+    const high = spin.elevation
+    endDrag(spin, 1, 30, false)
+    return { low, high, min: ELEVATION.min, max: ELEVATION.max }
+  }, SPIN)
+  expect(result.low).toBe(result.min)
+  expect(result.high).toBe(result.max)
+  expect(result.min).toBeLessThan(0)
+  expect(result.max).toBeGreaterThanOrEqual(80)
+  expect(result.max).toBeLessThanOrEqual(85)
+})
+
+test('without the second axis (the hero) a drag never moves the elevation', async ({ page }) => {
+  const result = await page.evaluate(async (url) => {
+    const { createSpin, startDrag, moveDrag } = await import(url)
+    const spin = createSpin(0)
+    const initial = spin.elevation
+    startDrag(spin, 1, 0, 0)
+    moveDrag(spin, 1, 30, 20, 400)
+    moveDrag(spin, 1, 60, 40, 800)
+    return { initial, elevation: spin.elevation, angle: spin.angle }
+  }, SPIN)
+  expect(result.elevation).toBe(result.initial)
+  expect(result.angle).toBeCloseTo(28, 6)
+})
+
+test('a touch that starts vertical belongs to the page, and one that starts horizontal turns both axes until it ends', async ({ page }) => {
+  const result = await page.evaluate(async (url) => {
+    const { createSpin, startDrag, moveDrag, endDrag } = await import(url)
+    // Empieza en vertical: es scroll, aunque después se mueva de lado.
+    const scroll = createSpin(0)
+    const initial = scroll.elevation
+    startDrag(scroll, 1, 100, 0, { y: 300, touch: true })
+    moveDrag(scroll, 1, 102, 10, 312)
+    moveDrag(scroll, 1, 160, 20, 330)
+    endDrag(scroll, 1, 30, true)
+    // Empieza en horizontal: toma el pastel y, desde ahí, gira en los dos ejes en todo el gesto, aunque ahora vaya en vertical.
+    const grab = createSpin(0)
+    startDrag(grab, 1, 100, 0, { y: 300, touch: true })
+    moveDrag(grab, 1, 110, 10, 302)
+    const afterHorizontal = { angle: grab.angle, elevation: grab.elevation }
+    moveDrag(grab, 1, 110, 20, 340)
+    moveDrag(grab, 1, 110, 30, 380)
+    endDrag(grab, 1, 40, false)
+    return { initial, scroll: { angle: scroll.angle, elevation: scroll.elevation, engaged: scroll.engaged }, afterHorizontal, grab: { angle: grab.angle, elevation: grab.elevation } }
+  }, SPIN)
+  expect(result.scroll).toEqual({ angle: 0, elevation: result.initial, engaged: false })
+  // El primer movimiento de 10 px pasa el umbral de 4: los 6 restantes son 3 grados; el vertical de 2 px (dentro del umbral) no cuenta.
+  expect(result.afterHorizontal.angle).toBeCloseTo(3, 6)
+  expect(result.afterHorizontal.elevation).toBeCloseTo(result.initial + 0.5 * (302 - 300) * (6 / 10), 6)
+  // Después, 78 px de más en vertical, a medio grado cada uno.
+  expect(result.grab.elevation).toBeGreaterThan(result.afterHorizontal.elevation + 30)
+})
+
+test('the up and down arrows step the elevation like the sides step the turn, in range and without inertia', async ({ page }) => {
+  const result = await page.evaluate(async (url) => {
+    const { createSpin, nudgeElevation, stepSpin, ELEVATION, SPIN } = await import(url)
+    const spin = createSpin(0)
+    const start = spin.elevation
+    nudgeElevation(spin, 1, true)
+    nudgeElevation(spin, 1, true)
+    const pending = spin.pendingElevation
+    for (let i = 0; i < 120; i++) stepSpin(spin, 1 / 60, false)
+    const up = spin.elevation
+    nudgeElevation(spin, -1, true)
+    for (let i = 0; i < 120; i++) stepSpin(spin, 1 / 60, false)
+    // Muchas veces hacia arriba: se queda en el tope, sin acumular pasos que luego haya que deshacer.
+    for (let i = 0; i < 30; i++) nudgeElevation(spin, 1, true)
+    for (let i = 0; i < 300; i++) stepSpin(spin, 1 / 60, false)
+    const top = spin.elevation
+    nudgeElevation(spin, -1, true)
+    for (let i = 0; i < 120; i++) stepSpin(spin, 1 / 60, false)
+    const afterOne = spin.elevation
+    // Sin animación (reducir movimiento), el paso salta.
+    const jump = createSpin(0)
+    nudgeElevation(jump, -1, false)
+    return { start, pending, up, step: SPIN.elevationKeyStep, top, afterOne, max: ELEVATION.max, jump: jump.elevation, pendingJump: jump.pendingElevation }
+  }, SPIN)
+  expect(result.pending).toBe(2 * result.step)
+  expect(result.up).toBeCloseTo(result.start + 2 * result.step, 6)
+  expect(result.top).toBeCloseTo(result.max, 6)
+  expect(result.afterOne).toBeCloseTo(result.max - result.step, 6)
+  expect(result.jump).toBe(result.start - result.step)
+  expect(result.pendingJump).toBe(0)
+})
+
+test('catching the cake in the middle of an elevation step keeps where the step was going', async ({ page }) => {
+  const result = await page.evaluate(async (url) => {
+    const { createSpin, nudgeElevation, startDrag } = await import(url)
+    const spin = createSpin(0)
+    const start = spin.elevation
+    nudgeElevation(spin, 1, true)
+    startDrag(spin, 1, 0, 0, { y: 0, touch: false })
+    return { elevation: spin.elevation, pending: spin.pendingElevation, expected: start + 10 }
+  }, SPIN)
+  expect(result.elevation).toBe(result.expected)
+  expect(result.pending).toBe(0)
+})
+
+test('the elevation also asks for the full frame rate while a step is pending', async ({ page }) => {
+  const result = await page.evaluate(async (url) => {
+    const { createSpin, createTilt, nudgeElevation, stepSpin, needsFullRate } = await import(url)
+    const spin = createSpin(0)
+    const tilt = createTilt()
+    stepSpin(spin, 2, true)
+    const idle = needsFullRate(spin, tilt, true)
+    nudgeElevation(spin, 1, true)
+    const stepping = needsFullRate(spin, tilt, true)
+    for (let i = 0; i < 200; i++) stepSpin(spin, 1 / 60, true)
+    return { idle, stepping, settled: needsFullRate(spin, tilt, true) }
+  }, SPIN)
+  expect(result).toEqual({ idle: false, stepping: true, settled: false })
+})

@@ -3,13 +3,31 @@ import type { Page, Request } from '@playwright/test'
 /**
  * "Diseña tu pastel" sin backend: las opciones de la semilla (`GET cake-designs/options/`, copiadas de la API el
  * 7 de noviembre de 2026, con los mínimos por pisos y los estilos de la vista previa de D50; durazno y fresa con
- * el estilo `fruit_chunks` de D51) y un precio simulado como el del backend: los kilos por personas de la regla 3.1 y la
+ * el estilo `fruit_chunks` de D51; desde D52, los moldes, los estilos nuevos de la fresa con yogurt y la nuez y el
+ * relleno incluido de Choco-pingüino y Red velvet, como los siembran las migraciones `0019` y `0021`; desde D53, las
+ * ocho decoraciones del paso 6 como las dejan la `0023` y la `0024` ("Rosas"), con los precios PENDIENTE) y un precio simulado como el del backend: los kilos por personas de la regla 3.1 y la
  * fórmula de la regla 4.6 con esas cifras, para que las pruebas lean kilos y totales reales ("Desde $1,080") sin
  * Django.
  */
 
 export const OPTIONS_PATH = '**/api/v1/cake-designs/options/'
 export const PRICE_PATH = '**/api/v1/cake-designs/price/'
+
+/** Una decoración de las opciones, con el precio y la disponibilidad que le da el admin (D39). */
+type DecorationFixture = {
+  slug: string
+  name: string
+  description: string
+  pricing: string
+  price: string | null
+  price_pending: boolean
+  requires_quote: boolean
+  available: boolean
+  unavailable_reason: string | null
+  /** Solo las chispas: el sabor o el pan de donde salen su estilo y sus colores. */
+  preview_flavor?: string | null
+  preview_bread?: string | null
+}
 
 export const cakeDesignOptions = {
   "cake_types": [
@@ -36,6 +54,8 @@ export const cakeDesignOptions = {
       "included_filling": "",
       "preview_color": "#F0CE8A",
       "preview_color_bottom": "",
+      "included_filling_preview_style": "smooth",
+      "included_filling_preview_color_secondary": "",
       "allowed_cake_types": [
         "tres_leches",
         "seco",
@@ -58,6 +78,8 @@ export const cakeDesignOptions = {
       "included_filling": "",
       "preview_color": "#805438",
       "preview_color_bottom": "",
+      "included_filling_preview_style": "smooth",
+      "included_filling_preview_color_secondary": "",
       "allowed_cake_types": [
         "tres_leches",
         "seco",
@@ -80,6 +102,8 @@ export const cakeDesignOptions = {
       "included_filling": "",
       "preview_color": "#805438",
       "preview_color_bottom": "#F0CE8A",
+      "included_filling_preview_style": "smooth",
+      "included_filling_preview_color_secondary": "",
       "allowed_cake_types": [
         "tres_leches",
         "seco",
@@ -102,6 +126,8 @@ export const cakeDesignOptions = {
       "included_filling": "Crema de chocolate sabor helado",
       "preview_color": "#603C2A",
       "preview_color_bottom": "",
+      "included_filling_preview_style": "round_chips",
+      "included_filling_preview_color_secondary": "#3A2218",
       "allowed_cake_types": [
         "tres_leches",
         "seco"
@@ -126,6 +152,8 @@ export const cakeDesignOptions = {
       "included_filling": "Relleno típico de red velvet",
       "preview_color": "#B8363A",
       "preview_color_bottom": "",
+      "included_filling_preview_style": "sprinkles",
+      "included_filling_preview_color_secondary": "#C8283A",
       "allowed_cake_types": [
         "seco"
       ],
@@ -295,8 +323,8 @@ export const cakeDesignOptions = {
           "slug": "fresa_yogurt",
           "name": "Fresa con yogurt",
           "preview_color": "#F0A4B2",
-          "preview_style": "smooth",
-          "preview_color_secondary": "",
+          "preview_style": "crumbles",
+          "preview_color_secondary": "#D95F76",
           "is_combinable": false,
           "allowed_cake_types": [
             "tres_leches",
@@ -317,8 +345,8 @@ export const cakeDesignOptions = {
           "slug": "nuez",
           "name": "Nuez",
           "preview_color": "#B08A60",
-          "preview_style": "smooth",
-          "preview_color_secondary": "",
+          "preview_style": "nut_pieces",
+          "preview_color_secondary": "#7A5230",
           "is_combinable": true,
           "allowed_cake_types": [
             "tres_leches",
@@ -511,40 +539,113 @@ export const cakeDesignOptions = {
       "price_pending": false,
       "requires_quote": false,
       "available": true,
-      "unavailable_reason": null
+      "unavailable_reason": null,
+      "preview_flavor": null,
+      "preview_bread": null
     },
     {
       "slug": "duya",
-      "name": "Patrón con duya",
-      "description": "Líneas y festones de crema",
-      "pricing": "fixed",
+      "name": "Borde de conchas",
+      "description": "Conchas de duya estrella arriba y abajo de cada piso",
+      "pricing": "included",
       "price": null,
-      "price_pending": true,
+      "price_pending": false,
       "requires_quote": false,
-      "available": false,
-      "unavailable_reason": "Precio por confirmar"
+      "available": true,
+      "unavailable_reason": null,
+      "preview_flavor": null,
+      "preview_bread": null
+    },
+    {
+      "slug": "rosetones",
+      "name": "Rosetones",
+      "description": "Rosetas en espiral alrededor del borde de arriba",
+      "pricing": "included",
+      "price": null,
+      "price_pending": false,
+      "requires_quote": false,
+      "available": true,
+      "unavailable_reason": null,
+      "preview_flavor": null,
+      "preview_bread": null
+    },
+    {
+      "slug": "festones",
+      "name": "Festones colgantes",
+      "description": "Guirnaldas de crema que cuelgan del borde, con perlitas",
+      "pricing": "included",
+      "price": null,
+      "price_pending": false,
+      "requires_quote": false,
+      "available": true,
+      "unavailable_reason": null,
+      "preview_flavor": null,
+      "preview_bread": null
+    },
+    {
+      "slug": "olanes",
+      "name": "Olanes",
+      "description": "Ondas de crema por el costado, con duya de pétalo",
+      "pricing": "included",
+      "price": null,
+      "price_pending": false,
+      "requires_quote": false,
+      "available": true,
+      "unavailable_reason": null,
+      "preview_flavor": null,
+      "preview_bread": null
     },
     {
       "slug": "flores",
-      "name": "Flores",
-      "description": "Flores hechas con duya",
+      "name": "Rosas",
+      "description": "Rosas de crema hechas con duya",
       "pricing": "fixed",
-      "price": null,
-      "price_pending": true,
+      "price": "120.00",
+      "price_pending": false,
       "requires_quote": false,
-      "available": false,
-      "unavailable_reason": "Precio por confirmar"
+      "available": true,
+      "unavailable_reason": null,
+      "preview_flavor": null,
+      "preview_bread": null
     },
     {
       "slug": "chispas",
-      "name": "Chispas",
-      "description": "Chispas de colores",
-      "pricing": "fixed",
+      "name": "Chispas de capuchino",
+      "description": "Granillo café, como el relleno de capuchino",
+      "pricing": "included",
       "price": null,
-      "price_pending": true,
+      "price_pending": false,
       "requires_quote": false,
-      "available": false,
-      "unavailable_reason": "Precio por confirmar"
+      "available": true,
+      "unavailable_reason": null,
+      "preview_flavor": "capuchino",
+      "preview_bread": null
+    },
+    {
+      "slug": "chispas-chocolate",
+      "name": "Chispas de chocolate",
+      "description": "Chispas redondas de chocolate, como el relleno de Choco-pingüino",
+      "pricing": "included",
+      "price": null,
+      "price_pending": false,
+      "requires_quote": false,
+      "available": true,
+      "unavailable_reason": null,
+      "preview_flavor": null,
+      "preview_bread": "choco_pinguino"
+    },
+    {
+      "slug": "chispas-choco-vainilla",
+      "name": "Chispas choco-vainilla",
+      "description": "Granillo blanco y de chocolate, como el relleno de choco vainilla",
+      "pricing": "included",
+      "price": null,
+      "price_pending": false,
+      "requires_quote": false,
+      "available": true,
+      "unavailable_reason": null,
+      "preview_flavor": "choco_vainilla",
+      "preview_bread": null
     },
     {
       "slug": "otra",
@@ -555,9 +656,11 @@ export const cakeDesignOptions = {
       "price_pending": false,
       "requires_quote": true,
       "available": true,
-      "unavailable_reason": null
+      "unavailable_reason": null,
+      "preview_flavor": null,
+      "preview_bread": null
     }
-  ],
+  ] as DecorationFixture[],
   "limits": {
     "people_per_kg": 7,
     "min_custom_kg": 4,
@@ -589,6 +692,86 @@ export const cakeDesignOptions = {
       "min_kg": 30
     }
   ],
+  "cake_molds": [
+    {
+      "form": "round",
+      "kg": "2.7",
+      "length_cm": "28.0",
+      "width_cm": null
+    },
+    {
+      "form": "round",
+      "kg": "4.0",
+      "length_cm": "34.0",
+      "width_cm": null
+    },
+    {
+      "form": "round",
+      "kg": "6.0",
+      "length_cm": "37.0",
+      "width_cm": null
+    },
+    {
+      "form": "round",
+      "kg": "8.0",
+      "length_cm": "41.0",
+      "width_cm": null
+    },
+    {
+      "form": "round",
+      "kg": "10.0",
+      "length_cm": "47.0",
+      "width_cm": null
+    },
+    {
+      "form": "round",
+      "kg": "12.0",
+      "length_cm": "51.5",
+      "width_cm": null
+    },
+    {
+      "form": "rectangular",
+      "kg": "4.0",
+      "length_cm": "41.0",
+      "width_cm": "26.0"
+    },
+    {
+      "form": "rectangular",
+      "kg": "5.0",
+      "length_cm": "42.0",
+      "width_cm": "28.0"
+    },
+    {
+      "form": "rectangular",
+      "kg": "6.0",
+      "length_cm": "45.4",
+      "width_cm": "29.5"
+    },
+    {
+      "form": "rectangular",
+      "kg": "7.0",
+      "length_cm": "48.0",
+      "width_cm": "33.0"
+    },
+    {
+      "form": "rectangular",
+      "kg": "8.0",
+      "length_cm": "50.0",
+      "width_cm": "33.0"
+    },
+    {
+      "form": "rectangular",
+      "kg": "9.0",
+      "length_cm": "53.5",
+      "width_cm": "41.0"
+    },
+    {
+      "form": "rectangular",
+      "kg": "10.0",
+      "length_cm": "60.0",
+      "width_cm": "44.0"
+    }
+  ],
   "smaller_alternatives": {
     "showcase_cake": {
       "approx_weight_kg": "2.7",
@@ -601,6 +784,18 @@ export const cakeDesignOptions = {
   }
 }
 
+/** Las decoraciones dadas sin precio definido (PENDIENTE): cobro fijo, sin precio y no disponibles (D39). */
+export function withPendingDecorations(slugs: string[]) {
+  return {
+    ...cakeDesignOptions,
+    decorations: cakeDesignOptions.decorations.map((decoration) =>
+      slugs.includes(decoration.slug)
+        ? { ...decoration, pricing: 'fixed', price: null, price_pending: true, available: false, unavailable_reason: 'Precio por confirmar' }
+        : decoration,
+    ),
+  }
+}
+
 type PriceBody = {
   people?: number
   kg?: number
@@ -608,6 +803,7 @@ type PriceBody = {
   bread: string
   filling_base?: string
   filling_flavors?: string[]
+  decoration?: string
   estimate?: boolean
 }
 
@@ -668,7 +864,7 @@ export function sizeFor(people: number) {
  * La respuesta del precio para un cuerpo, como la daría el backend. Una elección que no vale es un 400; con
  * `people`, trae también `size`.
  */
-export function priceResponse(body: PriceBody): { status: number; body: object } {
+export function priceResponse(body: PriceBody, options: typeof cakeDesignOptions = cakeDesignOptions): { status: number; body: object } {
   const size = body.people === undefined ? null : sizeFor(body.people)
   if (size?.above_maximum) {
     const empty = { price_per_kg: null, kg: null, cake_subtotal: null, wafer: null, decoration: null, total: null }
@@ -679,6 +875,11 @@ export function priceResponse(body: PriceBody): { status: number; body: object }
   if (perKg === null || kg < cakeDesignOptions.limits.min_custom_kg || kg > cakeDesignOptions.limits.max_online_kg) {
     return { status: 400, body: { bread: ['Elección no válida.'], ...(size ? { size } : {}) } }
   }
+  // La decoración, como el backend: una de precio fijo sin precio se rechaza; "Otra decoración" no suma y pide cotización.
+  const decoration = body.decoration === undefined ? null : options.decorations.find((option) => option.slug === body.decoration)
+  if (body.decoration !== undefined && !decoration) return { status: 400, body: { decoration: ['Esa decoración no existe o no está disponible.'], ...(size ? { size } : {}) } }
+  if (decoration?.pricing === 'fixed' && decoration.price === null) return { status: 400, body: { decoration: ['Precio por confirmar'], ...(size ? { size } : {}) } }
+  const decorationAmount = decoration?.pricing === 'fixed' ? Number(decoration.price) : 0
   const total = perKg * kg
   return {
     status: 200,
@@ -687,9 +888,9 @@ export function priceResponse(body: PriceBody): { status: number; body: object }
       kg,
       cake_subtotal: money(total),
       wafer: '0.00',
-      decoration: '0.00',
-      total: money(total),
-      requires_quote: false,
+      decoration: money(decorationAmount),
+      total: money(total + decorationAmount),
+      requires_quote: decoration?.requires_quote ?? false,
       is_estimate: body.estimate === true,
       stand: null,
       size,
@@ -698,12 +899,12 @@ export function priceResponse(body: PriceBody): { status: number; body: object }
 }
 
 /** Responde el precio con la fórmula de las reglas y guarda cada cuerpo recibido, en orden. */
-export async function mockCakeDesignPrice(page: Page) {
+export async function mockCakeDesignPrice(page: Page, options: typeof cakeDesignOptions = cakeDesignOptions) {
   const bodies: PriceBody[] = []
   await page.route(PRICE_PATH, async (route) => {
     const body = route.request().postDataJSON() as PriceBody
     bodies.push(body)
-    const response = priceResponse(body)
+    const response = priceResponse(body, options)
     await route.fulfill({ status: response.status, contentType: 'application/json', body: JSON.stringify(response.body) })
   })
   return bodies
