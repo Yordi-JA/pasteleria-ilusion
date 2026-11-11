@@ -14,6 +14,7 @@ from decimal import Decimal
 from .records import (
     BreadRecord,
     CakeDesignSettingsRecord,
+    CakeMoldRecord,
     CoverageColorRecord,
     DecorationRecord,
     DeliveryBandRecord,
@@ -163,6 +164,7 @@ class MemoryCakeOptionRepo:
         coverage_colors: list[CoverageColorRecord] = (),
         decorations: list[DecorationRecord] = (),
         tier_recommendations: list[TierRecommendationRecord] = (),
+        cake_molds: list[CakeMoldRecord] = (),
     ):
         self._breads = list(breads)
         self._filling_bases = list(filling_bases)
@@ -170,6 +172,7 @@ class MemoryCakeOptionRepo:
         self._coverage_colors = list(coverage_colors)
         self._decorations = list(decorations)
         self._tier_recommendations = list(tier_recommendations)
+        self._cake_molds = list(cake_molds)
 
     def list_breads(self) -> list[BreadRecord]:
         return list(self._breads)
@@ -188,6 +191,9 @@ class MemoryCakeOptionRepo:
 
     def list_tier_recommendations(self) -> list[TierRecommendationRecord]:
         return list(self._tier_recommendations)
+
+    def list_cake_molds(self) -> list[CakeMoldRecord]:
+        return list(self._cake_molds)
 
 
 class MemorySettingsRepo:

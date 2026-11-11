@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from ..models import (
     Bread,
+    CakeMold,
     CoverageColor,
     DecorationOption,
     FillingBase,
@@ -12,6 +13,7 @@ from ..models import (
 )
 from .records import (
     BreadRecord,
+    CakeMoldRecord,
     CoverageColorRecord,
     DecorationRecord,
     FillingBaseRecord,
@@ -33,6 +35,8 @@ def list_breads() -> list[BreadRecord]:
             allowed_cake_types=tuple(bread.allowed_cake_types),
             preview_color=bread.preview_color,
             preview_color_bottom=bread.preview_color_bottom,
+            included_filling_preview_style=bread.included_filling_preview_style,
+            included_filling_preview_color_secondary=bread.included_filling_preview_color_secondary,
         )
         for bread in Bread.objects.filter(is_active=True)
     ]
@@ -88,16 +92,29 @@ def list_coverage_colors() -> list[CoverageColorRecord]:
     ]
 
 
+def _decoration_record(decoration: DecorationOption) -> DecorationRecord:
+    # Las opciones desactivadas no se listan: su identificador tampoco se manda como origen de las chispas.
+    # Un sabor solo se ofrece en sus bases activas: sin ninguna, tampoco se encuentra en las opciones.
+    offered = decoration.preview_flavor and decoration.preview_flavor.is_active and any(base.is_active for base in decoration.preview_flavor.bases.all())
+    flavor = decoration.preview_flavor if offered else None
+    bread = decoration.preview_bread if decoration.preview_bread and decoration.preview_bread.is_active else None
+    linked = decoration.preview_flavor is not None or decoration.preview_bread is not None
+    return DecorationRecord(
+        slug=decoration.slug,
+        name=decoration.name,
+        description=decoration.description,
+        pricing=decoration.pricing,
+        price=decoration.price,
+        preview_flavor=flavor.slug if flavor else None,
+        preview_bread=bread.slug if bread else None,
+        preview_source_inactive=linked and flavor is None and bread is None,
+    )
+
+
 def list_decorations() -> list[DecorationRecord]:
     return [
-        DecorationRecord(
-            slug=decoration.slug,
-            name=decoration.name,
-            description=decoration.description,
-            pricing=decoration.pricing,
-            price=decoration.price,
-        )
-        for decoration in DecorationOption.objects.filter(is_active=True)
+        _decoration_record(decoration)
+        for decoration in DecorationOption.objects.filter(is_active=True).select_related("preview_flavor", "preview_bread").prefetch_related("preview_flavor__bases")
     ]
 
 
@@ -109,4 +126,11 @@ def list_tier_recommendations() -> list[TierRecommendationRecord]:
             recommended_max_kg=tier.recommended_max_kg,
         )
         for tier in TierRecommendation.objects.all()
+    ]
+
+
+def list_cake_molds() -> list[CakeMoldRecord]:
+    return [
+        CakeMoldRecord(form=mold.form, kg=mold.kg, length_cm=mold.length_cm, width_cm=mold.width_cm)
+        for mold in CakeMold.objects.all()
     ]

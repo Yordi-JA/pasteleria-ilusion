@@ -19,6 +19,7 @@ from .models import (
     Bread,
     BreadInventory,
     CakeDesignSettings,
+    CakeMold,
     CakeStand,
     CakeType,
     CatalogPrice,
@@ -265,6 +266,28 @@ class BreadForm(forms.ModelForm):
                 "preview_color_bottom",
                 'Un pan de dos colores también lleva el color de arriba ("color en la vista previa"). Escríbelo o borra este.',
             )
+        # Lo mismo que en los sabores: un relleno incluido con trozos y sin su color se vería liso.
+        style = cleaned.get("included_filling_preview_style")
+        # El caso inverso: un pan sin relleno incluido no tiene relleno que dibujar con ese estilo. Un color sin estilo
+        # (liso) no se usa: se borra al guardar para que no quede un dato viejo.
+        if "included_filling" in cleaned and "included_filling_preview_style" in cleaned and not cleaned["included_filling"]:
+            if style and style != FillingPreviewStyle.SMOOTH:
+                self.add_error(
+                    "included_filling_preview_style",
+                    'Este pan no lleva relleno incluido: deja el estilo en "Liso" o escribe su relleno incluido.',
+                )
+        if style == FillingPreviewStyle.SMOOTH and cleaned.get("included_filling_preview_color_secondary"):
+            cleaned["included_filling_preview_color_secondary"] = ""
+        if (
+            style
+            and style != FillingPreviewStyle.SMOOTH
+            and not cleaned.get("included_filling_preview_color_secondary")
+            and "included_filling_preview_color_secondary" not in self.errors
+        ):
+            self.add_error(
+                "included_filling_preview_color_secondary",
+                'Escribe el color de los trozos del relleno incluido o elige el estilo "Liso".',
+            )
         return cleaned
 
 
@@ -317,6 +340,32 @@ class TierRecommendationAdmin(admin.ModelAdmin):
     list_display = ("tiers", "recommended_min_kg")
 
 
+@admin.register(CakeMold)
+class CakeMoldAdmin(admin.ModelAdmin):
+    list_display = ("form", "kg", "length_cm", "width_cm")
+    list_filter = ("form",)
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        # Aviso suave (no bloquea): un molde con más kilos no debería medir menos que uno con menos kilos de su forma.
+        for other in CakeMold.objects.filter(form=obj.form).exclude(pk=obj.pk):
+            bigger = other.kg > obj.kg
+            smaller_in_length = (other.length_cm < obj.length_cm) if bigger else (other.length_cm > obj.length_cm)
+            smaller_in_width = (
+                obj.width_cm is not None
+                and other.width_cm is not None
+                and ((other.width_cm < obj.width_cm) if bigger else (other.width_cm > obj.width_cm))
+            )
+            if (other.kg != obj.kg) and (smaller_in_length or smaller_in_width):
+                self.message_user(
+                    request,
+                    f"Revisa las medidas: el {obj} y el {other} no crecen juntos con los kilos "
+                    "(un molde con más kilos debería medir más). Se guardó igual.",
+                    level=messages.WARNING,
+                )
+                break
+
+
 @admin.register(CoverageColor)
 class CoverageColorAdmin(ReadOnlySlugMixin, admin.ModelAdmin):
     list_display = ("name", "preview_color", "sort_order", "is_active")
@@ -345,6 +394,7 @@ class DecorationOptionAdmin(ReadOnlySlugMixin, admin.ModelAdmin):
     list_display = ("name", "pricing", "price_label", "sort_order", "is_active")
     list_editable = ("sort_order", "is_active")
     list_filter = (PendingPriceFilter, "pricing", "is_active")
+    autocomplete_fields = ("preview_flavor", "preview_bread")
 
     @admin.display(description="precio", ordering="price")
     def price_label(self, obj):

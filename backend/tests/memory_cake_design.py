@@ -13,6 +13,7 @@ from core_pasteleria.repositories.memory import MemoryCakeOptionRepo, MemorySett
 from core_pasteleria.repositories.records import (
     BreadRecord,
     CakeDesignSettingsRecord,
+    CakeMoldRecord,
     CoverageColorRecord,
     DecorationRecord,
     FillingBaseRecord,
@@ -109,8 +110,11 @@ COVERAGE_COLORS = [CoverageColorRecord(slug="rosa", name="Rosa", preview_color="
 
 DECORATIONS = [
     DecorationRecord("ninguna", "Sin decoración", "Solo la cobertura", "included", None),
-    DecorationRecord("duya", "Patrón con duya", "Líneas y festones de crema", "fixed", None),
-    DecorationRecord("flores", "Flores", "Flores hechas con duya", "fixed", None),
+    DecorationRecord("duya", "Borde de conchas", "Conchas de duya estrella arriba y abajo de cada piso", "fixed", None),
+    DecorationRecord("rosetones", "Rosetones", "Rosetas en espiral alrededor del borde de arriba", "fixed", None),
+    DecorationRecord("festones", "Festones colgantes", "Guirnaldas de crema que cuelgan del borde, con perlitas", "fixed", None),
+    DecorationRecord("olanes", "Olanes", "Ondas de crema por el costado, con duya de pétalo", "fixed", None),
+    DecorationRecord("flores", "Rosas", "Rosas de crema hechas con duya", "fixed", None),
     DecorationRecord("chispas", "Chispas", "Chispas de colores", "fixed", None),
     DecorationRecord("otra", "Otra decoración", "Sube una imagen", "quote", None),
 ]
@@ -121,6 +125,11 @@ TIERS = [
     TierRecommendationRecord(3, 18, 20),
     TierRecommendationRecord(4, 25, None),
     TierRecommendationRecord(5, 30, 35),
+]
+
+CAKE_MOLDS = [
+    CakeMoldRecord("round", Decimal("4"), Decimal("34"), None),
+    CakeMoldRecord("rectangular", Decimal("4"), Decimal("41"), Decimal("26")),
 ]
 
 CAKE_DESIGN_SETTINGS = CakeDesignSettingsRecord(
@@ -154,6 +163,7 @@ def cake_option_repo(breads=None, filling_bases=None, filling_prices=None, decor
         coverage_colors=COVERAGE_COLORS,
         decorations=DECORATIONS if decorations is None else decorations,
         tier_recommendations=TIERS,
+        cake_molds=CAKE_MOLDS,
     )
 
 

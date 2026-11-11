@@ -106,6 +106,11 @@ SEED_MIGRATIONS = [
     ("0009_seed_catalog", "seed_catalog"),
     ("0015_seed_cake_preview_styles", "seed"),
     ("0017_seed_fruit_chunks_style", "seed"),
+    ("0019_seed_cake_molds", "seed"),
+    ("0021_seed_filling_styles", "seed"),
+    ("0023_seed_decoration_designs", "seed"),
+    ("0024_seed_rose_decoration", "seed"),
+    ("0026_seed_decoration_prices", "seed"),
 ]
 _db_blocker = None
 

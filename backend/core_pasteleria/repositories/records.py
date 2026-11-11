@@ -73,6 +73,9 @@ class BreadRecord:
     preview_color: str
     # Solo en un pan de dos colores: la mitad de abajo de cada capa.
     preview_color_bottom: str = ""
+    # Solo en un pan con relleno incluido: cómo se ve (siempre sobre crema pastelera blanca) y el color de sus trozos.
+    included_filling_preview_style: str = "smooth"
+    included_filling_preview_color_secondary: str = ""
 
 
 @dataclass(frozen=True)
@@ -112,6 +115,12 @@ class DecorationRecord:
     pricing: str
     # `None` en una decoración de precio fijo: PENDIENTE, nunca se cobra como $0.
     price: Decimal | None
+    # Solo las chispas: el sabor o el pan de donde salen su estilo y sus colores en la vista previa.
+    # Solo se llenan si ese sabor o pan está activo (uno inactivo no se lista).
+    preview_flavor: str | None = None
+    preview_bread: str | None = None
+    # La decoración apunta a un sabor o a un pan que la pastelería desactivó: no hay de dónde dibujarla.
+    preview_source_inactive: bool = False
 
 
 @dataclass(frozen=True)
@@ -121,6 +130,18 @@ class TierRecommendationRecord:
     tiers: int
     recommended_min_kg: int
     recommended_max_kg: int | None
+
+
+@dataclass(frozen=True)
+class CakeMoldRecord:
+    """Un molde de la pastelería (D52): los kilos que rinde y sus medidas en cm."""
+
+    form: str
+    kg: Decimal
+    # El diámetro en un molde redondo; el largo en uno rectangular.
+    length_cm: Decimal
+    # `None` en un molde redondo.
+    width_cm: Decimal | None
 
 
 # --- Configuraciones, bases y envío ---

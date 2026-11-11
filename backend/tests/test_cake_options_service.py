@@ -109,8 +109,10 @@ def test_a_base_without_a_general_price_is_disabled_for_that_type():
 
 def test_decorations_say_why_they_cannot_be_chosen():
     decorations = by_slug(options().decorations)
-    assert [d.slug for d in options().decorations] == ["ninguna", "duya", "flores", "chispas", "otra"]
-    for slug in ("duya", "flores", "chispas"):
+    assert [d.slug for d in options().decorations] == [
+        "ninguna", "duya", "rosetones", "festones", "olanes", "flores", "chispas", "otra",
+    ]
+    for slug in ("duya", "rosetones", "festones", "olanes", "flores", "chispas"):
         assert (decorations[slug].available, decorations[slug].unavailable_reason) == (False, "Precio por confirmar")
         assert (decorations[slug].price, decorations[slug].price_pending) == (None, True)
     assert (decorations["ninguna"].available, decorations["ninguna"].price_pending) == (True, False)
@@ -128,6 +130,7 @@ def test_limits_colors_and_tiers_come_from_the_repositories():
     assert result.limits == data.CAKE_DESIGN_SETTINGS
     assert list(result.coverage_colors) == data.COVERAGE_COLORS
     assert [(t.tiers, t.min_kg) for t in result.tier_minimums] == [(t.tiers, t.recommended_min_kg) for t in data.TIERS]
+    assert result.cake_molds == tuple(data.CAKE_MOLDS)
 
 
 def test_options_are_immutable():

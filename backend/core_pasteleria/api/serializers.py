@@ -72,6 +72,15 @@ class BreadOptionSerializer(serializers.Serializer):
     preview_color_bottom = serializers.CharField(
         help_text="Solo en un pan de dos colores: el del pan que va debajo del relleno en cada piso; vacío si es de un color."
     )
+    included_filling_preview_style = serializers.CharField(
+        help_text=(
+            "Solo en un pan con relleno incluido: lo que lleva encima la crema pastelera blanca en la vista previa. "
+            "Mismos valores que `preview_style` de los sabores; `smooth` si es liso."
+        )
+    )
+    included_filling_preview_color_secondary = serializers.CharField(
+        help_text="Color de los trozos del relleno incluido; vacío si es liso."
+    )
     allowed_cake_types = cake_types()
     unavailable_reasons = reasons_by_cake_type()
     unavailable_codes = codes_by_cake_type()
@@ -88,10 +97,14 @@ class FillingFlavorOptionSerializer(serializers.Serializer):
     preview_style = serializers.CharField(
         help_text=(
             "`smooth` (liso), `fruit_slices` (rebanadas de fruta), `fruit_chunks` (trozos de fruta), "
-            "`cookie_chunks` (trozos de galleta) o `sprinkles` (granillo)."
+            "`cookie_chunks` (trozos de galleta), `sprinkles` (granillo), `crumbles` (grumitos), "
+            "`nut_pieces` (trozos de nuez) o `round_chips` (chispas redondas). Un cliente que no conozca un valor "
+            "lo dibuja liso."
         )
     )
-    preview_color_secondary = serializers.CharField(help_text="Color de los trozos; vacío en un relleno liso.")
+    preview_color_secondary = serializers.CharField(
+        help_text="Color de los trozos; en `crumbles`, el de los grumitos más rojos. Vacío en un relleno liso."
+    )
     is_combinable = serializers.BooleanField()
     allowed_cake_types = cake_types()
     unavailable_reasons = reasons_by_cake_type()
@@ -135,6 +148,12 @@ class DecorationOptionSerializer(serializers.Serializer):
     requires_quote = serializers.BooleanField()
     available = serializers.BooleanField()
     unavailable_reason = serializers.CharField(allow_null=True)
+    preview_flavor = serializers.SlugField(
+        allow_null=True, help_text="Solo las chispas: el sabor de relleno de donde salen su estilo y sus colores."
+    )
+    preview_bread = serializers.SlugField(
+        allow_null=True, help_text="Solo las chispas: el pan cuyo relleno incluido da su estilo y sus colores."
+    )
 
 
 class CakeDesignLimitsSerializer(serializers.Serializer):
@@ -152,6 +171,19 @@ class TierMinimumSerializer(serializers.Serializer):
 
     tiers = serializers.IntegerField()
     min_kg = serializers.IntegerField(help_text="Desde estos kilos se pueden elegir estos pisos.")
+
+
+class CakeMoldSerializer(serializers.Serializer):
+    """Un molde de la pastelería (D52): la vista previa toma de aquí el tamaño del pastel según los kilos."""
+
+    form = serializers.CharField(help_text="`round` o `rectangular`.")
+    kg = serializers.DecimalField(max_digits=4, decimal_places=1, help_text="Kilos que rinde el molde.")
+    length_cm = serializers.DecimalField(
+        max_digits=4, decimal_places=1, help_text="El diámetro en un molde redondo; el largo en uno rectangular."
+    )
+    width_cm = serializers.DecimalField(
+        max_digits=4, decimal_places=1, allow_null=True, help_text="El ancho en un molde rectangular; `null` en uno redondo."
+    )
 
 
 class CakeSizeSerializer(serializers.Serializer):
@@ -179,6 +211,13 @@ class CakeDesignOptionsSerializer(serializers.Serializer):
     limits = CakeDesignLimitsSerializer()
     tier_minimums = TierMinimumSerializer(
         many=True, help_text="Una fila por número de pisos, en orden; el último es el máximo de pisos."
+    )
+    cake_molds = CakeMoldSerializer(
+        many=True,
+        help_text=(
+            "Moldes de la pastelería, de menor a mayor por forma. Solo para la vista previa: la interfaz no "
+            "muestra medidas ni moldes."
+        ),
     )
     smaller_alternatives = SmallerAlternativesSerializer(
         help_text="Pastel de vitrina y pastel mini, para quien pide menos del mínimo (regla 3.1)."

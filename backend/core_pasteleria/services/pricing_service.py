@@ -347,6 +347,15 @@ DECORATION_PRICING_STRATEGIES = {
     DecorationPricing.QUOTE.value: QuoteDecorationPricing(),
 }
 
+# Unas chispas cuyo sabor o pan está desactivado no tienen de dónde dibujarse: no se pueden elegir ni cotizar.
+SPRINKLE_SOURCE_REASON = "No disponible por ahora"
+
+
+def decoration_unavailable_reason(decoration: DecorationRecord) -> str | None:
+    """Por qué no se puede elegir una decoración: lo que diga su estrategia o el origen desactivado de sus chispas."""
+    reason = DECORATION_PRICING_STRATEGIES[decoration.pricing].unavailable_reason(decoration)
+    return reason or (SPRINKLE_SOURCE_REASON if decoration.preview_source_inactive else None)
+
 
 # --- Cálculo ---
 
@@ -417,6 +426,9 @@ def _decoration_charge(slug: str | None, cake_options) -> tuple[Decimal, bool]:
     decoration = next((d for d in cake_options.list_decorations() if d.slug == slug), None)
     if decoration is None:
         _fail("decoration", "Esa decoración no existe o no está disponible.")
+    reason = decoration_unavailable_reason(decoration)
+    if reason == SPRINKLE_SOURCE_REASON:
+        _fail("decoration", reason)
     strategy = DECORATION_PRICING_STRATEGIES[decoration.pricing]
     return strategy.amount(decoration), strategy.requires_quote
 

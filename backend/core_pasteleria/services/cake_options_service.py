@@ -13,12 +13,14 @@ from ..repositories import cake_option_repo, settings_repo
 from ..repositories.records import (
     BreadRecord,
     CakeDesignSettingsRecord,
+    CakeMoldRecord,
     CoverageColorRecord,
     DecorationRecord,
     FillingBaseRecord,
     FillingFlavorRecord,
 )
 from .pricing_service import (
+    decoration_unavailable_reason,
     BREAD_PRICING_STRATEGIES,
     CAKE_TYPE_LABELS,
     DECORATION_PRICING_STRATEGIES,
@@ -51,6 +53,9 @@ class BreadInfo:
     preview_color: str
     # Solo en un pan de dos colores: la mitad de abajo de cada capa; vacío si es de un color.
     preview_color_bottom: str
+    # Solo en un pan con relleno incluido: cómo se ve (siempre sobre crema pastelera blanca) y el color de sus trozos.
+    included_filling_preview_style: str
+    included_filling_preview_color_secondary: str
     # Tipos en que se puede elegir y, para los demás, el motivo.
     allowed_cake_types: tuple[str, ...]
     unavailable_reasons: Mapping[str, str]
@@ -64,7 +69,8 @@ class FillingFlavorInfo:
     slug: str
     name: str
     preview_color: str
-    # `smooth`, `fruit_slices`, `fruit_chunks`, `cookie_chunks` o `sprinkles`, y el color de los trozos.
+    # `smooth`, `fruit_slices`, `fruit_chunks`, `cookie_chunks`, `sprinkles`, `crumbles`, `nut_pieces` o
+    # `round_chips`, y el color de los trozos.
     preview_style: str
     preview_color_secondary: str
     is_combinable: bool
@@ -100,6 +106,8 @@ class DecorationInfo:
     requires_quote: bool
     available: bool
     unavailable_reason: str | None
+    preview_flavor: str | None
+    preview_bread: str | None
 
 
 @dataclass(frozen=True)
@@ -112,6 +120,8 @@ class CakeDesignOptions:
     limits: CakeDesignSettingsRecord
     # Kilos mínimos por número de pisos (regla 3.3, D50): con menos, esos pisos no se eligen.
     tier_minimums: tuple[TierMinimum, ...]
+    # Moldes de la pastelería (D52): la vista previa toma de aquí el tamaño del pastel según los kilos.
+    cake_molds: tuple[CakeMoldRecord, ...]
 
 
 def _by_type(filling_by_type: dict[str, FillingPricing], answer: Callable, types=None) -> Mapping:
@@ -150,6 +160,8 @@ def _bread_info(bread: BreadRecord, filling_by_type: dict[str, FillingPricing]) 
         included_filling=bread.included_filling,
         preview_color=bread.preview_color,
         preview_color_bottom=bread.preview_color_bottom,
+        included_filling_preview_style=bread.included_filling_preview_style,
+        included_filling_preview_color_secondary=bread.included_filling_preview_color_secondary,
         allowed_cake_types=allowed,
         unavailable_reasons=reasons,
         unavailable_codes=codes,
@@ -204,7 +216,7 @@ def _base_info(base: FillingBaseRecord, filling_by_type: dict[str, FillingPricin
 
 def _decoration_info(decoration: DecorationRecord) -> DecorationInfo:
     strategy = DECORATION_PRICING_STRATEGIES[decoration.pricing]
-    reason = strategy.unavailable_reason(decoration)
+    reason = decoration_unavailable_reason(decoration)
     return DecorationInfo(
         slug=decoration.slug,
         name=decoration.name,
@@ -215,6 +227,8 @@ def _decoration_info(decoration: DecorationRecord) -> DecorationInfo:
         requires_quote=strategy.requires_quote,
         available=reason is None,
         unavailable_reason=reason,
+        preview_flavor=decoration.preview_flavor,
+        preview_bread=decoration.preview_bread,
     )
 
 
@@ -246,4 +260,5 @@ def get_cake_design_options(cake_options=cake_option_repo, settings=settings_rep
         tier_minimums=tuple(
             TierMinimum(tier.tiers, tier.recommended_min_kg) for tier in cake_options.list_tier_recommendations()
         ),
+        cake_molds=tuple(cake_options.list_cake_molds()),
     )
