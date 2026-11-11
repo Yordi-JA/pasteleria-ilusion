@@ -10,6 +10,7 @@ import { useCakeDesigner } from '../viewmodels/useCakeDesigner.ts'
 import type { CakeDesignerView } from '../viewmodels/useCakeDesigner.ts'
 import { usePageTitle } from '../viewmodels/usePageTitle.ts'
 import { BreadStep, CakeTypeStep, CoverageStep, FillingStep, UpcomingStep } from './cakeDesigner/ChoiceSteps.tsx'
+import DecorationStep from './cakeDesigner/DecorationStep.tsx'
 import { MobileBar, MobileHint, PriceCard, SummaryCard, SummaryDisclosure } from './cakeDesigner/DesignerAside.tsx'
 import SizeStep from './cakeDesigner/SizeStep.tsx'
 import StepBar from './cakeDesigner/StepBar.tsx'
@@ -107,6 +108,27 @@ function CurrentStep({ designer }: { designer: CakeDesignerView }) {
       )
     case 5:
       return <CoverageStep colors={view.choices.colors} includedFilling={view.choices.includedFilling} onChoose={actions.setCoverage} />
+    case 6:
+      return (
+        <DecorationStep
+          groups={view.choices.decorations}
+          color={view.choices.decorationColor}
+          quote={view.choices.decorationQuote}
+          imagePicker={{
+            image: designer.decorationImage.image,
+            // Tras recargar queda el nombre, pero no la imagen.
+            lostName: designer.decorationImage.image ? null : draft.decorationImageName,
+            error: designer.decorationImage.error,
+            onPick: actions.chooseImage,
+            onRemove: actions.removeImage,
+            onUnreadable: actions.imageUnreadable,
+          }}
+          onChoose={actions.setDecoration}
+          onAutomatic={() => actions.setDecorationColor(null)}
+          onOwnColor={actions.chooseOwnColor}
+          onColor={actions.setDecorationColor}
+        />
+      )
     default:
       return <UpcomingStep />
   }
@@ -127,12 +149,13 @@ function Designer({ designer, hintId }: { designer: CakeDesignerView; hintId: st
             <div className="h-[350px] overflow-hidden rounded-lg border border-relieve bg-betun max-[600px]:h-[220px]">
               <DesignerCake scene={designer.scene} hintId={hintId} />
             </div>
-            <MobileHint visible={designer.scene.status === 'ready'} />
+            <MobileHint visible={designer.scene.status === 'ready'} keyboardFocus={designer.scene.keyboardFocus} />
             <PriceCard
               price={view.price}
               sizeLine={view.sizeLine}
               hintId={hintId}
               sceneReady={designer.scene.status === 'ready'}
+              keyboardFocus={designer.scene.keyboardFocus}
               onRetry={designer.retryPrice}
             />
             <SummaryCard rows={view.summary} />
@@ -167,7 +190,7 @@ function Designer({ designer, hintId }: { designer: CakeDesignerView; hintId: st
   )
 }
 
-/** `/pedido/disena`: "Diseña tu pastel", pasos 1 a 5 (los pasos 6 a 8 llegan en las tandas siguientes). */
+/** `/pedido/disena`: "Diseña tu pastel", pasos 1 a 6 (los pasos 7 y 8 llegan en la tanda siguiente). */
 export default function CakeDesigner() {
   usePageTitle(TITLE)
   const designer = useCakeDesigner()

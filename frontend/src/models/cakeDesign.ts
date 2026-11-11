@@ -35,6 +35,10 @@ export type BreadOption = {
   previewColor: string | null
   /** Solo en un pan de dos colores (choco-vainilla): el del pan que va debajo del relleno. */
   previewColorBottom: string | null
+  /** Solo en un pan con relleno incluido (Choco-pingüino, Red velvet): lo que lleva encima la crema pastelera blanca. */
+  includedFillingStyle: FillingPreviewStyle
+  /** Color de las chispas, los trozos o el granillo del relleno incluido; `null` si es liso. */
+  includedFillingColorSecondary: string | null
   allowedCakeTypes: string[]
   unavailableReasons: ReasonsByCakeType
   unavailableCodes: CodesByCakeType
@@ -43,14 +47,22 @@ export type BreadOption = {
 }
 
 /** Cómo se ve un sabor en la vista previa; lo elige la pastelería en el admin (D50). */
-export type FillingPreviewStyle = 'smooth' | 'fruit_slices' | 'fruit_chunks' | 'cookie_chunks' | 'sprinkles'
+export type FillingPreviewStyle =
+  | 'smooth'
+  | 'fruit_slices'
+  | 'fruit_chunks'
+  | 'cookie_chunks'
+  | 'sprinkles'
+  | 'crumbles'
+  | 'nut_pieces'
+  | 'round_chips'
 
 export type FillingFlavorOption = {
   slug: string
   name: string
   previewColor: string | null
   previewStyle: FillingPreviewStyle
-  /** Color de las rebanadas, los trozos o el granillo; `null` en un relleno liso. */
+  /** Color de las rebanadas, los trozos, el granillo o los grumitos más rojos; `null` en un relleno liso. */
   previewColorSecondary: string | null
   isCombinable: boolean
   allowedCakeTypes: string[]
@@ -76,10 +88,47 @@ export type FillingBaseOption = {
 
 export type CoverageColorOption = { slug: string; name: string; previewColor: string }
 
+/** Cómo se cobra una decoración (regla 6.1): incluida, precio fijo o por cotizar. */
+export type DecorationPricing = 'included' | 'fixed' | 'quote'
+
+/**
+ * Una decoración o un diseño del paso 6 (D53). Los precios llegan de la API: uno fijo sin precio (PENDIENTE) viene no
+ * disponible con "Precio por confirmar" y se activa solo cuando la pastelería lo captura (D39). Qué dibuja la vista
+ * previa y cómo se agrupa lo decide el identificador (`cakeDecorations.ts`).
+ */
+export type DecorationOption = {
+  slug: string
+  name: string
+  description: string
+  pricing: DecorationPricing
+  /** Monto como texto; `null` si no lo lleva o es PENDIENTE. */
+  price: string | null
+  /** Por cotizar: el pedido queda en pausa hasta que la pastelería dé el precio. */
+  requiresQuote: boolean
+  available: boolean
+  unavailableReason: string | null
+  /** Solo las chispas: el sabor de relleno o el pan de donde salen su estilo y sus colores en la vista previa (D54). */
+  previewFlavor: string | null
+  previewBread: string | null
+}
+
 export type CakeDesignLimits = { peoplePerKg: number; minCustomKg: number; maxOnlineKg: number }
 
 /** Kilos mínimos para un número de pisos (regla 3.3, D50): con menos kilos, esos pisos no se eligen. */
 export type TierMinimum = { tiers: number; minKg: number }
+
+/**
+ * Un molde de la pastelería (D52): los kilos que rinde y sus medidas en cm. Solo alimenta el tamaño de la vista previa;
+ * la interfaz no muestra medidas.
+ */
+export type CakeMold = {
+  form: 'round' | 'rectangular'
+  kg: number
+  /** El diámetro en un molde redondo; el largo en uno rectangular. */
+  lengthCm: number
+  /** El ancho en un molde rectangular; `null` en uno redondo. */
+  widthCm: number | null
+}
 
 /** Peso y personas de un pastel del catálogo; `null` es un dato que aún no se define. */
 export type CakeSize = { approxWeightKg: string | null; servings: number | null }
@@ -91,9 +140,12 @@ export type CakeDesignOptions = {
   breads: BreadOption[]
   fillingBases: FillingBaseOption[]
   coverageColors: CoverageColorOption[]
+  decorations: DecorationOption[]
   limits: CakeDesignLimits
   /** Una por número de pisos, en orden; su largo es el máximo de pisos. */
   tierMinimums: TierMinimum[]
+  /** Moldes de la pastelería; vacío si la API no los manda (la vista previa usa un tamaño de respaldo). */
+  cakeMolds: CakeMold[]
   smallerAlternatives: SmallerAlternatives
 }
 
@@ -104,6 +156,8 @@ export type CakeDesignPriceRequest = {
   bread: string
   fillingBase: string | null
   fillingFlavors: string[]
+  /** La decoración elegida y disponible, o `null`. El color no cambia el precio y no va. */
+  decoration: string | null
   /** Total estimado sin sabores todavía: la API cuenta el precio general de la base. */
   estimate: boolean
 }
@@ -143,12 +197,31 @@ type Raw = Record<string, unknown>
 const SLUG = /^[-a-zA-Z0-9_]+$/
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/
 const WEIGHT = /^\d{1,2}(?:\.\d)?$/
+// Kilos y medidas de un molde, con un decimal ("51.5").
+const MOLD_NUMBER = /^\d{1,3}(?:\.\d)?$/
+// Los topes del backend (`MOLD_MAX_KG` y `MOLD_MAX_CM`).
+const MOLD_MAX_KG = 100
+const MOLD_MAX_CM = 150
 // `max_length` de los nombres de las opciones en el backend.
 const MAX_NAME_LENGTH = 120
+const DECORATION_PRICINGS = new Set<string>(['included', 'fixed', 'quote'])
 const BREAD_MODES = new Set<string>(['extra_per_kg', 'full_price_per_kg'])
 const CODES = new Set<string>(['not_offered', 'not_combinable', 'only_in'])
 // Un estilo que esta versión no conoce se ve liso.
-const PREVIEW_STYLES = new Set<string>(['smooth', 'fruit_slices', 'fruit_chunks', 'cookie_chunks', 'sprinkles'])
+const PREVIEW_STYLES = new Set<string>([
+  'smooth',
+  'fruit_slices',
+  'fruit_chunks',
+  'cookie_chunks',
+  'sprinkles',
+  'crumbles',
+  'nut_pieces',
+  'round_chips',
+])
+
+function previewStyle(value: unknown): FillingPreviewStyle {
+  return typeof value === 'string' && PREVIEW_STYLES.has(value) ? (value as FillingPreviewStyle) : 'smooth'
+}
 
 function code(value: unknown): UnavailableCode | null {
   return typeof value === 'string' && CODES.has(value) ? (value as UnavailableCode) : null
@@ -225,6 +298,8 @@ function parseBread(data: unknown): BreadOption | null {
     includedFilling: optionalText(data.included_filling),
     previewColor: color(data.preview_color),
     previewColorBottom: color(data.preview_color_bottom),
+    includedFillingStyle: previewStyle(data.included_filling_preview_style),
+    includedFillingColorSecondary: color(data.included_filling_preview_color_secondary),
     allowedCakeTypes: slugList(data.allowed_cake_types),
     unavailableReasons: textByType(data.unavailable_reasons, name),
     unavailableCodes: textByType(data.unavailable_codes, code) as CodesByCakeType,
@@ -241,7 +316,7 @@ function parseFlavor(data: unknown): FillingFlavorOption | null {
     slug: flavorSlug,
     name: flavorName,
     previewColor: color(data.preview_color),
-    previewStyle: typeof data.preview_style === 'string' && PREVIEW_STYLES.has(data.preview_style) ? (data.preview_style as FillingPreviewStyle) : 'smooth',
+    previewStyle: previewStyle(data.preview_style),
     previewColorSecondary: color(data.preview_color_secondary),
     isCombinable: data.is_combinable === true,
     allowedCakeTypes: slugList(data.allowed_cake_types),
@@ -280,11 +355,49 @@ function parseCoverageColor(data: unknown): CoverageColorOption | null {
   return colorSlug && colorName && preview ? { slug: colorSlug, name: colorName, previewColor: preview } : null
 }
 
+function parseDecoration(data: unknown): DecorationOption | null {
+  if (!isRecord(data)) return null
+  const decorationSlug = slug(data.slug)
+  const decorationName = name(data.name)
+  if (!decorationSlug || !decorationName || typeof data.pricing !== 'string' || !DECORATION_PRICINGS.has(data.pricing)) return null
+  return {
+    slug: decorationSlug,
+    name: decorationName,
+    description: optionalText(data.description),
+    pricing: data.pricing as DecorationPricing,
+    price: money(data.price),
+    requiresQuote: data.requires_quote === true,
+    // Solo un `true` explícito la deja elegir: una opción dudosa no se ofrece.
+    available: data.available === true,
+    unavailableReason: name(data.unavailable_reason),
+    previewFlavor: slug(data.preview_flavor),
+    previewBread: slug(data.preview_bread),
+  }
+}
+
 function parseTier(data: unknown): TierMinimum | null {
   if (!isRecord(data)) return null
   const tiers = count(data.tiers, 1)
   const minKg = count(data.min_kg)
   return tiers !== null && minKg !== null ? { tiers, minKg } : null
+}
+
+function moldNumber(value: unknown): number | null {
+  if (typeof value !== 'string' || !MOLD_NUMBER.test(value)) return null
+  const parsed = Number(value)
+  return parsed > 0 ? parsed : null
+}
+
+function parseMold(data: unknown): CakeMold | null {
+  if (!isRecord(data) || (data.form !== 'round' && data.form !== 'rectangular')) return null
+  const kg = moldNumber(data.kg)
+  const lengthCm = moldNumber(data.length_cm)
+  const widthCm = moldNumber(data.width_cm)
+  // Un dedazo en el admin (kilos o medidas absurdos) no entra: sacaría al pastel de la tarjeta.
+  if (kg === null || lengthCm === null || kg > MOLD_MAX_KG || lengthCm > MOLD_MAX_CM || (widthCm !== null && widthCm > MOLD_MAX_CM)) return null
+  // Un rectangular sin ancho no se puede dibujar; un redondo ignora el ancho.
+  if (data.form === 'rectangular') return widthCm === null ? null : { form: data.form, kg, lengthCm, widthCm }
+  return { form: data.form, kg, lengthCm, widthCm: null }
 }
 
 function parseSize(data: unknown): CakeSize | null {
@@ -316,17 +429,20 @@ export function parseCakeDesignOptions(data: unknown): CakeDesignOptions {
     breads: list(data.breads, parseBread, 'panes'),
     fillingBases: list(data.filling_bases, parseBase, 'bases de relleno'),
     coverageColors: list(data.coverage_colors, parseCoverageColor, 'colores de cobertura'),
+    decorations: list(data.decorations, parseDecoration, 'decoraciones'),
     limits: parseLimits(data.limits),
     // Los pisos van del 1 al máximo, sin huecos: se cortan en el primero que falte.
     tierMinimums: list(data.tier_minimums, parseTier, 'mínimos por pisos')
       .sort((a, b) => a.tiers - b.tiers)
       .filter((tier, index) => tier.tiers === index + 1),
+    // Sin moldes (o con moldes dañados) la vista previa sigue: usa su tamaño de respaldo.
+    cakeMolds: Array.isArray(data.cake_molds) ? list(data.cake_molds, parseMold, 'moldes') : [],
     smallerAlternatives: {
       showcaseCake: isRecord(data.smaller_alternatives) ? parseSize(data.smaller_alternatives.showcase_cake) : null,
       miniCake: isRecord(data.smaller_alternatives) ? parseSize(data.smaller_alternatives.mini_cake) : null,
     },
   }
-  const missing = (['cakeTypes', 'breads', 'fillingBases', 'coverageColors', 'tierMinimums'] as const).filter(
+  const missing = (['cakeTypes', 'breads', 'fillingBases', 'coverageColors', 'decorations', 'tierMinimums'] as const).filter(
     (key) => options[key].length === 0,
   )
   if (missing.length > 0) throw new TypeError(`Faltan opciones de "Diseña tu pastel": ${missing.join(', ')}.`)
@@ -406,6 +522,7 @@ export async function getCakeDesignQuote(request: CakeDesignPriceRequest, signal
     cake_type: request.cakeType,
     bread: request.bread,
     ...(request.fillingBase ? { filling_base: request.fillingBase, filling_flavors: request.fillingFlavors } : {}),
+    ...(request.decoration ? { decoration: request.decoration } : {}),
     ...(request.estimate ? { estimate: true } : {}),
   }
   let data: unknown

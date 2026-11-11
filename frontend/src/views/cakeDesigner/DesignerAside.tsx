@@ -56,10 +56,21 @@ function RejectedPrice({ reason }: { reason: string }) {
   )
 }
 
-type PriceCardProps = { price: PriceView; sizeLine: string; hintId: string; sceneReady: boolean; onRetry: () => void }
+const DRAG_HINT = 'Arrastra el pastel para girarlo.'
+const KEYS_HINT = 'Usa las flechas para girarlo y verlo desde arriba o desde abajo.'
+
+type PriceCardProps = {
+  price: PriceView
+  sizeLine: string
+  hintId: string
+  sceneReady: boolean
+  /** La vista previa tiene el foco del teclado: la pista visible es la de las flechas. */
+  keyboardFocus: boolean
+  onRetry: () => void
+}
 
 /** "Total estimado" de escritorio, bajo la vista previa. En móvil lo sustituye la barra inferior. */
-export function PriceCard({ price, sizeLine, hintId, sceneReady, onRetry }: PriceCardProps) {
+export function PriceCard({ price, sizeLine, hintId, sceneReady, keyboardFocus, onRetry }: PriceCardProps) {
   return (
     <section aria-label="Total estimado" className="flex flex-col gap-3 rounded-lg border border-relieve bg-betun p-6 max-[900px]:hidden">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -69,13 +80,15 @@ export function PriceCard({ price, sizeLine, hintId, sceneReady, onRetry }: Pric
       <p className="text-cuerpo font-semibold">{sizeLine}</p>
       {price.failed && <RetryPrice onRetry={onRetry} />}
       {price.rejectedReason && <RejectedPrice reason={price.rejectedReason} />}
+      {price.note && <p className="text-nota text-mermelada-suave">{price.note}</p>}
       {(price.assumed || sceneReady) && (
         <p className="text-nota text-mermelada-suave">
           {price.assumed}
           {price.assumed && sceneReady && ' '}
-          {/* Describe la vista previa (`aria-describedby`); solo se ve cuando el pastel ya se puede girar. */}
+          {/* Describe la vista previa (`aria-describedby`) con las dos frases; solo se ve cuando el pastel ya se puede girar. */}
           <span id={hintId} className={sceneReady ? '' : 'sr-only'}>
-            Arrastra el pastel para girarlo.
+            <span className={keyboardFocus ? 'sr-only' : ''}>{DRAG_HINT}</span>
+            <span className={keyboardFocus ? '' : 'sr-only'}>{KEYS_HINT}</span>
           </span>
         </p>
       )}
@@ -84,11 +97,11 @@ export function PriceCard({ price, sizeLine, hintId, sceneReady, onRetry }: Pric
 }
 
 /** La pista de la vista previa en móvil, bajo el pastel. La que describe la escena es la del total de escritorio. */
-export function MobileHint({ visible }: { visible: boolean }) {
+export function MobileHint({ visible, keyboardFocus }: { visible: boolean; keyboardFocus: boolean }) {
   if (!visible) return null
   return (
     <p aria-hidden="true" className="hidden text-nota text-mermelada-suave max-[900px]:block">
-      Arrastra el pastel para girarlo.
+      {keyboardFocus ? KEYS_HINT : DRAG_HINT}
     </p>
   )
 }

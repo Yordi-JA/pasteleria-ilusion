@@ -1,11 +1,13 @@
 import type { CakeDesignOptions, CakeSize } from '../models/cakeDesign.ts'
 import type { CakeDesignDraft, CakeForm } from '../models/cakeDesignDraft.ts'
 import { formatPrice } from '../models/money.ts'
+import { decorationColorView, decorationGroups, decorationSummary } from './cakeDecorations.ts'
 import { breadChoices, cakeTypeChoices, coverageChoices, fillingChoices, lowerFirst } from './cakeDesignChoices.ts'
 import {
   conflictSentence,
   conflictTarget,
   continueLabel,
+  DECORATION_STEP,
   DESIGN_STEPS,
   FILLING_STEP,
   firstIncompleteStep,
@@ -53,7 +55,7 @@ export type SummaryRow = {
  * Lo elegido en cada paso confirmado, menos el que se está viendo, como "Tu pastel" del mockup. El relleno incluido
  * se lista sin "Cambiar"; un pan que el tipo de pastel ya no admite dice "Hay que cambiarlo".
  */
-export function summaryRows(draft: CakeDesignDraft, design: DesignDerived, current: number): SummaryRow[] {
+export function summaryRows(draft: CakeDesignDraft, design: DesignDerived, current: number, options: CakeDesignOptions): SummaryRow[] {
   const rows: SummaryRow[] = []
   const shown = (step: number) => step !== current && step <= LAST_BUILT_STEP && (draft.confirmed.includes(step) || isSkipped(step, design))
   if (shown(1)) {
@@ -86,6 +88,8 @@ export function summaryRows(draft: CakeDesignDraft, design: DesignDerived, curre
   if (shown(5) && design.coverage) {
     rows.push({ step: 5, label: DESIGN_STEPS[4].title, value: `Crema pastelera, ${lowerFirst(design.coverage.name)}`, canChange: true })
   }
+  const decoration = shown(DECORATION_STEP) ? decorationSummary(draft, design, options) : null
+  if (decoration) rows.push({ step: DECORATION_STEP, label: DESIGN_STEPS[5].title, value: decoration.value, note: decoration.note, canChange: true })
   return rows
 }
 
@@ -166,10 +170,12 @@ export type PriceView = {
   assumed: string | null
   /** La API rechazó la elección: su primer motivo, sin reintento (repetir daría lo mismo). */
   rejectedReason: string | null
+  /** "No incluye la decoración": con "Otra decoración" el total no la suma hasta que la pastelería dé su precio. */
+  note: string | null
 }
 
 export function priceView(price: PriceState, plan: PricePlan | null, design: DesignDerived): PriceView {
-  const base = { updating: false, failed: false, assumed: null, isFigure: false, rejectedReason: null }
+  const base = { updating: false, failed: false, assumed: null, isFigure: false, rejectedReason: null, note: null }
   if (design.aboveMaximum) return { ...base, amount: 'Por WhatsApp' }
   // Una falla de red (429, 5xx, tiempo agotado) no deja total y ofrece reintentar.
   if (price.failed) return { ...base, amount: 'Sin calcular', failed: true }
@@ -186,7 +192,8 @@ export function priceView(price: PriceState, plan: PricePlan | null, design: Des
     : plan.assumedBase
       ? `Con relleno ${lowerFirst(plan.assumedBase.name)}.`
       : null
-  return { amount: price.estimate ? `Desde ${total}` : total, isFigure: true, updating: price.updating, failed: false, assumed, rejectedReason: null }
+  const note = design.decoration?.requiresQuote ? 'No incluye la decoración: la pastelería te dice su precio.' : null
+  return { amount: price.estimate ? `Desde ${total}` : total, isFigure: true, updating: price.updating, failed: false, assumed, rejectedReason: null, note }
 }
 
 type ViewInput = {
@@ -213,7 +220,7 @@ export function designerView({ draft, design, options, current, price, plan, tie
       // Se puede volver a un paso ya alcanzado; los siguientes y el relleno incluido no se tocan.
       return { number, ...step, status, reachable: number !== current && status !== 'included' && number <= reachableUpTo }
     }),
-    summary: summaryRows(draft, design, current),
+    summary: summaryRows(draft, design, current, options),
     conflict:
       conflict && design.cakeType
         ? { title: conflictSentence(conflict.target, conflict.issue, design.cakeType, options), target: conflict.target, alsoFilling: conflict.alsoFilling }
@@ -227,6 +234,9 @@ export function designerView({ draft, design, options, current, price, plan, tie
       breads: breadChoices(draft, design, options),
       filling: fillingChoices(draft, design, options),
       colors: coverageChoices(draft, options),
+      decorations: decorationGroups(draft, options),
+      decorationColor: decorationColorView(draft, design, options),
+      decorationQuote: Boolean(design.decoration?.requiresQuote),
       includedFilling:
         design.fillingIncluded && design.bread ? { bread: design.bread.name, filling: lowerFirst(design.bread.includedFilling) } : null,
     },
