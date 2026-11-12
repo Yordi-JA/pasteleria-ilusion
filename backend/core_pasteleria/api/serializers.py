@@ -143,9 +143,11 @@ class FillingBaseOptionSerializer(serializers.Serializer):
 
 
 class CoverageColorSerializer(serializers.Serializer):
+    """Nombre de referencia de un color. No limita lo que elige el cliente: la interfaz lo usa para decir "parecido a"."""
+
     slug = serializers.SlugField()
     name = serializers.CharField()
-    preview_color = serializers.CharField()
+    preview_color = serializers.CharField(help_text="El color de referencia, como `#RRGGBB`.")
 
 
 class DecorationOptionSerializer(serializers.Serializer):
@@ -303,11 +305,19 @@ class MessageLayoutSerializer(serializers.Serializer):
         max_length=design_layout.MAX_MESSAGE_LENGTH,
         help_text="La pastelería sugiere hasta 4 palabras; no se bloquea.",
     )
-    color_mode = serializers.ChoiceField(choices=MessageColorMode.choices)
+    color_mode = serializers.ChoiceField(
+        choices=MessageColorMode.choices,
+        error_messages={"invalid_choice": "Elige automático, colores que combinan o elegir un color."},
+    )
     color = serializers.CharField(
         allow_null=True,
         max_length=SLUG_MAX_LENGTH,
-        help_text="`auto`: `null`. `tones`: `deep` o `light`. `list`: un color de la cobertura.",
+        # Un color con espacios o saltos de línea no es `#RRGGBB`: no se recorta para aceptarlo.
+        trim_whitespace=False,
+        help_text=(
+            "`auto`: `null`. `tones`: `deep` o `light`. `custom`: cualquier color como `#RRGGBB` "
+            "(seis dígitos hexadecimales, sin forma corta, sin transparencia ni nombres); el servidor lo guarda en minúsculas."
+        ),
     )
     arrangement = serializers.ChoiceField(choices=MessageArrangement.choices)
     curve = StrictFloatField(min_value=-1, max_value=1)
@@ -322,6 +332,12 @@ class MessageLayoutSerializer(serializers.Serializer):
         if design_layout.has_unsafe_characters(value):
             raise serializers.ValidationError(UNSAFE_TEXT_MESSAGE)
         return value
+
+    def validate(self, attrs):
+        # Un color libre válido se normaliza a minúsculas; uno que no lo es llega tal cual y el servicio lo rechaza.
+        if attrs["color_mode"] == MessageColorMode.CUSTOM:
+            attrs["color"] = design_layout.normalize_hex_color(attrs["color"]) or attrs["color"]
+        return attrs
 
 
 class CakeDesignPriceRequestSerializer(serializers.Serializer):

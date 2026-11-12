@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useNavigate, useSearchParams } from 'react-router'
 import { getCakeDesignOptions } from '../models/cakeDesign.ts'
 import type { CakeDesignOptions, CakeDesignQuote } from '../models/cakeDesign.ts'
-import { emptyDraft, MAX_PEOPLE_INPUT, readDraft, writeDraft } from '../models/cakeDesignDraft.ts'
+import { emptyDraft, MAX_PEOPLE_INPUT, migrateLegacyColors, readDraft, writeDraft } from '../models/cakeDesignDraft.ts'
 import type { CakeDesignDraft, CakeForm } from '../models/cakeDesignDraft.ts'
 import type { Occasion } from '../models/occasion.ts'
 import type { CakeShape, Viewpoint } from '../three/cakeShape.ts'
@@ -11,6 +11,7 @@ import { designPreview } from './cakeDesignPreview.ts'
 import {
   choosableFlavors,
   confirmStep,
+  coverageColor,
   deriveDesign,
   firstIncompleteStep,
   isSkipped,
@@ -87,6 +88,10 @@ export function useCakeDesigner() {
   const { state: optionsState, retry: retryOptions } = useRemoteData(getCakeDesignOptions, OPTIONS_FAILURE)
   const options: CakeDesignOptions | null = optionsState.status === 'ready' ? optionsState.data : null
   const [draft, setDraft] = useState<CakeDesignDraft>(readDraft)
+  // Un borrador viejo guarda los colores como `slug` de la lista: al llegar las opciones se cambian por su código. Se hace al
+  // renderizar, así ninguna petición ni dibujo llega a usar el `slug`.
+  const migrated = options ? migrateLegacyColors(draft, options.coverageColors) : draft
+  if (migrated !== draft) setDraft(migrated)
   const [peopleText, setPeopleText] = useState(() => String(draft.people))
   const [stepError, setStepError] = useState<string | null>(null)
   const decorationImage = useDecorationImage()
@@ -250,10 +255,10 @@ export function useCakeDesigner() {
     },
     [clearImage, options, update],
   )
-  /** `null` es "Automático"; un identificador, ese color de la cobertura. */
+  /** `null` es "Automático"; un `#rrggbb`, ese color. */
   const setDecorationColor = useCallback((decorationColor: string | null) => update((d) => ({ ...d, decorationColor })), [update])
   const chooseOwnColor = useCallback(() => {
-    if (options) update((d) => ({ ...d, decorationColor: d.decorationColor ?? defaultPickedColor(options, d.coverageColor) }))
+    if (options) update((d) => ({ ...d, decorationColor: d.decorationColor ?? defaultPickedColor(coverageColor(d, options)) }))
   }, [options, update])
   const { pick: pickImage } = decorationImage
   const chooseImage = useCallback(

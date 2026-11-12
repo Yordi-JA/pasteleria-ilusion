@@ -175,7 +175,7 @@ export function designPreview({ draft, design, options, current, defaultBread, m
     : looks.length
       ? { flavors: looks, cream: dataColor(design.base?.previewColor) }
       : null
-  const frosting = current >= 5 && design.coverage ? (dataColor(design.coverage.previewColor) ?? undefined) : undefined
+  const frosting = current >= 5 && design.coverage ? (dataColor(design.coverage) ?? undefined) : undefined
 
   // Sin kilos de la API todavía, el pastel se ve como el más chico.
   const { kg, tiers: count } = previewSize(draft, design, options)

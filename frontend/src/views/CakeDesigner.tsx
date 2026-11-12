@@ -109,7 +109,7 @@ function CurrentStep({ designer }: { designer: CakeDesignerView }) {
         />
       )
     case 5:
-      return <CoverageStep colors={view.choices.colors} includedFilling={view.choices.includedFilling} onChoose={actions.setCoverage} />
+      return <CoverageStep color={view.choices.coverage} includedFilling={view.choices.includedFilling} onChoose={actions.setCoverage} />
     case 6:
       return (
         <DecorationStep

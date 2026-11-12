@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { cakeDesignOptions, mockCakeDesignOptions, mockCakeDesignPrice, PRICE_PATH, priceResponse, withPendingWafer } from './support/cake-design.ts'
+import { cakeDesignOptions, COVERAGE_HEX, mockCakeDesignOptions, mockCakeDesignPrice, PRICE_PATH, priceResponse, withPendingWafer } from './support/cake-design.ts'
+import { colorPicker, pickColor } from './support/color-picker.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 
 /**
@@ -22,7 +23,7 @@ const CART_MODULE = '/src/models/cart.ts'
 
 const DRAFT_TO_STEP_7 = {
   people: 105, form: 'round', tiers: 2, cakeType: 'tres_leches', bread: 'chocolate', fillingBase: 'queso',
-  flavorCount: 1, flavors: ['zarzamora'], coverageColor: 'lila', decoration: 'ninguna', confirmed: [1, 2, 3, 4, 5, 6],
+  flavorCount: 1, flavors: ['zarzamora'], coverageColor: COVERAGE_HEX.lila, decoration: 'ninguna', confirmed: [1, 2, 3, 4, 5, 6],
 }
 
 async function seedDraft(page: Page, draft: object) {
@@ -106,12 +107,13 @@ test('the message is drawn in the top view with the handwritten font and black b
   expect(await page.evaluate(() => document.fonts.check('600 40px "Dancing Script"'))).toBe(true)
 })
 
-test('the text color has three modes: automatic black, combining tones and the full list of eleven', async ({ page }) => {
+test('the text color has three modes: automatic black, combining tones and any color from the picker', async ({ page }) => {
   await open(page, 7)
   await addMessage(page)
   const ink = () => editor(page).locator('[data-testid=mensaje-editor] > g').first().getAttribute('fill')
   await expect(card(page).getByRole('radio', { name: /^Automático/ })).toBeChecked()
   expect(await ink()).toBe('#000000')
+  await expect(colorPicker(card(page))).toHaveCount(0)
   await card(page).getByRole('radio', { name: /^Colores que combinan/ }).check()
   await expect(card(page).getByRole('radio', { name: 'Más oscuro' })).toBeChecked()
   await expect(card(page).getByRole('radio', { name: 'Más claro' })).toBeVisible()
@@ -120,12 +122,24 @@ test('the text color has three modes: automatic black, combining tones and the f
   expect(deep).not.toBe('#000000')
   await card(page).getByText('Más claro', { exact: true }).click()
   expect(await ink()).not.toBe(deep)
-  await card(page).getByRole('radio', { name: /^Lista completa/ }).check()
-  const list = card(page).locator('fieldset').filter({ has: page.locator('legend', { hasText: 'Elige el color' }) }).last()
-  await expect(list.getByRole('radio')).toHaveCount(11)
-  await card(page).getByText('Rojo', { exact: true }).click()
+  // "Lista completa" ya no existe: el tercer modo es "Elegir un color", con el selector libre.
+  await expect(card(page).getByRole('radio', { name: /^Lista completa/ })).toHaveCount(0)
+  await card(page).getByRole('radio', { name: /^Elegir un color/ }).check()
+  const picker = colorPicker(card(page))
+  await expect(picker).toBeVisible()
+  // Arranca en el tono más oscuro de la cobertura: el texto no cambia de color al cambiar de modo.
+  expect(await ink()).toBe(deep)
+  await expect(picker.getByTestId('codigo-de-color')).toHaveText(deep!.toUpperCase())
+  await pickColor(card(page), '#d44c48')
   expect(await ink()).toBe('#d44c48')
-  expect((await draftOf(page)).message.color).toEqual({ mode: 'list', value: 'rojo' })
+  expect((await draftOf(page)).message.color).toEqual({ mode: 'custom', value: '#d44c48' })
+  // Cualquier color, no solo los de la lista de la pastelería.
+  await pickColor(card(page), '#12ab9f')
+  expect(await ink()).toBe('#12ab9f')
+  expect((await draftOf(page)).message.color).toEqual({ mode: 'custom', value: '#12ab9f' })
+  await card(page).getByRole('radio', { name: /^Automático/ }).check()
+  expect(await ink()).toBe('#000000')
+  expect((await draftOf(page)).message.color).toEqual({ mode: 'auto', value: null })
 })
 
 test('the contrast notice appears only when the text cannot be read (under 2:1), in the three modes', async ({ page }) => {
@@ -142,14 +156,14 @@ test('the contrast notice appears only when the text cannot be read (under 2:1),
   await expect(notice).toBeVisible()
   await card(page).getByText('Más oscuro', { exact: true }).click()
   await expect(notice).toHaveCount(0)
-  // Lista completa: lila sobre lila casi no se ve; el azul fuerte sí.
-  await card(page).getByRole('radio', { name: /^Lista completa/ }).check()
-  await card(page).getByText('Lila', { exact: true }).click()
+  // Elegir un color: lila sobre lila casi no se ve; el azul fuerte sí.
+  await card(page).getByRole('radio', { name: /^Elegir un color/ }).check()
+  await pickColor(card(page), COVERAGE_HEX.lila)
   await expect(notice).toBeVisible()
-  await card(page).getByText('Azul fuerte', { exact: true }).click()
+  await pickColor(card(page), COVERAGE_HEX.azulfuerte)
   await expect(notice).toHaveCount(0)
   // Un aviso nunca bloquea.
-  await card(page).getByText('Lila', { exact: true }).click()
+  await pickColor(card(page), COVERAGE_HEX.lila)
   await expect(notice).toBeVisible()
   await proceed(page)
   await expect(stepTitle(page)).toHaveText('8. Revisión')
@@ -500,7 +514,7 @@ test('the review shows the backend amounts: order, base apart, total, advance, p
   await expect(breakdown).toContainText('15 kg × $255 por kg')
   await expect(page.getByTestId('monto-cake')).toHaveText('$3,825')
   await expect(breakdown).toContainText('Cobertura de crema pastelera')
-  await expect(breakdown).toContainText('Color: lila')
+  await expect(breakdown).toContainText('Color #CCBAE4, parecido a lila')
   await expect(page.getByTestId('monto-decoration')).toHaveText('+$120')
   await expect(page.getByTestId('monto-message')).toHaveText('Incluido')
   await expect(breakdown).toContainText('Base para 15 kg')
@@ -770,12 +784,12 @@ async function inkStats(page: Page, hex: string) {
 
 test('the message texture is redrawn at its own size: the ink shows in the 3D top view, before and after a longer text or another curve', async ({ page }) => {
   test.setTimeout(120_000)
-  await open(page, 7, { ...DRAFT_TO_STEP_7, coverageColor: 'blanco' })
+  await open(page, 7, { ...DRAFT_TO_STEP_7, coverageColor: COVERAGE_HEX.blanco })
   await expect(page.getByTestId('vista-previa')).toHaveAttribute('data-state', 'ready')
   await expect.poll(() => page.locator('[data-elevation]').first().getAttribute('data-elevation'), { timeout: 15000 }).toBe('78')
   await card(page).getByLabel('Agregar un mensaje').check()
-  await card(page).getByRole('radio', { name: /^Lista completa/ }).check()
-  await card(page).getByText('Rojo', { exact: true }).click()
+  await card(page).getByRole('radio', { name: /^Elegir un color/ }).check()
+  await pickColor(card(page), '#d44c48')
   await card(page).getByLabel('Tu mensaje').fill('Feliz')
   const RED = '#d44c48'
   // Tinta del color elegido, cerca del centro de la tapa (el mensaje está en el centro).
@@ -790,12 +804,12 @@ test('the message texture is redrawn at its own size: the ink shows in the 3D to
   const long = await inkStats(page, RED)
   expect(long.count).toBeGreaterThan(short.count)
   // Otro color de tinta junto con otro texto: la textura nueva trae el color nuevo, no el viejo.
-  await card(page).getByText('Azul fuerte', { exact: true }).click()
+  await pickColor(card(page), '#4a70ba')
   await card(page).getByLabel('Tu mensaje').fill('Feliz cumpleaños Ana María')
   const BLUE = '#4a70ba'
   await expect.poll(async () => (await inkStats(page, BLUE)).count, { timeout: 20000 }).toBeGreaterThan(30)
   expect((await inkStats(page, RED)).count).toBeLessThan(10)
-  await card(page).getByText('Rojo', { exact: true }).click()
+  await pickColor(card(page), RED)
   await card(page).getByLabel('Tu mensaje').fill('Feliz cumpleaños Ana')
   await expect.poll(async () => (await inkStats(page, RED)).count, { timeout: 20000 }).toBeGreaterThan(30)
   // Otra curva: otro lienzo, con las letras en otro lugar.

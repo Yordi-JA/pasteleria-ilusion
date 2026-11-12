@@ -11,8 +11,9 @@ a lo largo o a lo ancho: el lado más largo no pasa del alto carta y el más cor
 si su diámetro no pasa del lado corto. Que la forma no se salga de la tapa lo revisa la vista previa (que conoce el
 molde y su giro); aquí solo se acotan los números.
 """
+import re
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from ..models import MessageArrangement, MessageColorMode, WaferShape
 from ..repositories.records import CakeDesignSettingsRecord
@@ -28,6 +29,8 @@ MAX_MESSAGE_LENGTH = 80
 MIN_MESSAGE_SCALE = 0.05
 MAX_MESSAGE_SCALE = 1.5
 MIN_ARC_CURVE = 0.05
+# Un color libre es siempre `#RRGGBB`: seis dígitos hexadecimales ASCII, sin forma corta, sin alfa y sin nombres CSS.
+HEX_COLOR = re.compile(r"#[0-9a-fA-F]{6}")
 # Colores de la tapa en "Colores que combinan": uno más oscuro y uno más claro del de la cobertura.
 TONE_VALUES = ("deep", "light")
 
@@ -61,7 +64,7 @@ class WaferLayout:
 class MessageLayout:
     text: str
     color_mode: str
-    # `auto`: nada. `tones`: `deep` o `light`. `list`: el `slug` de un color de la cobertura.
+    # `auto`: nada. `tones`: `deep` o `light`. `custom`: un color `#RRGGBB`, en minúsculas.
     color: str | None
     arrangement: str
     # Con `arc`, de -1 a 1: positivo, el texto sube en el centro (como un arco); negativo, baja. Ignorada con `straight`.
@@ -109,13 +112,22 @@ def check_wafer_layout(layout: WaferLayout, wafer: bool, limits: CakeDesignSetti
         )
 
 
-def check_message_layout(layout: MessageLayout, coverage_slugs: set[str]) -> None:
-    """Rechaza un mensaje con un color que no corresponde a su modo."""
+def normalize_hex_color(value: object) -> str | None:
+    """El color `#RRGGBB` en minúsculas, o `None` si no es exactamente eso (`fullmatch`: ni un salto de línea de más)."""
+    if isinstance(value, str) and HEX_COLOR.fullmatch(value):
+        return value.lower()
+    return None
+
+
+def check_message_layout(layout: MessageLayout) -> MessageLayout:
+    """Rechaza un mensaje con un color que no corresponde a su modo; si no, lo devuelve con el color en minúsculas."""
     if layout.color_mode == MessageColorMode.AUTO and layout.color is not None:
         raise DomainValidationError({"message_layout": ["El color automático no lleva un color elegido."]})
     if layout.color_mode == MessageColorMode.TONES and layout.color not in TONE_VALUES:
         raise DomainValidationError({"message_layout": ["Elige el tono más oscuro o el más claro de la cobertura."]})
-    if layout.color_mode == MessageColorMode.LIST and layout.color not in coverage_slugs:
-        raise DomainValidationError({"message_layout": ["Ese color no es de los de la cobertura."]})
+    custom = normalize_hex_color(layout.color) if layout.color_mode == MessageColorMode.CUSTOM else None
+    if layout.color_mode == MessageColorMode.CUSTOM and custom is None:
+        raise DomainValidationError({"message_layout": ["Escribe el color como #RRGGBB, por ejemplo #F0CE8A."]})
     if layout.arrangement == MessageArrangement.ARC and abs(layout.curve) < MIN_ARC_CURVE:
         raise DomainValidationError({"message_layout": ["Un mensaje en arco necesita algo de curva."]})
+    return replace(layout, color=custom) if custom is not None else layout

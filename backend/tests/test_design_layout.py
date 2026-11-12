@@ -63,7 +63,9 @@ def test_a_circle_has_one_diameter():
         {"color_mode": "auto", "color": "deep"},
         {"color_mode": "tones", "color": None},
         {"color_mode": "tones", "color": "lila"},
-        {"color_mode": "list", "color": "no-existe"},
+        {"color_mode": "custom", "color": "no-existe"},
+        {"color_mode": "custom", "color": "#fff"},
+        {"color_mode": "custom", "color": None},
         {"arrangement": "arc", "curve": 0.01},
     ],
 )
@@ -71,6 +73,14 @@ def test_a_message_that_contradicts_itself_is_rejected(changes):
     assert set(errors_of(message_layout=dataclasses.replace(MESSAGE, **changes))) == {"message_layout"}
 
 
-def test_a_message_color_from_the_list_must_be_a_coverage_color():
-    slug = data.COVERAGE_COLORS[0].slug
-    assert price(message_layout=dataclasses.replace(MESSAGE, color_mode="list", color=slug)).total > 0
+@pytest.mark.parametrize("color", ["#f6b8ca", "#F6B8CA", "#000000", "#ffffff", "#7f7f7f"])
+def test_a_custom_message_color_is_any_full_hex_code(color):
+    assert price(message_layout=dataclasses.replace(MESSAGE, color_mode="custom", color=color)).total > 0
+
+
+def test_check_message_layout_returns_the_custom_color_in_lowercase():
+    from core_pasteleria.services.design_layout import check_message_layout
+
+    checked = check_message_layout(dataclasses.replace(MESSAGE, color_mode="custom", color="#F6B8CA"))
+    assert checked.color == "#f6b8ca"
+    assert check_message_layout(MESSAGE) is MESSAGE

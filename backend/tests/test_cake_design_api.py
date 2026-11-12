@@ -9,6 +9,7 @@ from rest_framework.test import APIClient
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from core_pasteleria.api.serializers import MessageLayoutSerializer
 from core_pasteleria.api.parsers import MAX_JSON_BODY_BYTES, BoundedJSONParser, RequestBodyTooLarge
 from core_pasteleria.models import CakeDesignSettings, CakeMold, CakeStand, DecorationOption, PolicySettings
 
@@ -632,6 +633,7 @@ WAFER_LAYOUT = {
     "shape": "sheet", "width_cm": 21.0, "height_cm": 27.0, "rotation_deg": 15, "x": 0.1, "y": -0.2,
     "image_zoom": 1.5, "image_x": 0.25, "image_y": -0.5,
 }
+HEX_MESSAGE = "Escribe el color como #RRGGBB, por ejemplo #F0CE8A."
 MESSAGE_LAYOUT = {
     "text": "Feliz cumpleaños Ana", "color_mode": "tones", "color": "deep", "arrangement": "arc", "curve": 0.6,
     "scale": 0.2, "rotation_deg": 0, "x": 0, "y": -0.7,
@@ -793,7 +795,8 @@ def test_message_layout_fields_have_reasonable_bounds(api, changes):
     [
         ({"color_mode": "auto"}, "El color automático no lleva un color elegido."),
         ({"color_mode": "tones", "color": "lila"}, "Elige el tono más oscuro o el más claro de la cobertura."),
-        ({"color_mode": "list", "color": "deep"}, "Ese color no es de los de la cobertura."),
+        ({"color_mode": "custom", "color": "deep"}, HEX_MESSAGE),
+        ({"color_mode": "custom", "color": None}, HEX_MESSAGE),
         ({"arrangement": "arc", "curve": 0.0}, "Un mensaje en arco necesita algo de curva."),
     ],
 )
@@ -804,12 +807,38 @@ def test_message_color_must_match_its_mode_and_an_arc_needs_curve(api, changes, 
     assert response.json() == {"message_layout": [message]}
 
 
-def test_message_color_accepts_the_modes_and_every_coverage_color(api):
-    colors = [c["slug"] for c in api.get(OPTIONS_URL).json()["coverage_colors"]]
-    assert len(colors) == 11
-    for slug in colors:
-        layout = {**MESSAGE_LAYOUT, "color_mode": "list", "color": slug}
-        assert api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "message_layout": layout}, format="json").status_code == 200
+@pytest.mark.parametrize("color", ["#F6B8CA", "#f6b8ca", "#000000", "#FFFFFF", "#808080", "#0a1B2c"])
+def test_message_color_accepts_any_hex_color_in_custom_mode(api, color):
+    layout = {**MESSAGE_LAYOUT, "color_mode": "custom", "color": color}
+    assert api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "message_layout": layout}, format="json").status_code == 200
+
+
+@pytest.mark.parametrize(
+    "color",
+    ["rosa", "red", "#abc", "#12345", "#1234567", "#12345678", "F6B8CA", "#F6B8CG", " #F6B8CA", "#F6B8CA ", "#F6B8CA\n",
+     "#F6B8CA\u200b", "#１２３４５６", "rgb(1,2,3)", "#", ""],
+)
+def test_message_color_rejects_anything_but_a_full_hex_code(api, color):
+    layout = {**MESSAGE_LAYOUT, "color_mode": "custom", "color": color}
+    response = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "message_layout": layout}, format="json")
+    assert response.status_code == 400
+    assert response.json() in ({"message_layout": [HEX_MESSAGE]}, {"message_layout": {"color": ["Este campo no puede estar en blanco."]}})
+
+
+def test_the_old_list_mode_no_longer_exists(api):
+    layout = {**MESSAGE_LAYOUT, "color_mode": "list", "color": "rosa"}
+    response = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "message_layout": layout}, format="json")
+    assert response.status_code == 400
+    assert response.json() == {"message_layout": {"color_mode": ["Elige automático, colores que combinan o elegir un color."]}}
+
+
+def test_a_custom_message_color_is_saved_in_lowercase():
+    serializer = MessageLayoutSerializer(data={**MESSAGE_LAYOUT, "color_mode": "custom", "color": "#F6B8CA"})
+    assert serializer.is_valid(), serializer.errors
+    assert serializer.validated_data["color"] == "#f6b8ca"
+
+
+def test_message_color_accepts_the_other_modes(api):
     for mode, color in (("auto", None), ("tones", "deep"), ("tones", "light")):
         layout = {**MESSAGE_LAYOUT, "color_mode": mode, "color": color, "arrangement": "straight", "curve": 0}
         assert api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "message_layout": layout}, format="json").status_code == 200

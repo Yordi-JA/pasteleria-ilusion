@@ -375,3 +375,11 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Resultados: el chunk de la escena pasa de 940 757 bytes a 204 894 (brotli) y 248 290 (gzip); el principal, de 402 795 a 102 794 (brotli) y 120 197 (gzip); el CSS, de 34 590 a 6 566 (brotli) y 7 537 (gzip).
 - Pruebas: 37 en `tests/test_spa.py`. La prueba que descomprime el build real falló a propósito con un `.br` corrupto, para comprobar que sí detecta el daño.
 - Cierra la decisión abierta de la compresión, que sale de la tabla. Pendiente 12 resuelto.
+
+### Miércoles 11 de noviembre: colores libres en "Diseña tu pastel" (D57)
+
+- Decisión D57 en [`proyecto/decisiones.md`](proyecto/decisiones.md), rama `feat/disena-colores-libres`, sin desplegar: la cobertura, el color de la decoración con duya o rosas y el texto del mensaje se eligen con un selector libre (`frontend/src/components/ColorPicker.tsx`). La lista de 11 colores queda como nombres de referencia para el "parecido a" de la revisión y del carrito.
+- Backend: migración `0030_coverage_color_reference_names`, que solo cambia nombres y `help_text` en el admin. API: `message_layout.color` acepta `custom` con `#RRGGBB`, y `list` da 400.
+- Compatibilidad: los borradores con el `slug` de un color se migran a su código; las líneas viejas del carrito se descartan y sus imágenes se borran de IndexedDB.
+- Pendientes nuevos en [`pendientes.md`](pendientes.md): la muestra en el carrito, quitar la compatibilidad, los grises claros que se nombran "parecido a blanco" y la sugerencia de dar de alta "Negro" y "Gris". La revalidación de la cobertura y la decoración en el servidor entra en la Etapa 4.
+- Pruebas: `frontend/e2e/color-picker.spec.ts` (26 pruebas). La suite del diseñador y el carrito con 1 worker dio 230 de 230.

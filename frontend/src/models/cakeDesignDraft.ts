@@ -5,6 +5,7 @@
  * empieza de nuevo.
  */
 
+import { normalizeHex } from './color.ts'
 import { defaultMessage, parseMessage, parseWafer } from './cakeDesignLayout.ts'
 import type { MessageLayout, WaferLayout } from './cakeDesignLayout.ts'
 import { displayFileName } from './decorationImage.ts'
@@ -23,10 +24,15 @@ export type CakeDesignDraft = {
   /** "Un sabor" (1) o "Dos sabores" (2); solo cuenta con una base que admite más de uno. */
   flavorCount: 1 | 2
   flavors: string[]
+  /**
+   * El color de la cobertura: `#rrggbb` en minúsculas, libre. `null` mientras no se confirma el paso 5: ahí vale el primero de la
+   * lista de la pastelería. Un borrador viejo trae el `slug` de un color de la lista; `migrateLegacyColors` lo cambia por su
+   * código al cargar las opciones.
+   */
   coverageColor: string | null
   /** La decoración o el diseño elegido en el paso 6 (su identificador). */
   decoration: string | null
-  /** Color de la decoración con duya o de rosas: el identificador de un color de la cobertura, o `null` si es automático. */
+  /** Color de la decoración con duya o de rosas: `#rrggbb` en minúsculas, o `null` si es automático. */
   decorationColor: string | null
   /**
    * Nombre de la imagen de "Otra decoración". La imagen solo vive en la memoria de la pestaña (todavía no hay dónde
@@ -88,6 +94,11 @@ function slugOrNull(value: unknown): string | null {
   return typeof value === 'string' && SLUG.test(value) && value.length <= 80 ? value : null
 }
 
+/** Un color guardado: `#rrggbb` o, en un borrador viejo, el `slug` de la lista de la pastelería (que se migra al cargar las opciones). */
+function colorOrLegacy(value: unknown): string | null {
+  return normalizeHex(value) ?? slugOrNull(value)
+}
+
 function wholeNumber(value: unknown, min: number, max: number): number | null {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= min && value <= max ? value : null
 }
@@ -110,9 +121,9 @@ export function parseDraft(data: unknown): CakeDesignDraft {
     fillingBase: slugOrNull(raw.fillingBase),
     flavorCount: raw.flavorCount === 2 ? 2 : 1,
     flavors: [...new Set(flavors)].slice(0, MAX_FLAVORS),
-    coverageColor: slugOrNull(raw.coverageColor),
+    coverageColor: colorOrLegacy(raw.coverageColor),
     decoration: slugOrNull(raw.decoration),
-    decorationColor: slugOrNull(raw.decorationColor),
+    decorationColor: colorOrLegacy(raw.decorationColor),
     decorationImageName: displayFileName(raw.decorationImageName),
     messageEnabled: raw.messageEnabled === true,
     message: parseMessage(raw.message),
@@ -142,4 +153,31 @@ export function writeDraft(draft: CakeDesignDraft): boolean {
   } catch {
     return false
   }
+}
+
+/** Los colores de la lista de la pastelería, con los que se cambia un `slug` viejo por su código. */
+type ColorReference = { slug: string; previewColor: string }
+
+/**
+ * Cambia por su código `#rrggbb` los colores que un borrador viejo guardó como `slug` de la lista (cobertura, decoración y
+ * mensaje). Un `slug` que ya no está en la lista se descarta: la decoración vuelve a "automático", el mensaje a "negro" y la
+ * cobertura se vuelve a confirmar. Devuelve el mismo objeto si no hay nada que migrar.
+ */
+export function migrateLegacyColors(draft: CakeDesignDraft, references: readonly ColorReference[]): CakeDesignDraft {
+  const isLegacy = (value: string | null): value is string => value !== null && normalizeHex(value) === null
+  const hexOf = (slug: string) => normalizeHex(references.find((reference) => reference.slug === slug)?.previewColor)
+  const message = draft.message.color
+  const legacyMessage = message.mode === 'custom' && isLegacy(message.value)
+  if (!isLegacy(draft.coverageColor) && !isLegacy(draft.decorationColor) && !legacyMessage) return draft
+  let next = draft
+  if (isLegacy(draft.coverageColor)) {
+    const coverageColor = hexOf(draft.coverageColor)
+    next = { ...next, coverageColor, confirmed: coverageColor ? next.confirmed : next.confirmed.filter((step) => step !== 5) }
+  }
+  if (isLegacy(draft.decorationColor)) next = { ...next, decorationColor: hexOf(draft.decorationColor) }
+  if (legacyMessage && message.value) {
+    const hex = hexOf(message.value)
+    next = { ...next, message: { ...next.message, color: hex ? { mode: 'custom', value: hex } : { mode: 'auto', value: null } } }
+  }
+  return next
 }

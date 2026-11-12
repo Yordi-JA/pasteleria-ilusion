@@ -2,6 +2,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp } from '@phosphor-icons/react
 import { useId } from 'react'
 import type { ReactNode } from 'react'
 import ChoiceOption from '../../components/ChoiceOption.tsx'
+import ColorPicker from '../../components/ColorPicker.tsx'
 import { focusRing, focusRingWithin } from '../../components/focus.ts'
 import Notice from '../../components/Notice.tsx'
 import { LAYOUT_BOUNDS } from '../../models/cakeDesignLayout.ts'
@@ -128,7 +129,7 @@ function MessageColor({ view, actions }: { view: LidStepView; actions: LidStepAc
         </div>
       </Group>
       {color.mode === 'tones' && <ColorGrid legend="Elige el tono" name="tono-texto" colors={color.tones} onChoose={actions.setColorValue} />}
-      {color.mode === 'list' && <ColorGrid legend="Elige el color" name="color-lista-texto" colors={color.list} onChoose={actions.setColorValue} />}
+      {color.mode === 'custom' && <ColorPicker legend="Elige el color del texto" value={color.ink} onChange={actions.setColorValue} />}
       {color.lowContrast && (
         <Notice tone="info" title="Se lee poco sobre tu cobertura">
           <p>Este color tiene poco contraste con el de la cobertura. Con el negro se lee mejor, pero puedes dejarlo así.</p>

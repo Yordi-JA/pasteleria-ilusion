@@ -1,9 +1,10 @@
-import type { CakeDesignOptions, CoverageColorOption, DecorationOption } from '../models/cakeDesign.ts'
+import type { CakeDesignOptions, DecorationOption } from '../models/cakeDesign.ts'
 import type { CakeDesignDraft } from '../models/cakeDesignDraft.ts'
+import { normalizeHex } from '../models/color.ts'
 import { formatPrice } from '../models/money.ts'
 import type { CakeDecoration } from '../three/cakeShape.ts'
 import type { Choice } from './cakeDesignChoices.ts'
-import { lowerFirst } from './cakeDesignChoices.ts'
+import { colorPhrase } from './colors.ts'
 import type { DesignDerived } from './cakeDesignSteps.ts'
 import { automaticTones, chosenTones } from './decorationTones.ts'
 import { dataColor, piecesFor } from './fillingPieces.ts'
@@ -120,35 +121,36 @@ export function decorationGroups(draft: CakeDesignDraft, options: CakeDesignOpti
 export type DecorationColorView = {
   /** "Automático": los tonos que saldrían de la cobertura, para mostrarlos. */
   automatic: { checked: boolean; swatches: string[] }
-  /** "Elegir un color": uno de los colores de la cobertura. */
+  /** "Elegir un color": cualquier color, con el selector libre. */
   pick: { checked: boolean }
-  colors: { value: string; label: string; color: string; checked: boolean }[]
+  /** El color que muestra el selector: el elegido o, mientras es automático, el tono principal de la cobertura. */
+  value: string
   /** Lo que no cambia con el color, por ejemplo las hojas de las rosas. */
   note: string | null
 }
 
-/** El color elegido de la lista de la cobertura; uno que ya no existe cuenta como automático. */
-export function pickedColor(draft: CakeDesignDraft, options: CakeDesignOptions): CoverageColorOption | null {
-  return options.coverageColors.find((color) => color.slug === draft.decorationColor) ?? null
+/** El color libre elegido (`#rrggbb`); `null` es automático (también un valor que no es un color, de un borrador viejo sin migrar). */
+export function pickedColor(draft: CakeDesignDraft): string | null {
+  return normalizeHex(draft.decorationColor)
 }
 
 /**
- * El primer color distinto del de la cobertura: con él arranca "Elegir un color". Con una sola opción, esa; la lista
- * nunca está vacía (sin colores, la pantalla no carga).
+ * Con qué color arranca "Elegir un color": el tono principal que ya se veía en automático, así la vista previa no salta al
+ * cambiar de modo. `null` si todavía no hay cobertura.
  */
-export function defaultPickedColor(options: CakeDesignOptions, coverageSlug: string | null): string {
-  return (options.coverageColors.find((color) => color.slug !== coverageSlug) ?? options.coverageColors[0]).slug
+export function defaultPickedColor(coverage: string | null): string | null {
+  return coverage ? automaticTones(coverage).main : null
 }
 
 /** El selector de color de la duya y de las rosas; `null` si la decoración elegida no lleva color. */
-export function decorationColorView(draft: CakeDesignDraft, design: DesignDerived, options: CakeDesignOptions): DecorationColorView | null {
+export function decorationColorView(draft: CakeDesignDraft, design: DesignDerived): DecorationColorView | null {
   if (!hasColor(design.decoration) || !design.coverage) return null
-  const picked = pickedColor(draft, options)
-  const tones = automaticTones(design.coverage.previewColor)
+  const picked = pickedColor(draft)
+  const tones = automaticTones(design.coverage)
   return {
     automatic: { checked: picked === null, swatches: [tones.main, tones.accent] },
     pick: { checked: picked !== null },
-    colors: options.coverageColors.map((color) => ({ value: color.slug, label: color.name, color: color.previewColor, checked: picked?.slug === color.slug })),
+    value: picked ?? tones.main,
     note: groupOf(design.decoration?.slug ?? '') === 'roses' ? 'Las hojitas siempre van en verde.' : null,
   }
 }
@@ -182,8 +184,8 @@ export function decorationShape(draft: CakeDesignDraft, design: DesignDerived, o
   const kind = decoration?.available ? (KNOWN[decoration.slug]?.kind ?? null) : null
   if (!decoration || !cover || !kind) return null
   if (kind === 'sprinkles') return sprinklesShape(decoration, options)
-  const picked = pickedColor(draft, options)
-  const tones = picked ? chosenTones(picked.previewColor) : automaticTones(cover.previewColor)
+  const picked = pickedColor(draft)
+  const tones = picked ? chosenTones(picked) : automaticTones(cover)
   if (kind === 'roses') return { kind, petals: tones.petals, leaf: 'exito' }
   return { kind, main: tones.main, accent: tones.accent }
 }
@@ -194,6 +196,15 @@ export function decorationSummary(draft: CakeDesignDraft, design: DesignDerived,
   if (!decoration) return null
   if (decoration.requiresQuote) return { value: draft.decorationImageName ? `${decoration.name}, ${draft.decorationImageName}` : decoration.name, note: 'Por cotizar' }
   if (!hasColor(decoration)) return { value: decoration.name }
-  const picked = pickedColor(draft, options)
-  return { value: `${decoration.name}, color ${picked ? lowerFirst(picked.name) : 'automático'}` }
+  const picked = pickedColor(draft)
+  return { value: `${decoration.name}, color ${picked ? colorPhrase(picked, options.coverageColors) : 'automático'}` }
+}
+
+/** Las muestras del color de la decoración: el color elegido o, en automático, los dos tonos que salen de la cobertura. Sin color, ninguna. */
+export function decorationSwatches(draft: CakeDesignDraft, design: DesignDerived): string[] | undefined {
+  if (!hasColor(design.decoration) || !design.decoration?.available || !design.coverage) return undefined
+  const picked = pickedColor(draft)
+  if (picked) return [picked]
+  const tones = automaticTones(design.coverage)
+  return [tones.main, tones.accent]
 }

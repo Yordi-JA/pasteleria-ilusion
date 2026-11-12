@@ -1,9 +1,11 @@
-import type { CakeDesignOptions, CoverageColorOption } from '../models/cakeDesign.ts'
+import type { CakeDesignOptions } from '../models/cakeDesign.ts'
 import type { MessageLayout, WaferLayout, WaferShape } from '../models/cakeDesignLayout.ts'
 import type { CakeDesignDraft } from '../models/cakeDesignDraft.ts'
 import { TIER_EDGE_UNITS } from '../models/cakeDesignLayout.ts'
+import { displayHex } from '../models/color.ts'
 import type { CakeLid } from '../three/cakeShape.ts'
 import { clampCm, tierSizes, UNITS_PER_CM } from './cakeMolds.ts'
+import { colorPhrase } from './colors.ts'
 import { fitWafer, initialWafer } from './lidGeometry.ts'
 import type { Lid } from './lidGeometry.ts'
 import { BASELINE_BELOW_CENTER, fitMessage, messageGeometry } from './messageGeometry.ts'
@@ -59,7 +61,8 @@ export type LoadedImage = { element: HTMLImageElement; width: number; height: nu
 
 type LidInput = {
   draft: CakeDesignDraft
-  coverage: CoverageColorOption | null
+  /** El color de la cobertura (`#rrggbb`). */
+  coverage: string | null
   options: CakeDesignOptions
   lid: Lid
   metrics: MessageMetrics
@@ -95,7 +98,7 @@ export function cakeLidShape({ draft, coverage, options, lid, metrics, waferImag
       baselineCm: BASELINE_BELOW_CENTER * geometry.fontSizeCm,
       fontFamily: MESSAGE_FONT_FAMILY,
       fontWeight: MESSAGE_FONT_WEIGHT,
-      color: messageInk(message.color, coverage, options),
+      color: messageInk(message.color, coverage),
       bounds: geometry.bounds,
       rotation: message.rotation,
       x: message.x * lid.radius,
@@ -112,10 +115,24 @@ export function shapeLabel(shape: WaferShape) {
   return SHAPE_LABELS[shape]
 }
 
-/** El texto de "Tu pastel" para el paso 7: "Mensaje: Feliz cumpleaños Ana. Oblea: círculo, foto.jpg", o que no lleva ninguno. */
-export function lidSummary(draft: CakeDesignDraft): string {
+/**
+ * El color del mensaje en palabras, o `null` en el automático (negro, que no hace falta decir): "color #A1B2C3, parecido a rosa" o
+ * "color más oscuro de tu cobertura, #6B2A47".
+ */
+export function messageColorPhrase(draft: CakeDesignDraft, coverage: string | null, references: CakeDesignOptions['coverageColors']): string | null {
+  const { mode, value } = draft.message.color
+  const ink = messageInk(draft.message.color, coverage)
+  if (mode === 'custom') return `color ${colorPhrase(ink, references)}`
+  if (mode === 'tones') return `color ${value === 'light' ? 'más claro' : 'más oscuro'} de tu cobertura, ${displayHex(ink)}`
+  return null
+}
+
+/** El texto de "Tu pastel" para el paso 7: "Mensaje: Feliz cumpleaños Ana, color #A1B2C3. Oblea: círculo, foto.jpg", o que no lleva ninguno. */
+export function lidSummary(draft: CakeDesignDraft, coverage: string | null, references: CakeDesignOptions['coverageColors']): string {
   const parts: string[] = []
-  if (draft.messageEnabled && draft.message.text.trim() !== '') parts.push(`Mensaje: ${draft.message.text.trim()}`)
+  if (draft.messageEnabled && draft.message.text.trim() !== '') {
+    parts.push(['Mensaje: ' + draft.message.text.trim(), messageColorPhrase(draft, coverage, references)].filter(Boolean).join(', '))
+  }
   if (draft.waferEnabled) parts.push(`Oblea: ${[draft.wafer ? shapeLabel(draft.wafer.shape) : null, draft.waferImageName].filter(Boolean).join(', ')}`.replace(/: $/, ''))
   return parts.length ? parts.join('. ') : 'Sin mensaje ni oblea'
 }

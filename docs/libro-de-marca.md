@@ -211,6 +211,7 @@ Seis dibujos propios, cada uno tomado de algo real de la pastelería: la vela de
 - Contenido que se despliega dentro de una opción (la dirección de entrega, el mensaje, la oblea): en escritorio lleva sangría para alinearse con el texto junto al radio; en móvil (hasta 600 px) no lleva sangría y usa el mismo margen de 16 px que la tarjeta, para que los campos aprovechen el ancho.
 - Tarjetas anidadas en móvil: la exterior baja su relleno a 16 px, porque cada nivel suma margen y los campos terminan apretados a la derecha.
 - Los ejemplos de los campos caben completos en el ancho móvil ("Ej. Insurgentes Sur 1234", no "Ej. Av. Insurgentes Sur 1234, int. 5").
+- Selector de color libre (`frontend/src/components/ColorPicker.tsx`, D57), para la cobertura (paso 5), la decoración (paso 6) y el texto del mensaje (paso 7): una muestra de 80 px con borde `relieve`; el código elegido en `tabular-nums` con su etiqueta en `nota` y `mermelada-suave`; tres barras (tono, intensidad y claridad) de 44 px de alto con borde `relieve`, cada una con una perilla de 32 px con borde `betun` y anillo `mermelada`; y el campo "Código del color", con los mismos estilos que cualquier campo de formulario. La muestra y las barras muestran el color de la comida, no un color de la interfaz; todo lo demás sale de los tokens. Con el teclado, las flechas mueven de uno en uno y Shift con flecha, de diez en diez. No tiene animaciones, así que respeta `prefers-reduced-motion`.
 
 ## Formularios
 

@@ -211,9 +211,27 @@ Las opciones no disponibles **se muestran desactivadas con su motivo; nunca desa
 
 ## 5. Cobertura (paso 5)
 
-- Solo **crema pastelera**; lo que se elige es el **color**.
-- Colores: Amarillo, Blanco, Azul fuerte, Azul claro, Verde, Naranja, Café, Turquesa, Rojo, Rosa, Lila.
+- Solo **crema pastelera**; lo que se elige es el **color**, y puede ser cualquier color. El cliente lo elige con un selector libre (tono, intensidad y claridad, o el código `#RRGGBB`). Elegir un color no cuesta extra (D57).
+- Al entrar al paso, la cobertura arranca en el primer color activo de la lista de nombres de referencia (abajo). Si esa lista está vacía, nada queda elegido hasta que el cliente elija un color.
 - Se recomienda **un solo color**. Para varios colores o diseños específicos → envío de referencia.
+
+La pastelería edita la lista de nombres de referencia en el admin ("nombres de color de referencia"). La lista no limita lo que se elige: sirve para decir "parecido a <nombre>" en la revisión y en el carrito. Los nombres desactivados no se usan. La semilla trae estos:
+
+| Nombre | Color de referencia |
+|---|---|
+| Amarillo | `#FAE496` |
+| Blanco | `#FFFBFB` |
+| Azul fuerte | `#4A70BA` |
+| Azul claro | `#B0D0EC` |
+| Verde | `#A6CE98` |
+| Naranja | `#F6B06C` |
+| Café | `#9C6E50` |
+| Turquesa | `#6ECAC6` |
+| Rojo | `#D44C48` |
+| Rosa | `#F6B8CA` |
+| Lila | `#CCBAE4` |
+
+El nombre es el del color de la lista más cercano al elegido, medido en OKLab, y solo se da si la distancia es de 0.25 o menos (`MAX_NAME_DISTANCE` en `frontend/src/viewmodels/colors.ts`). Si ningún nombre está tan cerca, la revisión muestra solo la muestra y el código. Con la semilla, el negro no tiene nombre, y un gris claro desde alrededor de `#ABABAB` se nombra "parecido a blanco" (ver D57).
 
 ---
 
@@ -239,7 +257,7 @@ Si la pastelería deja una decoración de precio fijo sin precio en el admin (PE
 **Color (patrón con duya y rosas).** El cliente elige entre dos modos:
 
 - **Automático** (por defecto): la decoración toma el color de la cobertura y usa otros tonos del mismo color, uno más oscuro y otro más claro, para que contraste y quede en armonía (con cobertura lila, flores en lila profundo y lila claro).
-- **Elegir un color:** uno de los 11 colores de la cobertura (sección 5).
+- **Elegir un color:** cualquier color, con el mismo selector libre que la cobertura (sección 5). No cuesta extra.
 
 Las hojas de las rosas siempre van en verde. Las chispas no llevan selector: su estilo y sus colores salen del relleno que copian (sabor o pan), que la pastelería edita en el admin. El color elegido se guarda con el diseño y llega al pedido. Los tonos automáticos son colores de la vista previa, no de la interfaz; su criterio está en D53.
 
@@ -249,7 +267,7 @@ Las hojas de las rosas siempre van en verde. Las chispas no llevan selector: su 
 
 - Opcional, sin costo. La pastelería sugiere **máximo 4 palabras** (ej. "Feliz cumpleaños Ana"). La interfaz muestra un contador que sugiere ese máximo y **no bloquea**: con más palabras dice "Es más largo de lo que recomendamos; puedes dejarlo así.". El texto admite hasta 80 caracteres (límite técnico, `design_layout.py`).
 - La letra es siempre cursiva a mano alzada (Dancing Script). Solo se usa para el texto sobre el pastel, nunca en la interfaz.
-- **Color del texto:** con los mismos modos que la decoración (sección 6.1). "Automático" es negro y va por omisión; "Colores que combinan" son el tono más oscuro y el más claro de la cobertura; "Lista completa" son los 11 colores de la sección 5. Si el contraste del texto con la cobertura baja de 2:1, la interfaz muestra un aviso informativo que no bloquea el pedido.
+- **Color del texto:** con los mismos modos que la decoración (sección 6.1). "Automático" es negro y va por omisión; "Colores que combinan" son el tono más oscuro y el más claro de la cobertura; "Elegir un color" es cualquier color, con el selector libre de la sección 5. Si el contraste del texto con la cobertura baja de 2:1, la interfaz muestra un aviso informativo que no bloquea el pedido.
 - El texto puede ir **recto o en arco**, con una curva ajustable. Se mueve, escala y gira sobre la tapa.
 
 ### 6.3 Oblea

@@ -1,6 +1,7 @@
 import { CaretDown } from '@phosphor-icons/react'
 import { Link } from 'react-router'
 import Button from '../../components/Button.tsx'
+import ColorSwatches from '../../components/ColorSwatches.tsx'
 import { focusRing } from '../../components/focus.ts'
 import type { PriceView, SummaryRow } from '../../viewmodels/cakeDesignSummary.ts'
 
@@ -151,6 +152,7 @@ function SummaryList({ rows }: { rows: SummaryRow[] }) {
           <div className="flex min-w-0 flex-col">
             <p className="text-nota text-mermelada-suave">{row.label}</p>
             <p className="text-cuerpo font-semibold">{row.value}</p>
+            {row.swatches && <ColorSwatches colors={row.swatches} className="mt-1" />}
             {row.note && <p className="text-nota font-semibold text-mermelada">{row.note}</p>}
           </div>
           {row.canChange && (

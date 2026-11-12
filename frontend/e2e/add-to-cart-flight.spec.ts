@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
 import { mockCatalog } from './support/catalog.ts'
-import { cakeDesignOptions, mockCakeDesignOptions, mockCakeDesignPrice } from './support/cake-design.ts'
+import { cakeDesignOptions, COVERAGE_HEX, mockCakeDesignOptions, mockCakeDesignPrice } from './support/cake-design.ts'
 import { fullStoreInfo, mockStoreInfo } from './support/store-info.ts'
 
 /**
@@ -14,7 +14,7 @@ test.use({ viewport: { width: 1440, height: 900 } })
 
 const DRAFT_TO_STEP_8 = {
   people: 105, form: 'round', tiers: 2, cakeType: 'tres_leches', bread: 'chocolate', fillingBase: 'queso',
-  flavorCount: 1, flavors: ['zarzamora'], coverageColor: 'lila', decoration: 'ninguna', confirmed: [1, 2, 3, 4, 5, 6, 7],
+  flavorCount: 1, flavors: ['zarzamora'], coverageColor: COVERAGE_HEX.lila, decoration: 'ninguna', confirmed: [1, 2, 3, 4, 5, 6, 7],
 }
 
 const pearls = (page: Page) => page.getByTestId('perla-carrito')

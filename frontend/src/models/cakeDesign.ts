@@ -86,6 +86,7 @@ export type FillingBaseOption = {
   flavors: FillingFlavorOption[]
 }
 
+/** Un nombre de referencia de la pastelería: no limita los colores que se eligen, solo da el "parecido a". */
 export type CoverageColorOption = { slug: string; name: string; previewColor: string }
 
 /** Cómo se cobra una decoración (regla 6.1): incluida, precio fijo o por cotizar. */
@@ -480,7 +481,8 @@ export function parseCakeDesignOptions(data: unknown): CakeDesignOptions {
     cakeTypes: list(data.cake_types, parseCakeType, 'tipos de pastel'),
     breads: list(data.breads, parseBread, 'panes'),
     fillingBases: list(data.filling_bases, parseBase, 'bases de relleno'),
-    coverageColors: list(data.coverage_colors, parseCoverageColor, 'colores de cobertura'),
+    // La lista ya no limita ningún color: es la tabla de nombres del "parecido a". Vacía o dañada, el diseño sigue sin ella.
+    coverageColors: Array.isArray(data.coverage_colors) ? list(data.coverage_colors, parseCoverageColor, 'nombres de color') : [],
     decorations: list(data.decorations, parseDecoration, 'decoraciones'),
     limits: parseLimits(data.limits),
     // Los pisos van del 1 al máximo, sin huecos: se cortan en el primero que falte.
@@ -494,7 +496,7 @@ export function parseCakeDesignOptions(data: unknown): CakeDesignOptions {
       miniCake: isRecord(data.smaller_alternatives) ? parseSize(data.smaller_alternatives.mini_cake) : null,
     },
   }
-  const missing = (['cakeTypes', 'breads', 'fillingBases', 'coverageColors', 'decorations', 'tierMinimums'] as const).filter(
+  const missing = (['cakeTypes', 'breads', 'fillingBases', 'decorations', 'tierMinimums'] as const).filter(
     (key) => options[key].length === 0,
   )
   if (missing.length > 0) throw new TypeError(`Faltan opciones de "Diseña tu pastel": ${missing.join(', ')}.`)
