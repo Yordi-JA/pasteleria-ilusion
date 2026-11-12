@@ -46,7 +46,7 @@ Detalles de la configuración:
 - Las fuentes se cargan con `@font-face` en `src/index.css` desde `assets/fuentes/`, sin copiarlas. Vite las empaqueta con hash en el build y `vite.config.ts` permite servir esa carpeta en desarrollo (`server.fs.allow`). `server.fs.allow` incluye también `../assets/logos`, para los logos del marco, y `../design/tokens.json`, para los colores de la escena 3D. `optimizeDeps.include` lleva `three` y `@react-three/fiber`: sin eso, Vite los descubre al pedir el chunk diferido y recarga la página.
 - El servidor de desarrollo escucha en `127.0.0.1:5173` y reenvía `/api` a `http://127.0.0.1:8000` (la API vive en el mismo origen, D15).
 - El linter es oxlint (`.oxlintrc.json`), el que trae la plantilla de Vite. Sin Prettier.
-- `npm run build` deja el sitio en `frontend/dist/` (ignorada por Git).
+- `npm run build` deja el sitio en `frontend/dist/` (ignorada por Git). Al final corre `scripts/compress-dist.mjs`, que escribe las variantes `.br` y `.gz` junto a cada archivo de texto de 1 KiB o más (no `.html`); WhiteNoise las sirve según `Accept-Encoding` (D56).
 - `public/` trae lo que va en la raíz del sitio sin hash: `favicon.svg` (el símbolo sin metadatos; si cambia `assets/logos/ilusion-simbolo.svg`, se vuelve a copiar), `favicon.ico`, `apple-touch-icon.png` y `robots.txt`. Vite los copia al build y WhiteNoise los sirve antes que el respaldo de la SPA. Las fotos de producto irán en `public/fotos/` (D32, D47).
 
 ## Comandos

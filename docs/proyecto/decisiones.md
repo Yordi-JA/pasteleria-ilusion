@@ -734,6 +734,28 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
     - Chunks después del cambio: `index` de 420.40 kB a 478.33 kB (144.83 kB con gzip) y `CakeScene` de 956.83 kB a 958.14 kB (257.39 kB con gzip).
     - Producción: hace falta la migración `0029` en Heroku. Los pendientes de revisión y de la oblea están en [`../pendientes.md`](../pendientes.md).
 
+### D56. Compresión de los assets del build (brotli y gzip)
+
+- **Fecha:** 11 de noviembre de 2026.
+- **Decisión:**
+    - `frontend/scripts/compress-dist.mjs` corre al final de `npm run build` (`frontend/package.json`). No tiene dependencias de npm: usa `node:zlib`. Genera una variante `.br` (calidad máxima) y otra `.gz` (nivel 9) junto a cada original de `frontend/dist/`, para `.js`, `.css`, `.svg`, `.ico`, `.txt`, `.json`, `.webmanifest` y `.xml` de 1 KiB o más. No comprime `.html`. Escribe una variante solo si es más chica que el original; si no lo es, borra la variante vieja que quedó de un build anterior.
+    - WhiteNoise sirve esas variantes según `Accept-Encoding`, con `Vary: Accept-Encoding` y caché inmutable para `/assets/` (`backend/config/settings.py`, con `WHITENOISE_ROOT = frontend/dist` cuando el directorio existe). `index.html` (834 bytes) se sirve sin comprimir y con `no-cache` desde `config/views.py` (`spa_index`).
+    - Heroku no cambia: `heroku-postbuild` del `package.json` de la raíz ya corre `npm run build`, así que el paso de compresión corre en cada despliegue.
+    - `brotli==1.2.1` va solo en `backend/requirements-dev.txt`. Lo usa la prueba que descomprime las variantes del build real (`tests/test_spa.py`). Producción no lo instala.
+- **Contexto:** El chunk de la escena 3D pesaba 940 kB sin comprimir y WhiteNoise no comprime lo que sirve del build de Vite (pendiente 12 de [`../pendientes.md`](../pendientes.md)). La decisión abierta "Compresión de los assets del build" queda resuelta y sale de la tabla.
+- **Resultados (tamaños en bytes):**
+
+| Archivo | Sin comprimir | Brotli | Gzip |
+| --- | --- | --- | --- |
+| Chunk de la escena 3D | 940 757 | 204 894 | 248 290 |
+| Principal | 402 795 | 102 794 | 120 197 |
+| CSS | 34 590 | 6 566 | 7 537 |
+
+- **Alternativas descartadas:**
+    - `CompressedStaticFilesStorage` en `collectstatic`: `frontend/dist/` no pasa por `collectstatic`. Meterlo ahí obligaría a servir el build bajo `/static/` y a cambiar `base` de Vite, lo que rompe `robots.txt` y los favicons de la raíz.
+    - Un plugin de Vite para comprimir: sería una dependencia nueva de npm.
+- **Consecuencias:** `tests/test_spa.py` suma 37 pruebas de la compresión. Una de ellas comprueba que el build corre el script, y otra descomprime las variantes del build real y compara cada una con su original. Esa prueba falló a propósito con un `.br` corrupto, para confirmar que sí detecta el daño. La respuesta de un `.js` con `Accept-Encoding: br` sale con `Content-Encoding: br`, y sin variantes, el original. Para correr la prueba del build real hace falta `brotli` (`pip install -r requirements-dev.txt`) y un `npm run build` previo.
+
 ## Decisiones abiertas
 
 | Tema | Detalle | Se resuelve |
@@ -747,7 +769,6 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 | Endurecimiento de la sesión y de las credenciales | Pendientes de D28: una CSP (antes de las pantallas de acceso y pago), una llave de firma de JWT separada de `SECRET_KEY`, una sesión más corta en el admin y programar `flushexpiredtokens` y `axes_reset_logs`. La caché compartida, `NUM_PROXIES` obligatorio y django-axes ya quedaron (D33 y D34) | CSP antes de los endpoints de acceso de la Etapa 3; el resto con el despliegue |
 | Bloqueo por IP en el login de clientes | django-axes aplica a todo `authenticate()`. Con el bloqueo por IP sola (D34), 5 fallos de cualquier cliente detrás de una IP compartida (los operadores móviles usan CGNAT) bloquearían una hora a todos los clientes de esa IP. Opción: bloqueo por IP sola solo en `/admin/` y por IP + correo en la API, con el límite por IP a cargo del throttling | Al diseñar el login de la Etapa 3 |
 | Almacenamiento de las fotos de los clientes | Heroku borra el disco de la app en cada reinicio, así que las fotos de referencia, las imágenes de "otra decoración" y las obleas no pueden guardarse en `backend/media/` en producción. Opciones: un almacenamiento externo (por ejemplo, S3 o Cloudinary) o guardarlas en la base de datos | Antes de las subidas (Etapa 4) |
-| Compresión de los assets del build | WhiteNoise no comprime lo que sirve desde el build de Vite. El chunk de la escena 3D (D48) pesa 932 kB sin comprimir y 248 kB con gzip; se resuelve en el PR `chore/compresion-assets`, justo después de D48 (decisión del usuario). Opciones: un plugin de compresión en Vite o pasar el build por `collectstatic` | Etapa 3, cuando entre react-three-fiber |
 | Preguntas del catálogo para la pastelería | Unidad del pan para encargos de hoy, pan de cada pastel de vitrina, sabores y minis en vitrina, Mosaico con yogurt, vitrina frente a rebanadas, peso que cuenta para el envío gratis y base de 26 a 50 kg (D32) | Cuando responda la pastelería |
 | Refresh anterior a un cambio de contraseña | SimpleJWT lo renueva aunque el access que entrega recibe 401 (D28). La vista de refresh puede rechazarlo de forma explícita | Etapa 3, con el acceso |
 | Envío gratis con 15 kg o más a más de 15 km | Pregunta para la pastelería ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 8) | Cuando responda la pastelería |

@@ -211,6 +211,8 @@ Todo lo que cambia por entorno o es secreto se lee de variables de entorno (`.en
 
 Un solo servicio (D26): Django sirve el build de React y la API bajo `/api`, en el mismo origen. Heroku Postgres aporta `DATABASE_URL`; Heroku Scheduler programará los comandos periódicos.
 
+El build ya comprime (D56): `npm run build` deja `.br` y `.gz` junto a los archivos de `frontend/dist/` y WhiteNoise los sirve según `Accept-Encoding`, sin cambios en Heroku. `brotli` está solo en `requirements-dev.txt` (lo usa `tests/test_spa.py`); producción no lo instala.
+
 ### Estructura del monorepo
 
 Heroku detecta los buildpacks desde la raíz del repositorio, así que ahí viven los archivos de despliegue:

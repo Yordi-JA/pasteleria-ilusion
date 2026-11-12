@@ -368,3 +368,10 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Al "Agregar al pedido", una perla de duya vuela al carrito en 550 ms (`CartFlightContext`, `CartPearls.tsx`); con "reducir movimiento" no vuela.
 - Pruebas: 1 207 de pytest. E2E nuevas: `e2e/cake-designer-lid.spec.ts` y `e2e/add-to-cart-flight.spec.ts`. Antes de la perla, la suite completa con 2 workers dio 390 de 391; la que falló (`cake-designer.spec.ts:955`) pasó sola. Con la perla, 2 workers dieron 22 fallas por tiempo con WebGL por software, que pasan con 1 worker; la suite completa con 1 worker queda en la descripción del PR.
 - Revisión en un teléfono real: los pendientes de animación y de rendimiento del 3D y de la decoración quedan resueltos. La lista de la Etapa 4 que dejó la auditoría de seguridad está en [`pendientes.md`](pendientes.md).
+
+### Miércoles 11 de noviembre: compresión del build (D56)
+
+- Decisión D56 en [`proyecto/decisiones.md`](proyecto/decisiones.md), rama `chore/compresion-assets`, sin desplegar: `frontend/scripts/compress-dist.mjs` corre al final de `npm run build` y escribe variantes `.br` y `.gz` junto a cada archivo de `dist/` que pese 1 KiB o más. WhiteNoise las sirve según `Accept-Encoding`.
+- Resultados: el chunk de la escena pasa de 940 757 bytes a 204 894 (brotli) y 248 290 (gzip); el principal, de 402 795 a 102 794 (brotli) y 120 197 (gzip); el CSS, de 34 590 a 6 566 (brotli) y 7 537 (gzip).
+- Pruebas: 37 en `tests/test_spa.py`. La prueba que descomprime el build real falló a propósito con un `.br` corrupto, para comprobar que sí detecta el daño.
+- Cierra la decisión abierta de la compresión, que sale de la tabla. Pendiente 12 resuelto.
