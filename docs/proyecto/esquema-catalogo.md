@@ -163,9 +163,9 @@ Copia la tabla 4.5 de las reglas.
 - Restricciones: `UniqueConstraint(form, kg)`; `0 < kg <= 100` y `0 < length_cm <= 150` (la migración `0022` los agregó también como validadores del formulario; con el tope, el `CheckConstraint` rechaza un `NaN`); un redondo no lleva ancho; un rectangular lleva ancho de 0 a 150 cm. El admin avisa, sin bloquear, si un molde rompe el orden creciente de medidas de su forma.
 - Lo editan en el admin (la pastelería agrega un molde cuando compra uno) y lo lee la vista previa de "Diseña tu pastel" para dar el tamaño del pastel según los kilos. La API los entrega en `GET cake-designs/options/` como `cake_molds`. La migración `0019` siembra los moldes con `get_or_create` por forma y kilos.
 
-### `CoverageColor` ("color de cobertura"), hereda de `OrderedOption`
+### `CoverageColor` ("nombre de color de referencia"), hereda de `OrderedOption`
 
-- `name` y `slug` únicos; `preview_color` CharField(7) **obligatorio**. La cobertura "crema pastelera" es una sola opción y no lleva tabla.
+- `name` y `slug` únicos; `preview_color` CharField(7) **obligatorio**, el "color de referencia" en `#RRGGBB`. Desde D57 es una tabla de nombres de referencia: no limita el color de la cobertura, de la decoración ni del texto del mensaje, que son libres. Sirve para el "parecido a <nombre>", con el color más cercano si la distancia es de 0.25 o menos. La cobertura "crema pastelera" es una sola opción y no lleva tabla.
 
 ### `DecorationOption` ("decoración"), hereda de `OrderedOption`
 
@@ -263,7 +263,7 @@ Una sola tabla, porque las reglas la nombran así para los dos usos.
 | Fresa con yogurt no se combina | `FillingFlavor.is_combinable = False` |
 | Combinado solo con base Normal, máximo 2 sabores, +$5/kg | `FillingBase.max_flavors` y `combined_extra_per_kg` |
 | Precio por kilo por tipo, base y sabor especial | `FillingPrice` |
-| Los 11 colores de cobertura | `CoverageColor` |
+| Nombres de referencia de color para el "parecido a"; la cobertura y la decoración son de cualquier color (D57) | `CoverageColor` |
 | Decoraciones; "otra" lleva a `awaiting_quote` | `DecorationOption` |
 | Mensaje: sugerencia de 4 palabras; oblea $125 tamaño carta | `CakeDesignSettings` |
 | Depósitos y "siguiente base más grande"; 15 días | `CakeStand` + servicio; `PolicySettings.stand_return_days` |

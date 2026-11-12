@@ -43,7 +43,7 @@ Lo construido está en D53 ([`proyecto/decisiones.md`](proyecto/decisiones.md)),
     - guardarla con un nombre de `uuid4`, y conservar el nombre original solo como metadato limpio (sin caracteres de control ni de formato), solo para mostrarlo;
     - entregarla únicamente al dueño del pedido o al personal, por un endpoint con permisos, con `Content-Disposition`, `X-Content-Type-Options: nosniff` y CSP;
     - limitar las subidas por usuario y por IP (`ScopedRateThrottle`);
-    - revalidar en el servidor `decoration`, `decorationColor`, `tiers` y `form` (el color debe ser uno de los de la cobertura o `null`);
+    - revalidar en el servidor `decoration`, `decorationColor`, `tiers` y `form` (el color de la decoración debe ser `#rrggbb` o `null`, D57);
     - si se agrega una CSP, permitir `img-src blob:` para la miniatura de la imagen local.
 
 ## Diseña tu pastel: pasos 7 y 8 (D55)
@@ -65,6 +65,15 @@ Lo construido está en D55 ([`proyecto/decisiones.md`](proyecto/decisiones.md)),
 8. Contexto seguro. `crypto.randomUUID()` solo existe en contexto seguro. En desarrollo, abrir el sitio por `http://<IP>:5173` lo rompe: usa `http://localhost:5173` o un túnel.
 9. Migración `0029_wafer_price_pending_and_advance_percent` en Heroku antes del despliegue de D55.
 
+## Colores libres de "Diseña tu pastel" (D57)
+
+Lo construido está en D57 ([`proyecto/decisiones.md`](proyecto/decisiones.md)), en la rama `feat/disena-colores-libres`, sin desplegar. Quedan estos puntos:
+
+1. La pantalla del carrito debe mostrar la muestra de color de cada diseño cuando se construya. Hoy la línea solo lleva los códigos y el "parecido a" en `details`.
+2. Quitar la compatibilidad con `list` y con los `slug` de color cuando caduquen los borradores y los carritos viejos. Los TODO están en `frontend/src/models/cakeDesignLayout.ts` (`parseColor`) y en `frontend/src/models/cart.ts` (`hasLegacyColors`).
+3. Sugerencia para la dueña: dar de alta "Negro" y "Gris" en el admin ("nombres de color de referencia"), para que el negro y los grises tengan nombre en el "parecido a". Con la lista de la semilla, medida el 11 de noviembre de 2026, también salen mal nombrados el vino (`#800000`) y el verde oscuro (`#006400`), que dan "parecido a café", y el rosa intenso (`#ff69b4`), que da "parecido a rojo": la lista no tiene colores oscuros ni un rosa intenso. Se corrige agregando esos nombres en el admin, sin cambiar código.
+4. Grises claros. Con la lista de la semilla, un gris desde alrededor de `#ABABAB` se nombra "parecido a blanco", porque su distancia a "Blanco" baja de 0.25; el negro y los grises más oscuros no tienen nombre. Falta decidir si eso es lo que se quiere. El umbral está en `MAX_NAME_DISTANCE` (`frontend/src/viewmodels/colors.ts`).
+
 ## Etapa 4: lo que dejó la auditoría de seguridad de D55
 
 Lo recomienda la auditoría de seguridad del diseño (D55). Son requisitos de la Etapa 4, no trabajo de esta rama.
@@ -83,3 +92,7 @@ Lo recomienda la auditoría de seguridad del diseño (D55). Son requisitos de la
     - throttle;
     - tope de 10 MB en el servidor. La interfaz revisa 5 MB; las dos cifras están por confirmar.
 7. Una imagen de 40 megapíxeles tarda en decodificarse en un teléfono. Hay que decodificarla a escala reducida (`createImageBitmap` con `resize`) o bajar el límite a unos 12 megapíxeles para la oblea.
+8. El pedido exige `coverage_color` como `#rrggbb` y `decoration_color` como `#rrggbb` o `null`, con el mismo `normalize_hex_color` y `trim_whitespace=False` que `message_layout.color` (D57). La cobertura y la decoración no pasan por el servidor hoy.
+9. Volver a correr `check_message_layout` y guardar el color normalizado (en minúsculas).
+10. El servidor calcula el "parecido a" y el texto descriptivo. Nunca guarda ni muestra al personal el `details` del cliente.
+11. Al pintar el color en el admin o en los correos, usar `format_html` con el valor validado.

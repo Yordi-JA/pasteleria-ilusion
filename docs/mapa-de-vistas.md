@@ -105,6 +105,8 @@ Los estados (cargando, error, vacío, agotado) no son rutas propias: son la mism
 
 Nota sobre los pasos 7 y 8 (D55, implementados en `feat/disena-mensaje-y-oblea`). En el paso 8 no hay "Total estimado" ni "Tu pastel" bajo la vista previa, porque repetían la tarjeta de revisión; en su lugar, cada renglón lleva "Cambiar" (pastel al paso 1, cobertura al 5, decoración al 6, mensaje y oblea al 7). En móvil no hay "Ver tu pastel" ni barra fija, y "Agregar al pedido" queda al final de la tarjeta. El paso 8 no lleva vela: el pastel 3D de la vista previa ya no tiene vela en ningún paso. La cámara es de 78° en el paso 7 y de 32° en el paso 8.
 
+Nota sobre los pasos 5 a 8 (D57, en `feat/disena-colores-libres`). El mockup muestra la lista de los 11 colores de la cobertura. El sitio no la usa para elegir: en el paso 5 (cobertura), en el paso 6 (decoración, "Elegir un color") y en el paso 7 (texto del mensaje, "Elegir un color") el cliente elige con el selector libre (`frontend/src/components/ColorPicker.tsx`). La lista queda en el admin como nombres de referencia para el "parecido a" de la revisión (paso 8) y del carrito.
+
 ## Estados de carga, error y legales
 
 | Vista | Ruta sugerida | Fuente | Escritorio | Móvil |
