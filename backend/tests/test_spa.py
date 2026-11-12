@@ -1,4 +1,7 @@
 """Respaldo de la SPA de React y servicio del build, con un `dist/` falso."""
+import gzip
+import json
+
 import pytest
 from django.test import Client
 
@@ -175,6 +178,66 @@ def test_real_build_ships_robots_and_the_favicons(settings):
         pytest.skip("No hay build en frontend/dist")
     for url in ROOT_FILES:
         assert (dist / url.lstrip("/")).is_file(), f"Falta {url} en el build"
+
+
+@pytest.fixture
+def compressed_web(dist):
+    """Como `frontend/scripts/compress-dist.mjs`: variantes `.br` y `.gz` junto al original."""
+    (dist / "assets" / "app-12345678.js.br").write_bytes(b"br-falso")
+    (dist / "assets" / "app-12345678.js.gz").write_bytes(b"gzip-falso")
+    return Client()
+
+
+@pytest.mark.parametrize(
+    ("accept", "encoding", "body"),
+    [("br, gzip", "br", b"br-falso"), ("gzip", "gzip", b"gzip-falso")],
+)
+def test_build_assets_use_the_precompressed_variant(compressed_web, accept, encoding, body):
+    response = compressed_web.get(ASSET, headers={"accept-encoding": accept})
+    assert response["Content-Encoding"] == encoding
+    assert b"".join(response.streaming_content) == body
+    assert "Accept-Encoding" in response["Vary"]
+    assert "immutable" in response["Cache-Control"]
+
+
+def test_build_assets_without_accept_encoding_are_served_as_is(compressed_web):
+    response = compressed_web.get(ASSET)
+    assert "Content-Encoding" not in response
+    assert "Accept-Encoding" in response["Vary"]
+    assert b"".join(response.streaming_content) == b"console.log(1)"
+
+
+def test_accept_encoding_br_on_a_file_without_variants_returns_the_original(web):
+    response = web.get(ASSET, headers={"accept-encoding": "br"})
+    assert response.status_code == 200
+    assert "Content-Encoding" not in response
+    assert b"".join(response.streaming_content) == b"console.log(1)"
+
+
+def test_build_script_runs_the_compression(settings):
+    # No depende de que `dist/` sea reciente: si el paso sale del build, esta falla.
+    package = json.loads((settings.BASE_DIR.parent / "frontend" / "package.json").read_text(encoding="utf-8"))
+    assert "compress-dist.mjs" in package["scripts"]["build"]
+
+
+def test_real_build_variants_match_their_originals(settings):
+    """Valida las variantes del último `npm run build` (el script `compress-dist.mjs`)."""
+    dist = settings.FRONTEND_DIST
+    if not (dist / "index.html").is_file():
+        pytest.skip("No hay build en frontend/dist")
+    brotli = pytest.importorskip("brotli")
+    variants = [p for p in dist.rglob("*") if p.suffix in (".br", ".gz")]
+    for variant in variants:
+        original = variant.with_suffix("")
+        assert original.is_file(), f"{variant.name} no tiene original"
+        assert original.suffix not in (".br", ".gz"), f"{variant.name} es una variante de una variante"
+        decompress = gzip.decompress if variant.suffix == ".gz" else brotli.decompress
+        data = decompress(variant.read_bytes())
+        assert data == original.read_bytes(), f"{variant.name} no coincide con su original"
+        assert variant.stat().st_size < original.stat().st_size
+    biggest = max((dist / "assets").glob("*.js"), key=lambda p: p.stat().st_size)
+    assert biggest.with_name(biggest.name + ".br").is_file()
+    assert biggest.with_name(biggest.name + ".gz").is_file()
 
 
 def test_without_a_build_the_site_routes_are_404(settings, tmp_path):
