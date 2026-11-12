@@ -117,6 +117,28 @@ class CakeShape(models.TextChoices):
     RECTANGULAR = "rectangular", "Rectangular"
 
 
+class WaferShape(models.TextChoices):
+    """Forma de la oblea del paso 7: una hoja (con ancho y alto propios) o un círculo."""
+
+    SHEET = "sheet", "Hoja"
+    CIRCLE = "circle", "Círculo"
+
+
+class MessageArrangement(models.TextChoices):
+    """Cómo se escribe el mensaje sobre la tapa: en línea recta o siguiendo un arco."""
+
+    STRAIGHT = "straight", "Recto"
+    ARC = "arc", "En arco"
+
+
+class MessageColorMode(models.TextChoices):
+    """De dónde sale el color del mensaje: negro, un tono de la cobertura o uno de sus 11 colores."""
+
+    AUTO = "auto", "Automático"
+    TONES = "tones", "Colores que combinan"
+    LIST = "list", "Lista completa"
+
+
 class ProductCategory(models.TextChoices):
     """Filtros fijos del catálogo (Todo, Pasteles, Postres)."""
 
@@ -371,7 +393,15 @@ class CakeDesignSettings(SingletonSettings):
         help_text="PROPUESTA: falta que la pastelería lo valide.",
     )
     wafer_price = models.DecimalField(
-        "precio de la oblea", max_digits=8, decimal_places=2
+        "precio de la oblea",
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text=(
+            "Vacío es PENDIENTE: la oblea se muestra desactivada con «Precio por confirmar» "
+            "y no se puede pedir. Con 0 la oblea no cuesta."
+        ),
     )
     wafer_max_width_cm = models.DecimalField(
         "ancho máximo de la oblea (cm)", max_digits=4, decimal_places=1
@@ -465,6 +495,15 @@ class PolicySettings(SingletonSettings):
     """Políticas de la pastelería que el admin puede editar."""
 
     stand_return_days = models.PositiveSmallIntegerField("días para devolver la base")
+    advance_percent = models.PositiveSmallIntegerField(
+        "porcentaje de anticipo",
+        default=50,
+        db_default=50,
+        help_text=(
+            "Qué parte del pedido se paga hoy; el resto, el día de la entrega. "
+            "El depósito de la base y el envío no entran: se pagan completos, aparte."
+        ),
+    )
     damaged_stand_policy = models.TextField(
         "qué pasa si la base regresa dañada",
         blank=True,
@@ -483,6 +522,11 @@ class PolicySettings(SingletonSettings):
                 condition=Q(stand_return_days__gt=0),
                 name="policysettings_return_days_positive",
                 violation_error_message="Los días para devolver la base deben ser más de 0.",
+            ),
+            models.CheckConstraint(
+                condition=Q(advance_percent__gte=1) & Q(advance_percent__lte=100),
+                name="policysettings_advance_percent_range",
+                violation_error_message="El anticipo debe estar entre 1% y 100%.",
             ),
         ]
 

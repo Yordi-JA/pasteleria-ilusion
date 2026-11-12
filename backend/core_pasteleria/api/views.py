@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 from ..services import (
     cake_options_service,
     catalog_service,
+    payment_summary,
     pricing_service,
     store_info_service,
     warranty_service,
@@ -73,8 +74,8 @@ class CakeDesignPriceView(PublicReadOnlyView):
         operation_id="cake_design_price",
         summary='Precio de un diseño de "Diseña tu pastel"',
         description=(
-            "Calcula el desglose con las cifras vigentes y el depósito de la base, que va aparte "
-            "del total. No guarda nada. Ignora cualquier monto que mande el cliente; forma y "
+            "Calcula el desglose con las cifras vigentes, el depósito de la base, que va aparte "
+            "del total, y lo que se paga hoy y el día de la entrega (`payment`). No guarda nada. Ignora cualquier monto que mande el cliente; forma y "
             "pisos no cambian el precio. El tamaño va como `people` (el servidor calcula los "
             "kilos y los devuelve en `size`, con el mínimo y el máximo en línea) o como `kg`. "
             "Con más personas de las que se piden en línea responde 200 con los montos en `null` "
@@ -132,7 +133,9 @@ class CakeDesignPriceView(PublicReadOnlyView):
             size = pricing_service.size_for_people(data["people"])
             if size.above_maximum:
                 # Solo se validó el formato: con más personas de las que se piden en línea no hay precio que revisar.
-                return Response(CakeDesignPriceSerializer({"breakdown": None, "stand_deposit": None, "size": size}).data)
+                return Response(
+                    CakeDesignPriceSerializer({"breakdown": None, "stand_deposit": None, "payment": None, "size": size}).data
+                )
         choice = serializer.to_choice(size.kg if size else data["kg"])
         price = pricing_service.estimate_price if data["estimate"] else pricing_service.calculate_price
         # El precio y la base se revisan los dos, para devolver todos los
@@ -147,8 +150,11 @@ class CakeDesignPriceView(PublicReadOnlyView):
                 raise ValidationError(error.errors) from error
             # Los errores por campo y, aparte, los kilos ya calculados (no son un error: van tal cual).
             return Response({**error.errors, "size": PeopleSizeSerializer(size).data}, status=status.HTTP_400_BAD_REQUEST)
+        payment = payment_summary.payment_for_design(breakdown, stand_deposit)
         return Response(
-            CakeDesignPriceSerializer({"breakdown": breakdown, "stand_deposit": stand_deposit, "size": size}).data
+            CakeDesignPriceSerializer(
+                {"breakdown": breakdown, "stand_deposit": stand_deposit, "payment": payment, "size": size}
+            ).data
         )
 
 

@@ -4,7 +4,9 @@ Cada forma de cobrar es una estrategia elegida desde un registro, sin cadenas
 `if/elif`: el pan por su `BreadPricingMode` (incremento por kilo o precio
 completo con relleno incluido) y la decoración por su `DecorationPricing`
 (incluida, precio fijo o por cotizar). El relleno es otra estrategia, que el
-pan de incremento usa y el de precio completo rechaza.
+pan de incremento usa y el de precio completo rechaza. La oblea es un precio
+fijo de la configuración (`CakeDesignSettings.wafer_price`); vacío es PENDIENTE
+y la oblea no se puede pedir.
 
 Todas las cifras salen de los repositorios, que se reciben por parámetro (en
 las pruebas, los de `repositories/memory.py`). Forma y pisos no cambian el
@@ -24,6 +26,7 @@ from ..repositories.records import (
     FillingFlavorRecord,
 )
 from .audit import audit_operation
+from .design_layout import MessageLayout, WaferLayout, check_message_layout, check_wafer_layout
 from .errors import DomainValidationError, attempt, raise_all
 from .warranty_service import effective_cake_design_limits
 
@@ -43,7 +46,11 @@ class PendingPriceError(CakeDesignError):
 
 @dataclass(frozen=True)
 class CakeDesignChoice:
-    """Lo que el cliente eligió. Forma y pisos no cambian el precio, pero se validan (regla 3.3) si llegan."""
+    """Lo que el cliente eligió.
+
+    Forma y pisos no cambian el precio, pero se validan (regla 3.3) si llegan; el acomodo de la oblea y del mensaje
+    (paso 7) tampoco lo cambia y se valida igual.
+    """
 
     kg: int
     cake_type: str
@@ -54,6 +61,8 @@ class CakeDesignChoice:
     wafer: bool = False
     tiers: int | None = None
     form: str | None = None
+    wafer_layout: WaferLayout | None = None
+    message_layout: MessageLayout | None = None
 
 
 @dataclass(frozen=True)
@@ -433,6 +442,30 @@ def _decoration_charge(slug: str | None, cake_options) -> tuple[Decimal, bool]:
     return strategy.amount(decoration), strategy.requires_quote
 
 
+def _wafer_charge(wafer: bool, limits: CakeDesignSettingsRecord) -> Decimal:
+    """Importe de la oblea. Sin precio (PENDIENTE) no se puede pedir ni se cobra como $0."""
+    if not wafer:
+        return ZERO
+    if limits.wafer_price is None:
+        _fail("wafer", PENDING_PRICE_REASON, PendingPriceError)
+    return limits.wafer_price
+
+
+def _check_layouts(choice: CakeDesignChoice, limits: CakeDesignSettingsRecord, cake_options) -> None:
+    """Acomodo de la oblea y del mensaje, si llegan: cotas del paso 7 (`design_layout`)."""
+    failures: list[DomainValidationError] = []
+    if choice.wafer_layout is not None:
+        attempt(failures, check_wafer_layout, choice.wafer_layout, choice.wafer, limits)
+    if choice.message_layout is not None:
+        slugs = {color.slug for color in cake_options.list_coverage_colors()}
+        attempt(failures, check_message_layout, choice.message_layout, slugs)
+    try:
+        raise_all(failures)
+    except DomainValidationError as error:
+        # Con un solo error `raise_all` lo deja tal cual: el precio siempre lanza `CakeDesignError`.
+        raise CakeDesignError(error.errors) from error
+
+
 def _price(choice: CakeDesignChoice, cake_options, settings, estimate: bool) -> PriceBreakdown:
     # El máximo es el efectivo, el mismo que anuncian las opciones y que usan los kilos por personas.
     limits = effective_cake_design_limits(settings)
@@ -442,10 +475,12 @@ def _price(choice: CakeDesignChoice, cake_options, settings, estimate: bool) -> 
     attempt(failures, _check_form, choice.form)
     price_per_kg = attempt(failures, _cake_price_per_kg, choice, cake_options, estimate)
     decoration = attempt(failures, _decoration_charge, choice.decoration, cake_options)
+    wafer_amount = attempt(failures, _wafer_charge, choice.wafer, limits)
+    attempt(failures, _check_layouts, choice, limits, cake_options)
     raise_all(failures, CakeDesignError)
     decoration_amount, requires_quote = decoration
     cake_subtotal = (price_per_kg * choice.kg).quantize(CENT)
-    wafer = (limits.wafer_price if choice.wafer else ZERO).quantize(CENT)
+    wafer = wafer_amount.quantize(CENT)
     decoration_amount = decoration_amount.quantize(CENT)
     return PriceBreakdown(
         price_per_kg=price_per_kg.quantize(CENT),

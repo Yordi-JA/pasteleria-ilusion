@@ -19,6 +19,8 @@ class StandDeposit:
 
     stand: StandSizeRecord | None
     deposit: Decimal
+    # Días para devolver la base y recuperar el depósito (`PolicySettings.stand_return_days`).
+    return_days: int
 
 
 def get_stand_deposit(kg: int, settings=settings_repo) -> StandDeposit:
@@ -34,17 +36,18 @@ def get_stand_deposit(kg: int, settings=settings_repo) -> StandDeposit:
     """
     if isinstance(kg, bool) or not isinstance(kg, int):
         raise ValueError("Los kilos deben ser un número entero.")
+    return_days = settings.get_policy_settings().stand_return_days
     stands = settings.list_stand_sizes(active_only=False)
     # Kilos de 0 o negativos también quedan "por debajo": el precio los
     # rechaza con su propio mensaje, y aquí no se inventa un error más.
     if stands and kg < min(stand.min_kg for stand in stands):
-        return StandDeposit(stand=None, deposit=NO_DEPOSIT)
+        return StandDeposit(stand=None, deposit=NO_DEPOSIT, return_days=return_days)
     stand = next((s for s in stands if s.is_active and s.max_kg >= kg), None)
     if stand is None:
         raise StandNotFoundError(
             {"kg": [f"No hay una base para {kg} kg. Escríbenos por WhatsApp."]}
         )
-    return StandDeposit(stand=stand, deposit=stand.deposit)
+    return StandDeposit(stand=stand, deposit=stand.deposit, return_days=return_days)
 
 
 def largest_stand_kg(settings=settings_repo) -> int:

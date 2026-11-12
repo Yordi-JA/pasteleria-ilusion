@@ -10,7 +10,7 @@ from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from core_pasteleria.api.parsers import MAX_JSON_BODY_BYTES, BoundedJSONParser, RequestBodyTooLarge
-from core_pasteleria.models import CakeDesignSettings, CakeMold, CakeStand, DecorationOption
+from core_pasteleria.models import CakeDesignSettings, CakeMold, CakeStand, DecorationOption, PolicySettings
 
 OPTIONS_URL = "/api/v1/cake-designs/options/"
 PRICE_URL = "/api/v1/cake-designs/price/"
@@ -132,7 +132,16 @@ def test_price_of_the_rule_4_6_example_with_its_stand_deposit(api):
         "total": "3825.00",
         "requires_quote": False,
         "is_estimate": False,
-        "stand": {"min_kg": 15, "max_kg": 15, "deposit": "200.00"},
+        "stand": {"min_kg": 15, "max_kg": 15, "deposit": "200.00", "return_days": 15},
+        # Regla 10: el anticipo es el 50% del pedido; la base va completa y aparte.
+        "payment": {
+            "advance_percent": 50,
+            "advance": "1912.50",
+            "base_deposit": "200.00",
+            "delivery_fee": "0.00",
+            "pay_today": "2112.50",
+            "pay_on_delivery": "1912.50",
+        },
         # Con `kg` no hay cálculo por personas.
         "size": None,
     }
@@ -143,7 +152,41 @@ def test_price_with_wafer_and_otra_decoracion(api):
         PRICE_URL, {**RULE_4_6_EXAMPLE, "kg": 9, "wafer": True, "decoration": "otra"}, format="json"
     ).json()
     assert (body["total"], body["wafer"], body["requires_quote"]) == ("2420.00", "125.00", True)
-    assert body["stand"] == {"min_kg": 10, "max_kg": 12, "deposit": "150.00"}
+    assert body["stand"] == {"min_kg": 10, "max_kg": 12, "deposit": "150.00", "return_days": 15}
+
+
+def test_price_payment_follows_the_advance_percent_of_the_admin(api):
+    PolicySettings.objects.filter(pk=1).update(advance_percent=30)
+    payment = api.post(PRICE_URL, RULE_4_6_EXAMPLE, format="json").json()["payment"]
+    assert (payment["advance_percent"], payment["advance"], payment["pay_today"], payment["pay_on_delivery"]) == (
+        30, "1147.50", "1347.50", "2677.50",
+    )
+
+
+def test_price_payment_is_null_when_the_pastry_shop_still_has_to_quote(api):
+    """Con "Otra decoración" el pedido queda en pausa: no se cobra ni anticipo ni depósito."""
+    body = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "decoration": "otra"}, format="json").json()
+    assert body["requires_quote"] is True
+    assert body["payment"] is None
+    assert body["stand"]["deposit"] == "200.00"
+
+
+def test_price_payment_adds_the_deposit_of_the_smaller_stand(api):
+    body = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "kg": 4}, format="json").json()
+    assert (body["total"], body["stand"]["deposit"]) == ("1020.00", "70.00")
+    payment = body["payment"]
+    assert (payment["advance"], payment["pay_today"], payment["pay_on_delivery"]) == ("510.00", "580.00", "510.00")
+
+
+def test_a_wafer_without_a_price_is_pending_and_cannot_be_ordered(api):
+    CakeDesignSettings.objects.filter(pk=1).update(wafer_price=None)
+    options = api.get(OPTIONS_URL).json()
+    assert options["limits"]["wafer_price"] is None
+    response = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "wafer": True}, format="json")
+    assert response.status_code == 400
+    assert response.json() == {"wafer": ["Precio por confirmar"]}
+    # Sin oblea el precio sigue igual: la oblea pendiente no frena el pedido.
+    assert api.post(PRICE_URL, RULE_4_6_EXAMPLE, format="json").status_code == 200
 
 
 def test_price_reads_the_current_settings(api):
@@ -581,3 +624,197 @@ def test_price_rejects_sprinkles_whose_source_is_inactive_like_the_options_say(a
     response = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "decoration": "chispas"}, format="json")
     assert response.status_code == 400
     assert response.json() == {"decoration": ["No disponible por ahora"]}
+
+
+# --- Oblea y mensaje del paso 7: su acomodo se valida y no cambia el precio ---
+
+WAFER_LAYOUT = {
+    "shape": "sheet", "width_cm": 21.0, "height_cm": 27.0, "rotation_deg": 15, "x": 0.1, "y": -0.2,
+    "image_zoom": 1.5, "image_x": 0.25, "image_y": -0.5,
+}
+MESSAGE_LAYOUT = {
+    "text": "Feliz cumpleaños Ana", "color_mode": "tones", "color": "deep", "arrangement": "arc", "curve": 0.6,
+    "scale": 0.2, "rotation_deg": 0, "x": 0, "y": -0.7,
+}
+
+
+def test_a_valid_layout_is_accepted_and_does_not_change_the_price(api):
+    plain = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "wafer": True}, format="json").json()
+    body = api.post(
+        PRICE_URL,
+        {**RULE_4_6_EXAMPLE, "wafer": True, "wafer_layout": WAFER_LAYOUT, "message_layout": MESSAGE_LAYOUT},
+        format="json",
+    )
+    assert body.status_code == 200
+    assert body.json() == plain
+
+
+def test_a_wafer_layout_needs_the_wafer(api):
+    response = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "wafer_layout": WAFER_LAYOUT}, format="json")
+    assert response.status_code == 400
+    assert response.json() == {"wafer_layout": ["Elige la oblea para acomodarla."]}
+
+
+@pytest.mark.parametrize(
+    "changes, message",
+    [
+        ({"width_cm": 22.0, "height_cm": 28.0}, "La oblea no puede pasar de la hoja carta (21.6 × 27.9 cm)."),
+        ({"width_cm": 20.0, "height_cm": 22.0}, None),
+        ({"width_cm": 27.9, "height_cm": 21.6}, None),
+        ({"width_cm": 27.9, "height_cm": 21.7}, "La oblea no puede pasar de la hoja carta (21.6 × 27.9 cm)."),
+        ({"shape": "circle", "width_cm": 21.6, "height_cm": 21.6}, None),
+        ({"shape": "circle", "width_cm": 22.0, "height_cm": 22.0}, "La oblea no puede pasar de la hoja carta (21.6 × 27.9 cm)."),
+        ({"shape": "circle", "width_cm": 10.0, "height_cm": 12.0}, "El círculo lleva un solo diámetro."),
+        ({"width_cm": 1.0, "height_cm": 10.0}, None),
+    ],
+)
+def test_the_wafer_never_passes_the_letter_sheet_in_either_orientation(api, changes, message):
+    layout = {**WAFER_LAYOUT, **changes}
+    response = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "wafer": True, "wafer_layout": layout}, format="json")
+    if message is None and changes.get("width_cm") == 1.0:
+        # Menos de 2 cm lo frena el serializador con su propio texto.
+        assert response.status_code == 400 and "width_cm" in response.json()["wafer_layout"]
+    elif message is None:
+        assert response.status_code == 200
+    else:
+        assert response.status_code == 400
+        assert response.json() == {"wafer_layout": [message]}
+
+
+def test_the_letter_limit_follows_the_sizes_the_pastry_shop_sets(api):
+    CakeDesignSettings.objects.filter(pk=1).update(wafer_max_width_cm=Decimal("15.0"), wafer_max_height_cm=Decimal("20.0"))
+    layout = {**WAFER_LAYOUT, "width_cm": 21.0, "height_cm": 27.0}
+    response = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "wafer": True, "wafer_layout": layout}, format="json")
+    assert response.json() == {"wafer_layout": ["La oblea no puede pasar de la hoja carta (15 × 20 cm)."]}
+
+
+@pytest.mark.parametrize(
+    "field, value",
+    [
+        ("x", 11), ("y", -11), ("rotation_deg", 181), ("image_zoom", 0.5), ("image_zoom", 4.5),
+        ("image_x", 1.5), ("image_y", -1.5), ("shape", "triangle"),
+    ],
+)
+def test_wafer_layout_numbers_have_reasonable_bounds(api, field, value):
+    layout = {**WAFER_LAYOUT, field: value}
+    response = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "wafer": True, "wafer_layout": layout}, format="json")
+    assert response.status_code == 400
+    assert field in response.json()["wafer_layout"]
+
+
+def _unsafe_texts():
+    """Textos que no se imprimen bien, armados por código para que ningún editor los cambie por otro carácter."""
+    ch = chr
+    return [
+        "hola" + ch(0x202E) + "Ana",  # invierte el texto (Cf)
+        "dos\nlíneas",  # control (Cc)
+        "a" + ch(0x061C) + "b",  # marca de letra árabe (Cf)
+        "a" + ch(0x00AD) + "b",  # guion suave (Cf)
+        "a" + ch(0x180E) + "b",  # separador mongol (Cf)
+        "a" + ch(0xFFF9) + "b",  # anotación interlineal (Cf)
+        "a" + ch(0xE0041) + "b",  # etiqueta (Cf)
+        "a" + ch(0x1D173) + "b",  # control musical (Cf)
+        "a" + ch(0x200D) + "b",  # ZWJ (Cf)
+        "a" + ch(0xE000) + "b",  # uso privado (Co)
+        "a" + ch(0xFFFF) + "b",  # sin asignar (Cn)
+        "a" + ch(0xD800) + "b",  # sustituto suelto (Cs)
+        "a" + ch(0x2028) + "b",  # separador de línea (Zl)
+        "a" + ch(0x2029) + "b",  # separador de párrafo (Zp)
+        "a" + ch(0x3164) + "b",  # relleno de hangul
+        "a" + ch(0xFFA0) + "b",  # relleno de hangul de ancho medio
+        "a" + ch(0x2800) + "b",  # braille vacío
+        "a" + ch(0x034F) + "b",  # junta de grafemas
+        "a" + ch(0x17B4) + "b",  # vocal inherente del jemer
+        "a" + ch(0x17B5) + "b",
+        *("a" + ch(code) + "b" for code in range(0x180B, 0x1810)),  # selectores de variación mongoles
+        "a" + ch(0x115F) + ch(0x1160),
+        "a" + ch(0x0301) * 3,  # tres acentos encimados
+        "a" + ch(0x0301) * 79,  # el texto apilado
+        "a" + ch(0x20DD) * 3,  # marcas que encierran (Me)
+    ]
+
+
+@pytest.mark.parametrize("text", _unsafe_texts())
+def test_a_message_with_characters_that_do_not_print_well_is_rejected(api, text):
+    layout = {**MESSAGE_LAYOUT, "text": text}
+    # Se manda el JSON ya escapado (`ensure_ascii`): el cliente de pruebas no puede codificar un sustituto suelto.
+    response = api.post(
+        PRICE_URL, json.dumps({**RULE_4_6_EXAMPLE, "message_layout": layout}), content_type="application/json"
+    )
+    assert response.status_code == 400
+    assert set(response.json()["message_layout"]) == {"text"}
+
+
+def test_a_lone_surrogate_gets_the_spanish_message(api):
+    layout = {**MESSAGE_LAYOUT, "text": "a" + chr(0xD800) + "b"}
+    response = api.post(
+        PRICE_URL, json.dumps({**RULE_4_6_EXAMPLE, "message_layout": layout}), content_type="application/json"
+    )
+    assert response.json() == {"message_layout": {"text": ["El mensaje lleva caracteres que no se pueden imprimir."]}}
+
+
+@pytest.mark.parametrize("text", ["Feliz cumpleaños Ana", "Ñandú y pingüino", "a" + chr(0x0301), "a" + chr(0x0301) * 2, "¡Qué día! 🎂"])
+def test_accents_and_emoji_are_fine(api, text):
+    layout = {**MESSAGE_LAYOUT, "text": text}
+    assert api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "message_layout": layout}, format="json").status_code == 200
+
+
+@pytest.mark.parametrize("value", [True, False, "1e400", "nan", 10**400])
+def test_layout_numbers_are_real_numbers(api, value):
+    layout = {**MESSAGE_LAYOUT, "x": value}
+    response = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "message_layout": layout}, format="json")
+    assert response.status_code == 400
+    assert set(response.json()["message_layout"]) == {"x"}
+
+
+def test_a_huge_integer_gets_a_spanish_message_not_a_500(api):
+    layout = {**MESSAGE_LAYOUT, "x": 10**400}
+    body = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "message_layout": layout}, format="json").json()
+    assert body == {"message_layout": {"x": ["Ese número es demasiado grande."]}}
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"text": ""}, {"text": "a" * 81},
+        {"scale": 0.01}, {"scale": 2}, {"curve": 1.5}, {"arrangement": "wave"}, {"color_mode": "rainbow"},
+        {"x": 11}, {"rotation_deg": -200},
+    ],
+)
+def test_message_layout_fields_have_reasonable_bounds(api, changes):
+    layout = {**MESSAGE_LAYOUT, **changes}
+    response = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "message_layout": layout}, format="json")
+    assert response.status_code == 400
+    assert set(response.json()["message_layout"]) == set(changes)
+
+
+@pytest.mark.parametrize(
+    "changes, message",
+    [
+        ({"color_mode": "auto"}, "El color automático no lleva un color elegido."),
+        ({"color_mode": "tones", "color": "lila"}, "Elige el tono más oscuro o el más claro de la cobertura."),
+        ({"color_mode": "list", "color": "deep"}, "Ese color no es de los de la cobertura."),
+        ({"arrangement": "arc", "curve": 0.0}, "Un mensaje en arco necesita algo de curva."),
+    ],
+)
+def test_message_color_must_match_its_mode_and_an_arc_needs_curve(api, changes, message):
+    layout = {**MESSAGE_LAYOUT, **changes}
+    response = api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "message_layout": layout}, format="json")
+    assert response.status_code == 400
+    assert response.json() == {"message_layout": [message]}
+
+
+def test_message_color_accepts_the_modes_and_every_coverage_color(api):
+    colors = [c["slug"] for c in api.get(OPTIONS_URL).json()["coverage_colors"]]
+    assert len(colors) == 11
+    for slug in colors:
+        layout = {**MESSAGE_LAYOUT, "color_mode": "list", "color": slug}
+        assert api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "message_layout": layout}, format="json").status_code == 200
+    for mode, color in (("auto", None), ("tones", "deep"), ("tones", "light")):
+        layout = {**MESSAGE_LAYOUT, "color_mode": mode, "color": color, "arrangement": "straight", "curve": 0}
+        assert api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "message_layout": layout}, format="json").status_code == 200
+
+
+def test_a_message_over_four_words_is_only_a_suggestion(api):
+    layout = {**MESSAGE_LAYOUT, "text": "Feliz cumpleaños muy querida amiga Ana"}
+    assert api.post(PRICE_URL, {**RULE_4_6_EXAMPLE, "message_layout": layout}, format="json").status_code == 200

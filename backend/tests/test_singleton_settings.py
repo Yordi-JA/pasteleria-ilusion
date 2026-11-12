@@ -192,6 +192,8 @@ def test_database_accepts_upload_size_at_the_hard_limit():
         (CakeDesignSettings, {"wafer_max_width_cm": 0}),
         (CakeDesignSettings, {"message_suggested_max_words": 0}),
         (PolicySettings, {"stand_return_days": 0}),
+        (PolicySettings, {"advance_percent": 0}),
+        (PolicySettings, {"advance_percent": 101}),
         (UploadSettings, {"max_reference_images": 0}),
     ],
 )
@@ -204,6 +206,18 @@ def test_database_rejects_non_positive_limits(model, changes):
 def test_wafer_price_may_be_zero():
     CakeDesignSettings.objects.filter(pk=1).update(wafer_price=Decimal("0"))
     assert CakeDesignSettings.objects.get(pk=1).wafer_price == 0
+
+
+@pytest.mark.django_db
+def test_wafer_price_may_be_empty_and_the_admin_shows_it_as_pending(superuser_client):
+    CakeDesignSettings.objects.filter(pk=1).update(wafer_price=None)
+    assert CakeDesignSettings.objects.get(pk=1).wafer_price is None
+    response = superuser_client.get(change_url(CakeDesignSettings))
+    assert response.status_code == 200
+    form = response.context["adminform"].form
+    assert form["wafer_price"].value() is None
+    response = superuser_client.post(change_url(CakeDesignSettings), form_data(CakeDesignSettings, wafer_price=""))
+    assert response.status_code == 302
 
 
 @pytest.mark.django_db
@@ -266,6 +280,7 @@ def test_seeded_values_match_the_business_rules():
     policy = PolicySettings.objects.get(pk=1)
     assert policy.stand_return_days == 15
     assert policy.damaged_stand_policy == ""
+    assert policy.advance_percent == 50
 
     uploads = UploadSettings.objects.get(pk=1)
     assert uploads.max_upload_mb == 5
