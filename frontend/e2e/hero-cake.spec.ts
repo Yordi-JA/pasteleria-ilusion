@@ -362,3 +362,13 @@ test.describe('hero cake: mobile at 390px', () => {
     await expect(scene(page)).toHaveCSS('touch-action', 'pan-y pinch-zoom')
   })
 })
+
+test('the portada cake has no candle: the fixed cake is two tiers and their scallops, nothing above them', async ({ page }) => {
+  await openHome(page)
+  await expect(fallback(page)).toBeAttached()
+  // La vela es cosa de quien recibe el pastel, no del sitio: ni flama (`frambuesa`) ni tallo.
+  await expect(fallback(page).locator('.fill-frambuesa')).toHaveCount(0)
+  await expect(fallback(page).locator('path')).toHaveCount(1)
+  const stem = await fallback(page).locator('path').getAttribute('d')
+  expect(stem).not.toContain('M32 22v-8')
+})

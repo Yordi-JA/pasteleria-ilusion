@@ -651,7 +651,6 @@ test('the density is the same in every strip, so the bottom tier never looks spa
         })),
         festoons: false,
         stand: true,
-        candle: false,
       }
       const scale = pieceDensityScale(shape)
       // Instancias por unidad de área del costado en cada piso, con el mismo factor.
@@ -870,7 +869,6 @@ test('the sprinkles go only on the sides of every tier: none on the top face', a
         tiers: [{ radius: 2, height: 0.8, frosting: '#ffffff' }, { radius: 1.2, height: 0.8, frosting: '#ffffff' }],
         festoons: false,
         stand: false,
-        candle: false,
         decoration: { kind: 'sprinkles', style: 'sprinkles', colors: ['#5a3a28'] },
       }
       return shape.tiers.map((_: unknown, index: number) => {
@@ -928,7 +926,7 @@ async function rowSpacing(page: Page, input: { kind: 'roses' | 'rosettes'; form:
     async ({ layout, kind, form, radii, scale }) => {
       const { tierDecoration } = await import(layout)
       const decoration = kind === 'roses' ? { kind, petals: ['#ffffff'], leaf: '#00ff00' } : { kind, main: '#ffffff', accent: '#ffffff' }
-      const shape = { tiers: radii.map((radius: number) => ({ radius, height: 0.8, frosting: '#ffffff' })), festoons: false, stand: false, candle: false, form, decoration }
+      const shape = { tiers: radii.map((radius: number) => ({ radius, height: 0.8, frosting: '#ffffff' })), festoons: false, stand: false, form, decoration }
       return shape.tiers.map((_: unknown, index: number) => {
         const part = tierDecoration(shape, index, scale).parts.find((item: { shape: string }) => item.shape === (kind === 'roses' ? 'roseBud' : 'rosette'))!
         const points = part.placements.map((placement: { p: number[] }) => [placement.p[0], placement.p[2]])
@@ -959,7 +957,6 @@ test('a round tier with a narrow step keeps its roses inside the step, whatever 
           tiers: [{ radius: 2, height: 0.8, frosting: '#ffffff' }, { radius: 2 - width, height: 0.8, frosting: '#ffffff' }],
           festoons: false,
           stand: false,
-          candle: false,
           decoration: { kind: 'roses', petals: ['#ffffff'], leaf: '#00ff00' },
         }
         const part = tierDecoration(shape, 0, 1).parts.find((item: { shape: string }) => item.shape === 'roseBud')!
@@ -985,7 +982,6 @@ test('with a step under 0.12 the roses do not stick out of the tier and the leav
       tiers: [{ radius: 2, height: 0.8, frosting: '#ffffff' }, { radius: 1.97, height: 0.8, frosting: '#ffffff' }],
       festoons: false,
       stand: false,
-      candle: false,
       decoration: { kind: 'roses', petals: ['#ffffff'], leaf: '#00ff00' },
     }
     const parts = tierDecoration(shape, 0, 1).parts
@@ -1004,7 +1000,7 @@ test('with a step under 0.12 the roses do not stick out of the tier and the leav
 test('the last tier keeps a free center even when it is very small', async ({ page }) => {
   const result = await page.evaluate(async (layout) => {
     const { tierDecoration } = await import(layout)
-    const shape = { tiers: [{ radius: 0.5, height: 0.8, frosting: '#ffffff' }], festoons: false, stand: false, candle: false, decoration: { kind: 'roses', petals: ['#ffffff'], leaf: '#00ff00' } }
+    const shape = { tiers: [{ radius: 0.5, height: 0.8, frosting: '#ffffff' }], festoons: false, stand: false, decoration: { kind: 'roses', petals: ['#ffffff'], leaf: '#00ff00' } }
     const part = tierDecoration(shape, 0, 1).parts.find((item: { shape: string }) => item.shape === 'roseBud')!
     return Math.min(...part.placements.map((placement: { p: number[] }) => Math.hypot(placement.p[0], placement.p[2])))
   }, LAYOUT)

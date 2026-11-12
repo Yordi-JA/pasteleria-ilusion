@@ -665,7 +665,7 @@ export const cakeDesignOptions = {
     "people_per_kg": 7,
     "min_custom_kg": 4,
     "max_online_kg": 50,
-    "wafer_price": "125.00",
+    "wafer_price": "125.00" as string | null,
     "wafer_max_width_cm": "21.6",
     "wafer_max_height_cm": "27.9",
     "message_suggested_max_words": 4
@@ -797,6 +797,7 @@ export function withPendingDecorations(slugs: string[]) {
 }
 
 type PriceBody = {
+  wafer?: boolean
   people?: number
   kg?: number
   cake_type: string
@@ -828,7 +829,29 @@ function pricePerKg(body: PriceBody): number | null {
 
 const money = (value: number) => value.toFixed(2)
 
+/** Las bases que siembran las migraciones (regla 7): kilos y depósito; la pastelería usa la siguiente más grande. */
+const STANDS = [
+  [4, 5, 70], [6, 8, 90], [10, 12, 150], [15, 15, 200], [20, 25, 250],
+  [26, 30, 300], [31, 35, 350], [36, 40, 400], [41, 45, 450], [46, 50, 500],
+] as const
+
+function standFor(kg: number) {
+  const row = STANDS.find(([, max]) => max >= kg)
+  return row ? { min_kg: row[0], max_kg: row[1], deposit: money(row[2]), return_days: 15 } : null
+}
+
+/** El anticipo de la regla 10 (50% del pedido, de .5 hacia arriba al centavo) con la base aparte; sin pago si lo cotiza la pastelería. */
+function paymentFor(total: number, deposit: number) {
+  const advance = Math.round(total * 50) / 100
+  return { advance_percent: 50, advance: money(advance), base_deposit: money(deposit), delivery_fee: '0.00', pay_today: money(advance + deposit), pay_on_delivery: money(total - advance) }
+}
+
 /** Una respuesta de las opciones, o `'hang'` para dejarla sin responder. */
+/** Las opciones con la oblea sin precio definido (PENDIENTE, D39). */
+export function withPendingWafer() {
+  return { ...cakeDesignOptions, limits: { ...cakeDesignOptions.limits, wafer_price: null as string | null } }
+}
+
 export type OptionsResponse = { status: number; body: unknown } | 'hang'
 
 /** Responde las opciones (por omisión, las de la semilla) y devuelve las peticiones recibidas. */
@@ -868,7 +891,7 @@ export function priceResponse(body: PriceBody, options: typeof cakeDesignOptions
   const size = body.people === undefined ? null : sizeFor(body.people)
   if (size?.above_maximum) {
     const empty = { price_per_kg: null, kg: null, cake_subtotal: null, wafer: null, decoration: null, total: null }
-    return { status: 200, body: { ...empty, requires_quote: null, is_estimate: null, stand: null, size } }
+    return { status: 200, body: { ...empty, requires_quote: null, is_estimate: null, stand: null, payment: null, size } }
   }
   const kg = size ? size.kg : (body.kg ?? 0)
   const perKg = pricePerKg(body)
@@ -880,19 +903,26 @@ export function priceResponse(body: PriceBody, options: typeof cakeDesignOptions
   if (body.decoration !== undefined && !decoration) return { status: 400, body: { decoration: ['Esa decoración no existe o no está disponible.'], ...(size ? { size } : {}) } }
   if (decoration?.pricing === 'fixed' && decoration.price === null) return { status: 400, body: { decoration: ['Precio por confirmar'], ...(size ? { size } : {}) } }
   const decorationAmount = decoration?.pricing === 'fixed' ? Number(decoration.price) : 0
-  const total = perKg * kg
+  const waferPrice = options.limits.wafer_price
+  if (body.wafer && waferPrice === null) return { status: 400, body: { wafer: ['Precio por confirmar'], ...(size ? { size } : {}) } }
+  const waferAmount = body.wafer ? Number(waferPrice) : 0
+  const cake = perKg * kg
+  const total = cake + waferAmount + decorationAmount
+  const stand = standFor(kg)
+  const requiresQuote = decoration?.requires_quote ?? false
   return {
     status: 200,
     body: {
       price_per_kg: money(perKg),
       kg,
-      cake_subtotal: money(total),
-      wafer: '0.00',
+      cake_subtotal: money(cake),
+      wafer: money(waferAmount),
       decoration: money(decorationAmount),
-      total: money(total + decorationAmount),
-      requires_quote: decoration?.requires_quote ?? false,
+      total: money(total),
+      requires_quote: requiresQuote,
       is_estimate: body.estimate === true,
-      stand: null,
+      stand,
+      payment: requiresQuote || !stand ? null : paymentFor(total, Number(stand.deposit)),
       size,
     },
   }

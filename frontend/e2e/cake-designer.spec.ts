@@ -4,7 +4,7 @@ import { cakeDesignOptions, mockCakeDesignOptions, mockCakeDesignPrice, PRICE_PA
 import { emptyStoreInfo, mockStoreInfo } from './support/store-info.ts'
 
 /**
- * "Diseña tu pastel", pasos 1 a 6 (tandas 1 y 2). La API se simula (`support/cake-design.ts`): las opciones de la semilla y
+ * "Diseña tu pastel", pasos 1 a 6 (el 7 y el 8 están en cake-designer-lid.spec.ts). La API se simula (`support/cake-design.ts`): las opciones de la semilla y
  * un precio como el del backend (kilos por personas y fórmula de la regla 4.6). Corre en escritorio (1440 px) salvo
  * donde se dice.
  */
@@ -468,14 +468,6 @@ test('a step that is not reached yet sends a fresh visit to step 1', async ({ pa
   await open(page, '?paso=5')
   await expect(stepTitle(page)).toHaveText('1. Tamaño y forma')
   await expect(page).toHaveURL(/\?paso=1$/)
-})
-
-test('the step 7 placeholder cannot be confirmed', async ({ page }) => {
-  await seedDraft(page, { ...DRAFT_TO_STEP_6, decoration: 'ninguna', confirmed: [1, 2, 3, 4, 5, 6] })
-  await open(page, '?paso=7')
-  await expect(stepTitle(page)).toHaveText('7. Mensaje y oblea')
-  await expect(page.getByText('Este paso está en construcción.')).toBeVisible()
-  await expect(page.getByTestId('tarjeta-paso').getByRole('button', { name: 'Continuar' })).toBeDisabled()
 })
 
 // --- Paso 6: la decoración (D53) ---
