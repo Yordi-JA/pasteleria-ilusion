@@ -80,7 +80,6 @@ export function referenceContent(shape: CakeShape): Content {
     tiers: [{ radius: PLATE_RADIUS - PLATE_MARGIN, height: shape.tiers[0]?.height ?? 0 }],
     festoons: false,
     stand: true,
-    candle: false,
   })
 }
 

@@ -12,6 +12,15 @@
   font-display: swap;
 }
 
+/* Solo para el texto sobre el pastel (el mensaje del paso 7, en el editor y en la vista previa), nunca para la interfaz (D55).
+   Dancing Script, OFL: el subconjunto latino de Google Fonts. */
+@font-face {
+  font-family: 'Dancing Script';
+  src: url('../../assets/fuentes/DancingScript.woff2') format('woff2');
+  font-weight: 400 700;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

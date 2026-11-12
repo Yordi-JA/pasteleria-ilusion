@@ -208,7 +208,3 @@ export function CoverageStep({
   )
 }
 
-/** Pasos 7 y 8: llegan en la tanda siguiente. Mientras tanto lo dicen, sin datos inventados, y no se pueden confirmar. */
-export function UpcomingStep() {
-  return <p className="text-cuerpo">Este paso está en construcción.</p>
-}

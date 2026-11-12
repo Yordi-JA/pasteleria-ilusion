@@ -1,13 +1,15 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
-import { CanvasTexture, Color, DoubleSide, ExtrudeGeometry, Object3D, RepeatWrapping, Shape, SRGBColorSpace, Vector2 } from 'three'
+import { Color, ExtrudeGeometry, Object3D, Shape, Vector2 } from 'three'
 import type { Group, InstancedMesh, MeshStandardMaterial, Texture } from 'three'
+import { TIER_EDGE_UNITS } from '../models/cakeDesignLayout.ts'
 import type { CakeLayer, CakeShape, CakeTier } from './cakeShape.ts'
 import { CRUMB_TILE, useCrumbTexture } from './crumb.ts'
 import FillingPieces from './FillingPieces.tsx'
 import { halfExtents, PLATE_GAP, standScale } from './cakeMetrics.ts'
 import Decoration from './Decoration.tsx'
+import Lid from './Lid.tsx'
 import { tierDecoration } from './decorationLayout.ts'
 import type { TierDecoration } from './decorationLayout.ts'
 import { pieceDensityScale } from './pieceBudget.ts'
@@ -23,15 +25,13 @@ import { brandColor, resolveColor } from './palette.ts'
 export type CakeMotion = {
   /** Separación de los pisos, de 0 (juntos) a 1. */
   separation: number
-  /** Giro del pastel en radianes, para que la flama quede siempre de frente a la cámara. */
-  yaw: number
 }
 
 /** Lo que sube cada piso por encima del de abajo con la separación completa (38 px en el mockup). */
 const TIER_LIFT = 0.38
 /** Lo que tarda un piso en pasar de su tamaño anterior al nuevo cuando cambian los kilos. */
 const SIZE_TRANSITION_S = 0.3
-const EDGE = 0.06
+const EDGE = TIER_EDGE_UNITS
 const PEARL_RADIUS = 0.085
 /** Una perla cada 22 px de contorno, como el prototipo. */
 const PEARL_SPACING = 0.22
@@ -41,10 +41,6 @@ const MAX_PEARLS_PER_ROW = 300
 const RECT_CORNER = 0.08
 /** Cambio de color de una capa o de la cobertura (libro de marca, "Cotizador 3D"). */
 const COLOR_TRANSITION_S = 0.3
-const CANDLE = { radius: 0.07, height: 0.54, gap: 0.06 }
-/** La flama del logo mide 43 × 72 en su viewBox; en el mockup ocupa 27 px de alto. */
-const FLAME_SCALE = 0.27 / 72
-
 /** Perfil de un cilindro con los cantos redondeados, para girarlo con `LatheGeometry`. */
 function roundedProfile(radius: number, height: number, edge: number, steps = 4) {
   const points = [new Vector2(0, 0)]
@@ -58,62 +54,6 @@ function roundedProfile(radius: number, height: number, edge: number, steps = 4)
   }
   points.push(new Vector2(0, height))
   return points
-}
-
-type Cubic = [number, number, number, number, number, number]
-
-/** Una figura a partir de las curvas del trazo SVG; la y se invierte porque en la escena crece hacia arriba. */
-function shapeFromPath(start: [number, number], curves: Cubic[]) {
-  const shape = new Shape()
-  shape.moveTo(start[0] * FLAME_SCALE, -start[1] * FLAME_SCALE)
-  for (const [x1, y1, x2, y2, x, y] of curves) {
-    shape.bezierCurveTo(x1 * FLAME_SCALE, -y1 * FLAME_SCALE, x2 * FLAME_SCALE, -y2 * FLAME_SCALE, x * FLAME_SCALE, -y * FLAME_SCALE)
-  }
-  return shape
-}
-
-// El trazo de `design/referencia/flama.css` (la flama del logo): cuerpo y núcleo, con la base en el origen.
-const FLAME_BODY: Cubic[] = [
-  [-11, 0, -16.5, -7, -15.5, -16.5],
-  [-21, -19.5, -21.5, -29, -14.5, -32.5],
-  [-18.5, -37.5, -16.5, -45, -9.5, -47.5],
-  [-6.5, -55, -1.5, -62.5, 5, -70],
-  [4, -64, 7.5, -58, 12, -52],
-  [17.5, -44, 19.5, -33, 17.5, -21],
-  [16, -8, 9, 0, 0, 0],
-]
-const FLAME_CORE: Cubic[] = [
-  [-4.5, -8.5, -6, -15, -3.5, -21.5],
-  [-1.5, -26.5, 1.5, -30.5, 4, -35],
-  [6, -29.5, 8, -23.5, 7.5, -17],
-  [7, -11, 4.5, -8.5, 1.5, -8.5],
-]
-
-/** Textura de rayas diagonales de la vela, en `betun` y `fresa` como el prototipo. */
-function candleStripes() {
-  const canvas = document.createElement('canvas')
-  canvas.width = 32
-  canvas.height = 32
-  const context = canvas.getContext('2d')
-  if (context) {
-    context.fillStyle = brandColor('betun')
-    context.fillRect(0, 0, 32, 32)
-    context.fillStyle = brandColor('fresa')
-    for (let x = -32; x < 64; x += 16) {
-      context.beginPath()
-      context.moveTo(x, 32)
-      context.lineTo(x + 8, 32)
-      context.lineTo(x + 40, 0)
-      context.lineTo(x + 32, 0)
-      context.fill()
-    }
-  }
-  const texture = new CanvasTexture(canvas)
-  texture.colorSpace = SRGBColorSpace
-  texture.wrapS = RepeatWrapping
-  texture.wrapT = RepeatWrapping
-  texture.repeat.set(1, 2)
-  return texture
 }
 
 type Form = NonNullable<CakeShape['form']>
@@ -381,61 +321,9 @@ function Stand() {
   )
 }
 
-function Candle({ motion, flicker }: { motion: RefObject<CakeMotion>; flicker: boolean }) {
-  const flameRef = useRef<Group>(null)
-  const facingRef = useRef<Group>(null)
-  const stripes = useMemo(() => candleStripes(), [])
-  const body = useMemo(() => shapeFromPath([0, 0], FLAME_BODY), [])
-  const core = useMemo(() => shapeFromPath([1.5, -8.5], FLAME_CORE), [])
-  useEffect(() => () => stripes.dispose(), [stripes])
-
-  // Fase propia del titileo, sumada con el intervalo acotado: tras una pausa la flama sigue donde iba, sin brincar.
-  const phase = useRef(0)
-
-  useFrame((_, delta) => {
-    // La flama es plana: se gira al revés que el pastel para quedar de frente, como en el prototipo.
-    if (facingRef.current) facingRef.current.rotation.y = -motion.current.yaw
-    const flame = flameRef.current
-    if (!flame) return
-    if (!flicker) {
-      flame.scale.set(1, 1, 1)
-      flame.rotation.z = 0
-      return
-    }
-    // El titileo de `flama.css`: 1.4 s de ida y otros tantos de vuelta, de (1, 1, -2°) a (0.92, 1.1, 3°).
-    phase.current += Math.min(delta, 0.05)
-    const t = (1 - Math.cos((phase.current * Math.PI) / 1.4)) / 2
-    flame.scale.set(1 - 0.08 * t, 1 + 0.1 * t, 1)
-    flame.rotation.z = -((-2 + 5 * t) * Math.PI) / 180
-  })
-
-  return (
-    <group>
-      <mesh position-y={CANDLE.height / 2}>
-        <cylinderGeometry args={[CANDLE.radius, CANDLE.radius, CANDLE.height, 20]} />
-        <meshStandardMaterial map={stripes} roughness={0.6} />
-      </mesh>
-      <group ref={facingRef} position-y={CANDLE.height + CANDLE.gap}>
-        <group ref={flameRef}>
-          <mesh>
-            <shapeGeometry args={[body, 16]} />
-            <meshBasicMaterial color={brandColor('frambuesa')} side={DoubleSide} toneMapped={false} />
-          </mesh>
-          <mesh position-z={0.002}>
-            <shapeGeometry args={[core, 12]} />
-            <meshBasicMaterial color={brandColor('fresa')} side={DoubleSide} toneMapped={false} />
-          </mesh>
-        </group>
-      </group>
-    </group>
-  )
-}
-
 type CakeModelProps = {
   shape: CakeShape
   motion: RefObject<CakeMotion>
-  /** Titileo de la flama; se apaga con "reducir movimiento". */
-  flicker: boolean
   /** Transición de 300 ms al cambiar un color; se apaga con "reducir movimiento". */
   animateColors?: boolean
   /** Transición de 300 ms al cambiar el tamaño de un piso (los kilos); se apaga con "reducir movimiento". */
@@ -468,18 +356,16 @@ function useKeyed<T>(key: string, compute: () => T): T {
 }
 
 /** El pastel con el plato a la altura 0. La escena lo gira, lo inclina y lo encuadra. */
-export default function CakeModel({ shape, motion, flicker, animateColors = false, animateSize = false }: CakeModelProps) {
+export default function CakeModel({ shape, motion, animateColors = false, animateSize = false }: CakeModelProps) {
   const form = shape.form ?? 'round'
   const tierRefs = useRef<(Group | null)[]>([])
   const standRef = useRef<Group>(null)
-  const candleRef = useRef<Group>(null)
   const invalidate = useThree((state) => state.invalidate)
   // Cada piso descansa sobre la suma de los de abajo.
   const bases = useMemo(
     () => shape.tiers.map((_, i) => shape.tiers.slice(0, i).reduce((sum, tier) => sum + tier.height, PLATE_GAP)),
     [shape.tiers],
   )
-  const top = bases.length ? bases[bases.length - 1] + shape.tiers[shape.tiers.length - 1].height : PLATE_GAP
   const extents = useMemo(() => shape.tiers.map((tier) => halfExtents(tier, form)), [form, shape.tiers])
   const plate = standScale(shape)
   // El presupuesto de triángulos y la colocación de la decoración cuestan (hay que armar todas las piezas para contarlas):
@@ -533,7 +419,6 @@ export default function CakeModel({ shape, motion, flicker, animateColors = fals
     tierRefs.current.forEach((group, i) => {
       if (group) group.position.y = bases[i] + i * lift
     })
-    if (candleRef.current) candleRef.current.position.y = top + (bases.length - 1) * lift
     const step = transition.current
     if (!step) return
     step.elapsed = Math.min(SIZE_TRANSITION_S, step.elapsed + Math.min(delta, 0.05))
@@ -564,13 +449,10 @@ export default function CakeModel({ shape, motion, flicker, animateColors = fals
             position-y={bases[i]}
           >
             <Tier tier={tier} festoons={shape.festoons} form={form} animate={animateColors} index={i} densityScale={densityScale} decoration={decorations[i]} />
+            {/* La oblea y el mensaje van sobre la tapa del último piso y suben con él al separar los pisos. */}
+            {shape.lid && i === shape.tiers.length - 1 && <Lid lid={shape.lid} height={tier.height} />}
           </group>
         ))}
-        {shape.candle && (
-          <group ref={candleRef} position-y={top}>
-            <Candle motion={motion} flicker={flicker} />
-          </group>
-        )}
       </group>
     </group>
   )

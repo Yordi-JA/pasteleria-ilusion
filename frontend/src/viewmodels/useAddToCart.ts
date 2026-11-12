@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { lineQuantity } from '../models/cart.ts'
 import type { CartOffering, LineKey } from '../models/cart.ts'
 import { useCart } from './useCart.ts'
+import { useCartFlight } from './useCartFlight.ts'
 import type { AddOutcome } from './useCart.ts'
 
 /** Lo que dice el aviso después de "Agregar al pedido" (libro de marca: el botón produce "Agregado al pedido"). */
@@ -75,6 +76,7 @@ export function describeAdd(
  */
 export function useAddToCart() {
   const { add: addToCart, items } = useCart()
+  const { launch } = useCartFlight()
   const [feedback, setFeedback] = useState<AddFeedback | null>(null)
   const nextId = useRef(1)
 
@@ -86,11 +88,13 @@ export function useAddToCart() {
   const add = useCallback(
     (offering: CartOffering, quantity = 1, maxQuantity?: number) => {
       const outcome = addToCart(offering, quantity, maxQuantity)
+      // Solo vuela una perla si entró algo, y trae las piezas que entraron.
+      launch(outcome.added)
       const notice = describeAdd(offering, outcome, quantity, maxQuantity)
       const line = { offeringId: offering.offeringId, fulfillment: offering.fulfillment }
       setFeedback({ ...notice, id: nextId.current++, line, quantity: outcome.quantity })
     },
-    [addToCart],
+    [addToCart, launch],
   )
 
   return { add, feedback }

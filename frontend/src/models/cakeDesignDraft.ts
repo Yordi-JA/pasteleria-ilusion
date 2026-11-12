@@ -5,7 +5,11 @@
  * empieza de nuevo.
  */
 
+import { defaultMessage, parseMessage, parseWafer } from './cakeDesignLayout.ts'
+import type { MessageLayout, WaferLayout } from './cakeDesignLayout.ts'
 import { displayFileName } from './decorationImage.ts'
+import { parseOccasion } from './occasion.ts'
+import type { Occasion } from './occasion.ts'
 
 export type CakeForm = 'round' | 'rectangular'
 
@@ -29,6 +33,19 @@ export type CakeDesignDraft = {
    * guardarla, D53): al recargar queda el nombre y se pide elegirla otra vez.
    */
   decorationImageName: string | null
+  /** Si lleva mensaje (regla 6.2) y cómo se acomoda; el mensaje no cuesta. */
+  messageEnabled: boolean
+  message: MessageLayout
+  /** Si lleva oblea (regla 6.3, con su precio) y cómo se acomoda; `null` hasta que se acomoda la primera vez. */
+  waferEnabled: boolean
+  wafer: WaferLayout | null
+  /**
+   * Nombre de la imagen de la oblea. Igual que la de "Otra decoración", la imagen solo vive en la memoria de la pestaña
+   * mientras se arma el pastel (D55): al recargar queda el nombre y se pide elegirla otra vez.
+   */
+  waferImageName: string | null
+  /** La ocasión del pastel (regla 6.4): opcional, no cambia el precio. */
+  occasion: Occasion | null
   /** Pasos que la persona ya confirmó con "Continuar". Un paso está completo si es válido y está aquí. */
   confirmed: number[]
 }
@@ -57,6 +74,12 @@ export function emptyDraft(): CakeDesignDraft {
     decoration: null,
     decorationColor: null,
     decorationImageName: null,
+    messageEnabled: false,
+    message: defaultMessage(),
+    waferEnabled: false,
+    wafer: null,
+    waferImageName: null,
+    occasion: null,
     confirmed: [],
   }
 }
@@ -91,6 +114,12 @@ export function parseDraft(data: unknown): CakeDesignDraft {
     decoration: slugOrNull(raw.decoration),
     decorationColor: slugOrNull(raw.decorationColor),
     decorationImageName: displayFileName(raw.decorationImageName),
+    messageEnabled: raw.messageEnabled === true,
+    message: parseMessage(raw.message),
+    waferEnabled: raw.waferEnabled === true,
+    wafer: parseWafer(raw.wafer),
+    waferImageName: displayFileName(raw.waferImageName),
+    occasion: parseOccasion(raw.occasion),
     confirmed: [...new Set(confirmed)].sort((a, b) => a - b),
   }
 }

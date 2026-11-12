@@ -37,22 +37,58 @@ export type CartOffering = {
 // cuando no es el pastel completo ("Rebanada de tres leches de cajeta").
 
 /**
- * Una línea del carrito. Hoy toda línea es del catálogo (`kind: 'offering'`); los pedidos de "Diseña tu pastel"
- * entrarán como otra clase con su propio `kind`, sin cambiar la clave guardada. Una línea se identifica por su
- * presentación y su tipo (`offeringId` + `fulfillment`): la misma presentación puede estar dos veces, una por
- * encargo y otra de la vitrina de hoy.
+ * Una línea del catálogo (`kind: 'offering'`). Se identifica por su presentación y su tipo (`offeringId` +
+ * `fulfillment`): la misma presentación puede estar dos veces, una por encargo y otra de la vitrina de hoy.
  */
-export type CartItem = CartOffering & {
+export type OfferingItem = CartOffering & {
   kind: 'offering'
   /** Entero de 1 a `MAX_LINE_QUANTITY`. */
   quantity: number
 }
 
-/** Lo que identifica una línea. */
+/**
+ * Un pastel de "Diseña tu pastel" (`kind: 'design'`, D55). Cada diseño es una sola pieza (`quantity` 1) y se identifica por
+ * su huella (`designId`): el mismo diseño no entra dos veces. Los montos son solo para mostrar, los que dio la API al
+ * armarlo: el backend vuelve a calcular todo al pagar (Etapa 4), así que nunca se cobra lo que diga el navegador.
+ */
+export type DesignItem = {
+  kind: 'design'
+  designId: string
+  /** "Pastel tres leches de pan de chocolate, relleno con queso y zarzamora". */
+  name: string
+  /** Lo elegido en cada paso, ya en frases, para que el pedido se lea completo. */
+  details: string[]
+  /** El pedido sin la base ni el envío, en texto decimal ("3825.00"); sin la decoración si la cotiza la pastelería. */
+  total: string
+  /** El depósito de la base, que va aparte; `null` sin base. */
+  baseDeposit: string | null
+  /** La decoración la cotiza la pastelería: el pedido queda en pausa hasta que dé el precio. */
+  requiresQuote: boolean
+  quantity: 1
+  /** Todo lo elegido, para armar el pedido en la Etapa 4 (JSON de pocos KB). */
+  design: Record<string, unknown>
+  /**
+   * Las imágenes que la persona subió ("Otra decoración" y la oblea) viven en `IndexedDB` (`designImages.ts`), porque una
+   * de hasta 5 MB no cabe en `localStorage`; aquí solo va la clave de cada una.
+   */
+  images: { decoration?: string; wafer?: string }
+}
+
+/** Una línea del carrito: del catálogo o un pastel diseñado. */
+export type CartItem = OfferingItem | DesignItem
+
+/** Lo que identifica una línea del catálogo. */
 export type LineKey = Pick<CartOffering, 'offeringId' | 'fulfillment'>
 
 function sameLine(a: LineKey, b: LineKey): boolean {
   return a.offeringId === b.offeringId && a.fulfillment === b.fulfillment
+}
+
+/** La línea del catálogo con esa presentación y ese tipo, o `null`. */
+function findOffering(items: CartItem[], key: LineKey): { index: number; item: OfferingItem } | null {
+  const index = items.findIndex((item) => item.kind === 'offering' && sameLine(item, key))
+  const item = items[index]
+  return item && item.kind === 'offering' ? { index, item } : null
 }
 
 /**
@@ -141,12 +177,45 @@ function parseOffering(raw: Record<string, unknown>): CartOffering | null {
  * forma de quitarla y ocupando uno de los 100 lugares para siempre, y todavía no hay pago, así que nada de lo que
  * tenía podía comprarse.
  */
-function parseItem(data: unknown): CartItem | null {
-  if (!isRecord(data)) return null
+function parseOfferingItem(data: Record<string, unknown>): OfferingItem | null {
   const { quantity } = data
-  if (data.kind !== 'offering' || !isWholeBetween(quantity, 1, MAX_LINE_QUANTITY)) return null
+  if (!isWholeBetween(quantity, 1, MAX_LINE_QUANTITY)) return null
   const offering = parseOffering(data)
   return offering && { ...offering, kind: 'offering', quantity }
+}
+
+/** Largos técnicos de una línea de diseño, contra datos alterados (no son reglas de negocio). */
+const MAX_DESIGN_NAME = 300
+const MAX_DESIGN_DETAILS = 12
+const MAX_DESIGN_DETAIL = 400
+const MAX_DESIGN_JSON = 8000
+const MAX_DESIGN_ID = 40
+
+function parseDesign(data: Record<string, unknown>): DesignItem | null {
+  const designId = cleanText(data.designId, MAX_DESIGN_ID, SLUG)
+  const name = cleanText(data.name, MAX_DESIGN_NAME)
+  const total = cleanText(data.total, MAX_PRICE_LENGTH, PRICE_PATTERN)
+  const baseDeposit = data.baseDeposit === null ? null : cleanText(data.baseDeposit, MAX_PRICE_LENGTH, PRICE_PATTERN)
+  if (!designId || !name || !total || (data.baseDeposit !== null && !baseDeposit)) return null
+  if (data.quantity !== 1 || typeof data.requiresQuote !== 'boolean' || !isRecord(data.design) || !isRecord(data.images)) return null
+  if (!Array.isArray(data.details) || data.details.length > MAX_DESIGN_DETAILS) return null
+  const details = data.details.map((detail) => cleanText(detail, MAX_DESIGN_DETAIL))
+  if (details.includes(null) || JSON.stringify(data.design).length > MAX_DESIGN_JSON) return null
+  const images: DesignItem['images'] = {}
+  for (const slot of ['decoration', 'wafer'] as const) {
+    const key = data.images[slot]
+    if (key === undefined) continue
+    const clean = cleanText(key, MAX_DESIGN_ID, SLUG)
+    if (!clean) return null
+    images[slot] = clean
+  }
+  return { kind: 'design', designId, name, details: details as string[], total, baseDeposit, requiresQuote: data.requiresQuote, quantity: 1, design: data.design, images }
+}
+
+function parseItem(data: unknown): CartItem | null {
+  if (!isRecord(data)) return null
+  if (data.kind === 'design') return parseDesign(data)
+  return data.kind === 'offering' ? parseOfferingItem(data) : null
 }
 
 function isUnknownCode(value: unknown, isKnown: (code: string) => boolean): boolean {
@@ -161,8 +230,15 @@ function isOpaqueLine(data: unknown): data is OpaqueLine {
   if (!isRecord(data)) return false
   const { kind, presentation, fulfillment } = data
   if (typeof kind !== 'string' || !CODE.test(kind)) return false
+  // Un `design` mal formado está dañado, no es de una versión más nueva: se descarta.
+  if (kind === 'design') return false
   if (kind !== 'offering') return true
   return isUnknownCode(presentation, isOfferingPresentation) || isUnknownCode(fulfillment, isFulfillment)
+}
+
+function isSameItem(a: CartItem, b: CartItem): boolean {
+  if (a.kind === 'design' || b.kind === 'design') return a.kind === b.kind && a.kind === 'design' && b.kind === 'design' && a.designId === b.designId
+  return sameLine(a, b)
 }
 
 /**
@@ -180,7 +256,7 @@ export function parseCart(data: unknown): StoredCart {
   for (const line of lines.slice(0, MAX_LINES)) {
     const item = parseItem(line)
     if (item) {
-      if (!items.some((kept) => sameLine(kept, item))) items.push(item)
+      if (!items.some((kept) => isSameItem(kept, item))) items.push(item)
     } else if (isOpaqueLine(line)) {
       unknown.push(line)
     }
@@ -265,26 +341,50 @@ export function addItem(
   assertQuantity(quantity)
   assertMax(maxQuantity)
   assertReserved(reservedLines)
-  const index = items.findIndex((item) => sameLine(item, clean))
-  const current = index === -1 ? 0 : items[index].quantity
+  const found = findOffering(items, clean)
+  const index = found?.index ?? -1
+  const current = found?.item.quantity ?? 0
   const target = maxQuantity === undefined ? current + quantity : Math.max(current, Math.min(current + quantity, maxQuantity))
   if (target === current) return { items, added: 0, quantity: current }
   const tooManyPieces = target > MAX_LINE_QUANTITY
   const tooManyLines = index === -1 && items.length + reservedLines >= MAX_LINES
   if (tooManyPieces || tooManyLines) return { items, added: 0, quantity: current, limit: true }
-  const line: CartItem = { ...clean, kind: 'offering', quantity: target }
+  const line: OfferingItem = { ...clean, kind: 'offering', quantity: target }
   const next = index === -1 ? [...items, line] : items.map((item, i) => (i === index ? line : item))
   return { items: next, added: target - current, quantity: target }
 }
 
-/** Quita una línea: la de esa presentación y ese tipo, no la otra. */
+/** Quita una línea: la de esa presentación y ese tipo, no la otra. Los pasteles diseñados no se tocan. */
 export function removeItem(items: CartItem[], key: LineKey): CartItem[] {
-  return items.filter((item) => !sameLine(item, key))
+  return items.filter((item) => item.kind !== 'offering' || !sameLine(item, key))
 }
 
 /** Cuántas piezas hay en una línea; 0 si no está. */
 export function lineQuantity(items: CartItem[], key: LineKey): number {
-  return items.find((item) => sameLine(item, key))?.quantity ?? 0
+  return findOffering(items, key)?.item.quantity ?? 0
+}
+
+/** Resultado de agregar un pastel diseñado: `duplicate` si ya estaba; `limit` si no cabe por el tope técnico de líneas. */
+export type AddDesignResult = { items: CartItem[]; added: boolean; duplicate?: true; limit?: true }
+
+/** Agrega un pastel diseñado. El mismo diseño (misma huella) no entra dos veces. */
+export function addDesign(items: CartItem[], design: DesignItem, reservedLines = 0): AddDesignResult {
+  const clean = parseDesign(design as unknown as Record<string, unknown>)
+  if (!clean) throw new TypeError('El pastel diseñado no tiene la forma esperada.')
+  assertReserved(reservedLines)
+  if (items.some((item) => item.kind === 'design' && item.designId === clean.designId)) return { items, added: false, duplicate: true }
+  if (items.length + reservedLines >= MAX_LINES) return { items, added: false, limit: true }
+  return { items: [...items, clean], added: true }
+}
+
+/** Quita un pastel diseñado por su huella. */
+export function removeDesign(items: CartItem[], designId: string): CartItem[] {
+  return items.filter((item) => item.kind !== 'design' || item.designId !== designId)
+}
+
+/** Las claves de las imágenes guardadas aparte (`IndexedDB`) de las líneas diseñadas. */
+export function imageKeysOf(items: CartItem[]): string[] {
+  return items.flatMap((item) => (item.kind === 'design' ? Object.values(item.images) : []))
 }
 
 /** Piezas en el carrito: la suma de las cantidades, que es lo que muestra el contador. */

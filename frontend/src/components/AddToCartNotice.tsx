@@ -1,8 +1,9 @@
-import type { AddFeedback } from '../viewmodels/useAddToCart.ts'
+import type { AddNotice } from '../viewmodels/useAddToCart.ts'
 import Notice from './Notice.tsx'
 
 type AddToCartNoticeProps = {
-  feedback: AddFeedback | null
+  /** Cada aviso lleva un `id` nuevo: lo agrega al carrito una oferta del catálogo o un pastel diseñado. */
+  feedback: (AddNotice & { id: number }) | null
   className?: string
 }
 

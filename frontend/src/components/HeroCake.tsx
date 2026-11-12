@@ -9,7 +9,7 @@ const SCENE_LABEL = 'Pastel de tres pisos'
 
 /**
  * El pastel fijo: el dibujo de pisos de la marca (`assets/motivos/dibujo-pisos.svg`) con los colores del pastel 3D
- * (pisos `betun` y `fresa-claro`, flama `frambuesa`) y su sombra de contacto. Se ve mientras llega la escena y
+ * (pisos `betun` y `fresa-claro`) y su sombra de contacto. Se ve mientras llega la escena y
  * cuando no hay WebGL o se pierde el contexto. Es decorativo: el `h1` y el lema ya dicen de qué es la página.
  */
 function StaticCake({ hidden }: { hidden: boolean }) {
@@ -30,12 +30,7 @@ function StaticCake({ hidden }: { hidden: boolean }) {
         <g className="stroke-mermelada" strokeWidth={3} vectorEffect="non-scaling-stroke">
           <rect x="16" y="34" width="32" height="18" rx="2" className="fill-betun" vectorEffect="non-scaling-stroke" />
           <rect x="22" y="22" width="20" height="12" rx="2" className="fill-fresa-claro" vectorEffect="non-scaling-stroke" />
-          <path d="M16 36q4 4 8 0t8 0 8 0 8 0M22 24q2.5 3 5 0t5 0 5 0 5 0M32 22v-8M10 54h44" vectorEffect="non-scaling-stroke" />
-          <path
-            d="M32 6c2 2.5 3 4 2 6-.5 1-1.5 1.5-2 1.5s-1.5-.5-2-1.5c-1-2 0-3.5 2-6z"
-            className="fill-frambuesa"
-            vectorEffect="non-scaling-stroke"
-          />
+          <path d="M16 36q4 4 8 0t8 0 8 0 8 0M22 24q2.5 3 5 0t5 0 5 0 5 0M10 54h44" vectorEffect="non-scaling-stroke" />
         </g>
       </svg>
       {/* Sombra de contacto del libro de marca: 70% del ancho del pastel, `mermelada` al 16% con desenfoque de 12 px. */}

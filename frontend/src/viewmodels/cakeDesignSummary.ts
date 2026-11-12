@@ -1,6 +1,8 @@
 import type { CakeDesignOptions, CakeSize } from '../models/cakeDesign.ts'
 import type { CakeDesignDraft, CakeForm } from '../models/cakeDesignDraft.ts'
 import { formatPrice } from '../models/money.ts'
+import { reviewView } from './cakeDesignReview.ts'
+import { lidSummary } from './cakeLid.ts'
 import { decorationColorView, decorationGroups, decorationSummary } from './cakeDecorations.ts'
 import { breadChoices, cakeTypeChoices, coverageChoices, fillingChoices, lowerFirst } from './cakeDesignChoices.ts'
 import {
@@ -13,6 +15,8 @@ import {
   firstIncompleteStep,
   isSkipped,
   LAST_BUILT_STEP,
+  LID_STEP,
+  REVIEW_STEP,
   stepStatus,
 } from './cakeDesignSteps.ts'
 import type { DesignDerived } from './cakeDesignSteps.ts'
@@ -90,6 +94,7 @@ export function summaryRows(draft: CakeDesignDraft, design: DesignDerived, curre
   }
   const decoration = shown(DECORATION_STEP) ? decorationSummary(draft, design, options) : null
   if (decoration) rows.push({ step: DECORATION_STEP, label: DESIGN_STEPS[5].title, value: decoration.value, note: decoration.note, canChange: true })
+  if (shown(LID_STEP)) rows.push({ step: LID_STEP, label: DESIGN_STEPS[6].title, value: lidSummary(draft), canChange: true })
   return rows
 }
 
@@ -207,12 +212,15 @@ type ViewInput = {
   tierNotice: string | null
   /** "Continuar" espera los kilos del paso 1: el botón se desactiva mientras tanto. */
   proceeding: boolean
+  /** Los días de anticipación de un pedido, para la revisión; `null` mientras llegan los datos de la pastelería. */
+  leadDays: number | null
 }
 
 /** Todo lo que pinta la pantalla, armado con lo elegido, las opciones y el precio. */
-export function designerView({ draft, design, options, current, price, plan, tierNotice, proceeding }: ViewInput) {
+export function designerView({ draft, design, options, current, price, plan, tierNotice, proceeding, leadDays }: ViewInput) {
   const conflict = current === 2 && design.cakeType ? conflictTarget(design) : null
   const reachableUpTo = firstIncompleteStep(design, draft)
+  const review = current === REVIEW_STEP ? reviewView({ draft, design, options, price, leadDays }) : null
   return {
     steps: DESIGN_STEPS.map((step, index) => {
       const number = index + 1
@@ -243,9 +251,10 @@ export function designerView({ draft, design, options, current, price, plan, tie
     continueLabel: continueLabel(current, design),
     continueShort:
       current === 1 && design.belowMinimum && !design.aboveMaximum && design.size ? `Continuar con ${design.size.kg} kg` : 'Continuar',
-    // El paso 1 arriba del máximo y los pasos que esta versión aún no arma no se pueden confirmar.
-    continueDisabled: (current === 1 && design.aboveMaximum) || current > LAST_BUILT_STEP || proceeding,
+    // El paso 1 arriba del máximo no se puede confirmar; la revisión espera los montos de la API.
+    continueDisabled: (current === 1 && design.aboveMaximum) || current > LAST_BUILT_STEP || proceeding || (review !== null && !review.ready),
     proceeding,
+    review,
   }
 }
 

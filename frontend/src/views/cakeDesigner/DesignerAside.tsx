@@ -59,6 +59,19 @@ function RejectedPrice({ reason }: { reason: string }) {
 const DRAG_HINT = 'Arrastra el pastel para girarlo.'
 const KEYS_HINT = 'Usa las flechas para girarlo y verlo desde arriba o desde abajo.'
 
+/**
+ * Las dos frases de cómo girar la vista previa: la describen (`aria-describedby`) y solo se ven cuando el pastel ya se puede
+ * girar. En la revisión (paso 8) no hay tarjeta del total y esta pista va sola, bajo la vista previa.
+ */
+export function PreviewHint({ hintId, sceneReady, keyboardFocus }: { hintId: string; sceneReady: boolean; keyboardFocus: boolean }) {
+  return (
+    <span id={hintId} className={sceneReady ? '' : 'sr-only'}>
+      <span className={keyboardFocus ? 'sr-only' : ''}>{DRAG_HINT}</span>
+      <span className={keyboardFocus ? '' : 'sr-only'}>{KEYS_HINT}</span>
+    </span>
+  )
+}
+
 type PriceCardProps = {
   price: PriceView
   sizeLine: string
@@ -85,11 +98,7 @@ export function PriceCard({ price, sizeLine, hintId, sceneReady, keyboardFocus, 
         <p className="text-nota text-mermelada-suave">
           {price.assumed}
           {price.assumed && sceneReady && ' '}
-          {/* Describe la vista previa (`aria-describedby`) con las dos frases; solo se ve cuando el pastel ya se puede girar. */}
-          <span id={hintId} className={sceneReady ? '' : 'sr-only'}>
-            <span className={keyboardFocus ? 'sr-only' : ''}>{DRAG_HINT}</span>
-            <span className={keyboardFocus ? '' : 'sr-only'}>{KEYS_HINT}</span>
-          </span>
+          <PreviewHint hintId={hintId} sceneReady={sceneReady} keyboardFocus={keyboardFocus} />
         </p>
       )}
     </section>

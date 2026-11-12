@@ -112,7 +112,18 @@ export type DecorationOption = {
   previewBread: string | null
 }
 
-export type CakeDesignLimits = { peoplePerKg: number; minCustomKg: number; maxOnlineKg: number }
+export type CakeDesignLimits = {
+  peoplePerKg: number
+  minCustomKg: number
+  maxOnlineKg: number
+  /** Precio de la oblea (regla 6.3); `null` es PENDIENTE: se ve desactivada con "Precio por confirmar" (D39). */
+  waferPrice: string | null
+  /** La hoja carta (21.6 × 27.9 cm): ninguna oblea pasa de ahí, en cualquier orientación. */
+  waferMaxWidthCm: number
+  waferMaxHeightCm: number
+  /** Palabras que la pastelería sugiere para el mensaje (4): es una sugerencia, no bloquea. */
+  messageSuggestedMaxWords: number
+}
 
 /** Kilos mínimos para un número de pisos (regla 3.3, D50): con menos kilos, esos pisos no se eligen. */
 export type TierMinimum = { tiers: number; minKg: number }
@@ -158,6 +169,8 @@ export type CakeDesignPriceRequest = {
   fillingFlavors: string[]
   /** La decoración elegida y disponible, o `null`. El color no cambia el precio y no va. */
   decoration: string | null
+  /** Lleva oblea (con precio). El acomodo de la oblea y del mensaje no cambia el precio y no va. */
+  wafer: boolean
   /** Total estimado sin sabores todavía: la API cuenta el precio general de la base. */
   estimate: boolean
 }
@@ -177,6 +190,30 @@ export type PeopleSize = {
   maxTiers: number
 }
 
+/** Los montos del pedido, tal como los calcula la API (texto decimal, "3825.00"); el navegador nunca los calcula. */
+export type QuoteBreakdown = {
+  kg: number
+  pricePerKg: string
+  cakeSubtotal: string
+  wafer: string
+  decoration: string
+  total: string
+  requiresQuote: boolean
+}
+
+/** La base del pastel: su depósito va aparte del pedido y se devuelve al regresarla (regla 7). */
+export type StandDeposit = { minKg: number; maxKg: number; deposit: string; returnDays: number }
+
+/** Anticipo, lo que se paga hoy y lo que queda para la entrega (regla 10). El envío se decide en el carrito. */
+export type PaymentSummary = {
+  advancePercent: number
+  advance: string
+  baseDeposit: string
+  deliveryFee: string
+  payToday: string
+  payOnDelivery: string
+}
+
 /**
  * Desglose del precio que esta pantalla usa. Con más personas de las que se piden en línea, sin montos. `rejected`: la
  * API rechazó la elección (400) pero mandó los kilos por personas, así el paso 1 sigue; no hay total.
@@ -184,6 +221,12 @@ export type PeopleSize = {
 export type CakeDesignQuote = {
   total: string | null
   pricePerKg: string | null
+  /** El desglose de la revisión (paso 8); `null` si la API no lo mandó completo. */
+  breakdown: QuoteBreakdown | null
+  /** La base que toca al pedido (regla 7); `null` sin base. */
+  stand: StandDeposit | null
+  /** Lo que se paga hoy (regla 10); `null` con una decoración por cotizar. */
+  payment: PaymentSummary | null
   size: PeopleSize | null
   /** El total es un estimado sin sabores: ningún pedido lo acepta. */
   isEstimate: boolean
@@ -382,7 +425,8 @@ function parseTier(data: unknown): TierMinimum | null {
   return tiers !== null && minKg !== null ? { tiers, minKg } : null
 }
 
-function moldNumber(value: unknown): number | null {
+/** Una medida en cm con un decimal ("51.5", "21.6"): la de un molde o la de la hoja carta. */
+function cmNumber(value: unknown): number | null {
   if (typeof value !== 'string' || !MOLD_NUMBER.test(value)) return null
   const parsed = Number(value)
   return parsed > 0 ? parsed : null
@@ -390,9 +434,9 @@ function moldNumber(value: unknown): number | null {
 
 function parseMold(data: unknown): CakeMold | null {
   if (!isRecord(data) || (data.form !== 'round' && data.form !== 'rectangular')) return null
-  const kg = moldNumber(data.kg)
-  const lengthCm = moldNumber(data.length_cm)
-  const widthCm = moldNumber(data.width_cm)
+  const kg = cmNumber(data.kg)
+  const lengthCm = cmNumber(data.length_cm)
+  const widthCm = cmNumber(data.width_cm)
   // Un dedazo en el admin (kilos o medidas absurdos) no entra: sacaría al pastel de la tarjeta.
   if (kg === null || lengthCm === null || kg > MOLD_MAX_KG || lengthCm > MOLD_MAX_CM || (widthCm !== null && widthCm > MOLD_MAX_CM)) return null
   // Un rectangular sin ancho no se puede dibujar; un redondo ignora el ancho.
@@ -415,7 +459,15 @@ function parseLimits(data: unknown): CakeDesignLimits {
   if (peoplePerKg === null || minCustomKg === null || maxOnlineKg === null) {
     throw new TypeError('Los límites de "Diseña tu pastel" no tienen la forma esperada.')
   }
-  return { peoplePerKg, minCustomKg, maxOnlineKg }
+  const waferMaxWidthCm = cmNumber(data.wafer_max_width_cm)
+  const waferMaxHeightCm = cmNumber(data.wafer_max_height_cm)
+  const messageSuggestedMaxWords = count(data.message_suggested_max_words, 1)
+  // `null` es PENDIENTE; cualquier otra cosa que no sea un monto no se ofrece.
+  const waferPrice = data.wafer_price === null ? null : money(data.wafer_price)
+  if (waferMaxWidthCm === null || waferMaxHeightCm === null || messageSuggestedMaxWords === null) {
+    throw new TypeError('Los límites de "Diseña tu pastel" no tienen la forma esperada.')
+  }
+  return { peoplePerKg, minCustomKg, maxOnlineKg, waferPrice, waferMaxWidthCm, waferMaxHeightCm, messageSuggestedMaxWords }
 }
 
 /**
@@ -472,6 +524,45 @@ function parseSizeBlock(data: unknown): PeopleSize | null {
   }
 }
 
+function parseBreakdown(data: Raw): QuoteBreakdown | null {
+  const kg = count(data.kg, 1)
+  const [pricePerKg, cakeSubtotal, wafer, decoration, total] = [data.price_per_kg, data.cake_subtotal, data.wafer, data.decoration, data.total].map(money)
+  if (kg === null || [pricePerKg, cakeSubtotal, wafer, decoration, total].includes(null) || typeof data.requires_quote !== 'boolean') return null
+  return {
+    kg,
+    pricePerKg: pricePerKg as string,
+    cakeSubtotal: cakeSubtotal as string,
+    wafer: wafer as string,
+    decoration: decoration as string,
+    total: total as string,
+    requiresQuote: data.requires_quote,
+  }
+}
+
+function parseStand(data: unknown): StandDeposit | null {
+  if (!isRecord(data)) return null
+  const minKg = count(data.min_kg)
+  const maxKg = count(data.max_kg)
+  const returnDays = count(data.return_days, 1)
+  const deposit = money(data.deposit)
+  return minKg === null || maxKg === null || returnDays === null || deposit === null ? null : { minKg, maxKg, deposit, returnDays }
+}
+
+function parsePayment(data: unknown): PaymentSummary | null {
+  if (!isRecord(data)) return null
+  const advancePercent = count(data.advance_percent, 1)
+  const [advance, baseDeposit, deliveryFee, payToday, payOnDelivery] = [data.advance, data.base_deposit, data.delivery_fee, data.pay_today, data.pay_on_delivery].map(money)
+  if (advancePercent === null || [advance, baseDeposit, deliveryFee, payToday, payOnDelivery].includes(null)) return null
+  return {
+    advancePercent,
+    advance: advance as string,
+    baseDeposit: baseDeposit as string,
+    deliveryFee: deliveryFee as string,
+    payToday: payToday as string,
+    payOnDelivery: payOnDelivery as string,
+  }
+}
+
 /**
  * Valida el desglose del precio; uno con otra forma es un `TypeError`, nunca un precio dudoso. Los montos solo
  * pueden faltar cuando la API dice que son más personas de las que se piden en línea.
@@ -480,11 +571,22 @@ export function parseCakeDesignQuote(data: unknown): CakeDesignQuote {
   if (!isRecord(data)) throw new TypeError('El precio no tiene la forma esperada.')
   const size = parseSizeBlock(data.size)
   if (data.size !== null && data.size !== undefined && size === null) throw new TypeError('El tamaño no tiene la forma esperada.')
-  if (size?.aboveMaximum) return { total: null, pricePerKg: null, size, isEstimate: false, rejected: false, rejectedReason: null }
+  const empty = { total: null, pricePerKg: null, breakdown: null, stand: null, payment: null }
+  if (size?.aboveMaximum) return { ...empty, size, isEstimate: false, rejected: false, rejectedReason: null }
   const total = money(data.total)
   const pricePerKg = money(data.price_per_kg)
   if (total === null || pricePerKg === null) throw new TypeError('El precio no tiene la forma esperada.')
-  return { total, pricePerKg, size, isEstimate: data.is_estimate === true, rejected: false, rejectedReason: null }
+  return {
+    total,
+    pricePerKg,
+    breakdown: parseBreakdown(data),
+    stand: parseStand(data.stand),
+    payment: parsePayment(data.payment),
+    size,
+    isEstimate: data.is_estimate === true,
+    rejected: false,
+    rejectedReason: null,
+  }
 }
 
 /** Un 400 de la elección que trae `size`: sin total, pero con los kilos. Sin `size`, `null` (es una falla). */
@@ -498,7 +600,7 @@ function rejectedQuote(error: unknown): CakeDesignQuote | null {
     .flatMap(([, value]) => (Array.isArray(value) ? value : []))
     .map((reason) => name(reason))
     .filter((reason): reason is string => reason !== null)
-  return { total: null, pricePerKg: null, size, isEstimate: false, rejected: true, rejectedReason: reasons[0] ?? null }
+  return { total: null, pricePerKg: null, breakdown: null, stand: null, payment: null, size, isEstimate: false, rejected: true, rejectedReason: reasons[0] ?? null }
 }
 
 /**
@@ -523,6 +625,7 @@ export async function getCakeDesignQuote(request: CakeDesignPriceRequest, signal
     bread: request.bread,
     ...(request.fillingBase ? { filling_base: request.fillingBase, filling_flavors: request.fillingFlavors } : {}),
     ...(request.decoration ? { decoration: request.decoration } : {}),
+    ...(request.wafer ? { wafer: true } : {}),
     ...(request.estimate ? { estimate: true } : {}),
   }
   let data: unknown

@@ -22,8 +22,7 @@ function PreviewDrawing() {
     >
       <rect x="16" y="34" width="32" height="18" rx="2" />
       <rect x="22" y="22" width="20" height="12" rx="2" />
-      <path d="M16 36q4 4 8 0t8 0 8 0 8 0M22 24q2.5 3 5 0t5 0 5 0 5 0M32 22v-8M10 54h44" />
-      <path d="M32 6c2 2.5 3 4 2 6-.5 1-1.5 1.5-2 1.5s-1.5-.5-2-1.5c-1-2 0-3.5 2-6z" />
+      <path d="M16 36q4 4 8 0t8 0 8 0 8 0M22 24q2.5 3 5 0t5 0 5 0 5 0M10 54h44" />
     </svg>
   )
 }
@@ -68,6 +67,7 @@ export default function DesignerCake({ scene, hintId }: { scene: CakeSceneView; 
                 onContextLost={view.onContextLost}
                 onKeyboardFocusChange={view.onKeyboardFocusChange}
                 freeLook
+                viewpoint={view.viewpoint}
               />
             </div>
           </Suspense>

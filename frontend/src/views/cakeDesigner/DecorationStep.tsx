@@ -8,8 +8,8 @@ import type { DecorationColorView, DecorationGroupView } from '../../viewmodels/
 import type { DecorationImage } from '../../viewmodels/useDecorationImage.ts'
 import { ColorGrid, Group, Options } from './ChoiceSteps.tsx'
 
-/** Lo que el paso necesita de la imagen de "Otra decoración" (vive solo en la memoria de la pestaña, D53). */
-type ImageProps = {
+/** Lo que el paso necesita de una imagen que sube la persona (la de "Otra decoración" o la de la oblea): vive solo en la memoria de la pestaña (D53, D55). */
+export type ImageProps = {
   image: DecorationImage | null
   /** El nombre de la imagen que había antes de recargar; `null` si no había. */
   lostName: string | null
@@ -19,7 +19,7 @@ type ImageProps = {
   onUnreadable: () => void
 }
 
-function ImagePicker({ image, lostName, error, onPick, onRemove, onUnreadable }: ImageProps) {
+export function ImagePicker({ image, lostName, error, onPick, onRemove, onUnreadable }: ImageProps) {
   const hintId = useId()
   const removeButton = useRef<HTMLButtonElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)

@@ -72,6 +72,52 @@ export type CakeDecoration =
   | { kind: 'roses'; petals: readonly ShapeColor[]; leaf: ShapeColor }
   | { kind: 'sprinkles'; style: CakePieces['style']; colors: readonly ShapeColor[] }
 
+/**
+ * La oblea sobre la tapa del último piso (paso 7, D55). Las medidas van en cm de la tapa, con el origen en su centro, la `y`
+ * hacia arriba (la vista superior, con el frente del pastel abajo) y el giro en grados hacia la derecha: los mismos números que
+ * el editor. La imagen ya viene cargada; la escena la recorta con el encuadre y la dibuja.
+ */
+export type LidWafer = {
+  shape: 'sheet' | 'circle'
+  widthCm: number
+  heightCm: number
+  rotation: number
+  x: number
+  y: number
+  image: HTMLImageElement
+  /** El tamaño de la imagen en píxeles, para el encuadre. */
+  imageWidth: number
+  imageHeight: number
+  imageZoom: number
+  imageX: number
+  imageY: number
+}
+
+/** El mensaje sobre la tapa: cada letra ya colocada (`viewmodels/messageGeometry.ts`); la escena solo la dibuja. */
+export type LidMessage = {
+  glyphs: readonly { text: string; x: number; y: number; rotation: number }[]
+  fontSizeCm: number
+  /** Cuánto baja la línea base respecto al centro de cada letra, en cm. */
+  baselineCm: number
+  fontFamily: string
+  fontWeight: number
+  /** El color de la tinta, `#rrggbb`: es comida, como los de la cobertura. */
+  color: string
+  /** La caja que envuelve el texto, en cm respecto a su centro y sin su giro. */
+  bounds: { minX: number; maxX: number; minY: number; maxY: number }
+  rotation: number
+  x: number
+  y: number
+}
+
+/** Lo que va sobre la tapa del último piso (paso 7 y 8). */
+export type CakeLid = {
+  /** Unidades de escena por cm de la tapa (la misma escala de los moldes). */
+  unitsPerCm: number
+  wafer?: LidWafer
+  message?: LidMessage
+}
+
 export type CakeShape = {
   /** De abajo hacia arriba. */
   tiers: readonly CakeTier[]
@@ -81,11 +127,19 @@ export type CakeShape = {
    */
   festoons: boolean | 'bottom'
   stand: boolean
-  candle: boolean
   /** Molde de los pisos; sin él, redondo. */
   form?: 'round' | 'rectangular'
   /** La decoración del paso 6; sin ella, solo la cobertura. Solo se dibuja en pisos con cobertura. */
   decoration?: CakeDecoration
+  /** La oblea y el mensaje del paso 7, sobre la tapa del último piso. */
+  lid?: CakeLid
   /** La base se ajusta al piso de abajo: mide un poco más que él, crece y se achica con él. Sin esto, solo crece si no cabe. */
   fitStand?: boolean
 }
+
+/**
+ * Desde dónde se ve el pastel en cada paso de "Diseña tu pastel" (libro de marca, "Cotizador 3D"): la elevación de la cámara,
+ * el giro al que se acomoda (`null` lo deja donde está) y si gira solo. Al cambiar `key`, la cámara se acomoda sin salto; con
+ * "reducir movimiento", de golpe. La persona puede mover la vista después.
+ */
+export type Viewpoint = { key: string; elevation: number; angle: number | null; autoSpin: boolean }
