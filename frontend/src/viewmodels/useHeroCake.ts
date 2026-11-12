@@ -14,10 +14,9 @@ export const HERO_CAKE: CakeShape = {
   ],
   festoons: true,
   stand: true,
-  candle: true,
 }
 
-/** El lienzo sube 72 px por encima de la caja (la vela con los pisos separados): también cuenta para "se ve". */
+/** El lienzo sube 72 px por encima de la caja (el piso de arriba con los pisos separados): también cuenta para "se ve". */
 const VISIBLE_MARGIN = '72px 0px 0px 0px'
 
 /** View-model del pastel de la portada: la escena compartida (`useCakeScene`) con el pastel del hero. */

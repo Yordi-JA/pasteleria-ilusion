@@ -247,13 +247,18 @@ Las hojas de las rosas siempre van en verde. Las chispas no llevan selector: su 
 
 ### 6.2 Mensaje
 
-- Opcional, sin costo. La pastelería sugiere **máximo 4 palabras** (ej. "Feliz cumpleaños Ana"); la interfaz muestra un contador.
+- Opcional, sin costo. La pastelería sugiere **máximo 4 palabras** (ej. "Feliz cumpleaños Ana"). La interfaz muestra un contador que sugiere ese máximo y **no bloquea**: con más palabras dice "Es más largo de lo que recomendamos; puedes dejarlo así.". El texto admite hasta 80 caracteres (límite técnico, `design_layout.py`).
+- La letra es siempre cursiva a mano alzada (Dancing Script). Solo se usa para el texto sobre el pastel, nunca en la interfaz.
+- **Color del texto:** con los mismos modos que la decoración (sección 6.1). "Automático" es negro y va por omisión; "Colores que combinan" son el tono más oscuro y el más claro de la cobertura; "Lista completa" son los 11 colores de la sección 5. Si el contraste del texto con la cobertura baja de 2:1, la interfaz muestra un aviso informativo que no bloquea el pedido.
+- El texto puede ir **recto o en arco**, con una curva ajustable. Se mueve, escala y gira sobre la tapa.
 
 ### 6.3 Oblea
 
-- **$125.** Tamaño máximo: **hoja carta (21.6 × 27.9 cm)**. Se puede poner en cualquier pastel.
+- **$125** (precio en el admin, `CakeDesignSettings.wafer_price`). Mientras la pastelería no capture el precio (PENDIENTE), la oblea sale desactivada con "Precio por confirmar" y no se puede pedir. Se puede poner en cualquier pastel.
+- **Forma:** hoja o círculo. La hoja se estira con ancho y alto independientes.
+- **Tamaño máximo:** ninguna forma pasa de **hoja carta (21.6 × 27.9 cm), en cualquier orientación**: el lado mayor no pasa de 27.9 cm y el menor no pasa de 21.6 cm. El círculo tiene un diámetro máximo de 21.6 cm. Ninguna forma sale de la tapa del último piso, contando el giro.
 - Se puede combinar con el mensaje.
-- El cliente elige la **forma** (hoja o círculo), el **tamaño** y la **posición** de la oblea y del mensaje en un editor de vista superior; el pastel 3D refleja lo mismo. Guardar en el pedido: forma, escala y posición (x, y relativas al radio) de cada elemento, más la imagen original en alta resolución para imprimir.
+- El cliente elige la **forma**, el **tamaño**, el **giro** y la **posición** de la oblea y del mensaje en un editor de vista superior; el pastel 3D refleja lo mismo. La imagen se encuadra con zoom y desplazamiento. Todo se puede hacer con el teclado y con botones de posición. Las posiciones son relativas al radio de la parte plana de la tapa, sin el canto redondeado del piso. Guardar en el pedido: forma, medidas, giro, posición de cada elemento y encuadre de la imagen, más la imagen original en alta resolución para imprimir.
 
 ---
 
@@ -267,7 +272,7 @@ Las hojas de las rosas siempre van en verde. Las chispas no llevan selector: su 
 ## 7. Base del pastel (no es un paso: se asigna sola)
 
 - Aplica a pedidos de **4 kg o más**. Se cobra como **depósito**, aparte del pedido.
-- Se devuelve el importe si el cliente regresa la base **hasta 15 días después de la entrega**, presentando la **nota en PDF** del pedido (sustituye la nota actual de la pastelería).
+- Se devuelve el importe si el cliente regresa la base **hasta 15 días después de la entrega** (el plazo es `PolicySettings.stand_return_days`, configurable en el admin; hoy vale 15), presentando la **nota en PDF** del pedido (sustituye la nota actual de la pastelería).
 - La base de 20–25 kg es de madera forrada en aluminio.
 
 | Kilos | Depósito | Origen |
@@ -341,7 +346,7 @@ Estados: `in_review` (En revisión) → `quote_ready` (Cotización lista) → (c
 ## 10. Pago
 
 - Métodos: **Mercado Pago**, **tarjeta (Stripe)** y **efectivo en la pastelería**. Sandbox en desarrollo.
-- Se paga **50% de anticipo** del pedido y el resto el día de la entrega. Aplica también a pasteles de vitrina encargados.
+- Se paga un **anticipo** del pedido y el resto el día de la entrega. El porcentaje es `PolicySettings.advance_percent`, configurable en el admin entre 1 y 100; hoy vale **50%**. Aplica también a pasteles de vitrina encargados. Los ejemplos de esta sección usan 50%.
 - El **depósito de la base y el envío no entran en el anticipo**: se pagan completos, aparte, el mismo día del anticipo.
 
 ```python

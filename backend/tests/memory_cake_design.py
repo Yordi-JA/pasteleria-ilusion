@@ -177,7 +177,7 @@ def settings_repo(cake_design=None, stands=None, store=STORE_SETTINGS):
     return MemorySettingsRepo(
         store=store,
         cake_design=cake_design or CAKE_DESIGN_SETTINGS,
-        policy=PolicySettingsRecord(stand_return_days=15, damaged_stand_policy=""),
+        policy=PolicySettingsRecord(stand_return_days=15, damaged_stand_policy="", advance_percent=50),
         upload=UploadSettingsRecord(max_upload_mb=5, max_reference_images=3),
         stands=STANDS if stands is None else stands,
     )

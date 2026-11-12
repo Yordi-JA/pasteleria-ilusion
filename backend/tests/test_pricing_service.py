@@ -300,6 +300,22 @@ def test_wafer_adds_its_price():
     assert breakdown.total == Decimal("1925.00")
 
 
+def test_a_wafer_without_a_price_is_pending_and_never_charged_as_zero():
+    settings = data.settings_repo(cake_design=dataclasses.replace(data.CAKE_DESIGN_SETTINGS, wafer_price=None))
+    with pytest.raises(PendingPriceError) as raised:
+        price(settings=settings, wafer=True)
+    assert raised.value.errors == {"wafer": ["Precio por confirmar"]}
+    # Sin pedir la oblea, que no tenga precio no estorba.
+    assert price(settings=settings).wafer == Decimal("0.00")
+
+
+def test_a_pending_wafer_and_another_error_come_back_together():
+    settings = data.settings_repo(cake_design=dataclasses.replace(data.CAKE_DESIGN_SETTINGS, wafer_price=None))
+    with pytest.raises(CakeDesignError) as raised:
+        price(settings=settings, wafer=True, decoration="glitter")
+    assert set(raised.value.errors) == {"wafer", "decoration"}
+
+
 def test_everything_adds_up():
     options = data.cake_option_repo(decorations=data.with_decoration_price("chispas", "80"))
     breakdown = price(cake_options=options, kg=20, cake_type="seco", bread="red_velvet", filling_base=None,

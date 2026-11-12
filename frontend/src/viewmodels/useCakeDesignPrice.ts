@@ -41,7 +41,9 @@ export function planPrice(draft: CakeDesignDraft, design: DesignDerived, options
   if (!bread) return null
   // Una decoración sin precio (PENDIENTE) no se pide: el precio la rechazaría (D39).
   const decoration = design.decoration?.available ? design.decoration.slug : null
-  const base = { people: draft.people, cakeType, bread: bread.slug, decoration }
+  // La oblea sin precio (PENDIENTE) no se pide: el precio la rechazaría y el paso 7 no deja continuar con ella (D39).
+  const wafer = draft.waferEnabled && options.limits.waferPrice !== null
+  const base = { people: draft.people, cakeType, bread: bread.slug, decoration, wafer }
   const assumedBread = chosenBread ? null : bread
   if (bread.pricingMode === 'full_price_per_kg') {
     return { request: { ...base, fillingBase: null, fillingFlavors: [], estimate: false }, assumedBread, assumedBase: null }

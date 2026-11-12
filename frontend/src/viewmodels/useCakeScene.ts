@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
-import type { CakeShape } from '../three/cakeShape.ts'
+import type { CakeShape, Viewpoint } from '../three/cakeShape.ts'
 
 /** `loading`: se ve el pastel fijo mientras llega la escena; `ready`: ya se dibujó; `fallback`: queda el pastel fijo. */
 export type CakeSceneStatus = 'loading' | 'ready' | 'fallback'
@@ -44,9 +44,9 @@ type CakeState = {
  * View-model de una escena del pastel (la portada y "Diseña tu pastel"): decide si hay escena 3D o pastel fijo, si la
  * escena corre (en pantalla y con la pestaña visible), si el usuario pidió reducir el movimiento y si la escena tiene
  * el foco del teclado. `visibleMargin` amplía la caja que cuenta como "en pantalla" (el lienzo de la portada sube
- * 72 px sobre ella).
+ * 72 px sobre ella). `viewpoint` es desde dónde se ve el pastel (la vista previa de "Diseña tu pastel", por paso).
  */
-export function useCakeScene(shape: CakeShape, visibleMargin = '0px') {
+export function useCakeScene(shape: CakeShape, visibleMargin = '0px', viewpoint?: Viewpoint) {
   const reducedMotion = useSyncExternalStore(subscribeReducedMotion, prefersReducedMotion)
   const visibleTab = useSyncExternalStore(subscribeVisibility, tabVisible)
   const [cake, setCake] = useState<CakeState>(() => ({ status: supportsWebGL2() ? 'loading' : 'fallback', retryable: false }))
@@ -88,6 +88,7 @@ export function useCakeScene(shape: CakeShape, visibleMargin = '0px') {
     observeBox,
     status: cake.status,
     shape,
+    viewpoint,
     reducedMotion,
     running: onScreen && visibleTab,
     keyboardFocus,

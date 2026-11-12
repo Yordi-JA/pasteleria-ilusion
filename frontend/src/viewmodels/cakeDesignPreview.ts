@@ -2,11 +2,14 @@ import type { BreadOption, CakeDesignOptions, FillingFlavorOption, FillingPrevie
 import type { CakeDesignDraft } from '../models/cakeDesignDraft.ts'
 import type { CakeLayer, CakePieces, CakeShape, CakeTier, ShapeColor } from '../three/cakeShape.ts'
 import type { SceneColor } from '../three/palette.ts'
-import { tierFootprints } from './cakeMolds.ts'
+import { clampCm, tierSizes, UNITS_PER_CM } from './cakeMolds.ts'
 import type { Footprint } from './cakeMolds.ts'
 import { decorationShape } from './cakeDecorations.ts'
+import { cakeLidShape, lidOf, previewSize } from './cakeLid.ts'
+import type { LoadedImage } from './cakeLid.ts'
 import { dataColor, piecesFor } from './fillingPieces.ts'
-import { DECORATION_STEP } from './cakeDesignSteps.ts'
+import type { MessageMetrics } from './messageGeometry.ts'
+import { DECORATION_STEP, LID_STEP } from './cakeDesignSteps.ts'
 import type { DesignDerived } from './cakeDesignSteps.ts'
 
 /**
@@ -29,16 +32,6 @@ import type { DesignDerived } from './cakeDesignSteps.ts'
 
 /** Alto de todos los pisos, sin importar el molde ni los kilos: un poco menos que el de los pisos de antes (de 1.04 a 0.62). */
 const TIER_HEIGHT = 0.72
-/** Unidades de escena por centímetro de molde: el molde de 12 kg (51.5 cm) llena casi todo el plato de la base. */
-const UNITS_PER_CM = 0.068
-/**
- * Medidas en cm de un piso cuando la API no manda moldes de esa forma: un tamaño neutro, el mismo para cualquier número
- * de kilos. Es un respaldo para que la vista previa siga dibujando; no es un dato de la pastelería.
- */
-const FALLBACK_CM: Record<'round' | 'rectangular', Footprint> = {
-  round: { lengthCm: 38, widthCm: 38 },
-  rectangular: { lengthCm: 44, widthCm: 29 },
-}
 /** Matiz del pan por tipo de pastel: hacia `betun` (tres leches) o hacia `mermelada`, el vino (envinado). */
 const TYPE_TINT: Record<string, { toward: SceneColor; amount: number }> = {
   tres_leches: { toward: 'betun', amount: 0.12 },
@@ -146,31 +139,10 @@ function layers(bread: Bread, filling: FillingLook | null): CakeLayer[] {
   return [crustBottom, breadLayer(0.34, bread.bottom), ...flavorWithCream(flavorLayer(0), creamy, { flavor: 0.15, cream: 0.04 }), breadLayer(0.34, bread.top), crustTop]
 }
 
-/** Cuánto más chico es cada piso que el de abajo en el tamaño de respaldo (el área baja a 0.64). */
-const FALLBACK_STEP = 0.8
-/** Medidas plausibles de un piso en cm (también las que salen de interpolar o de repartir): un molde mal escrito en el admin no saca el pastel de la tarjeta ni lo borra. */
-const MIN_CM = 15
-const MAX_CM = 150
-
-/**
- * Los pisos de la forma pedida con el tamaño que dan los moldes para esos kilos; sin moldes, el tamaño de respaldo, también
- * escalonado: cada piso más chico que el de abajo.
- */
-function tierSizes(options: CakeDesignOptions, form: 'round' | 'rectangular', kg: number, count: number): Footprint[] {
-  return (
-    tierFootprints(options.cakeMolds, form, kg, count) ??
-    Array.from({ length: count }, (_, index) => ({
-      lengthCm: FALLBACK_CM[form].lengthCm * FALLBACK_STEP ** index,
-      widthCm: FALLBACK_CM[form].widthCm * FALLBACK_STEP ** index,
-    }))
-  )
-}
-
 /** Un piso con las medidas de su molde: el radio en redondo; en rectangular, la mitad del largo y del ancho. */
 function tierShape(size: Footprint, form: 'round' | 'rectangular'): Pick<CakeTier, 'radius' | 'halfWidth' | 'halfDepth' | 'height'> {
-  const cm = (value: number) => Math.min(MAX_CM, Math.max(MIN_CM, value))
-  const halfLength = (cm(size.lengthCm) * UNITS_PER_CM) / 2
-  const halfWidth = (cm(size.widthCm) * UNITS_PER_CM) / 2
+  const halfLength = (clampCm(size.lengthCm) * UNITS_PER_CM) / 2
+  const halfWidth = (clampCm(size.widthCm) * UNITS_PER_CM) / 2
   if (form === 'round') return { radius: halfLength, height: TIER_HEIGHT }
   return { radius: halfWidth, halfWidth: halfLength, halfDepth: halfWidth, height: TIER_HEIGHT }
 }
@@ -182,9 +154,12 @@ type PreviewInput = {
   current: number
   /** El pan que se muestra mientras no se elige uno (el del estimado): "Paso 1: solo el pan de vainilla". */
   defaultBread: BreadOption | null
+  /** Lo que mide el texto del mensaje con su letra, y la imagen de la oblea cuando ya cargó (paso 7). */
+  metrics: MessageMetrics
+  waferImage: LoadedImage | null
 }
 
-export function designPreview({ draft, design, options, current, defaultBread }: PreviewInput): CakeShape {
+export function designPreview({ draft, design, options, current, defaultBread, metrics, waferImage }: PreviewInput): CakeShape {
   const bread = design.bread ?? defaultBread
   const top = dataColor(bread?.previewColor) ?? dataColor(defaultBread?.previewColor) ?? FALLBACK_BREAD
   // Un pan de dos colores trae el de abajo aparte (el admin lo controla); sin él, es de un solo color.
@@ -202,23 +177,27 @@ export function designPreview({ draft, design, options, current, defaultBread }:
       : null
   const frosting = current >= 5 && design.coverage ? (dataColor(design.coverage.previewColor) ?? undefined) : undefined
 
-  const count = Math.min(Math.max(draft.tiers, 1), Math.max(design.maxTiers, 1))
-  const sides = layers(breadColors, filling)
   // Sin kilos de la API todavía, el pastel se ve como el más chico.
-  const kg = design.kg ?? options.limits.minCustomKg
+  const { kg, tiers: count } = previewSize(draft, design, options)
+  const sides = layers(breadColors, filling)
   const tiers: CakeTier[] = tierSizes(options, draft.form, kg, count).map((size) => ({
     ...tierShape(size, draft.form),
     ...(frosting ? { frosting } : { layers: sides }),
   }))
   // La decoración va sobre la cobertura: sin ella (pasos 1 a 4) no se dibuja, aunque ya esté elegida.
   const decoration = frosting && current >= DECORATION_STEP ? decorationShape(draft, design, options) : null
+  // El mensaje y la oblea (paso 7) van sobre la tapa del último piso, también en la revisión.
+  const lid =
+    frosting && current >= LID_STEP
+      ? cakeLidShape({ draft, coverage: design.coverage, options, lid: lidOf(options, draft.form, kg, count), metrics, waferImage })
+      : null
   return {
     tiers,
     // La cobertura es solo crema pastelera: la duya y las perlas llegan con la decoración (paso 6), que lleva las suyas.
     festoons: false,
     ...(decoration ? { decoration } : {}),
+    ...(lid ? { lid } : {}),
     stand: true,
-    candle: false,
     form: draft.form,
     // La base mide un poco más que el piso de abajo: crece y se achica con él.
     fitStand: true,

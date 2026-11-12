@@ -5,13 +5,15 @@ import { focusRing } from '../components/focus.ts'
 import LoadErrorNotice from '../components/LoadErrorNotice.tsx'
 import PageHeader from '../components/PageHeader.tsx'
 import Skeleton, { LoadingRegion } from '../components/Skeleton.tsx'
-import { DESIGN_STEPS, STEP_COUNT } from '../viewmodels/cakeDesignSteps.ts'
+import { DESIGN_STEPS, LID_STEP, REVIEW_STEP, STEP_COUNT } from '../viewmodels/cakeDesignSteps.ts'
 import { useCakeDesigner } from '../viewmodels/useCakeDesigner.ts'
 import type { CakeDesignerView } from '../viewmodels/useCakeDesigner.ts'
 import { usePageTitle } from '../viewmodels/usePageTitle.ts'
-import { BreadStep, CakeTypeStep, CoverageStep, FillingStep, UpcomingStep } from './cakeDesigner/ChoiceSteps.tsx'
+import { BreadStep, CakeTypeStep, CoverageStep, FillingStep } from './cakeDesigner/ChoiceSteps.tsx'
 import DecorationStep from './cakeDesigner/DecorationStep.tsx'
-import { MobileBar, MobileHint, PriceCard, SummaryCard, SummaryDisclosure } from './cakeDesigner/DesignerAside.tsx'
+import { MobileBar, MobileHint, PreviewHint, PriceCard, SummaryCard, SummaryDisclosure } from './cakeDesigner/DesignerAside.tsx'
+import LidStep from './cakeDesigner/LidStep.tsx'
+import ReviewStep from './cakeDesigner/ReviewStep.tsx'
 import SizeStep from './cakeDesigner/SizeStep.tsx'
 import StepBar from './cakeDesigner/StepBar.tsx'
 import StepCard from './cakeDesigner/StepCard.tsx'
@@ -129,8 +131,14 @@ function CurrentStep({ designer }: { designer: CakeDesignerView }) {
           onColor={actions.setDecorationColor}
         />
       )
+    case LID_STEP:
+      return designer.lidStep.view && <LidStep view={designer.lidStep.view} actions={designer.lidStep.actions} />
     default:
-      return <UpcomingStep />
+      return (
+        view.review && (
+          <ReviewStep review={view.review} onOccasion={actions.setOccasion} feedback={designer.order.feedback} added={designer.order.added} onStartOver={actions.startOver} onRetry={designer.retryPrice} />
+        )
+      )
   }
 }
 
@@ -138,6 +146,10 @@ function Designer({ designer, hintId }: { designer: CakeDesignerView; hintId: st
   const { view, current, actions } = designer
   if (!view) return null
   const step = DESIGN_STEPS[current - 1]
+  // La revisión no confirma nada: su botón agrega el pastel al pedido. Y ya trae el desglose con "Cambiar" en cada renglón:
+  // no repite el total, "Tu pastel" ni la barra de abajo en móvil.
+  const review = current === REVIEW_STEP
+  const onContinue = review ? actions.addToOrder : actions.proceed
   return (
     <>
       <div className="flex flex-col gap-8 max-[600px]:gap-6">
@@ -145,20 +157,28 @@ function Designer({ designer, hintId }: { designer: CakeDesignerView; hintId: st
         <div className="grid grid-cols-2 items-start gap-9 max-[900px]:grid-cols-1 max-[900px]:gap-5">
           {/* La columna izquierda queda fija al hacer scroll en escritorio (libro de marca, "Cotizador 3D"). */}
           <div className="sticky top-28 flex flex-col gap-4 max-[900px]:static">
-            <SummaryDisclosure rows={view.summary} />
+            {!review && <SummaryDisclosure rows={view.summary} />}
             <div className="h-[350px] overflow-hidden rounded-lg border border-relieve bg-betun max-[600px]:h-[220px]">
               <DesignerCake scene={designer.scene} hintId={hintId} />
             </div>
-            <MobileHint visible={designer.scene.status === 'ready'} keyboardFocus={designer.scene.keyboardFocus} />
-            <PriceCard
-              price={view.price}
-              sizeLine={view.sizeLine}
-              hintId={hintId}
-              sceneReady={designer.scene.status === 'ready'}
-              keyboardFocus={designer.scene.keyboardFocus}
-              onRetry={designer.retryPrice}
-            />
-            <SummaryCard rows={view.summary} />
+            {review ? (
+              <p className="text-nota text-mermelada-suave">
+                <PreviewHint hintId={hintId} sceneReady={designer.scene.status === 'ready'} keyboardFocus={designer.scene.keyboardFocus} />
+              </p>
+            ) : (
+              <>
+                <MobileHint visible={designer.scene.status === 'ready'} keyboardFocus={designer.scene.keyboardFocus} />
+                <PriceCard
+                  price={view.price}
+                  sizeLine={view.sizeLine}
+                  hintId={hintId}
+                  sceneReady={designer.scene.status === 'ready'}
+                  keyboardFocus={designer.scene.keyboardFocus}
+                  onRetry={designer.retryPrice}
+                />
+                <SummaryCard rows={view.summary} />
+              </>
+            )}
           </div>
           <StepCard
             key={current}
@@ -170,27 +190,29 @@ function Designer({ designer, hintId }: { designer: CakeDesignerView; hintId: st
             error={designer.stepError}
             continueLabel={view.continueLabel}
             continueDisabled={view.continueDisabled}
-            busy={view.proceeding}
-            onContinue={actions.proceed}
+            busy={view.proceeding || (review && designer.order.busy)}
+            onContinue={onContinue}
             onBack={actions.back}
           >
             <CurrentStep designer={designer} />
           </StepCard>
         </div>
       </div>
-      <MobileBar
-        price={view.price}
-        continueLabel={view.continueShort}
-        onContinue={actions.proceed}
-        disabled={view.continueDisabled}
-        busy={view.proceeding}
-        onRetry={designer.retryPrice}
-      />
+      {!review && (
+        <MobileBar
+          price={view.price}
+          continueLabel={view.continueShort}
+          onContinue={onContinue}
+          disabled={view.continueDisabled}
+          busy={view.proceeding}
+          onRetry={designer.retryPrice}
+        />
+      )}
     </>
   )
 }
 
-/** `/pedido/disena`: "Diseña tu pastel", pasos 1 a 6 (los pasos 7 y 8 llegan en la tanda siguiente). */
+/** `/pedido/disena`: "Diseña tu pastel", los 8 pasos. */
 export default function CakeDesigner() {
   usePageTitle(TITLE)
   const designer = useCakeDesigner()
@@ -199,7 +221,11 @@ export default function CakeDesigner() {
     <>
       <PageHeader title={TITLE} before={<Breadcrumb />}>
         <p className="text-cuerpo text-mermelada-suave">
-          {designer.view?.changedType ? 'Cambiaste el tipo de pastel. Revisa cómo afecta a lo que ya elegiste.' : 'Elige paso a paso.'}
+          {designer.view?.changedType
+            ? 'Cambiaste el tipo de pastel. Revisa cómo afecta a lo que ya elegiste.'
+            : designer.current === REVIEW_STEP && designer.view
+              ? 'Revisa tu pastel antes de agregarlo. Puedes cambiar cualquier paso.'
+              : 'Elige paso a paso.'}
         </p>
       </PageHeader>
       <div className="mx-auto max-w-[1200px] px-6 pb-16 pt-10 max-[600px]:px-4 max-[600px]:pt-8">

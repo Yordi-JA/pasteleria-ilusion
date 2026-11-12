@@ -1,4 +1,4 @@
-import type { CakeMold } from '../models/cakeDesign.ts'
+import type { CakeDesignOptions, CakeMold } from '../models/cakeDesign.ts'
 
 /**
  * El tamaño del pastel de la vista previa según los kilos, con los moldes de la pastelería (D52). Sin React ni three.
@@ -104,4 +104,38 @@ export function tierKilos(molds: readonly CakeMold[], form: CakeMold['form'], kg
 export function tierFootprints(molds: readonly CakeMold[], form: CakeMold['form'], kg: number, tiers: number): Footprint[] | null {
   const sizes = tierKilos(molds, form, kg, tiers).map((share) => moldFootprint(molds, form, share))
   return sizes.every((size): size is Footprint => size !== null) ? sizes : null
+}
+
+/** Unidades de escena por centímetro de molde: el molde de 12 kg (51.5 cm) llena casi todo el plato de la base. */
+export const UNITS_PER_CM = 0.068
+/**
+ * Medidas en cm de un piso cuando la API no manda moldes de esa forma: un tamaño neutro, el mismo para cualquier número
+ * de kilos. Es un respaldo para que la vista previa siga dibujando; no es un dato de la pastelería.
+ */
+const FALLBACK_CM: Record<CakeMold['form'], Footprint> = {
+  round: { lengthCm: 38, widthCm: 38 },
+  rectangular: { lengthCm: 44, widthCm: 29 },
+}
+
+/** Cuánto más chico es cada piso que el de abajo en el tamaño de respaldo (el área baja a 0.64). */
+const FALLBACK_STEP = 0.8
+/** Medidas plausibles de un piso en cm (también las que salen de interpolar o de repartir): un molde mal escrito en el admin no saca el pastel de la tarjeta ni lo borra. */
+const MIN_CM = 15
+const MAX_CM = 150
+
+/** Una medida de piso dentro de lo plausible. */
+export const clampCm = (cm: number) => Math.min(MAX_CM, Math.max(MIN_CM, cm))
+
+/**
+ * Los pisos de la forma pedida con el tamaño que dan los moldes para esos kilos; sin moldes, el tamaño de respaldo, también
+ * escalonado: cada piso más chico que el de abajo.
+ */
+export function tierSizes(options: CakeDesignOptions, form: CakeMold['form'], kg: number, count: number): Footprint[] {
+  return (
+    tierFootprints(options.cakeMolds, form, kg, count) ??
+    Array.from({ length: count }, (_, index) => ({
+      lengthCm: FALLBACK_CM[form].lengthCm * FALLBACK_STEP ** index,
+      widthCm: FALLBACK_CM[form].widthCm * FALLBACK_STEP ** index,
+    }))
+  )
 }

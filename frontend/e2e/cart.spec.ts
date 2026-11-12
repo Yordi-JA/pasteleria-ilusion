@@ -109,7 +109,7 @@ test.describe('cart model', () => {
               { ...item, offeringId: 111, slug: '../admin' },
               { ...item, offeringId: 112, presentation: 'Completo' },
               { ...item, offeringId: 113, kind: undefined },
-              { ...item, offeringId: 114, kind: 'design' },
+              { ...item, offeringId: 114, kind: 'bundle' },
               { ...item, quantity: 4 },
               { ...item, offeringId: 115, name: `  ${item.name}  `, slug: ` ${item.slug} `, unitPrice: ' 350.00 ' },
               // La misma presentación de la vitrina de hoy es otra línea.
@@ -135,7 +135,7 @@ test.describe('cart model', () => {
     expect(result.itemsNotArray).toEqual(empty)
     expect(result.tooLongName).toEqual(empty)
     // Una línea repetida (misma presentación y mismo tipo) se descarta: la primera manda. Lo que se conserva va
-    // recortado. Una clase de línea o un tipo desconocidos (`design`, `mostrador`) no son un dato dañado: los
+    // recortado. Una clase de línea o un tipo desconocidos (`bundle`, `mostrador`) no son un dato dañado: los
     // escribió una versión más nueva y se conservan tal cual. Un código que no tiene la forma de los de la API
     // ('Completo', 'Por encargo') sí es un dato dañado.
     expect(result.mixed).toEqual({
@@ -145,7 +145,7 @@ test.describe('cart model', () => {
         { ...durazno, fulfillment: 'showcase', kind: 'offering', quantity: 1 },
       ],
       unknown: [
-        { ...durazno, kind: 'design', offeringId: 114, quantity: 2 },
+        { ...durazno, kind: 'bundle', offeringId: 114, quantity: 2 },
         { ...durazno, offeringId: 117, fulfillment: 'mostrador', kind: 'offering', quantity: 2 },
       ],
     })
@@ -305,7 +305,7 @@ test.describe('cart model', () => {
       async ({ url, key, offering }) => {
         const { writeCart } = await import(url)
         const line = { ...offering, kind: 'offering', quantity: 1 }
-        const design = { kind: 'design', id: 'abc', quantity: 1 }
+        const design = { kind: 'bundle', id: 'abc', quantity: 1 }
         writeCart([line], [design])
         const both = JSON.parse(localStorage.getItem(key) ?? 'null')
         const many = Array.from({ length: 99 }, (_, i) => ({ ...line, offeringId: i + 1 }))
@@ -315,9 +315,9 @@ test.describe('cart model', () => {
       },
       { url: CART_MODULE, key: KEY, offering: durazno },
     )
-    expect(result.both).toEqual({ items: [{ ...durazno, kind: 'offering', quantity: 1 }, { kind: 'design', id: 'abc', quantity: 1 }] })
+    expect(result.both).toEqual({ items: [{ ...durazno, kind: 'offering', quantity: 1 }, { kind: 'bundle', id: 'abc', quantity: 1 }] })
     expect(result.cappedLength).toBe(100)
-    expect(result.cappedLast).toEqual({ kind: 'design', id: 'abc', quantity: 1 })
+    expect(result.cappedLast).toEqual({ kind: 'bundle', id: 'abc', quantity: 1 })
   })
 
   test('the same presentation by order and from the vitrina of today are two lines, each with its own cap', async ({ page }) => {
@@ -650,7 +650,7 @@ test.describe('cart in the site', () => {
   })
 
   test('lines written by a newer version survive an add and an empty from this one', async ({ page }) => {
-    const design = { kind: 'design', id: 'diseno-1', quantity: 1, summary: { kg: 4 } }
+    const design = { kind: 'bundle', id: 'diseno-1', quantity: 1, summary: { kg: 4 } }
     const newPresentation = { ...cajeta, offeringId: 300, kind: 'offering', presentation: 'familiar', quantity: 1 }
     await seedCart(page, { items: [design, { ...durazno, kind: 'offering', quantity: 1 }, newPresentation] })
     await openSample(page)

@@ -2,7 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { displayFileName, imageProblem, imageProblemMessage, inspectImage } from '../models/decorationImage.ts'
 
 /** La imagen de "Otra decoración" que la persona eligió, solo en la memoria de esta pestaña (D53). */
-export type DecorationImage = { name: string; url: string }
+export type DecorationImage = {
+  name: string
+  url: string
+  /** Quién es esta elección, no cómo se llama el archivo: uno nuevo por cada vez que se elige. Dos fotos con el mismo nombre no se confunden. */
+  id: string
+}
 
 /**
  * View-model de la imagen de "Otra decoración". Revisa el tipo, el tamaño y la cabecera antes de aceptarla (`models/decorationImage.ts`),
@@ -49,7 +54,7 @@ export function useDecorationImage() {
       const name = displayFileName(file.name) ?? 'imagen'
       release()
       current.current = URL.createObjectURL(file)
-      setImage({ name, url: current.current })
+      setImage({ name, url: current.current, id: crypto.randomUUID() })
       setError(null)
       return name
     },

@@ -168,7 +168,8 @@ class CakeDesignSettingsRecord:
     people_per_kg: int
     min_custom_kg: int
     max_online_kg: int
-    wafer_price: Decimal
+    # `None`: PENDIENTE; la oblea no se puede pedir hasta que la pastelería le ponga precio.
+    wafer_price: Decimal | None
     wafer_max_width_cm: Decimal
     wafer_max_height_cm: Decimal
     message_suggested_max_words: int
@@ -179,6 +180,8 @@ class PolicySettingsRecord:
     stand_return_days: int
     # Vacío: PENDIENTE.
     damaged_stand_policy: str
+    # Parte del pedido que se paga hoy (regla 10); el resto, el día de la entrega.
+    advance_percent: int
 
 
 @dataclass(frozen=True)

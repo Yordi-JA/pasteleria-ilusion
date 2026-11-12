@@ -1,7 +1,21 @@
 """DTOs: validan la entrada y dan forma a la salida JSON."""
 from rest_framework import serializers
+from rest_framework.validators import ProhibitSurrogateCharactersValidator
 
-from ..models import Bread, CakeShape, CakeType, Presentation, Product, ProductCategory, SalesChannel
+from ..models import (
+    Bread,
+    CakeShape,
+    CakeType,
+    MessageArrangement,
+    MessageColorMode,
+    Presentation,
+    Product,
+    ProductCategory,
+    SalesChannel,
+    WaferShape,
+)
+from ..services import design_layout
+from ..services.design_layout import MessageLayout, WaferLayout
 from ..services.pricing_service import CakeDesignChoice
 
 # El mismo largo que el `slug` de las opciones (`Bread`, `FillingBase`, ...).
@@ -160,7 +174,7 @@ class CakeDesignLimitsSerializer(serializers.Serializer):
     people_per_kg = serializers.IntegerField()
     min_custom_kg = serializers.IntegerField()
     max_online_kg = serializers.IntegerField()
-    wafer_price = money()
+    wafer_price = money(allow_null=True, help_text="`null`: PENDIENTE, la oblea no se puede pedir.")
     wafer_max_width_cm = serializers.DecimalField(max_digits=4, decimal_places=1)
     wafer_max_height_cm = serializers.DecimalField(max_digits=4, decimal_places=1)
     message_suggested_max_words = serializers.IntegerField()
@@ -227,6 +241,89 @@ class CakeDesignOptionsSerializer(serializers.Serializer):
 # --- Precio (entrada y salida) ---
 
 
+UNSAFE_TEXT_MESSAGE = "El mensaje lleva caracteres que no se pueden imprimir."
+
+
+class StrictFloatField(serializers.FloatField):
+    """Un número de verdad: no acepta `true` ni `false` (Python los toma por 1 y 0). DRF ya rechaza NaN, los infinitos y los enteros que no caben en un `float`; aquí solo se dicen en español."""
+
+    default_error_messages = {
+        "invalid": "Escribe un número.",
+        "overflow": "Ese número es demasiado grande.",
+    }
+
+    def to_internal_value(self, data):
+        if isinstance(data, bool):
+            self.fail("invalid")
+        return super().to_internal_value(data)
+
+
+def _relative_position():
+    limit = design_layout.MAX_RELATIVE_POSITION
+    return StrictFloatField(min_value=-limit, max_value=limit)
+
+
+def _rotation():
+    limit = design_layout.MAX_ROTATION_DEG
+    return StrictFloatField(min_value=-limit, max_value=limit)
+
+
+class MessageTextField(serializers.CharField):
+    """Texto del mensaje. DRF rechaza los sustitutos sueltos con un validador en inglés: aquí lleva el mismo texto que los demás."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        for validator in self.validators:
+            if isinstance(validator, ProhibitSurrogateCharactersValidator):
+                validator.message = UNSAFE_TEXT_MESSAGE
+
+class WaferLayoutSerializer(serializers.Serializer):
+    """Cómo acomoda el cliente la oblea sobre la tapa del último piso (paso 7). No cambia el precio."""
+
+    shape = serializers.ChoiceField(choices=WaferShape.choices)
+    width_cm = StrictFloatField(
+        min_value=design_layout.MIN_WAFER_CM, max_value=100, help_text="En un círculo, el diámetro."
+    )
+    height_cm = StrictFloatField(min_value=design_layout.MIN_WAFER_CM, max_value=100)
+    rotation_deg = _rotation()
+    x = _relative_position()
+    y = _relative_position()
+    image_zoom = StrictFloatField(
+        min_value=design_layout.MIN_IMAGE_ZOOM, max_value=design_layout.MAX_IMAGE_ZOOM,
+        help_text="1 cubre la oblea justo; más acerca la imagen.",
+    )
+    image_x = StrictFloatField(min_value=-1, max_value=1)
+    image_y = StrictFloatField(min_value=-1, max_value=1)
+
+
+class MessageLayoutSerializer(serializers.Serializer):
+    """Cómo escribe el cliente el mensaje sobre la tapa (paso 7). No cambia el precio."""
+
+    text = MessageTextField(
+        max_length=design_layout.MAX_MESSAGE_LENGTH,
+        help_text="La pastelería sugiere hasta 4 palabras; no se bloquea.",
+    )
+    color_mode = serializers.ChoiceField(choices=MessageColorMode.choices)
+    color = serializers.CharField(
+        allow_null=True,
+        max_length=SLUG_MAX_LENGTH,
+        help_text="`auto`: `null`. `tones`: `deep` o `light`. `list`: un color de la cobertura.",
+    )
+    arrangement = serializers.ChoiceField(choices=MessageArrangement.choices)
+    curve = StrictFloatField(min_value=-1, max_value=1)
+    scale = StrictFloatField(
+        min_value=design_layout.MIN_MESSAGE_SCALE, max_value=design_layout.MAX_MESSAGE_SCALE
+    )
+    rotation_deg = _rotation()
+    x = _relative_position()
+    y = _relative_position()
+
+    def validate_text(self, value):
+        if design_layout.has_unsafe_characters(value):
+            raise serializers.ValidationError(UNSAFE_TEXT_MESSAGE)
+        return value
+
+
 class CakeDesignPriceRequestSerializer(serializers.Serializer):
     """Elecciones del cliente. Cualquier monto que mande se ignora: el servidor lo calcula.
 
@@ -290,6 +387,13 @@ class CakeDesignPriceRequestSerializer(serializers.Serializer):
         help_text="Forma del molde; si llega, se valida. No cambia el precio.",
         error_messages={"invalid_choice": "Elige una forma: redondo o rectangular."},
     )
+    wafer_layout = WaferLayoutSerializer(
+        required=False,
+        help_text="Acomodo de la oblea; si llega, se valida y exige `wafer`. No cambia el precio.",
+    )
+    message_layout = MessageLayoutSerializer(
+        required=False, help_text="Acomodo del mensaje; si llega, se valida. No cambia el precio."
+    )
     estimate = serializers.BooleanField(
         required=False,
         default=False,
@@ -321,7 +425,20 @@ class CakeDesignPriceRequestSerializer(serializers.Serializer):
             wafer=data["wafer"],
             tiers=data.get("tiers"),
             form=data.get("form"),
+            wafer_layout=WaferLayout(**data["wafer_layout"]) if "wafer_layout" in data else None,
+            message_layout=MessageLayout(**data["message_layout"]) if "message_layout" in data else None,
         )
+
+
+class PaymentSummarySerializer(serializers.Serializer):
+    """Lo que se paga hoy y el día de la entrega (regla 10). El envío se decide en el carrito."""
+
+    advance_percent = serializers.IntegerField(help_text="Parte del pedido que se paga hoy, en porcentaje.")
+    advance = money(help_text="Anticipo: esa parte del pedido, sin la base ni el envío.")
+    base_deposit = money(help_text="Depósito de la base, completo y aparte.")
+    delivery_fee = money(help_text="Envío, completo y aparte; $0 hasta que se elige la entrega.")
+    pay_today = money(help_text="Anticipo más el depósito de la base y el envío.")
+    pay_on_delivery = money(help_text="Lo que falta del pedido: se paga el día de la entrega.")
 
 
 class StandDepositSerializer(serializers.Serializer):
@@ -330,6 +447,7 @@ class StandDepositSerializer(serializers.Serializer):
     min_kg = serializers.IntegerField(source="stand.min_kg")
     max_kg = serializers.IntegerField(source="stand.max_kg")
     deposit = money(help_text="Se cobra aparte del pedido y se devuelve al regresar la base.")
+    return_days = serializers.IntegerField(help_text="Días, desde la entrega, para regresar la base y recuperar el depósito.")
 
     def to_representation(self, instance):
         return None if instance.stand is None else super().to_representation(instance)
@@ -371,6 +489,13 @@ class CakeDesignPriceSerializer(serializers.Serializer):
         help_text="El total es un estimado sin sabores (`estimate`): ningún pedido lo acepta.",
     )
     stand = StandDepositSerializer(source="stand_deposit", allow_null=True)
+    payment = PaymentSummarySerializer(
+        allow_null=True,
+        help_text=(
+            "Anticipo, lo que se paga hoy y lo que queda para la entrega. `null` con una decoración por "
+            "cotizar (`requires_quote`): no se cobra nada hasta que la pastelería ponga el precio."
+        ),
+    )
     size = PeopleSizeSerializer(allow_null=True, help_text="Solo si la petición trae `people`; si no, `null`.")
 
 

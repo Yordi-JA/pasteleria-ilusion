@@ -30,9 +30,14 @@ export const DESIGN_STEPS = [
 
 export const STEP_COUNT = DESIGN_STEPS.length
 export const FILLING_STEP = 4
+/** La cobertura (paso 5) y la decoración (paso 6). */
+export const COVERAGE_STEP = 5
 export const DECORATION_STEP = 6
-/** Último paso que esta versión arma; del 7 en adelante llegan en la tanda 3. */
-export const LAST_BUILT_STEP = 6
+/** El mensaje y la oblea (paso 7) y la revisión (paso 8, el último). */
+export const LID_STEP = 7
+export const REVIEW_STEP = 8
+/** Último paso que esta versión arma. */
+export const LAST_BUILT_STEP = REVIEW_STEP
 
 /** Una opción elegida que el tipo de pastel ya no admite: nombre, motivo y código de la API. */
 export type Issue = { name: string; reason: string; code: UnavailableCode | null; allowedCakeTypes: string[] }
@@ -63,6 +68,8 @@ export type DesignDerived = {
   coverage: CoverageColorOption | null
   /** La decoración elegida (esté o no disponible); `null` si no se eligió o ya no existe. */
   decoration: DecorationOption | null
+  /** Lo que falta al mensaje o a la oblea para continuar (paso 7), o `null` si está completo. */
+  layoutProblem: string | null
   /** Si los datos de cada paso (1 a 8) están completos y son válidos. */
   valid: boolean[]
 }
@@ -82,9 +89,10 @@ export function choosableFlavors(base: FillingBaseOption | null, cakeType: strin
 
 /**
  * `imageReady`: la imagen de "Otra decoración" está en la memoria de la pestaña. No va en el borrador porque no se
- * guarda (D53): tras recargar, el borrador conserva su nombre pero la imagen se tiene que elegir otra vez.
+ * guarda (D53): tras recargar, el borrador conserva su nombre pero la imagen se tiene que elegir otra vez. Lo mismo con
+ * `waferReady`, la imagen de la oblea (D55).
  */
-export function deriveDesign(draft: CakeDesignDraft, options: CakeDesignOptions, apiSize: PeopleSize | null, imageReady = false): DesignDerived {
+export function deriveDesign(draft: CakeDesignDraft, options: CakeDesignOptions, apiSize: PeopleSize | null, imageReady = false, waferReady = false): DesignDerived {
   const { tierMinimums } = options
   const size = apiSize ? { ...apiSize, current: apiSize.people === draft.people } : null
   const kg = size?.kg ?? null
@@ -124,6 +132,7 @@ export function deriveDesign(draft: CakeDesignDraft, options: CakeDesignOptions,
     flavorsNeeded,
     coverage,
     decoration,
+    layoutProblem: layoutProblem(draft, options, waferReady),
     valid: [],
   }
   design.valid = [
@@ -134,8 +143,9 @@ export function deriveDesign(draft: CakeDesignDraft, options: CakeDesignOptions,
     fillingProblem(design, draft) === null,
     Boolean(coverage),
     decorationProblem(decoration, imageReady, draft) === null,
-    false,
-    false,
+    design.layoutProblem === null,
+    // La revisión no pide nada: se llega a ella con todo lo anterior completo y desde ahí se agrega al pedido.
+    true,
   ]
   return design
 }
@@ -167,6 +177,19 @@ export function decorationProblem(decoration: DecorationOption | null, imageRead
     return draft.decorationImageName ? 'Tu imagen no se conservó al recargar. Elígela otra vez.' : 'Elige la imagen de la decoración.'
   }
   return null
+}
+
+/**
+ * Qué le falta al mensaje o a la oblea para continuar, o `null` si está completo (regla 6.2 y 6.3). Ninguno de los dos es
+ * obligatorio, pero lo que se agrega se completa: el mensaje lleva texto y la oblea, su imagen y su precio. Un mensaje de más
+ * de 4 palabras no falta nada: es una sugerencia.
+ */
+export function layoutProblem(draft: CakeDesignDraft, options: CakeDesignOptions, waferReady: boolean): string | null {
+  if (draft.messageEnabled && draft.message.text.trim() === '') return 'Escribe tu mensaje o quítalo.'
+  if (!draft.waferEnabled) return null
+  if (options.limits.waferPrice === null) return 'La oblea todavía no tiene precio. Quítala para continuar.'
+  if (waferReady) return null
+  return draft.waferImageName ? 'Tu imagen no se conservó al recargar. Elígela otra vez.' : 'Elige la imagen de la oblea.'
 }
 
 /** "Con 10 kg el pastel va de 1 piso." o "Con 20 kg el pastel va de hasta 3 pisos." (regla 3.3, D50). */
@@ -237,8 +260,10 @@ export function missingChoice(step: number, design: DesignDerived, draft: CakeDe
       return design.coverage ? null : 'Elige el color de la cobertura.'
     case DECORATION_STEP:
       return decorationProblem(design.decoration, imageReady, draft)
+    case LID_STEP:
+      return design.layoutProblem
     default:
-      return 'Este paso todavía no se puede completar.'
+      return null
   }
 }
 
@@ -276,6 +301,7 @@ export function continueLabel(step: number, design: DesignDerived) {
     return `Continuar con ${design.size.kg} kg, unas ${design.size.minimumPeople} personas`
   }
   const conflict = step === 2 ? conflictTarget(design) : null
+  if (step === REVIEW_STEP) return 'Agregar al pedido'
   return conflict ? `Continuar y elegir otro ${conflict.target}` : 'Continuar'
 }
 

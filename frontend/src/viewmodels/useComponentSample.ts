@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { CartOffering } from '../models/cart.ts'
+import type { CartOffering, OfferingItem } from '../models/cart.ts'
 import { PRESENTATION_LABELS } from '../models/presentation.ts'
 import { useAddToCart } from './useAddToCart.ts'
 import { useCart } from './useCart.ts'
@@ -78,7 +78,8 @@ export function useComponentSample() {
     toggleCatalogLoading: () => setCatalogLoading((value) => !value),
     add: () => setAdded(true),
     cartExamples,
-    cartItems: cart.items,
+    // La muestra solo enseña las líneas del catálogo; los pasteles diseñados tienen su propia pantalla (Etapa 4).
+    cartItems: cart.items.filter((item): item is OfferingItem => item.kind === 'offering'),
     cartFeedback: addToCart.feedback,
     addToCart: (example: (typeof cartExamples)[number]) => addToCart.add(example.offering, 1, example.stock),
     removeFromCart: cart.remove,

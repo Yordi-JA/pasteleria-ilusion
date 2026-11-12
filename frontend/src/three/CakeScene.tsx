@@ -6,7 +6,7 @@ import type { Group, PerspectiveCamera } from 'three'
 import { focusRing } from '../components/focus.ts'
 import CakeModel from './CakeModel.tsx'
 import type { CakeMotion } from './CakeModel.tsx'
-import type { CakeShape } from './cakeShape.ts'
+import type { CakeShape, Viewpoint } from './cakeShape.ts'
 import { contentOf, fitScale, lookAtHeight, referenceContent, standScale } from './cakeMetrics.ts'
 import type { Content } from './cakeMetrics.ts'
 import { brandColor } from './palette.ts'
@@ -45,7 +45,7 @@ const IDLE_FRAME_MARGIN_MS = 6
 /** Píxeles de scroll en los que los pisos se separan por completo (380 en el mockup). */
 const SEPARATION_SCROLL = 380
 /**
- * El lienzo sube estos píxeles por encima de la caja del pastel para que la vela no se corte cuando los pisos se
+ * El lienzo sube estos píxeles por encima de la caja del pastel para que el piso de arriba no se corte cuando los pisos se
  * separan. La caja (y el diseño) no cambia: el lienzo no recibe el puntero y es transparente.
  */
 const OVERFLOW_TOP = 72
@@ -91,6 +91,8 @@ export type CakeSceneProps = {
    * cabe). Sin ella, la portada: giro horizontal e inclinación hacia el puntero.
    */
   freeLook?: boolean
+  /** Solo con `freeLook`: desde dónde se ve el pastel. Sin él, la elevación de siempre y el giro solo. */
+  viewpoint?: Viewpoint
 }
 
 /** Lo que leen las pruebas en desarrollo, sin acoplarlas a three: cuadros dibujados, ángulo y separación. */
@@ -215,11 +217,13 @@ type RigProps = {
   onReady: () => void
   framing: SceneFraming
   freeLook: boolean
+  /** Si el pastel gira solo; con `false` se queda donde está (la vista superior del paso 7). */
+  autoSpin: boolean
 }
 
-function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnScroll, onReady, framing, freeLook }: RigProps) {
+function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnScroll, onReady, framing, freeLook, autoSpin }: RigProps) {
   const cake = useRef<Group>(null)
-  const motion = useRef<CakeMotion>({ separation: 0, yaw: 0 })
+  const motion = useRef<CakeMotion>({ separation: 0 })
   const probe = useRef<Probe>({ frames: 0, angle: NaN, separation: NaN, elevation: NaN, scale: NaN })
   const freeView = useRef<FreeView>({ scale: 0, centerY: 0 })
   const content = useMemo(() => contentOf(shape), [shape])
@@ -251,7 +255,7 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnS
     const dt = resumed.current ? Math.min(delta, 0.05) : delta
     resumed.current = false
     const s = spin.current
-    const moving = stepSpin(s, dt, !reducedMotion)
+    const moving = stepSpin(s, dt, !reducedMotion && autoSpin)
     const t = tilt.current
     stepTilt(t, dt, !reducedMotion, TILT.timeConstant)
     // El scroll se lee aquí, dentro del cuadro que ya se dibuja por el giro: sin escuchar el evento `scroll`, sin
@@ -261,7 +265,6 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnS
     const reframing = freeLook && stepFreeCamera(state.camera as PerspectiveCamera, state.size, freeView.current, content, reference, s.elevation, dt, !reducedMotion)
     const yaw = ((s.angle + t.x * TILT.yaw) * Math.PI) / 180
     motion.current.separation = separation
-    motion.current.yaw = yaw
     if (cake.current) {
       cake.current.rotation.y = yaw
       cake.current.rotation.x = (t.y * TILT.pitch * Math.PI) / 180
@@ -274,8 +277,8 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnS
     if (reducedMotion) {
       if (moving || reframing) invalidate()
     } else if (running) {
-      if (scrolled || reframing || needsFullRate(s, t, true)) invalidate()
-      else if (idleTimer.current === null) {
+      if (scrolled || reframing || needsFullRate(s, t, autoSpin)) invalidate()
+      else if (autoSpin && idleTimer.current === null) {
         // El temporizador pide el cuadro y este llega en el siguiente refresco: sin margen, caería justo después
         // del refresco de los 33 ms y esperaría al de los 50 (unos 20 fps). Con 6 ms de margen alcanza el de 33.
         const wait = Math.max(0, IDLE_FRAME_MS - IDLE_FRAME_MARGIN_MS - (performance.now() - lastFrameAt.current))
@@ -300,7 +303,7 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnS
       <hemisphereLight args={[brandColor('betun'), brandColor('nata'), 2.6]} />
       <directionalLight color={brandColor('betun')} intensity={1.1} position={[-3, 5, 4]} />
       <group ref={cake}>
-        <CakeModel shape={shape} motion={motion} flicker={!reducedMotion} animateColors={!reducedMotion} animateSize={!reducedMotion} />
+        <CakeModel shape={shape} motion={motion} animateColors={!reducedMotion} animateSize={!reducedMotion} />
       </group>
       <ContactShadow scale={plate} />
     </>
@@ -324,9 +327,10 @@ export default function CakeScene({
   onFocusEscape,
   framing = HERO_FRAMING,
   freeLook = false,
+  viewpoint,
 }: CakeSceneProps) {
   const container = useRef<HTMLDivElement>(null)
-  const spin = useRef(createSpin(INITIAL_ANGLE))
+  const spin = useRef(createSpin(viewpoint?.angle ?? INITIAL_ANGLE, viewpoint?.elevation ?? ELEVATION.initial))
   const tilt = useRef<Tilt>(createTilt())
   const invalidateRef = useRef<() => void>(() => {})
   const mounted = useRef(false)
@@ -339,6 +343,33 @@ export default function CakeScene({
 
   // Cada gesto pide un cuadro enseguida; ese cuadro ve que hay movimiento y sigue a la tasa completa.
   const redraw = () => invalidateRef.current()
+
+  // Al cambiar de paso, la cámara se acomoda al nuevo punto de vista: con el mismo paso suave de las flechas, o de golpe con
+  // "reducir movimiento". El primer punto de vista ya es el inicial del giro.
+  const shownViewpoint = useRef(viewpoint?.key)
+  const viewpointKey = viewpoint?.key
+  const latestViewpoint = useRef(viewpoint)
+  useLayoutEffect(() => {
+    latestViewpoint.current = viewpoint
+  })
+  useEffect(() => {
+    const target = latestViewpoint.current
+    if (!target || shownViewpoint.current === viewpointKey) return
+    shownViewpoint.current = viewpointKey
+    const s = spin.current
+    // El camino más corto hacia el giro pedido, sin dar vueltas de más.
+    const turn = target.angle === null ? 0 : ((((target.angle - s.angle - s.pending) % 360) + 540) % 360) - 180
+    if (reducedMotion) {
+      s.angle += s.pending + turn
+      s.pending = 0
+      s.elevation = target.elevation
+      s.pendingElevation = 0
+    } else {
+      s.pending += turn
+      s.pendingElevation = target.elevation - s.elevation
+    }
+    redraw()
+  }, [viewpointKey, reducedMotion])
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return
@@ -436,6 +467,7 @@ export default function CakeScene({
           onReady={onReady}
           framing={framing}
           freeLook={freeLook}
+          autoSpin={viewpoint?.autoSpin ?? true}
         />
       </Canvas>
     </div>

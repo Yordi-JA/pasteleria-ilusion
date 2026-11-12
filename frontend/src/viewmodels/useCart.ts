@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { addItem, cartCount, CART_STORAGE_KEY, readCart, removeItem, writeCart } from '../models/cart.ts'
-import type { AddResult, CartItem, CartOffering, LineKey, StoredCart } from '../models/cart.ts'
+import { addDesign, addItem, cartCount, CART_STORAGE_KEY, imageKeysOf, readCart, removeDesign, removeItem, writeCart } from '../models/cart.ts'
+import type { AddDesignResult, AddResult, CartItem, CartOffering, DesignItem, LineKey, StoredCart } from '../models/cart.ts'
+import { deleteDesignImages } from '../models/designImages.ts'
 
 /** Lo que devuelve `add`: cuántas entraron, cuántas hay y, si no entró nada por un tope técnico, `limit`. */
 export type AddOutcome = Omit<AddResult, 'items'>
@@ -14,6 +15,10 @@ export type Cart = {
   add: (offering: CartOffering, quantity: number, maxQuantity?: number) => AddOutcome
   /** Quita la línea de esa presentación y ese tipo (encargo o vitrina de hoy). */
   remove: (key: LineKey) => void
+  /** Agrega un pastel de "Diseña tu pastel" (D55); el mismo diseño no entra dos veces. */
+  addDesign: (design: DesignItem) => Omit<AddDesignResult, 'items'>
+  /** Quita un pastel diseñado y borra sus imágenes del navegador. */
+  removeDesign: (designId: string) => void
   /**
    * Vacía las líneas que esta versión muestra. Las de una versión más nueva (`unknown`) se conservan: esta pestaña
    * no las ve, así que no puede decidir quitarlas.
@@ -91,9 +96,36 @@ export function useCartState(): Cart {
     [update],
   )
 
-  const clear = useCallback(() => update(() => ({ items: [], result: undefined })), [update])
+  const addDesignLine = useCallback(
+    (design: DesignItem) =>
+      update((base) => {
+        const { items: next, ...outcome } = addDesign(base.items, design, base.unknown.length)
+        return { items: next, result: outcome }
+      }),
+    [update],
+  )
 
-  return useMemo(() => ({ items, count: cartCount(items), add, remove, clear }), [items, add, remove, clear])
+  // Las imágenes de un pastel quitado ya no sirven: se borran de `IndexedDB`, que no se limpia sola.
+  const removeDesignLine = useCallback(
+    (designId: string) => {
+      const gone = update((base) => {
+        const next = removeDesign(base.items, designId)
+        return { items: next, result: imageKeysOf(base.items).filter((key) => !imageKeysOf(next).includes(key)) }
+      })
+      void deleteDesignImages(gone)
+    },
+    [update],
+  )
+
+  const clear = useCallback(() => {
+    const gone = update((base) => ({ items: [], result: imageKeysOf(base.items) }))
+    void deleteDesignImages(gone)
+  }, [update])
+
+  return useMemo(
+    () => ({ items, count: cartCount(items), add, remove, addDesign: addDesignLine, removeDesign: removeDesignLine, clear }),
+    [items, add, remove, addDesignLine, removeDesignLine, clear],
+  )
 }
 
 /** El carrito compartido. Solo funciona dentro del marco del sitio (`SiteLayout`). */
