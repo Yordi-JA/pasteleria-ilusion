@@ -1,12 +1,14 @@
 import { useEffect, useId, useRef } from 'react'
 import { buttonClasses } from '../../components/buttonStyles.ts'
 import ChoiceOption from '../../components/ChoiceOption.tsx'
+import ColorPicker from '../../components/ColorPicker.tsx'
+import ColorSwatches from '../../components/ColorSwatches.tsx'
 import { focusRing, focusRingWithin } from '../../components/focus.ts'
 import Notice from '../../components/Notice.tsx'
 import { DECORATION_IMAGE_MAX_MB, DECORATION_IMAGE_TYPES } from '../../models/decorationImage.ts'
 import type { DecorationColorView, DecorationGroupView } from '../../viewmodels/cakeDecorations.ts'
 import type { DecorationImage } from '../../viewmodels/useDecorationImage.ts'
-import { ColorGrid, Group, Options } from './ChoiceSteps.tsx'
+import { Group, Options } from './ChoiceSteps.tsx'
 
 /** Lo que el paso necesita de una imagen que sube la persona (la de "Otra decoración" o la de la oblea): vive solo en la memoria de la pestaña (D53, D55). */
 export type ImageProps = {
@@ -92,17 +94,6 @@ export function ImagePicker({ image, lostName, error, onPick, onRemove, onUnread
   )
 }
 
-function Swatches({ colors }: { colors: string[] }) {
-  return (
-    <span aria-hidden="true" className="flex gap-1">
-      {colors.map((color) => (
-        // Son los tonos que saldrían de la cobertura (comida), no colores de la interfaz.
-        <span key={color} className="h-5 w-5 rounded-full border border-relieve" style={{ backgroundColor: color }} />
-      ))}
-    </span>
-  )
-}
-
 type DecorationStepProps = {
   groups: DecorationGroupView[]
   color: DecorationColorView | null
@@ -119,7 +110,7 @@ type DecorationStepProps = {
  * Paso 6: la decoración (regla 6.1, D53, D54). Una sola por pedido; los diseños de duya y los tipos de chispas van
  * agrupados y se despliegan solo al elegir su grupo. Una opción sin precio se
  * ve desactivada con "Precio por confirmar". La duya y las rosas llevan color: automático (tonos de la cobertura) o uno de
- * los colores de la cobertura. "Otra decoración" pide una imagen, que por ahora solo se guarda en el navegador.
+ * cualquier color del selector. "Otra decoración" pide una imagen, que por ahora solo se guarda en el navegador.
  */
 export default function DecorationStep({ groups, color, quote, imagePicker, onChoose, onAutomatic, onOwnColor, onColor }: DecorationStepProps) {
   const titleId = useId()
@@ -176,7 +167,7 @@ export default function DecorationStep({ groups, color, quote, imagePicker, onCh
               value="automatico"
               label="Automático"
               description="Tonos de tu cobertura"
-              trailing={<Swatches colors={color.automatic.swatches} />}
+              trailing={<ColorSwatches colors={color.automatic.swatches} />}
               checked={color.automatic.checked}
               onChange={onAutomatic}
             />
@@ -184,12 +175,12 @@ export default function DecorationStep({ groups, color, quote, imagePicker, onCh
               name="modo-color"
               value="elegir"
               label="Elegir un color"
-              description="Uno de los colores de la cobertura"
+              description="Cualquier color"
               checked={color.pick.checked}
               onChange={onOwnColor}
             />
           </div>
-          {color.pick.checked && <ColorGrid legend="Elige el color" name="color-decoracion" colors={color.colors} onChoose={onColor} />}
+          {color.pick.checked && <ColorPicker legend="Elige el color de la decoración" value={color.value} onChange={onColor} />}
           {color.note && <p className="text-nota">{color.note}</p>}
         </Group>
       )}

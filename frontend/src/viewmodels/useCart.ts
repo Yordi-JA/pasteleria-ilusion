@@ -40,6 +40,14 @@ export const CartContext = createContext<Cart | null>(null)
 export function useCartState(): Cart {
   const [initial] = useState<StoredCart>(() => readCart() ?? { items: [], unknown: [] })
   const [items, setItems] = useState<CartItem[]>(initial.items)
+  // Un pastel guardado con los colores de la lista vieja no se puede leer: se descartó al leer. Aquí se borran sus imágenes y se
+  // reescribe lo guardado (partiendo de lo que hay ahora, no de la lectura inicial) para que no vuelva a pasar en cada carga.
+  useEffect(() => {
+    if (!initial.discarded) return
+    void deleteDesignImages(initial.discarded.images)
+    const stored = readCart()
+    if (stored) writeCart(stored.items, stored.unknown)
+  }, [initial])
   // Lo vigente en esta pestaña, con las líneas de una versión más nueva que se conservan sin leer. Es la base
   // de cada cambio solo cuando el almacenamiento falla; mientras funciona, cada cambio parte de lo guardado
   // para no pisar lo que otra pestaña escribió y aún no avisa.

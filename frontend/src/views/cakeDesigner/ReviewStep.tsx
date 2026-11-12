@@ -2,6 +2,7 @@ import { useId } from 'react'
 import { Link } from 'react-router'
 import AddToCartNotice from '../../components/AddToCartNotice.tsx'
 import Button from '../../components/Button.tsx'
+import ColorSwatches from '../../components/ColorSwatches.tsx'
 import { focusRing } from '../../components/focus.ts'
 import Notice from '../../components/Notice.tsx'
 import type { Occasion } from '../../models/occasion.ts'
@@ -15,6 +16,7 @@ function Line({ line, strong = false, muted = false }: { line: ReviewLine; stron
       <div className="flex min-w-0 flex-col gap-0.5">
         <p className={strong ? 'text-cuerpo font-bold' : muted ? 'text-cuerpo text-mermelada-suave' : 'text-cuerpo font-semibold'}>{line.title}</p>
         {line.detail && <p className="text-nota text-mermelada-suave">{line.detail}</p>}
+        {line.swatches && <ColorSwatches colors={line.swatches} className="mt-1" />}
       </div>
       <div className="flex shrink-0 flex-col items-end">
         <p className={`whitespace-nowrap tabular-nums ${strong ? 'text-cuerpo font-bold' : 'text-cuerpo font-semibold'}`} data-testid={`monto-${line.key}`}>

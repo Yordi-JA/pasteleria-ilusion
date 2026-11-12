@@ -2,7 +2,6 @@ import type {
   BreadOption,
   CakeDesignOptions,
   CakeTypeOption,
-  CoverageColorOption,
   DecorationOption,
   FillingBaseOption,
   FillingFlavorOption,
@@ -10,6 +9,7 @@ import type {
   UnavailableCode,
 } from '../models/cakeDesign.ts'
 import type { CakeDesignDraft } from '../models/cakeDesignDraft.ts'
+import { normalizeHex } from '../models/color.ts'
 
 /**
  * Pasos de "Diseña tu pastel" y lo que se deriva del borrador con las opciones y el tamaño que calculó la API:
@@ -65,7 +65,8 @@ export type DesignDerived = {
   fillingIssue: Issue | null
   /** Sabores que pide el modo elegido: 1, o 2 con una base que los admite. */
   flavorsNeeded: number
-  coverage: CoverageColorOption | null
+  /** El color de la cobertura (`#rrggbb`): el elegido o, mientras no se elige, el primero de la lista de la pastelería. */
+  coverage: string | null
   /** La decoración elegida (esté o no disponible); `null` si no se eligió o ya no existe. */
   decoration: DecorationOption | null
   /** Lo que falta al mensaje o a la oblea para continuar (paso 7), o `null` si está completo. */
@@ -85,6 +86,14 @@ function issueIn(option: Restricted, cakeType: string | null): Issue | null {
 /** Sabores de la base que se pueden elegir en el tipo de pastel (los demás se muestran desactivados). */
 export function choosableFlavors(base: FillingBaseOption | null, cakeType: string | null): FillingFlavorOption[] {
   return (base?.flavors ?? []).filter((flavor) => !cakeType || !flavor.unavailableReasons[cakeType])
+}
+
+/**
+ * El color de la cobertura (paso 5): el elegido o, si todavía no se elige, el primero de la lista activa de la pastelería (no se
+ * inventa uno). `null` si no hay elegido y la lista está vacía: entonces hay que elegir uno.
+ */
+export function coverageColor(draft: Pick<CakeDesignDraft, 'coverageColor'>, options: CakeDesignOptions): string | null {
+  return normalizeHex(draft.coverageColor) ?? options.coverageColors.map((option) => normalizeHex(option.previewColor)).find(Boolean) ?? null
 }
 
 /**
@@ -110,7 +119,7 @@ export function deriveDesign(draft: CakeDesignDraft, options: CakeDesignOptions,
   const flavorsNeeded = base && base.maxFlavors >= 2 && draft.flavorCount === 2 ? 2 : 1
   const fillingIssue = base ? (issueIn(base, typeValue) ?? flavors.map((flavor) => issueIn(flavor, typeValue)).find(Boolean) ?? null) : null
 
-  const coverage = options.coverageColors.find((option) => option.slug === draft.coverageColor) ?? null
+  const coverage = coverageColor(draft, options)
   const decoration = options.decorations.find((option) => option.slug === draft.decoration) ?? null
   // Arriba del máximo solo cuenta lo que la API dijo de las personas de ahora.
   const aboveMaximum = Boolean(size?.current && size.aboveMaximum)
@@ -311,6 +320,8 @@ export function continueLabel(step: number, design: DesignDerived) {
  */
 export function confirmStep(step: number, design: DesignDerived, draft: CakeDesignDraft): CakeDesignDraft {
   let next: CakeDesignDraft = { ...draft, confirmed: [...new Set([...draft.confirmed, step])].sort((a, b) => a - b) }
+  // El primer color de la lista que se ve en el paso 5 queda elegido al continuar.
+  if (step === COVERAGE_STEP) next = { ...next, coverageColor: design.coverage }
   if (step === 1 && design.belowMinimum && design.size) next = { ...next, people: design.size.minimumPeople }
   if (step === 2) {
     const conflict = conflictTarget(design)

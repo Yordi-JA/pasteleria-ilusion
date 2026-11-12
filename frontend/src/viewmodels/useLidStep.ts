@@ -4,7 +4,7 @@ import type { CakeDesignDraft } from '../models/cakeDesignDraft.ts'
 import { boundMessage, boundWafer, cleanMessageText, LAYOUT_BOUNDS } from '../models/cakeDesignLayout.ts'
 import type { MessageColorMode, MessageLayout, WaferLayout, WaferShape } from '../models/cakeDesignLayout.ts'
 import { formatPrice } from '../models/money.ts'
-import { defaultPickedColor } from './cakeDecorations.ts'
+import { coverageColor } from './cakeDesignSteps.ts'
 import type { DesignDerived } from './cakeDesignSteps.ts'
 import { effectiveMessage, effectiveWafer, lidFor } from './cakeLid.ts'
 import type { LoadedImage } from './cakeLid.ts'
@@ -83,7 +83,9 @@ export function useLidStep({ draft, update, options, design, metrics, waferImage
     (mode: MessageColorMode) => {
       if (!options) return
       update((d) => {
-        const value = mode === 'tones' ? 'deep' : mode === 'list' ? defaultPickedColor(options, d.coverageColor) : null
+        // "Elegir un color" arranca en el tono más oscuro de la cobertura, que es como ya se veía el texto en "Colores que combinan".
+        const cover = coverageColor(d, options)
+        const value = mode === 'tones' ? 'deep' : mode === 'custom' ? (cover ? messageTones(cover)[0].color : INK_BLACK) : null
         return { ...d, message: { ...d.message, color: { mode, value } } }
       })
     },
@@ -196,7 +198,7 @@ export function useLidStep({ draft, update, options, design, metrics, waferImage
   const view = useMemo(() => {
     if (!options || !design || !lid || !limits) return null
     const coverage = design.coverage
-    const ink = message ? messageInk(message.color, coverage, options) : messageInk(draft.message.color, coverage, options)
+    const ink = message ? messageInk(message.color, coverage) : messageInk(draft.message.color, coverage)
     const draftWafer = wafer ?? initialWafer(lid, limits)
     const waferSizeMax = Math.max(MIN_WAFER_UI_CM, maxWaferCm(draftWafer, lid, limits, 'size'))
     // Girar la oblea puede bajar lo más grande que cabe: se dice en el texto del valor, no solo se mueve el tope.
@@ -211,7 +213,7 @@ export function useLidStep({ draft, update, options, design, metrics, waferImage
       lid,
       target,
       announcement,
-      coverageColor: coverage?.previewColor ?? INK_BLACK,
+      coverageColor: coverage ?? INK_BLACK,
       message: {
         enabled: draft.messageEnabled,
         text: draft.message.text,
@@ -223,9 +225,8 @@ export function useLidStep({ draft, update, options, design, metrics, waferImage
           mode: draft.message.color.mode,
           modes: MESSAGE_COLOR_MODES.map((entry) => ({ ...entry, checked: entry.mode === draft.message.color.mode })),
           tones: coverage
-            ? messageTones(coverage.previewColor).map((tone) => ({ value: tone.value, label: TONE_LABELS[tone.value], color: tone.color, checked: draft.message.color.value === tone.value }))
+            ? messageTones(coverage).map((tone) => ({ value: tone.value, label: TONE_LABELS[tone.value], color: tone.color, checked: draft.message.color.value === tone.value }))
             : [],
-          list: options.coverageColors.map((color) => ({ value: color.slug, label: color.name, color: color.previewColor, checked: draft.message.color.value === color.slug })),
           ink,
           lowContrast: lowContrast(ink, coverage),
         },

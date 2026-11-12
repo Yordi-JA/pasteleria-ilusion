@@ -2,6 +2,7 @@ import { Check, LockSimple } from '@phosphor-icons/react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import ChoiceOption from '../../components/ChoiceOption.tsx'
+import ColorPicker from '../../components/ColorPicker.tsx'
 import { focusRing, focusRingWithin } from '../../components/focus.ts'
 import Notice from '../../components/Notice.tsx'
 import type { BreadGroups, Choice, FillingView } from '../../viewmodels/cakeDesignChoices.ts'
@@ -133,8 +134,8 @@ export function FillingStep({ view, onBase, onCount, onFlavor }: FillingStepProp
 export type ColorChoice = { value: string; label: string; color: string; checked: boolean }
 
 /**
- * Los colores de la cobertura como círculos que se eligen (regla 5): los usa el paso 5 y, con otro `name`, el color de la
- * decoración (paso 6). El color es el que la pastelería guarda en el admin para la vista previa: es comida, no interfaz.
+ * Pocos colores como círculos que se eligen: los dos tonos que combinan del texto del mensaje (paso 7). Son colores de comida
+ * calculados de la cobertura, no de la interfaz.
  */
 export function ColorGrid({ legend, name, colors, onChoose }: { legend: string; name: string; colors: ColorChoice[]; onChoose: (value: string) => void }) {
   return (
@@ -168,13 +169,17 @@ export function ColorGrid({ legend, name, colors, onChoose }: { legend: string; 
   )
 }
 
-/** Paso 5: crema pastelera y su color (regla 5). Con el relleno incluido, primero dice por qué se saltó el paso 4. */
+/**
+ * Paso 5: crema pastelera y su color (regla 5). El color es libre, con el selector de color: arranca en el primero de la lista de
+ * la pastelería. Con el relleno incluido, primero dice por qué se saltó el paso 4.
+ */
 export function CoverageStep({
-  colors,
+  color,
   includedFilling,
   onChoose,
 }: {
-  colors: ColorChoice[]
+  /** El color de la cobertura (`#rrggbb`); `null` si la pastelería no tiene lista y todavía no se elige. */
+  color: string | null
   includedFilling: { bread: string; filling: string } | null
   onChoose: (value: string) => void
 }) {
@@ -196,7 +201,7 @@ export function CoverageStep({
         </p>
         <p className="text-nota text-mermelada-suave">La única que manejamos</p>
       </div>
-      <ColorGrid legend="Elige el color" name="color" colors={colors} onChoose={onChoose} />
+      <ColorPicker legend="Elige el color de la cobertura" value={color} onChange={onChoose} />
       <p className="text-nota">
         ¿Varios colores o un diseño específico?{' '}
         <Link to="/pedido/referencia" className={inlineLink}>

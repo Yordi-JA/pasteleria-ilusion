@@ -8,6 +8,8 @@
  * los mismos números que el servidor revisa (`backend/core_pasteleria/services/design_layout.py`).
  */
 
+import { normalizeHex } from './color.ts'
+
 export type WaferShape = 'sheet' | 'circle'
 
 export type WaferLayout = {
@@ -24,8 +26,8 @@ export type WaferLayout = {
   imageY: number
 }
 
-/** De dónde sale el color del texto: `auto` es negro; `tones`, `deep` o `light` de la cobertura; `list`, un color suyo. */
-export type MessageColorMode = 'auto' | 'tones' | 'list'
+/** De dónde sale el color del texto: `auto` es negro; `tones`, `deep` o `light` de la cobertura; `custom`, cualquier color `#rrggbb`. */
+export type MessageColorMode = 'auto' | 'tones' | 'custom'
 export type MessageColor = { mode: MessageColorMode; value: string | null }
 export type MessageArrangement = 'straight' | 'arc'
 
@@ -141,7 +143,12 @@ function parseColor(data: unknown): MessageColor {
   if (typeof data !== 'object' || data === null) return auto
   const { mode, value } = data as Record<string, unknown>
   if (mode === 'tones' && (value === 'deep' || value === 'light')) return { mode, value }
-  if (mode === 'list' && typeof value === 'string' && SLUG.test(value) && value.length <= 80) return { mode, value }
+  if (mode === 'custom' || mode === 'list') {
+    // TODO: quitar el modo `list` y el `slug` cuando caduquen los borradores viejos. Un borrador viejo (modo `list`) trae el `slug`
+    // de un color de la lista: se conserva como `custom` y `migrateLegacyColors` lo cambia por su código al cargar las opciones.
+    const color = normalizeHex(value) ?? (typeof value === 'string' && SLUG.test(value) && value.length <= 80 ? value : null)
+    if (color) return { mode: 'custom', value: color }
+  }
   return auto
 }
 

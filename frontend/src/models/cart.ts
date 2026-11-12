@@ -1,3 +1,4 @@
+import { normalizeHex } from './color.ts'
 import { PRICE_PATTERN } from './money.ts'
 import { isOfferingPresentation, PRESENTATION_LABELS } from './presentation.ts'
 import type { OfferingPresentation } from './presentation.ts'
@@ -113,6 +114,11 @@ export type OpaqueLine = Record<string, unknown>
 export type StoredCart = {
   items: CartItem[]
   unknown: OpaqueLine[]
+  /**
+   * Hubo pasteles guardados con un color de la lista vieja y se descartaron al leer. `images` son las claves de sus imágenes
+   * (`IndexedDB`) que ningún otro pastel usa; hay que borrarlas, y el carrito guardado se reescribe una vez sin esas líneas.
+   */
+  discarded?: { images: string[] }
 }
 
 /**
@@ -191,6 +197,20 @@ const MAX_DESIGN_DETAIL = 400
 const MAX_DESIGN_JSON = 8000
 const MAX_DESIGN_ID = 40
 
+/**
+ * Si el diseño guardado trae sus colores como el `slug` de la lista vieja (cobertura, decoración o mensaje en modo `list`) en lugar
+ * de un `#rrggbb`. Esta versión no tiene la lista a la mano al leer el carrito, así que no puede cambiar el `slug` por su código:
+ * la línea se descarta (`parseCart` avisa qué imágenes quedan sueltas para borrarlas).
+ *
+ * TODO: quitar esta compatibilidad (y la de `parseColor` en `cakeDesignLayout.ts`) cuando ya no queden borradores ni carritos viejos.
+ */
+export function hasLegacyColors(design: Record<string, unknown>): boolean {
+  const isColor = (value: unknown) => value === null || value === undefined || normalizeHex(value) !== null
+  const message = design.message
+  const ink = isRecord(message) && isRecord(message.color) ? message.color : null
+  return !isColor(design.coverageColor) || !isColor(design.decorationColor) || (ink !== null && (ink.mode === 'list' || (ink.mode === 'custom' && !isColor(ink.value))))
+}
+
 function parseDesign(data: Record<string, unknown>): DesignItem | null {
   const designId = cleanText(data.designId, MAX_DESIGN_ID, SLUG)
   const name = cleanText(data.name, MAX_DESIGN_NAME)
@@ -201,6 +221,7 @@ function parseDesign(data: Record<string, unknown>): DesignItem | null {
   if (!Array.isArray(data.details) || data.details.length > MAX_DESIGN_DETAILS) return null
   const details = data.details.map((detail) => cleanText(detail, MAX_DESIGN_DETAIL))
   if (details.includes(null) || JSON.stringify(data.design).length > MAX_DESIGN_JSON) return null
+  if (hasLegacyColors(data.design)) return null
   const images: DesignItem['images'] = {}
   for (const slot of ['decoration', 'wafer'] as const) {
     const key = data.images[slot]
@@ -250,6 +271,8 @@ function isSameItem(a: CartItem, b: CartItem): boolean {
 export function parseCart(data: unknown): StoredCart {
   const items: CartItem[] = []
   const unknown: OpaqueLine[] = []
+  const discardedImages: string[] = []
+  let discardedLines = 0
   if (!isRecord(data)) return { items, unknown }
   const lines = data.items
   if (!Array.isArray(lines)) return { items, unknown }
@@ -259,9 +282,20 @@ export function parseCart(data: unknown): StoredCart {
       if (!items.some((kept) => isSameItem(kept, item))) items.push(item)
     } else if (isOpaqueLine(line)) {
       unknown.push(line)
+    } else if (isRecord(line) && line.kind === 'design' && isRecord(line.design) && hasLegacyColors(line.design)) {
+      discardedLines++
+      // Solo las dos imágenes que puede llevar un pastel, con la misma validación que al leer una línea.
+      const images = isRecord(line.images) ? line.images : {}
+      for (const slot of ['decoration', 'wafer'] as const) {
+        const key = cleanText(images[slot], MAX_DESIGN_ID, SLUG)
+        if (key) discardedImages.push(key)
+      }
     }
   }
-  return { items, unknown }
+  if (discardedLines === 0) return { items, unknown }
+  // Una clave que otro pastel del carrito sigue usando no se borra.
+  const inUse = new Set(imageKeysOf(items))
+  return { items, unknown, discarded: { images: [...new Set(discardedImages)].filter((key) => !inUse.has(key)) } }
 }
 
 /**

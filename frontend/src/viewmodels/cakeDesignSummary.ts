@@ -3,8 +3,10 @@ import type { CakeDesignDraft, CakeForm } from '../models/cakeDesignDraft.ts'
 import { formatPrice } from '../models/money.ts'
 import { reviewView } from './cakeDesignReview.ts'
 import { lidSummary } from './cakeLid.ts'
-import { decorationColorView, decorationGroups, decorationSummary } from './cakeDecorations.ts'
-import { breadChoices, cakeTypeChoices, coverageChoices, fillingChoices, lowerFirst } from './cakeDesignChoices.ts'
+import { decorationColorView, decorationGroups, decorationSummary, decorationSwatches } from './cakeDecorations.ts'
+import { colorPhrase } from './colors.ts'
+import { messageInk } from './messageColors.ts'
+import { breadChoices, cakeTypeChoices, fillingChoices, lowerFirst } from './cakeDesignChoices.ts'
 import {
   conflictSentence,
   conflictTarget,
@@ -53,6 +55,8 @@ export type SummaryRow = {
   note?: string
   /** Si lleva "Cambiar"; el relleno incluido no se cambia. */
   canChange: boolean
+  /** Muestras de los colores libres de la fila (cobertura, decoración, mensaje): comida, no interfaz. */
+  swatches?: string[]
 }
 
 /**
@@ -90,11 +94,16 @@ export function summaryRows(draft: CakeDesignDraft, design: DesignDerived, curre
     })
   }
   if (shown(5) && design.coverage) {
-    rows.push({ step: 5, label: DESIGN_STEPS[4].title, value: `Crema pastelera, ${lowerFirst(design.coverage.name)}`, canChange: true })
+    rows.push({ step: 5, label: DESIGN_STEPS[4].title, value: `Crema pastelera, ${colorPhrase(design.coverage, options.coverageColors)}`, canChange: true, swatches: [design.coverage] })
   }
   const decoration = shown(DECORATION_STEP) ? decorationSummary(draft, design, options) : null
-  if (decoration) rows.push({ step: DECORATION_STEP, label: DESIGN_STEPS[5].title, value: decoration.value, note: decoration.note, canChange: true })
-  if (shown(LID_STEP)) rows.push({ step: LID_STEP, label: DESIGN_STEPS[6].title, value: lidSummary(draft), canChange: true })
+  if (decoration) {
+    rows.push({ step: DECORATION_STEP, label: DESIGN_STEPS[5].title, value: decoration.value, note: decoration.note, canChange: true, swatches: decorationSwatches(draft, design) })
+  }
+  if (shown(LID_STEP)) {
+    const message = draft.messageEnabled && draft.message.text.trim() !== '' && draft.message.color.mode !== 'auto'
+    rows.push({ step: LID_STEP, label: DESIGN_STEPS[6].title, value: lidSummary(draft, design.coverage, options.coverageColors), canChange: true, swatches: message ? [messageInk(draft.message.color, design.coverage)] : undefined })
+  }
   return rows
 }
 
@@ -241,9 +250,9 @@ export function designerView({ draft, design, options, current, price, plan, tie
       cakeTypes: cakeTypeChoices(draft, options),
       breads: breadChoices(draft, design, options),
       filling: fillingChoices(draft, design, options),
-      colors: coverageChoices(draft, options),
+      coverage: design.coverage,
       decorations: decorationGroups(draft, options),
-      decorationColor: decorationColorView(draft, design, options),
+      decorationColor: decorationColorView(draft, design),
       decorationQuote: Boolean(design.decoration?.requiresQuote),
       includedFilling:
         design.fillingIncluded && design.bread ? { bread: design.bread.name, filling: lowerFirst(design.bread.includedFilling) } : null,

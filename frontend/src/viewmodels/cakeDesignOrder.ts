@@ -3,6 +3,7 @@ import type { CakeDesignDraft } from '../models/cakeDesignDraft.ts'
 import type { DesignItem } from '../models/cart.ts'
 import { occasionLabel } from '../models/occasion.ts'
 import type { CakeDesignQuote } from '../models/cakeDesign.ts'
+import { pickedColor } from './cakeDecorations.ts'
 import { cakeTitle } from './cakeDesignReview.ts'
 import type { DesignDerived } from './cakeDesignSteps.ts'
 import { summaryRows } from './cakeDesignSummary.ts'
@@ -51,9 +52,9 @@ export function designSnapshot({ draft, design, options, metrics }: Omit<OrderIn
     bread: draft.bread,
     fillingBase: design.fillingIncluded ? null : draft.fillingBase,
     flavors: design.fillingIncluded ? [] : draft.flavors,
-    coverageColor: draft.coverageColor,
+    coverageColor: design.coverage,
     decoration: draft.decoration,
-    decorationColor: draft.decorationColor,
+    decorationColor: pickedColor(draft),
     decorationImageName: design.decoration?.requiresQuote ? draft.decorationImageName : null,
     message: effectiveMessage(draft, lid, metrics),
     wafer: effectiveWafer(draft, lid, options),

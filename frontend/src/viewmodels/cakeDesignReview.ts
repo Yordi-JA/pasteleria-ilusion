@@ -2,11 +2,13 @@ import type { CakeDesignOptions, CakeDesignQuote } from '../models/cakeDesign.ts
 import type { CakeDesignDraft } from '../models/cakeDesignDraft.ts'
 import { formatPrice } from '../models/money.ts'
 import { OCCASIONS } from '../models/occasion.ts'
-import { decorationSummary, groupOf } from './cakeDecorations.ts'
+import { decorationSummary, decorationSwatches, groupOf } from './cakeDecorations.ts'
 import { lowerFirst } from './cakeDesignChoices.ts'
 import { COVERAGE_STEP, DECORATION_STEP, LID_STEP } from './cakeDesignSteps.ts'
 import type { DesignDerived } from './cakeDesignSteps.ts'
-import { shapeLabel } from './cakeLid.ts'
+import { messageColorPhrase, shapeLabel } from './cakeLid.ts'
+import { colorPhrase } from './colors.ts'
+import { messageInk } from './messageColors.ts'
 import type { PriceState } from './useCakeDesignPrice.ts'
 
 /**
@@ -19,6 +21,8 @@ export type ReviewLine = {
   key: string
   title: string
   detail?: string
+  /** Muestras de color del renglón (cobertura, decoración, mensaje): van junto al detalle, que siempre dice el código. */
+  swatches?: string[]
   /** "$3,825", "Incluido", "+$125" o "Por cotizar". */
   amount: string
   /** A qué paso lleva su "Cambiar" y cómo se dice ("el mensaje"); sin él (la base, los totales, los pagos), no se cambia aquí. */
@@ -110,7 +114,14 @@ export function reviewView({ draft, design, options, price, leadDays }: ReviewIn
     change: { step: 1, label: 'el pastel: tamaño, tipo, pan y relleno' },
   })
   if (design.coverage) {
-    view.lines.push({ key: 'coverage', title: 'Cobertura de crema pastelera', detail: `Color: ${lowerFirst(design.coverage.name)}`, amount: 'Incluido', change: { step: COVERAGE_STEP, label: 'la cobertura' } })
+    view.lines.push({
+      key: 'coverage',
+      title: 'Cobertura de crema pastelera',
+      detail: `Color ${colorPhrase(design.coverage, options.coverageColors)}`,
+      swatches: [design.coverage],
+      amount: 'Incluido',
+      change: { step: COVERAGE_STEP, label: 'la cobertura' },
+    })
   }
   if (design.decoration) {
     const summary = decorationSummary(draft, design, options)
@@ -119,12 +130,20 @@ export function reviewView({ draft, design, options, price, leadDays }: ReviewIn
       key: 'decoration',
       title: none ? design.decoration.name : `Decoración: ${design.decoration.name}`,
       detail: none ? undefined : upperFirst(summary?.value.slice(design.decoration.name.length + 2) ?? ''),
+      swatches: none || breakdown.requiresQuote ? undefined : decorationSwatches(draft, design),
       amount: breakdown.requiresQuote ? 'Por cotizar' : surcharge(breakdown.decoration),
       change: { step: DECORATION_STEP, label: 'la decoración' },
     })
   }
   if (draft.messageEnabled && draft.message.text.trim() !== '') {
-    view.lines.push({ key: 'message', title: `Mensaje: ${draft.message.text.trim()}`, amount: 'Incluido', change: { step: LID_STEP, label: 'el mensaje' } })
+    view.lines.push({
+      key: 'message',
+      title: `Mensaje: ${draft.message.text.trim()}`,
+      detail: upperFirst(messageColorPhrase(draft, design.coverage, options.coverageColors) ?? 'color negro'),
+      swatches: [messageInk(draft.message.color, design.coverage)],
+      amount: 'Incluido',
+      change: { step: LID_STEP, label: 'el mensaje' },
+    })
   }
   if (draft.waferEnabled) {
     const shape = draft.wafer ? shapeLabel(draft.wafer.shape) : null

@@ -1,11 +1,11 @@
-import type { CakeDesignOptions, CoverageColorOption } from '../models/cakeDesign.ts'
 import type { MessageColor, MessageColorMode } from '../models/cakeDesignLayout.ts'
+import { normalizeHex } from '../models/color.ts'
 import { deepTone, lightTone } from './decorationTones.ts'
 
 /**
  * El color del texto del mensaje (D55), con los tres modos de la decoración (D53): "Automático" es negro; "Colores que
- * combinan" son los dos tonos de la cobertura (uno más oscuro y uno más claro, `decorationTones.ts`); "Lista completa" son
- * los 11 colores de la cobertura (regla 5). Son colores de la vista previa (tinta comestible), no de la interfaz.
+ * combinan" son los dos tonos de la cobertura (uno más oscuro y uno más claro, `decorationTones.ts`); "Elegir un color" es
+ * cualquier color `#rrggbb` del selector libre. Son colores de la vista previa (tinta comestible), no de la interfaz.
  *
  * Aviso de contraste: el color del texto contra el de la cobertura, con la razón de luminancias de WCAG. Sale solo cuando el
  * texto no se lee: debajo de 2:1, en los tres modos (decisión del usuario, D55). Es más bajo que el 3:1 que WCAG 2.1 pide a un
@@ -19,7 +19,7 @@ export const MIN_MESSAGE_CONTRAST = 2
 export const MESSAGE_COLOR_MODES: readonly { mode: MessageColorMode; label: string; description: string }[] = [
   { mode: 'auto', label: 'Automático', description: 'Negro' },
   { mode: 'tones', label: 'Colores que combinan', description: 'Tonos de tu cobertura' },
-  { mode: 'list', label: 'Lista completa', description: 'Uno de los colores de la cobertura' },
+  { mode: 'custom', label: 'Elegir un color', description: 'Cualquier color' },
 ]
 
 export const TONE_LABELS = { deep: 'Más oscuro', light: 'Más claro' } as const
@@ -50,16 +50,16 @@ export function messageTones(coverageHex: string): { value: 'deep' | 'light'; co
 }
 
 /**
- * El color con que se dibuja el texto. Un color guardado que ya no existe (se quitó de la cobertura o la pastelería lo
- * cambió) vuelve al negro: nunca queda un texto sin color.
+ * El color con que se dibuja el texto. Un valor que no es un color (un borrador viejo que aún no se migra) vuelve al negro:
+ * nunca queda un texto sin color.
  */
-export function messageInk(color: MessageColor, coverage: CoverageColorOption | null, options: CakeDesignOptions): string {
-  if (color.mode === 'tones' && coverage) return messageTones(coverage.previewColor).find((tone) => tone.value === color.value)?.color ?? INK_BLACK
-  if (color.mode === 'list') return options.coverageColors.find((option) => option.slug === color.value)?.previewColor ?? INK_BLACK
+export function messageInk(color: MessageColor, coverage: string | null): string {
+  if (color.mode === 'tones' && coverage) return messageTones(coverage).find((tone) => tone.value === color.value)?.color ?? INK_BLACK
+  if (color.mode === 'custom') return normalizeHex(color.value) ?? INK_BLACK
   return INK_BLACK
 }
 
 /** Si el texto no se lee sobre la cobertura (menos de 2:1). Sin cobertura no hay contra qué comparar. */
-export function lowContrast(ink: string, coverage: CoverageColorOption | null): boolean {
-  return coverage !== null && contrastRatio(ink, coverage.previewColor) < MIN_MESSAGE_CONTRAST
+export function lowContrast(ink: string, coverage: string | null): boolean {
+  return coverage !== null && contrastRatio(ink, coverage) < MIN_MESSAGE_CONTRAST
 }

@@ -164,12 +164,3 @@ export function fillingChoices(draft: CakeDesignDraft, design: DesignDerived, op
           : null,
   }
 }
-
-export function coverageChoices(draft: CakeDesignDraft, options: CakeDesignOptions) {
-  return options.coverageColors.map((color) => ({
-    value: color.slug,
-    label: color.name,
-    color: color.previewColor,
-    checked: draft.coverageColor === color.slug,
-  }))
-}
