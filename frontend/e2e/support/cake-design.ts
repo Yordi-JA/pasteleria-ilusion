@@ -13,6 +13,28 @@ import type { Page, Request } from '@playwright/test'
 export const OPTIONS_PATH = '**/api/v1/cake-designs/options/'
 export const PRICE_PATH = '**/api/v1/cake-designs/price/'
 
+/**
+ * Los nombres de referencia de la pastelería (`coverage_colors` de las opciones) con su código. Desde que el color de la
+ * cobertura, de la decoración y del mensaje es libre (`#rrggbb`), la lista ya no se elige: solo da el "parecido a". Las pruebas
+ * usan estos códigos para armar borradores con colores conocidos.
+ */
+export const COVERAGE_HEX: Record<string, string> = {
+  amarillo: '#fae496',
+  blanco: '#fffbfb',
+  azulfuerte: '#4a70ba',
+  azulclaro: '#b0d0ec',
+  verde: '#a6ce98',
+  naranja: '#f6b06c',
+  cafe: '#9c6e50',
+  turquesa: '#6ecac6',
+  rojo: '#d44c48',
+  rosa: '#f6b8ca',
+  lila: '#ccbae4',
+}
+
+/** El código de un color de la lista por su `slug`; lo que no está en la lista se deja igual (un borrador con un valor dañado). */
+export const hexOf = (slug: string | null | undefined) => (slug ? (COVERAGE_HEX[slug] ?? slug) : null)
+
 /** Una decoración de las opciones, con el precio y la disponibilidad que le da el admin (D39). */
 type DecorationFixture = {
   slug: string
@@ -782,6 +804,11 @@ export const cakeDesignOptions = {
       "servings": 3
     }
   }
+}
+
+/** Las opciones sin ningún nombre de referencia de color (la pastelería vació la lista). */
+export function withoutColorNames() {
+  return { ...cakeDesignOptions, coverage_colors: [] as typeof cakeDesignOptions.coverage_colors }
 }
 
 /** Las decoraciones dadas sin precio definido (PENDIENTE): cobro fijo, sin precio y no disponibles (D39). */

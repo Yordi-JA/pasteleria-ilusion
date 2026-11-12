@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { cakeDesignOptions } from './support/cake-design.ts'
+import { cakeDesignOptions, COVERAGE_HEX, hexOf } from './support/cake-design.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 
 // La vista previa de "Diseña tu pastel" como datos (`src/viewmodels/cakeDesignPreview.ts`, D50, D51 y D52), sin three: no
@@ -90,7 +90,7 @@ async function previewTiers(page: Page, input: Input): Promise<Preview> {
         camera: { plate: standScale(shape), radius: Math.max(...content.circles.map((circle: { r: number }) => circle.r)), scale15: scaleAt(15), scale82: scaleAt(82), pieceScale: pieceDensityScale(shape), triangles: sceneTriangles(shape, pieceDensityScale(shape)), wantedTriangles: sceneTriangles(shape) },
       }
     },
-    { urls: { models: MODELS, draft: DRAFT, steps: STEPS, preview: PREVIEW, metrics: METRICS, budget: BUDGET }, options: cakeDesignOptions, choice: input, card: CARD },
+    { urls: { models: MODELS, draft: DRAFT, steps: STEPS, preview: PREVIEW, metrics: METRICS, budget: BUDGET }, options: cakeDesignOptions, choice: { ...input, coverage: hexOf(input.coverage) ?? undefined }, card: CARD },
   )
 }
 
@@ -745,7 +745,7 @@ async function decorationPreview(page: Page, input: DecorationInput): Promise<De
       })
       return { decoration: shape.decoration, tiers: shape.tiers.length, radii: shape.tiers.map((tier: { radius: number }) => tier.radius), layout, pieceScale: scale, triangles: sceneTriangles(shape, scale), wantedTriangles: sceneTriangles(shape), budget: TRIANGLE_BUDGET }
     },
-    { urls: { models: MODELS, draft: DRAFT, steps: STEPS, preview: PREVIEW, budget: BUDGET, layout: LAYOUT }, options: cakeDesignOptions, choice: input },
+    { urls: { models: MODELS, draft: DRAFT, steps: STEPS, preview: PREVIEW, budget: BUDGET, layout: LAYOUT }, options: cakeDesignOptions, choice: { ...input, coverage: hexOf(input.coverage) ?? COVERAGE_HEX.lila, color: hexOf(input.color) } },
   )
 }
 
@@ -842,7 +842,7 @@ test('the sprinkle types take their style and colors from the flavor or the brea
 
 test('a sprinkle type whose flavor or bread is missing is not drawn, and the colors are never invented', async ({ page }) => {
   const result = await page.evaluate(
-    async ({ urls, options }) => {
+    async ({ urls, options, colors }) => {
       const { parseCakeDesignOptions } = await import(urls.models)
       const { emptyDraft } = await import(urls.draft)
       const { deriveDesign } = await import(urls.steps)
@@ -852,11 +852,11 @@ test('a sprinkle type whose flavor or bread is missing is not drawn, and the col
         decorations: options.decorations.map((decoration: { slug: string }) => (decoration.slug === 'chispas' ? { ...decoration, preview_flavor: 'no-existe' } : decoration)),
       }
       const parsed = parseCakeDesignOptions(broken)
-      const draft = { ...emptyDraft(), cakeType: 'tres_leches', bread: 'vainilla', fillingBase: 'normal', flavors: ['durazno'], coverageColor: 'lila', decoration: 'chispas' }
+      const draft = { ...emptyDraft(), cakeType: 'tres_leches', bread: 'vainilla', fillingBase: 'normal', flavors: ['durazno'], coverageColor: colors.lila, decoration: 'chispas' }
       const design = deriveDesign(draft, parsed, null)
       return designPreview({ draft, design, options: parsed, current: 6, defaultBread: parsed.breads[0] }).decoration ?? null
     },
-    { urls: { models: MODELS, draft: DRAFT, steps: STEPS, preview: PREVIEW }, options: cakeDesignOptions },
+    { urls: { models: MODELS, draft: DRAFT, steps: STEPS, preview: PREVIEW }, options: cakeDesignOptions, colors: COVERAGE_HEX },
   )
   expect(result).toBeNull()
 })

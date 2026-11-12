@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { cakeDesignOptions, mockCakeDesignOptions, mockCakeDesignPrice, PRICE_PATH, priceResponse, sizeFor, withPendingDecorations } from './support/cake-design.ts'
+import { cakeDesignOptions, COVERAGE_HEX, mockCakeDesignOptions, mockCakeDesignPrice, PRICE_PATH, priceResponse, sizeFor, withPendingDecorations } from './support/cake-design.ts'
+import { colorPicker, pickColor } from './support/color-picker.ts'
 import { emptyStoreInfo, mockStoreInfo } from './support/store-info.ts'
 
 /**
@@ -56,7 +57,7 @@ async function seedDraft(page: Page, draft: object | string) {
 /** Un borrador que llega al paso 6: lo del 1 al 5 confirmado, con cobertura lila. */
 const DRAFT_TO_STEP_6 = {
   people: 40, form: 'round', tiers: 1, cakeType: 'tres_leches', bread: 'vainilla', fillingBase: 'normal',
-  flavorCount: 1, flavors: ['durazno'], coverageColor: 'lila', confirmed: [1, 2, 3, 4, 5],
+  flavorCount: 1, flavors: ['durazno'], coverageColor: COVERAGE_HEX.lila, confirmed: [1, 2, 3, 4, 5],
 }
 
 test('step 1 asks the API for the kilos and the from price, and shows what it answers', async ({ page }) => {
@@ -316,8 +317,7 @@ test('choco-pingüino skips the filling step and envinado asks to choose another
   await page.getByRole('button', { name: 'Atrás' }).click()
   await expect(stepTitle(page)).toHaveText('3. Pan')
   await proceed(page)
-  await page.getByText('Lila', { exact: true }).click()
-  await expect(page.getByRole('radio', { name: 'Lila' })).toBeChecked()
+  await pickColor(page.getByTestId('tarjeta-paso'), COVERAGE_HEX.lila)
   await proceed(page)
 
   await page.getByRole('link', { name: 'Cambiar tipo de pastel' }).click()
@@ -335,7 +335,7 @@ test('choco-pingüino skips the filling step and envinado asks to choose another
   await expect(page.getByText('No se combina con pastel envinado').first()).toBeVisible()
   await expect(page.getByText('Para usar Choco-pingüino, cambia el tipo de pastel a Tres leches o Seco.')).toBeVisible()
   // Lo demás se conserva: la cobertura lila sigue en "Tu pastel".
-  await expect(shown(page, 'Crema pastelera, lila')).toBeVisible()
+  await expect(shown(page, 'Crema pastelera, #CCBAE4, parecido a lila')).toBeVisible()
 })
 
 test('after switching to envinado, "Cambiar" on the bread leads to choosing another one', async ({ page }) => {
@@ -618,7 +618,7 @@ test('"Sin decoración" has no color to pick, and the choice survives a reload',
   await expect(page.getByRole('radio', { name: 'Sin decoración' })).toBeChecked()
 })
 
-test('the color of a design is automatic by default, shows the tones of the coverage and can be one of the 11 coverage colors', async ({ page }) => {
+test('the color of a design is automatic by default, shows the tones of the coverage and can be any color from the picker', async ({ page }) => {
   await openDecoration(page)
   await page.getByRole('radio', { name: 'Rosas' }).check()
   const card = page.getByTestId('tarjeta-paso')
@@ -626,23 +626,22 @@ test('the color of a design is automatic by default, shows the tones of the cove
   await expect(card.getByRole('radio', { name: 'Automático' })).toBeChecked()
   await expect(card.getByRole('radio', { name: 'Elegir un color' })).not.toBeChecked()
   await expect(card.getByText('Las hojitas siempre van en verde.')).toBeVisible()
-  // Con "Automático" no hay lista de colores.
-  await expect(card.getByRole('radio', { name: 'Rojo' })).toHaveCount(0)
+  // Con "Automático" no hay selector.
+  await expect(colorPicker(card)).toHaveCount(0)
   await card.getByRole('radio', { name: 'Elegir un color' }).check()
-  const colors = card.getByRole('group', { name: 'Elige el color' }).getByRole('radio')
-  // Los mismos 11 colores de la cobertura (regla 5), con el origen de datos del paso 5.
-  await expect(colors).toHaveCount(cakeDesignOptions.coverage_colors.length)
-  await expect(colors).toHaveCount(11)
-  await card.getByText('Rojo', { exact: true }).click()
-  await expect(card.getByRole('radio', { name: 'Rojo' })).toBeChecked()
+  const picker = colorPicker(card)
+  await expect(picker).toBeVisible()
+  // Cualquier color, no solo los 11 de la lista: arranca en el tono principal de la cobertura y se cambia con el código.
+  await pickColor(card, '#12ab9f')
+  await expect(picker.getByLabel('Código del color')).toHaveValue(/^#12ab9f$/i)
   await proceed(page)
-  await expect(shown(page, 'Rosas, color rojo')).toBeVisible()
+  await expect(shown(page, 'Rosas, color #12AB9F, parecido a turquesa')).toBeVisible()
   // Atrás: el color elegido sigue y se puede volver a automático.
   await page.getByRole('link', { name: 'Cambiar decoración' }).filter({ visible: true }).first().click()
   await expect(card.getByRole('radio', { name: 'Elegir un color' })).toBeChecked()
-  await expect(card.getByRole('radio', { name: 'Rojo' })).toBeChecked()
+  await expect(colorPicker(card).getByTestId('codigo-de-color')).toHaveText('#12AB9F')
   await card.getByRole('radio', { name: 'Automático' }).check()
-  await expect(card.getByRole('radio', { name: 'Rojo' })).toHaveCount(0)
+  await expect(colorPicker(card)).toHaveCount(0)
 })
 
 test('the chosen color is saved in the session with the design', async ({ page }) => {
@@ -650,11 +649,12 @@ test('the chosen color is saved in the session with the design', async ({ page }
   await page.getByRole('radio', { name: 'Patrón con duya' }).check()
   await page.getByRole('radio', { name: 'Festones colgantes' }).check()
   await page.getByRole('radio', { name: 'Elegir un color' }).check()
-  await page.getByText('Blanco', { exact: true }).click()
+  await pickColor(page.getByTestId('tarjeta-paso'), '#FFFBFB')
   const draft = await page.evaluate(() => JSON.parse(sessionStorage.getItem('ilusion.cakeDesign.v1') ?? '{}'))
-  expect(draft).toMatchObject({ decoration: 'festones', decorationColor: 'blanco' })
+  expect(draft).toMatchObject({ decoration: 'festones', decorationColor: '#fffbfb' })
   await page.reload()
-  await expect(page.getByRole('radio', { name: 'Blanco' })).toBeChecked()
+  await expect(page.getByRole('radio', { name: 'Elegir un color' })).toBeChecked()
+  await expect(colorPicker(page.getByTestId('tarjeta-paso')).getByTestId('codigo-de-color')).toHaveText('#FFFBFB')
 })
 
 test('the keyboard moves through the options as one radio group, the groups included, and "Continuar" is reachable', async ({ page }) => {
