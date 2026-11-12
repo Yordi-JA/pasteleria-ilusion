@@ -359,3 +359,12 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Chispas: tres tipos (capuchino, chocolate y choco-vainilla) que copian el estilo y los colores del sabor o del pan de la pastelería; van solo en los costados, no en la cara de arriba. `GET /api/v1/cake-designs/options/` suma `preview_flavor` y `preview_bread` a cada decoración.
 - Paso 6: "Patrón con duya" y "Chispas" son un radio más de la lista y sus diseños se despliegan solo al elegirlos.
 - Rosas y rosetones (corrección de la revisión de D53): la fila de rosas y de rosetones en rectangular ya no se encima en las esquinas; en un escalón angosto la rosa se achica y queda dentro del escalón; `displayFileName` devuelve `null` si solo quedan U+200D.
+
+### Miércoles 11 de noviembre: mensaje, oblea, anticipo configurable y perla al agregar (D55)
+
+- Decisión D55 en [`proyecto/decisiones.md`](proyecto/decisiones.md), rama `feat/disena-mensaje-y-oblea`, sin desplegar: el paso 7 (mensaje con letra Dancing Script, color en tres modos y arco; oblea hoja o círculo con giro y encuadre) y el paso 8 (revisión con "Cambiar" por renglón), con las cotas de carta y de tapa revisadas también en el servidor (`services/design_layout.py`).
+- Migración `0029`: `CakeDesignSettings.wafer_price` pasa a anulable (vacío es PENDIENTE) y `PolicySettings.advance_percent` (50 al inicio, de 1 a 100) calcula el anticipo en `services/payment_summary.py`. Con "Otra decoración", el pedido queda en pausa sin cobro.
+- La vela se quitó de todo el sitio, incluido el pastel 3D de la portada. La flama sigue en el logo, el sello y el dibujo de línea.
+- Al "Agregar al pedido", una perla de duya vuela al carrito en 550 ms (`CartFlightContext`, `CartPearls.tsx`); con "reducir movimiento" no vuela.
+- Pruebas: 1 207 de pytest. E2E nuevas: `e2e/cake-designer-lid.spec.ts` y `e2e/add-to-cart-flight.spec.ts`. Antes de la perla, la suite completa con 2 workers dio 390 de 391; la que falló (`cake-designer.spec.ts:955`) pasó sola. Con la perla, 2 workers dieron 22 fallas por tiempo con WebGL por software, que pasan con 1 worker; la suite completa con 1 worker queda en la descripción del PR.
+- Revisión en un teléfono real: los pendientes de animación y de rendimiento del 3D y de la decoración quedan resueltos. La lista de la Etapa 4 que dejó la auditoría de seguridad está en [`pendientes.md`](pendientes.md).

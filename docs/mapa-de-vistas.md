@@ -97,11 +97,13 @@ Los estados (cargando, error, vacío, agotado) no son rutas propias: son la mism
 | Diseña tu pastel, cobertura y color | `/pedido/disena (paso 5)` | `CotizadorCobertura.dc.html` | [ver](../mockup/capturas/escritorio/080-CotizadorCobertura.jpg) | [ver](../mockup/capturas/movil/081-CotizadorCoberturaMovil.jpg) |
 | Diseña tu pastel, paso 6 decoración | `/pedido/disena (paso 6)` | `CotizadorDecoracion.dc.html` | [ver](../mockup/capturas/escritorio/082-CotizadorDecoracion.jpg) | [ver](../mockup/capturas/movil/083-CotizadorDecoracionMovil.jpg) |
 | Diseña tu pastel, decoración por imagen | `/pedido/disena (paso 6) · estado` | `CotizadorDecoracionOblea.dc.html` | [ver](../mockup/capturas/escritorio/084-CotizadorDecoracionOblea.jpg) | [ver](../mockup/capturas/movil/085-CotizadorDecoracionObleaMovil.jpg) |
-| Diseña tu pastel, paso 7 mensaje y oblea | `/pedido/disena (paso 7)` | `CotizadorDecoracionEditor.dc.html` | [ver](../mockup/capturas/escritorio/086-CotizadorDecoracionEditor.jpg) | [ver](../mockup/capturas/movil/087-CotizadorDecoracionEditorMovil.jpg) |
-| Diseña tu pastel, revisión | `/pedido/disena (paso 8)` | `CotizadorRevision.dc.html` | [ver](../mockup/capturas/escritorio/088-CotizadorRevision.jpg) | [ver](../mockup/capturas/movil/089-CotizadorRevisionMovil.jpg) |
+| Diseña tu pastel, paso 7 mensaje y oblea (difiere del mockup, ver nota) | `/pedido/disena (paso 7)` | `CotizadorDecoracionEditor.dc.html` | [ver](../mockup/capturas/escritorio/086-CotizadorDecoracionEditor.jpg) | [ver](../mockup/capturas/movil/087-CotizadorDecoracionEditorMovil.jpg) |
+| Diseña tu pastel, revisión (difiere del mockup, ver nota) | `/pedido/disena (paso 8)` | `CotizadorRevision.dc.html` | [ver](../mockup/capturas/escritorio/088-CotizadorRevision.jpg) | [ver](../mockup/capturas/movil/089-CotizadorRevisionMovil.jpg) |
 | Enviar referencia | `/pedido/referencia` | `Referencia.dc.html` | [ver](../mockup/capturas/escritorio/090-Referencia.jpg) | [ver](../mockup/capturas/movil/091-ReferenciaMovil.jpg) |
 | Solicitud enviada | `/pedido/referencia/enviada` | `SolicitudEnviada.dc.html` | [ver](../mockup/capturas/escritorio/092-SolicitudEnviada.jpg) | [ver](../mockup/capturas/movil/093-SolicitudEnviadaMovil.jpg) |
 | Cotización lista | `/cuenta/cotizaciones/:id` | `Cotizacion.dc.html` | [ver](../mockup/capturas/escritorio/094-Cotizacion.jpg) | [ver](../mockup/capturas/movil/095-CotizacionMovil.jpg) |
+
+Nota sobre los pasos 7 y 8 (D55, implementados en `feat/disena-mensaje-y-oblea`). En el paso 8 no hay "Total estimado" ni "Tu pastel" bajo la vista previa, porque repetían la tarjeta de revisión; en su lugar, cada renglón lleva "Cambiar" (pastel al paso 1, cobertura al 5, decoración al 6, mensaje y oblea al 7). En móvil no hay "Ver tu pastel" ni barra fija, y "Agregar al pedido" queda al final de la tarjeta. El paso 8 no lleva vela: el pastel 3D de la vista previa ya no tiene vela en ningún paso. La cámara es de 78° en el paso 7 y de 32° en el paso 8.
 
 ## Estados de carga, error y legales
 
