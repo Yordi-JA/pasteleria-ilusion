@@ -457,8 +457,7 @@ def _check_layouts(choice: CakeDesignChoice, limits: CakeDesignSettingsRecord, c
     if choice.wafer_layout is not None:
         attempt(failures, check_wafer_layout, choice.wafer_layout, choice.wafer, limits)
     if choice.message_layout is not None:
-        slugs = {color.slug for color in cake_options.list_coverage_colors()}
-        attempt(failures, check_message_layout, choice.message_layout, slugs)
+        attempt(failures, check_message_layout, choice.message_layout)
     try:
         raise_all(failures)
     except DomainValidationError as error:

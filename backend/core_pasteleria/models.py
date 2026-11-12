@@ -132,11 +132,11 @@ class MessageArrangement(models.TextChoices):
 
 
 class MessageColorMode(models.TextChoices):
-    """De dónde sale el color del mensaje: negro, un tono de la cobertura o uno de sus 11 colores."""
+    """De dónde sale el color del mensaje: negro, un tono de la cobertura o cualquier color que elija el cliente."""
 
     AUTO = "auto", "Automático"
     TONES = "tones", "Colores que combinan"
-    LIST = "list", "Lista completa"
+    CUSTOM = "custom", "Elegir un color"
 
 
 class ProductCategory(models.TextChoices):
@@ -1073,22 +1073,30 @@ class CakeMold(models.Model):
 
 
 class CoverageColor(OrderedOption):
-    """Color de la crema pastelera (paso 5). La cobertura es siempre crema pastelera."""
+    """Nombre de referencia de un color. El cliente elige cualquier color en "Diseña tu pastel".
+
+    La lista ya no limita la cobertura, la decoración ni el mensaje: sirve para decir "parecido a <nombre>" en la
+    revisión y en el carrito, con el nombre del color de la lista más cercano al elegido. La cobertura de crema
+    pastelera es siempre la misma; su color es libre.
+    """
 
     name = models.CharField("nombre", max_length=60, unique=True)
     slug = models.SlugField(
         "identificador",
         max_length=60,
         unique=True,
-        help_text="Lo usa la vista previa. No se cambia después de crearlo.",
+        help_text="No se cambia después de crearlo.",
     )
     preview_color = models.CharField(
-        "color en la vista previa", max_length=7, validators=[hex_color_validator]
+        "color de referencia",
+        max_length=7,
+        validators=[hex_color_validator],
+        help_text="El color que se compara con el que elige el cliente para nombrarlo.",
     )
 
     class Meta:
-        verbose_name = "color de cobertura"
-        verbose_name_plural = "colores de cobertura"
+        verbose_name = "nombre de color de referencia"
+        verbose_name_plural = "nombres de color de referencia"
         ordering = ["sort_order", "name"]
 
     def __str__(self):

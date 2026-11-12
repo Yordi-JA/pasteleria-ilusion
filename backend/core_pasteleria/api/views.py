@@ -51,7 +51,7 @@ class CakeDesignOptionsView(PublicReadOnlyView):
         operation_id="cake_design_options",
         summary='Opciones de "Diseña tu pastel"',
         description=(
-            "Tipos de pastel, panes, bases de relleno con sus sabores, colores de cobertura, "
+            "Tipos de pastel, panes, bases de relleno con sus sabores, nombres de color de referencia, "
             "decoraciones, límites y pisos recomendados, con los precios por kilo vigentes. "
             "Las opciones que no se pueden elegir no desaparecen. Panes, bases y sabores traen "
             "`allowed_cake_types` y `unavailable_reasons` (motivo por tipo de pastel); las "
