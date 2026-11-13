@@ -12,10 +12,10 @@ const SCENE_LABEL = 'Pastel de tres pisos'
  * (pisos `betun` y `fresa-claro`) y su sombra de contacto. Se ve mientras llega la escena y
  * cuando no hay WebGL o se pierde el contexto. Es decorativo: el `h1` y el lema ya dicen de qué es la página.
  */
-function StaticCake({ hidden }: { hidden: boolean }) {
+export function StaticCake({ hidden = false, testId = 'pastel-portada-fijo' }: { hidden?: boolean; testId?: string }) {
   return (
     <div
-      data-testid="pastel-portada-fijo"
+      data-testid={testId}
       aria-hidden="true"
       className={`absolute inset-0 flex flex-col items-center justify-center transition-[opacity,visibility] duration-150 ease-entrada motion-reduce:transition-none ${hidden ? 'invisible opacity-0' : ''}`}
     >
@@ -39,9 +39,15 @@ function StaticCake({ hidden }: { hidden: boolean }) {
   )
 }
 
+/** Alto de la caja: el de la portada o el de la escena chica del catálogo (`.escena.chica` del mockup). */
+const BOX_HEIGHT = {
+  hero: 'h-[600px] max-[960px]:h-[460px] max-[600px]:h-[380px]',
+  compact: 'h-[420px] max-[960px]:h-[360px] max-[600px]:h-[320px]',
+} as const
+
 /**
- * Lugar del pastel de la portada, con la altura de la escena del mockup (600 px, 460 px hasta 960 px de ancho y
- * 380 px en móvil). La caja no cambia de tamaño: adentro, el pastel fijo cede su lugar a la escena 3D
+ * Lugar del pastel de tres pisos: en la portada, con la altura de la escena del mockup (600 px, 460 px hasta 960 px de
+ * ancho y 380 px en móvil); en el catálogo, la de la escena chica (`size="compact"`, D59). La caja no cambia de tamaño: adentro, el pastel fijo cede su lugar a la escena 3D
  * (`src/three/CakeScene.tsx`, D48) en cuanto dibuja su primer cuadro. La escena entra en 250 ms (opacidad y escala
  * de 0.97 a 1, con la curva `ease-entrada`) y el pastel fijo sale en 150 ms; con "reducir movimiento", sin transición.
  */
@@ -49,23 +55,26 @@ export default function HeroCake({
   cake,
   hintId,
   onFocusEscape,
+  size = 'hero',
+  testId = 'pastel-portada',
+  onColor = false,
 }: {
   cake: HeroCakeView
   /** `id` de la pista de cómo girarlo, que describe la escena. */
   hintId: string
   /** A dónde va el foco si la escena lo tenía y desaparece. */
   onFocusEscape: () => void
+  size?: keyof typeof BOX_HEIGHT
+  /** Para las pruebas; el pastel fijo lleva el mismo con `-fijo`. */
+  testId?: string
+  /** Sobre un campo `mermelada`: el anillo de foco de la escena va en `betun`. */
+  onColor?: boolean
 }) {
-  const { observeBox, ...scene } = cake
+  const { observeBox, separateOnScroll, ...scene } = cake
   const ready = scene.status === 'ready'
   return (
-    <div
-      ref={observeBox}
-      data-testid="pastel-portada"
-      data-state={scene.status}
-      className="relative h-[600px] max-[960px]:h-[460px] max-[600px]:h-[380px]"
-    >
-      <StaticCake hidden={ready} />
+    <div ref={observeBox} data-testid={testId} data-state={scene.status} className={`relative ${BOX_HEIGHT[size]}`}>
+      <StaticCake hidden={ready} testId={`${testId}-fijo`} />
       {scene.status !== 'fallback' && (
         <SceneBoundary onError={scene.onChunkError}>
           <Suspense fallback={null}>
@@ -79,7 +88,8 @@ export default function HeroCake({
                 describedBy={hintId}
                 reducedMotion={scene.reducedMotion}
                 running={scene.running}
-                separateOnScroll
+                separateOnScroll={separateOnScroll}
+                onColor={onColor}
                 onReady={scene.onReady}
                 onContextLost={scene.onContextLost}
                 onKeyboardFocusChange={scene.onKeyboardFocusChange}

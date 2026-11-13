@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test'
+import { mockCakeDesignOptions } from './support/cake-design.ts'
+import { durazno, mockProductDetails, mockProducts } from './support/products.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 
 /**
@@ -9,7 +11,7 @@ const routes: { path: string; heading: string; title?: string }[] = [
   { path: '/catalogo', heading: 'Catálogo' },
   { path: '/vitrina', heading: 'Vitrina' },
   { path: '/rebanadas', heading: 'Rebanadas de hoy' },
-  { path: '/pasteles/tres-leches-de-durazno', heading: '[Nombre del pastel por confirmar]', title: 'Ficha de producto' },
+  { path: '/pasteles/tres-leches-de-durazno', heading: 'Tres leches de durazno' },
   { path: '/bases', heading: 'Bases en préstamo' },
   { path: '/entrar', heading: 'Inicia sesión' },
   { path: '/registro', heading: 'Crea tu cuenta' },
@@ -35,6 +37,10 @@ const routes: { path: string; heading: string; title?: string }[] = [
 
 test.beforeEach(async ({ page }) => {
   await mockStoreInfo(page)
+  // El catálogo y la ficha ya muestran datos (D59): se simulan para que el h1 de la ficha sea el del producto.
+  await mockCakeDesignOptions(page)
+  await mockProducts(page)
+  await mockProductDetails(page, [durazno])
 })
 
 for (const { path, heading, title = heading } of routes) {

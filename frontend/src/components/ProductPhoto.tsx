@@ -1,13 +1,18 @@
 import { useState } from 'react'
 import type { PhotoView } from '../viewmodels/productPhoto.ts'
 
-/** Silueta del hueco, la misma del mockup: tres pisos (tarjeta grande), dos pisos (lista y vitrina) o una rebanada. */
-export type PhotoShape = 'tiers3' | 'tiers2' | 'slice'
+/**
+ * Silueta del hueco, la misma del mockup: tres pisos (tarjeta grande), dos pisos (lista y vitrina), una rebanada o un
+ * postre redondo (los postres del catálogo).
+ */
+export type PhotoShape = 'tiers3' | 'tiers2' | 'slice' | 'round'
 
 type ProductPhotoProps = {
   photo: PhotoView
   shape: PhotoShape
   className?: string
+  /** El hueco sobre un campo `fresa` (el encabezado de la ficha): la silueta va en `betun` para que se lea. */
+  onFresa?: boolean
 }
 
 // Proporciones de las siluetas del mockup: la foto real usa la misma caja para que nada salte al cambiarla.
@@ -15,15 +20,16 @@ const aspect: Record<PhotoShape, string> = {
   tiers3: 'aspect-[360/300]',
   tiers2: 'aspect-[200/150]',
   slice: 'aspect-[200/120]',
+  round: 'aspect-[200/130]',
 }
 
-function Silhouette({ shape, label }: { shape: PhotoShape; label: string }) {
+function Silhouette({ shape, label, onFresa = false }: { shape: PhotoShape; label: string; onFresa?: boolean }) {
   // El texto va dentro del SVG, como en el mockup, para que acompañe a la silueta a cualquier tamaño.
   const textClass = 'fill-mermelada-suave font-sans'
   if (shape === 'tiers3') {
     return (
       <svg viewBox="0 0 360 300" aria-hidden="true" className="block h-auto w-full">
-        <g className="fill-fresa">
+        <g className={onFresa ? 'fill-betun' : 'fill-fresa'}>
           <rect x="112" y="20" width="136" height="72" rx="6" />
           <rect x="72" y="92" width="216" height="88" rx="6" />
           <rect x="28" y="180" width="304" height="112" rx="6" />
@@ -47,6 +53,17 @@ function Silhouette({ shape, label }: { shape: PhotoShape; label: string }) {
       </svg>
     )
   }
+  if (shape === 'round') {
+    return (
+      <svg viewBox="0 0 200 130" aria-hidden="true" className="block h-auto w-full">
+        <path d="M20 64 V92 A80 24 0 0 0 180 92 V64 Z" className="fill-relieve" />
+        <ellipse cx="100" cy="64" rx="80" ry="24" strokeWidth="2" className="fill-harina stroke-relieve" />
+        <text x="100" y="108" textAnchor="middle" fontSize="12" className={textClass}>
+          {label}
+        </text>
+      </svg>
+    )
+  }
   return (
     <svg viewBox="0 0 200 120" aria-hidden="true" className="block h-auto w-full">
       <path d="M24 84 L150 34 L178 56 L178 98 L24 112 Z" className="fill-relieve" />
@@ -63,7 +80,7 @@ function Silhouette({ shape, label }: { shape: PhotoShape; label: string }) {
  * silueta con "Foto del pastel". El hueco no es decorativo: es una imagen (`role="img"`) cuyo nombre dice que la
  * foto está pendiente, como el mockup ("Foto del pastel pendiente"). Si la foto no carga, también se muestra el hueco.
  */
-export default function ProductPhoto({ photo, shape, className = '' }: ProductPhotoProps) {
+export default function ProductPhoto({ photo, shape, className = '', onFresa = false }: ProductPhotoProps) {
   // Estado de presentación: la foto que no cargó (archivo que falta o dañado) cae al hueco, nunca a un ícono roto.
   // Se guarda la dirección y no un sí o no, así una foto nueva vuelve a intentarse.
   const [failedSrc, setFailedSrc] = useState<string | null>(null)
@@ -82,7 +99,7 @@ export default function ProductPhoto({ photo, shape, className = '' }: ProductPh
   }
   return (
     <div role="img" aria-label={`${photo.placeholder} pendiente`} data-foto-pendiente="" className={className}>
-      <Silhouette shape={shape} label={photo.placeholder} />
+      <Silhouette shape={shape} label={photo.placeholder} onFresa={onFresa} />
     </div>
   )
 }

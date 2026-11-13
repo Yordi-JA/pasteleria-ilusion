@@ -32,6 +32,7 @@ import { measureMessage, useMessageFont } from './messageMetrics.ts'
 import { useAddDesignToCart } from './useAddDesignToCart.ts'
 import { useCakeScene } from './useCakeScene.ts'
 import { useDecorationImage } from './useDecorationImage.ts'
+import { useDesignPrefill } from './useDesignPrefill.ts'
 import { useLidStep } from './useLidStep.ts'
 import { useLoadedImage } from './useLoadedImage.ts'
 import { useRemoteData } from './useRemoteData.ts'
@@ -353,17 +354,25 @@ export function useCakeDesigner() {
   }, [decorationLocal, order, orderLine, waferLocal])
   const { clear: clearDecorationImage } = decorationImage
   const { clear: clearWaferImage } = waferImage
+  /** Empieza con `fresh` en el paso 1, sin las imágenes del diseño anterior. */
+  const restart = useCallback(
+    (fresh: CakeDesignDraft, replace = false) => {
+      clearDecorationImage()
+      clearWaferImage()
+      setPeopleText(String(fresh.people))
+      setTierNotice(null)
+      setStepError(null)
+      setDraft(fresh)
+      navigate({ search: '?paso=1' }, { replace })
+    },
+    [clearDecorationImage, clearWaferImage, navigate],
+  )
   /** "Diseñar otro pastel": empieza de cero, sin las imágenes de este. */
-  const startOver = useCallback(() => {
-    clearDecorationImage()
-    clearWaferImage()
-    const fresh = emptyDraft()
-    setPeopleText(String(fresh.people))
-    setTierNotice(null)
-    setStepError(null)
-    setDraft(fresh)
-    navigate({ search: '?paso=1' })
-  }, [clearDecorationImage, clearWaferImage, navigate])
+  const startOver = useCallback(() => restart(emptyDraft()), [restart])
+
+  // --- "Personalizar este pastel" desde la ficha (D59) ---
+  const restartWithProduct = useCallback((fresh: CakeDesignDraft) => restart(fresh, true), [restart])
+  const prefill = useDesignPrefill({ options, draft, restart: restartWithProduct })
 
   // --- Vista previa ---
   const defaultBread = plan?.assumedBread ?? null
@@ -374,7 +383,16 @@ export function useCakeDesigner() {
   const scene = useCakeScene(shape, '0px', viewpointFor(current))
 
   return {
-    status: optionsState.status,
+    // Con `?pastel=`, el diseñador espera la ficha en su esqueleto: no se ve un paso 1 vacío que luego cambia.
+    status: optionsState.status === 'ready' && prefill.loading ? 'loading' : optionsState.status,
+    /** El aviso del prellenado; solo en el paso 1, donde llega la ficha. Al seguir de paso, ya no hace falta. */
+    prefill: {
+      notice: current === 1 ? prefill.notice : null,
+      startWithProduct: prefill.startWithProduct,
+      keepDesign: prefill.keepDesign,
+      retry: prefill.retry,
+      markAskFocused: prefill.markAskFocused,
+    },
     retryOptions,
     retryPrice: price.retry,
     draft,

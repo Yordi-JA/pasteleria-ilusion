@@ -1,7 +1,6 @@
 import { useId } from 'react'
-import { Link } from 'react-router'
 import DesignerCake from '../components/DesignerCake.tsx'
-import { focusRing } from '../components/focus.ts'
+import Breadcrumb from '../components/Breadcrumb.tsx'
 import LoadErrorNotice from '../components/LoadErrorNotice.tsx'
 import PageHeader from '../components/PageHeader.tsx'
 import Skeleton, { LoadingRegion } from '../components/Skeleton.tsx'
@@ -13,6 +12,7 @@ import { BreadStep, CakeTypeStep, CoverageStep, FillingStep } from './cakeDesign
 import DecorationStep from './cakeDesigner/DecorationStep.tsx'
 import { MobileBar, MobileHint, PreviewHint, PriceCard, SummaryCard, SummaryDisclosure } from './cakeDesigner/DesignerAside.tsx'
 import LidStep from './cakeDesigner/LidStep.tsx'
+import PrefillNotice from './cakeDesigner/PrefillNotice.tsx'
 import ReviewStep from './cakeDesigner/ReviewStep.tsx'
 import SizeStep from './cakeDesigner/SizeStep.tsx'
 import StepBar from './cakeDesigner/StepBar.tsx'
@@ -20,29 +20,7 @@ import StepCard from './cakeDesigner/StepCard.tsx'
 
 const TITLE = 'Diseña tu pastel'
 
-const crumbLink = `inline-flex min-h-11 items-center rounded-sm underline underline-offset-4 ${focusRing}`
-
-function Breadcrumb() {
-  return (
-    <nav aria-label="Ruta">
-      <ol className="flex flex-wrap items-center gap-x-1.5 text-nota">
-        <li>
-          <Link to="/" className={crumbLink}>
-            Inicio
-          </Link>
-        </li>
-        <li aria-hidden="true">/</li>
-        <li>
-          <Link to="/pedido" className={crumbLink}>
-            Realizar pedido
-          </Link>
-        </li>
-        <li aria-hidden="true">/</li>
-        <li aria-current="page">{TITLE}</li>
-      </ol>
-    </nav>
-  )
-}
+const CRUMBS = [{ label: 'Inicio', to: '/' }, { label: 'Realizar pedido', to: '/pedido' }, { label: TITLE }]
 
 /** Mientras llegan las opciones: la misma estructura (barra, vista previa, total y tarjeta), como `CotizadorCargando`. */
 function DesignerSkeleton() {
@@ -153,6 +131,16 @@ function Designer({ designer, hintId }: { designer: CakeDesignerView; hintId: st
   return (
     <>
       <div className="flex flex-col gap-8 max-[600px]:gap-6">
+        {designer.prefill.notice && (
+          <PrefillNotice
+            notice={designer.prefill.notice}
+            onStartWithProduct={designer.prefill.startWithProduct}
+            onKeepDesign={designer.prefill.keepDesign}
+            onRetry={designer.prefill.retry}
+            onAskFocused={designer.prefill.markAskFocused}
+            onAnswered={() => designer.stepTitle.current?.focus()}
+          />
+        )}
         <StepBar steps={view.steps} current={current} />
         <div className="grid grid-cols-2 items-start gap-9 max-[900px]:grid-cols-1 max-[900px]:gap-5">
           {/* La columna izquierda queda fija al hacer scroll en escritorio (libro de marca, "Cotizador 3D"). */}
@@ -219,7 +207,7 @@ export default function CakeDesigner() {
   const hintId = useId()
   return (
     <>
-      <PageHeader title={TITLE} before={<Breadcrumb />}>
+      <PageHeader title={TITLE} before={<Breadcrumb items={CRUMBS} />}>
         <p className="text-cuerpo text-mermelada-suave">
           {designer.view?.changedType
             ? 'Cambiaste el tipo de pastel. Revisa cómo afecta a lo que ya elegiste.'

@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import type { KeyboardEvent, PointerEvent, RefObject } from 'react'
 import { CanvasTexture, SRGBColorSpace, Vector3 } from 'three'
 import type { Group, PerspectiveCamera } from 'three'
-import { focusRing } from '../components/focus.ts'
+import { focusRing, focusRingOnColor } from '../components/focus.ts'
 import CakeModel from './CakeModel.tsx'
 import type { CakeMotion } from './CakeModel.tsx'
 import type { CakeShape, Viewpoint } from './cakeShape.ts'
@@ -63,6 +63,12 @@ export type SceneFraming = typeof FRAME & { overflowTop: number }
 
 const HERO_FRAMING: SceneFraming = { ...FRAME, overflowTop: OVERFLOW_TOP }
 
+/**
+ * El mismo encuadre sin sobresalir: sin pisos que se separen con el scroll (el catálogo, D59), el lienzo no sube los
+ * 72 px de la portada y no se sale de su sección.
+ */
+const IN_BOX_FRAMING: SceneFraming = { ...FRAME, overflowTop: 0 }
+
 /** Constante de tiempo (s) con la que la cámara de la vista libre se acerca a su encuadre cuando cambia el pastel. */
 const FREE_FRAMING_RESPONSE = 0.1
 
@@ -83,7 +89,7 @@ export type CakeSceneProps = {
   onKeyboardFocusChange?: (keyboard: boolean) => void
   /** Si la escena tiene el foco cuando se pierde el contexto, lo pasa a otro control antes de desaparecer. */
   onFocusEscape?: () => void
-  /** Encuadre propio; sin él, el de la portada. Con `freeLook` no se usa. */
+  /** Encuadre propio; sin él, el de la portada (o `IN_BOX_FRAMING` sin `separateOnScroll`). Con `freeLook` no se usa. */
   framing?: SceneFraming
   /**
    * Vista libre ("Diseña tu pastel"): arrastrar en vertical cambia la elevación de la cámara, las flechas de arriba y
@@ -93,6 +99,8 @@ export type CakeSceneProps = {
   freeLook?: boolean
   /** Solo con `freeLook`: desde dónde se ve el pastel. Sin él, la elevación de siempre y el giro solo. */
   viewpoint?: Viewpoint
+  /** Sobre un campo `mermelada` (el bloque "¿No encuentras el pastel que imaginas?"): el anillo de foco va en `betun`. */
+  onColor?: boolean
 }
 
 /** Lo que leen las pruebas en desarrollo, sin acoplarlas a three: cuadros dibujados, ángulo y separación. */
@@ -325,10 +333,12 @@ export default function CakeScene({
   onContextLost,
   onKeyboardFocusChange,
   onFocusEscape,
-  framing = HERO_FRAMING,
+  framing: framingProp,
   freeLook = false,
   viewpoint,
+  onColor = false,
 }: CakeSceneProps) {
+  const framing = framingProp ?? (separateOnScroll ? HERO_FRAMING : IN_BOX_FRAMING)
   const container = useRef<HTMLDivElement>(null)
   const spin = useRef(createSpin(viewpoint?.angle ?? INITIAL_ANGLE, viewpoint?.elevation ?? ELEVATION.initial))
   const tilt = useRef<Tilt>(createTilt())
@@ -431,7 +441,7 @@ export default function CakeScene({
       onKeyDown={onKeyDown}
       onFocus={(event) => onKeyboardFocusChange?.(event.currentTarget.matches(':focus-visible'))}
       onBlur={() => onKeyboardFocusChange?.(false)}
-      className={`relative h-full w-full cursor-grab touch-pan-y touch-pinch-zoom select-none rounded-lg active:cursor-grabbing ${focusRing}`}
+      className={`relative h-full w-full cursor-grab touch-pan-y touch-pinch-zoom select-none rounded-lg active:cursor-grabbing ${onColor ? focusRingOnColor : focusRing}`}
     >
       <Canvas
         aria-hidden="true"

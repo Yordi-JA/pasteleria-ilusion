@@ -5,8 +5,8 @@ import AddToCartNotice from '../../components/AddToCartNotice.tsx'
 import ButtonLink from '../../components/ButtonLink.tsx'
 import ChoiceOption from '../../components/ChoiceOption.tsx'
 import { focusRing } from '../../components/focus.ts'
+import LeadDays from '../../components/LeadDays.tsx'
 import { ORDER_LINK } from '../../components/navigation.ts'
-import Pending from '../../components/Pending.tsx'
 import ProductPhoto from '../../components/ProductPhoto.tsx'
 import Skeleton, { LoadingRegion } from '../../components/Skeleton.tsx'
 import TextLink from '../../components/TextLink.tsx'
@@ -80,12 +80,6 @@ function AwningDrawing() {
   )
 }
 
-function LeadDays({ days }: { days: number | null | undefined }) {
-  if (days === undefined) return <Skeleton inline tone="mermelada" className="h-[1em] w-16 align-[-0.15em]" />
-  if (days === null) return <Pending what="días" />
-  return <>{days === 1 ? '1 día' : `${days} días`}</>
-}
-
 /** "Por hoy se vendió todo lo de la vitrina" (VitrinaAgotada.dc.html), dentro de la sección y con sus dos salidas. */
 function SoldOut({ leadDays }: { leadDays: ShowcaseState['leadDays'] }) {
   return (
@@ -93,7 +87,7 @@ function SoldOut({ leadDays }: { leadDays: ShowcaseState['leadDays'] }) {
       <AwningDrawing />
       <h3 className="font-display text-titulo-2">Por hoy se vendió todo lo de la vitrina</h3>
       <p className="max-w-[480px] text-cuerpo text-sobre-color-suave">
-        Puedes hacer un pedido con <LeadDays days={leadDays} /> de anticipación, o ver si quedan rebanadas de hoy.
+        Puedes hacer un pedido con <LeadDays days={leadDays} tone="mermelada" /> de anticipación, o ver si quedan rebanadas de hoy.
       </p>
       <div className="flex flex-wrap items-center justify-center gap-4">
         <ButtonLink to={ORDER_LINK.to} variant="onColor">
