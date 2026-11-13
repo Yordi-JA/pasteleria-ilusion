@@ -129,6 +129,7 @@ test('parseProductCards keeps valid cards and drops malformed cards and offering
     summary: 'Relleno de durazno y cobertura de crema pastelera.',
     photo: 'tres-leches-durazno.webp',
     inShowcaseToday: true,
+    slicedToday: false,
     offerings: [
       { id: 1, presentation: 'whole', price: '350.00' },
       { id: 2, presentation: 'slice', price: '35.00' },
@@ -189,6 +190,7 @@ test('parseTodayStock reads the date and the items, marks sold out and drops mal
       photo: null,
       stock: 2,
       soldOut: false,
+      sliced: false,
     },
     // Con 0 piezas está agotada aunque `sold_out` diga otra cosa, y con `sold_out` no se ofrece aunque queden.
     expect.objectContaining({ offeringId: 2, stock: 0, soldOut: true }),
@@ -196,6 +198,33 @@ test('parseTodayStock reads the date and the items, marks sold out and drops mal
   ])
   expect(result.badDate).toEqual({ date: null, items: [] })
   expect(result.errors).toEqual(['TypeError', 'TypeError', 'TypeError', 'TypeError'])
+})
+
+test('the sliced cake (D60): `sliced` only counts on a slice, and `sliced_today` only when it is true', async ({ page }) => {
+  const result = await page.evaluate(
+    async ({ url, items, cards, today }) => {
+      const { parseTodayStock, parseProductCards } = await import(url)
+      const [durazno] = items as Record<string, unknown>[]
+      const stock = parseTodayStock({
+        date: today,
+        items: [
+          { ...durazno, offering_id: 1, presentation: 'slice', sliced: true },
+          { ...durazno, offering_id: 2, presentation: 'whole', sliced: true },
+          { ...durazno, offering_id: 3, presentation: 'slice', sliced: 'true' },
+          { ...durazno, offering_id: 4, presentation: 'slice' },
+        ],
+      })
+      const [card] = cards as Record<string, unknown>[]
+      const parsed = parseProductCards([{ ...card, sliced_today: true }, { ...card, slug: 'otra', sliced_today: 'sí' }, { ...card, slug: 'sin' }])
+      return {
+        sliced: stock.items.map((item: { sliced: boolean }) => item.sliced),
+        slicedToday: parsed.map((entry: { slicedToday: boolean }) => entry.slicedToday),
+      }
+    },
+    { url: CATALOG, items: showcaseItems, cards: featuredProducts, today: TODAY },
+  )
+  expect(result.sliced).toEqual([true, false, false, false])
+  expect(result.slicedToday).toEqual([true, false, false])
 })
 
 test('a list where every entry fails is an error; a partial one warns how many were dropped', async ({ page }) => {

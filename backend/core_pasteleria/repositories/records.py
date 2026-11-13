@@ -30,6 +30,8 @@ class OfferingRecord:
     # `None`: no se cargaron existencias para ese día (no aparece en vitrina).
     # `0`: agotada por hoy.
     stock: int | None
+    # La del producto, sin la de la presentación: el rebanado se ve completo en la vitrina (D60).
+    product_photo: str
 
 
 @dataclass(frozen=True)

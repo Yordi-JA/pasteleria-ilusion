@@ -9,7 +9,7 @@ from django.contrib import admin, messages
 from django.contrib.auth.admin import GroupAdmin, UserAdmin
 from django.contrib.auth.forms import AdminUserCreationForm, UserChangeForm
 from django.contrib.auth.models import Group
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import NON_FIELD_ERRORS, PermissionDenied, ValidationError
 from django.db import transaction
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -558,12 +558,15 @@ class InventoryStockForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        if (
-            self.instance.pk
-            and (self.has_changed() or not self.only_when_changed)
-            and not self._loaded_state_is_current(cleaned_data.get("loaded_at"))
-        ):
-            # En la lista, el error de un formulario solo se ve junto a un campo.
+        checks_state = self.instance.pk and (self.has_changed() or not self.only_when_changed)
+        offering = self.instance.offering if self.instance.offering_id else None
+        if checks_state and offering and offering.presentation in Inventory.WHOLE_AND_SLICES_MESSAGES:
+            # Primero el producto y luego la fila del inventario, el mismo orden que
+            # `Inventory.clean()`: dos guardados a la vez nunca se esperan en cruz (D60).
+            Inventory.lock_product(offering.product_id)
+        if checks_state and not self._loaded_state_is_current(cleaned_data.get("loaded_at")):
+            # Junto a la cantidad, el campo que se editó. Los errores sin campo también se ven
+            # en la lista, en una fila arriba de la suya (`change_list_results.html`).
             self.add_error("quantity", self.STALE_MESSAGE)
         return cleaned_data
 
@@ -585,6 +588,25 @@ class InventoryListForm(InventoryStockForm):
     """Formulario de cada fila de la lista: solo se revisan las filas editadas."""
 
     only_when_changed = True
+
+    def _post_clean(self):
+        # La lista solo guarda las filas editadas. Una fila sin tocar no pasa por
+        # `Inventory.clean()`: un dato de antes de una regla (por ejemplo, dos
+        # completos del mismo sabor, D60) no bloquea el guardado de las demás.
+        if self.has_changed():
+            super()._post_clean()
+
+    def _update_errors(self, errors):
+        # La lista solo tiene la cantidad: un error de `Inventory.clean()` en otro campo
+        # (por ejemplo `offering`, de un producto que pasó a "solo por encargo") va arriba
+        # de la fila. Sin esto, `add_error` lanza `ValueError` y el admin responde 500.
+        if hasattr(errors, "error_dict"):
+            regrouped = {}
+            for field, messages in errors.error_dict.items():
+                key = field if field in self.fields else NON_FIELD_ERRORS
+                regrouped.setdefault(key, []).extend(messages)
+            errors = ValidationError(regrouped)
+        super()._update_errors(errors)
 
 
 class InventoryAdmin(admin.ModelAdmin):

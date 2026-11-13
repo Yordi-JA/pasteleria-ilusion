@@ -60,6 +60,7 @@ def _offering_record(offering) -> OfferingRecord:
         servings=offering.price.servings,
         photo=offering.photo or product.photo,
         stock=offering.stock,
+        product_photo=product.photo,
     )
 
 
@@ -169,12 +170,15 @@ def _stocked_offerings(on_date: date):
     )
 
 
-def list_showcase(on_date: date, category: str | None = None) -> list[OfferingRecord]:
-    """Presentaciones con existencias cargadas para `on_date`, sin rebanadas.
+def list_showcase(on_date: date, category: str | None = None, *, include_slices: bool = False) -> list[OfferingRecord]:
+    """Presentaciones con existencias cargadas para `on_date`, sin rebanadas salvo con `include_slices`.
 
-    Incluye las de cantidad 0 (agotadas por hoy).
+    Incluye las de cantidad 0 (agotadas por hoy). Con `include_slices`, las
+    rebanadas van en el mismo orden del catálogo, en una sola consulta.
     """
-    offerings = _stocked_offerings(on_date).exclude(presentation=Presentation.SLICE)
+    offerings = _stocked_offerings(on_date)
+    if not include_slices:
+        offerings = offerings.exclude(presentation=Presentation.SLICE)
     if category:
         offerings = offerings.filter(product__category=category)
     return [_offering_record(offering) for offering in offerings]

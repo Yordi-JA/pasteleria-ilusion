@@ -620,6 +620,12 @@ class ProductCardSerializer(serializers.Serializer):
     in_showcase_today = serializers.BooleanField(
         help_text="\"En vitrina hoy\": alguna presentación que no es rebanada tiene piezas hoy."
     )
+    sliced_today = serializers.BooleanField(
+        help_text=(
+            "\"Rebanado hoy\": el producto es el rebanado (tiene rebanadas cargadas hoy) y le quedan "
+            "rebanadas. Se ve completo en la vitrina, pero completo solo se encarga."
+        )
+    )
     offerings = CardOfferingSerializer(many=True, help_text="Presentaciones activas, en el orden del admin.")
 
 
@@ -652,4 +658,20 @@ class TodayStockSerializer(serializers.Serializer):
     date = serializers.DateField(help_text="Fecha de hoy en la pastelería (Ciudad de México), AAAA-MM-DD.")
     items = StockItemSerializer(
         many=True, help_text="Lo cargado hoy, en el orden del catálogo; lo no cargado no sale."
+    )
+
+
+class ShowcaseItemSerializer(StockItemSerializer):
+    sliced = serializers.BooleanField(
+        help_text=(
+            "`true`: es el rebanado. Se ve completo en la vitrina, pero no se vende completo: la "
+            "partida es su rebanada (id, precio y `stock`, las rebanadas que quedan) y `photo` es la "
+            "del producto. Con `stock` en 0 el rebanado ya se acabó."
+        )
+    )
+
+
+class ShowcaseSerializer(TodayStockSerializer):
+    items = ShowcaseItemSerializer(
+        many=True, help_text="Lo cargado hoy, en el orden del catálogo, con el rebanado en su lugar."
     )

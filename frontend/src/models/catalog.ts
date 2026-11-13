@@ -35,6 +35,8 @@ export type ProductCard = {
   /** Nombre del archivo de la foto en `/fotos/`; `null` mientras falta (PENDIENTE). */
   photo: string | null
   inShowcaseToday: boolean
+  /** "Rebanado hoy" (D60): el producto es el pastel que se vende en rebanadas hoy y le quedan rebanadas. */
+  slicedToday: boolean
   /** Presentaciones activas que esta versión sabe mostrar, en el orden del admin. */
   offerings: CardOffering[]
 }
@@ -52,6 +54,11 @@ export type StockItem = {
   stock: number
   /** "Agotada por hoy": sin piezas, o marcada así por la API. */
   soldOut: boolean
+  /**
+   * Solo en la vitrina: la partida es el rebanado (D60). Se ve completo, pero no se agrega completo; la partida es su
+   * rebanada (`stock`, las rebanadas que quedan) y la foto es la del producto. Siempre `false` en las rebanadas.
+   */
+  sliced: boolean
 }
 
 /** `showcase/` y `slices/`: la fecha de hoy en la pastelería ("AAAA-MM-DD") y lo cargado hoy. */
@@ -131,6 +138,7 @@ function parseCard(data: unknown): ProductCard | null {
     summary: typeof data.summary === 'string' ? data.summary.trim() : '',
     photo: photo(data.photo),
     inShowcaseToday: data.in_showcase_today === true,
+    slicedToday: data.sliced_today === true,
     offerings,
   }
 }
@@ -179,6 +187,8 @@ function parseStockItem(data: unknown): StockItem | null {
     photo: photo(data.photo),
     stock,
     soldOut: stock === 0 || data.sold_out === true,
+    // Solo una rebanada puede ser el rebanado: un `sliced` en otra presentación no se cree.
+    sliced: data.sliced === true && presentation === 'slice',
   }
 }
 
@@ -204,10 +214,11 @@ export function photoUrl(file: string): string | null {
 
 /**
  * La presentación que se ofrece en una tarjeta de la portada: el pastel completo (`whole`) si lo hay; si no,
- * la primera, en el orden del admin. Sin presentaciones, `null`.
+ * la primera que no es rebanada, en el orden del admin (una rebanada no se encarga, D60). Sin ninguna, `null`.
  */
 export function featuredOffering(card: Pick<ProductCard, 'offerings'>): CardOffering | null {
-  return card.offerings.find((offering) => offering.presentation === 'whole') ?? card.offerings[0] ?? null
+  const orderable = card.offerings.filter((offering) => offering.presentation !== 'slice')
+  return orderable.find((offering) => offering.presentation === 'whole') ?? orderable[0] ?? null
 }
 
 /**

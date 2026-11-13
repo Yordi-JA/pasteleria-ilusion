@@ -15,13 +15,17 @@ type ProductCardProps = {
   action?: ReactNode
 }
 
-/** Tipo, canal de venta y "En vitrina hoy": datos de producto en texto pequeño, sin pastillas (libro de marca). */
-function Tags({ kind, status }: Pick<ProductCardView, 'kind' | 'status'>) {
-  if (!kind && !status) return null
+/** Tipo, canal de venta, "En vitrina hoy" y "Rebanado hoy": datos de producto en texto pequeño, sin pastillas (libro de marca). */
+function Tags({ kind, statuses }: Pick<ProductCardView, 'kind' | 'statuses'>) {
+  if (!kind && statuses.length === 0) return null
   return (
     <p className="flex min-h-[26px] flex-wrap items-center gap-x-2 text-nota text-mermelada-suave">
       {kind && <span>{kind}</span>}
-      {status && <span className="font-semibold">{status}</span>}
+      {statuses.map((status) => (
+        <span key={status} className="font-semibold">
+          {status}
+        </span>
+      ))}
     </p>
   )
 }
@@ -44,7 +48,7 @@ export default function ProductCard({ product, variant = 'feature', action }: Pr
     return (
       <Card as="article" className="flex h-full flex-col gap-2 !p-4">
         <ProductPhoto photo={product.photo} shape="round" />
-        <Tags kind={product.kind} status={product.status} />
+        <Tags kind={product.kind} statuses={product.statuses} />
         <h3 className="font-display text-titulo-3">{product.name}</h3>
         {product.summary && <p className="flex-1 text-nota text-mermelada-suave">{product.summary}</p>}
         {product.price && <p className="text-etiqueta tabular-nums">{product.price}</p>}
@@ -60,7 +64,7 @@ export default function ProductCard({ product, variant = 'feature', action }: Pr
         <ProductPhoto photo={product.photo} shape="tiers3" className="mx-auto w-full max-w-[300px]" />
         <div aria-hidden="true" className="mx-auto -mt-2.5 h-3.5 w-[56%] rounded-[50%] bg-mermelada/[.16] blur-[10px]" />
       </div>
-      <Tags kind={product.kind} status={product.status} />
+      <Tags kind={product.kind} statuses={product.statuses} />
       <h3 className="font-display text-titulo-2">{product.name}</h3>
       {product.summary && <p className="flex-1 text-cuerpo text-mermelada-suave">{product.summary}</p>}
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">

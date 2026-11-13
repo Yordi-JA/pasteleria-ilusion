@@ -22,9 +22,10 @@ type CardFields = {
   bread?: string | null
   filling_base?: string | null
   in_showcase_today?: boolean
+  sliced_today?: boolean
 }
 
-const card = ({ sales_channel = 'showcase_and_order', cake_type = null, bread = null, filling_base = null, in_showcase_today = false, ...rest }: CardFields) => ({
+const card = ({ sales_channel = 'showcase_and_order', cake_type = null, bread = null, filling_base = null, in_showcase_today = false, sliced_today = false, ...rest }: CardFields) => ({
   ...rest,
   sales_channel,
   cake_type,
@@ -32,6 +33,7 @@ const card = ({ sales_channel = 'showcase_and_order', cake_type = null, bread = 
   filling_base,
   photo: null,
   in_showcase_today,
+  sliced_today,
 })
 
 const normal = (first: number) => [offering(first, 'whole', '350.00'), offering(first + 1, 'slice', '35.00'), offering(first + 2, 'mini', '130.00')]
@@ -65,6 +67,9 @@ type DetailExtras = {
   storage_notes?: string | null
   transport_notes?: string | null
   related?: string[]
+  /** "Rebanado hoy" (D60). */
+  sliced_today?: boolean
+  in_showcase_today?: boolean
 }
 
 export function productDetail(slug: string, extras: DetailExtras = {}) {
@@ -73,6 +78,8 @@ export function productDetail(slug: string, extras: DetailExtras = {}) {
   const { stock = {}, sizes = {}, filling_flavor = null, storage_notes = null, transport_notes = null, related = [] } = extras
   return {
     ...base,
+    sliced_today: extras.sliced_today ?? base.sliced_today,
+    in_showcase_today: extras.in_showcase_today ?? base.in_showcase_today,
     description: '',
     filling_flavor,
     storage_notes,
@@ -116,10 +123,12 @@ type ListOptions = {
   delays?: Record<string, number>
   /** Respuestas en orden en lugar de filtrar: `'hang'` deja la petición sin respuesta. */
   responses?: ({ status: number; body: unknown } | 'hang')[]
+  /** Las tarjetas que filtra, si no son las de la semilla. */
+  cards?: Card[]
 }
 
 /** Simula `GET /api/v1/products/` y devuelve las URL pedidas, en orden. */
-export async function mockProducts(page: Page, { delays = {}, responses }: ListOptions = {}) {
+export async function mockProducts(page: Page, { delays = {}, responses, cards = productCards }: ListOptions = {}) {
   const requests: URL[] = []
   await page.route(
     (url) => url.pathname === PRODUCTS_PATH,
@@ -130,7 +139,7 @@ export async function mockProducts(page: Page, { delays = {}, responses }: ListO
       if (scripted === 'hang') return
       const wait = delays[url.searchParams.get('search') ?? ''] ?? 0
       if (wait) await new Promise((resolve) => setTimeout(resolve, wait))
-      const response = scripted ?? { status: 200, body: filterCards(url) }
+      const response = scripted ?? { status: 200, body: filterCards(url, cards) }
       // Una petición que la pantalla ya canceló no se puede responder: se ignora.
       await route.fulfill({ status: response.status, contentType: 'application/json', body: JSON.stringify(response.body) }).catch(() => undefined)
     },

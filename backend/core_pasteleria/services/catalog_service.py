@@ -6,6 +6,11 @@ Aquí viven las reglas de lectura del catálogo; el repositorio solo consulta:
   no la del servidor ni la del navegador.
 - "En vitrina hoy": alguna presentación que no es rebanada tiene piezas hoy. Las
   rebanadas van en "Rebanadas de hoy" (como `product_repo.list_showcase`).
+- El rebanado (D60): el pastel que se vende en rebanadas. No lleva un campo: lo es
+  el producto con rebanadas cargadas hoy (hay un solo pastel por sabor, y
+  `Inventory.clean()` no deja completo y rebanadas el mismo día). Se ve completo en
+  la vitrina (`ShowcaseItem.sliced`) y la tarjeta dice "Rebanado hoy" mientras
+  quedan rebanadas (`sliced_today`).
 - En la vitrina y las rebanadas, una presentación con existencias en 0 sale
   agotada; la que no se cargó para hoy no sale.
 - Lo vacío (foto, conservación, transporte) es PENDIENTE y sale como `None`.
@@ -55,6 +60,8 @@ class ProductCard:
     summary: str
     photo: str | None
     in_showcase_today: bool
+    # "Rebanado hoy": el producto es el rebanado y le quedan rebanadas hoy.
+    sliced_today: bool
     offerings: tuple[Offering, ...]
 
 
@@ -83,6 +90,15 @@ class StockItem:
 
 
 @dataclass(frozen=True)
+class ShowcaseItem(StockItem):
+    """Partida de la vitrina. Con `sliced`, es el rebanado: la partida es su rebanada
+    (id, precio y rebanadas que quedan) y la foto, la del producto, porque se ve completo.
+    """
+
+    sliced: bool
+
+
+@dataclass(frozen=True)
 class TodayStock:
     date: date
     items: tuple[StockItem, ...]
@@ -99,6 +115,10 @@ def _pending_if_blank(value: str) -> str | None:
 
 def _has_pieces_today(offering: OfferingRecord) -> bool:
     return offering.presentation != Presentation.SLICE and (offering.stock or 0) > 0
+
+
+def _has_slices_left_today(offering: OfferingRecord) -> bool:
+    return offering.presentation == Presentation.SLICE and (offering.stock or 0) > 0
 
 
 def _offering(record: OfferingRecord) -> Offering:
@@ -125,6 +145,7 @@ def _card_fields(record: ProductRecord) -> dict:
         "summary": record.summary,
         "photo": _pending_if_blank(record.photo),
         "in_showcase_today": any(_has_pieces_today(o) for o in record.offerings),
+        "sliced_today": any(_has_slices_left_today(o) for o in record.offerings),
         "offerings": tuple(_offering(o) for o in record.offerings),
     }
 
@@ -133,18 +154,31 @@ def _card(record: ProductRecord) -> ProductCard:
     return ProductCard(**_card_fields(record))
 
 
+def _stock_item_fields(record: OfferingRecord) -> dict:
+    return {
+        "offering_id": record.id,
+        "product_slug": record.product_slug,
+        "product_name": record.product_name,
+        "category": record.category,
+        "presentation": record.presentation,
+        "price": record.price,
+        "photo": _pending_if_blank(record.photo),
+        "stock": record.stock,
+        "sold_out": record.stock == 0,
+    }
+
+
 def _stock_item(record: OfferingRecord) -> StockItem:
-    return StockItem(
-        offering_id=record.id,
-        product_slug=record.product_slug,
-        product_name=record.product_name,
-        category=record.category,
-        presentation=record.presentation,
-        price=record.price,
-        photo=_pending_if_blank(record.photo),
-        stock=record.stock,
-        sold_out=record.stock == 0,
-    )
+    return StockItem(**_stock_item_fields(record))
+
+
+def _showcase_item(record: OfferingRecord) -> ShowcaseItem:
+    """Una rebanada cargada hoy en la vitrina es el rebanado, con la foto del pastel completo."""
+    sliced = record.presentation == Presentation.SLICE
+    fields = _stock_item_fields(record)
+    if sliced:
+        fields["photo"] = _pending_if_blank(record.product_photo)
+    return ShowcaseItem(**fields, sliced=sliced)
 
 
 def list_catalog(
@@ -194,10 +228,14 @@ def list_home_featured(*, products=product_repo, today: date | None = None) -> l
 def get_showcase(
     category: str | None = None, *, products=product_repo, today: date | None = None
 ) -> TodayStock:
-    """Vitrina de hoy, sin rebanadas, con las agotadas."""
+    """Vitrina de hoy, con las agotadas. Las rebanadas no salen sueltas: cada una es un rebanado."""
     on_date = today or bakery_today()
-    items = products.list_showcase(on_date, category=category)
-    return TodayStock(date=on_date, items=tuple(_stock_item(item) for item in items))
+    items = products.list_showcase(on_date, category=category, include_slices=True)
+    # Defensa: si un dato saltó `Inventory.clean()` y un producto trae completo y rebanadas
+    # el mismo día, gana el rebanado y el completo no sale (es el mismo pastel).
+    sliced = {item.product_id for item in items if item.presentation == Presentation.SLICE}
+    shown = [item for item in items if not (item.presentation == Presentation.WHOLE and item.product_id in sliced)]
+    return TodayStock(date=on_date, items=tuple(_showcase_item(item) for item in shown))
 
 
 @dataclass(frozen=True)

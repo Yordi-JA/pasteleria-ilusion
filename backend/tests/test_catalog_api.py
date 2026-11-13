@@ -39,7 +39,7 @@ PUBLIC_URLS = [PRODUCTS_URL, product_url("tres-leches-de-durazno"), FEATURED_URL
 
 CARD_FIELDS = {
     "slug", "name", "category", "sales_channel", "cake_type", "bread", "filling_base",
-    "summary", "photo", "in_showcase_today", "offerings",
+    "summary", "photo", "in_showcase_today", "sliced_today", "offerings",
 }
 CARD_OFFERING_FIELDS = {"id", "presentation", "price"}
 DETAIL_FIELDS = CARD_FIELDS | {
@@ -50,6 +50,8 @@ STOCK_ITEM_FIELDS = {
     "offering_id", "product_slug", "product_name", "category", "presentation",
     "price", "photo", "stock", "sold_out",
 }
+# La vitrina agrega `sliced`: la partida es el rebanado (D60). Las rebanadas no lo llevan.
+SHOWCASE_ITEM_FIELDS = STOCK_ITEM_FIELDS | {"sliced"}
 FIRST_FOUR_CAKES = ["tres-leches-de-durazno", "tres-leches-de-fresa", "tres-leches-de-zarzamora", "tres-leches-de-cajeta"]
 PRICE_REQUEST = {
     "kg": 15,
@@ -131,6 +133,7 @@ def test_catalog_card_carries_what_the_card_shows_with_money_as_a_string(api):
         "summary": "Relleno de durazno y cobertura de crema pastelera.",
         "photo": None,
         "in_showcase_today": False,
+        "sliced_today": False,
         "offerings": [
             {"id": offering_of("tres-leches-de-durazno", "whole").id, "presentation": "whole", "price": "350.00"},
             {"id": offering_of("tres-leches-de-durazno", "slice").id, "presentation": "slice", "price": "35.00"},
@@ -211,6 +214,19 @@ def test_catalog_marks_in_showcase_today_only_with_stock_of_today_outside_the_sl
     assert shown["tres-leches-de-zarzamora"] is False
     assert shown["tres-leches-de-cajeta"] is False
     assert sum(shown.values()) == 2
+
+
+def test_catalog_marks_the_sliced_cake_while_it_has_slices_left_today(api):
+    load_stock("tres-leches-de-durazno", "slice", 10)
+    load_stock("posible", "slice", 0)
+    load_stock("imposible", "slice", 4, on_date=TODAY + timedelta(days=1))
+    load_stock("tres-leches-de-fresa", "whole", 1)
+    cards = {card["slug"]: card for card in api.get(PRODUCTS_URL).json()}
+    assert {slug for slug, card in cards.items() if card["sliced_today"]} == {"tres-leches-de-durazno"}
+    # Solo con rebanadas no está "En vitrina hoy": se ve completo, pero no se vende completo.
+    assert cards["tres-leches-de-durazno"]["in_showcase_today"] is False
+    detail = api.get(product_url("tres-leches-de-durazno")).json()
+    assert (detail["sliced_today"], detail["in_showcase_today"]) == (True, False)
 
 
 def test_catalog_never_marks_an_order_only_product_in_the_showcase(api):
@@ -426,19 +442,22 @@ def test_showcase_is_empty_when_nothing_was_loaded_for_today(api):
 
 
 def test_showcase_lists_what_was_loaded_today_and_tells_sold_out_from_available(api):
-    load_stock("tres-leches-de-fresa", "whole", 4)
-    load_stock("tres-leches-de-fresa", "slice", 6)
+    load_stock("tres-leches-de-fresa", "whole", 1)
+    load_stock("tres-leches-de-zarzamora", "slice", 6)
     load_stock("tres-leches-de-durazno", "mini", 0)
     load_stock("flan-napolitano", "large", 2)
     write_stock_outside_the_admin("red-velvet", "whole", 5)
     body = api.get(SHOWCASE_URL).json()
     assert body["date"] == "2026-11-06"
-    # Sin rebanadas, sin Red velvet y sin lo que no se cargó hoy; la agotada sigue en la lista.
+    # El rebanado en su lugar, sin Red velvet y sin lo que no se cargó hoy; la agotada sigue en la lista.
     assert items(body) == [
         ("tres-leches-de-durazno", "mini", 0, True),
-        ("tres-leches-de-fresa", "whole", 4, False),
+        ("tres-leches-de-fresa", "whole", 1, False),
+        ("tres-leches-de-zarzamora", "slice", 6, False),
         ("flan-napolitano", "large", 2, False),
     ]
+    assert [item["sliced"] for item in body["items"]] == [False, False, True, False]
+    assert all(set(item) == SHOWCASE_ITEM_FIELDS for item in body["items"])
     assert body["items"][1] == {
         "offering_id": offering_of("tres-leches-de-fresa", "whole").id,
         "product_slug": "tres-leches-de-fresa",
@@ -447,9 +466,38 @@ def test_showcase_lists_what_was_loaded_today_and_tells_sold_out_from_available(
         "presentation": "whole",
         "price": "350.00",
         "photo": None,
-        "stock": 4,
+        "stock": 1,
         "sold_out": False,
+        "sliced": False,
     }
+
+
+def test_showcase_gives_the_sliced_cake_as_its_slice_with_the_photo_of_the_whole_cake(api):
+    """El rebanado (D60): se ve completo, pero lo que se vende es la rebanada (id, precio y las que quedan)."""
+    Product.objects.filter(slug="posible").update(photo="posible.webp")
+    ProductOffering.objects.filter(product__slug="posible", presentation="slice").update(photo="posible-rebanada.webp")
+    load_stock("posible", "slice", 7)
+    item = api.get(SHOWCASE_URL, {"category": "dessert"}).json()["items"][0]
+    assert item == {
+        "offering_id": offering_of("posible", "slice").id,
+        "product_slug": "posible",
+        "product_name": "Posible",
+        "category": "dessert",
+        "presentation": "slice",
+        "price": "35.00",
+        "photo": "posible.webp",
+        "stock": 7,
+        "sold_out": False,
+        "sliced": True,
+    }
+    assert api.get(SLICES_URL).json()["items"][0]["photo"] == "posible-rebanada.webp"
+
+
+def test_showcase_keeps_the_sliced_cake_once_its_slices_run_out(api):
+    load_stock("imposible", "slice", 0)
+    body = api.get(SHOWCASE_URL).json()
+    assert items(body) == [("imposible", "slice", 0, True)]
+    assert body["items"][0]["sliced"] is True
 
 
 @pytest.mark.parametrize(("category", "expected"), [("cake", ["tres-leches-de-fresa"]), ("dessert", ["imposible"])])
@@ -481,6 +529,14 @@ def test_showcase_gives_the_photo_of_the_presentation(api):
     load_stock("tarta-de-frutas", "mini", 1)
     body = api.get(SHOWCASE_URL).json()
     assert [item["photo"] for item in body["items"]] == ["tarta.webp", "tarta-mini.webp"]
+
+
+def test_showcase_hides_the_whole_cake_of_a_product_that_is_also_sliced_today(api):
+    write_stock_outside_the_admin("posible", "whole", 1)
+    write_stock_outside_the_admin("posible", "slice", 8)
+    body = api.get(SHOWCASE_URL).json()
+    assert items(body) == [("posible", "slice", 8, False)]
+    assert body["items"][0]["sliced"] is True
 
 
 def test_showcase_uses_one_query(api, django_assert_num_queries):
@@ -519,12 +575,12 @@ def test_slices_are_empty_without_slices_for_today(api):
 def test_today_is_the_local_date_of_the_bakery_not_the_utc_date(api, bakery_clock):
     # 21:30 del 6 en la Ciudad de México ya es el 7 en UTC.
     bakery_clock.set(datetime(2026, 11, 7, 3, 30, tzinfo=dt_timezone.utc))
-    load_stock("tres-leches-de-fresa", "whole", 4)
-    load_stock("tres-leches-de-fresa", "slice", 3)
-    load_stock("imposible", "whole", 9, on_date=date(2026, 11, 7))
+    load_stock("tres-leches-de-fresa", "whole", 1)
+    load_stock("tres-leches-de-durazno", "slice", 3)
+    load_stock("imposible", "whole", 1, on_date=date(2026, 11, 7))
     showcase = api.get(SHOWCASE_URL).json()
     assert showcase["date"] == "2026-11-06"
-    assert [item["product_slug"] for item in showcase["items"]] == ["tres-leches-de-fresa"]
+    assert [item["product_slug"] for item in showcase["items"]] == ["tres-leches-de-durazno", "tres-leches-de-fresa"]
     assert api.get(SLICES_URL).json()["date"] == "2026-11-06"
     cards = {card["slug"]: card["in_showcase_today"] for card in api.get(PRODUCTS_URL).json()}
     assert (cards["tres-leches-de-fresa"], cards["imposible"]) == (True, False)
@@ -657,6 +713,18 @@ def test_schema_marks_money_as_strings_and_only_the_pending_fields_as_nullable(s
     assert set(stock_item["properties"]) == STOCK_ITEM_FIELDS
     assert stock_item["properties"]["price"]["type"] == "string"
     assert components["TodayStock"]["properties"]["date"]["format"] == "date"
+    showcase_item = components["ShowcaseItem"]
+    assert set(showcase_item["properties"]) == set(showcase_item["required"]) == SHOWCASE_ITEM_FIELDS
+    assert showcase_item["properties"]["sliced"]["type"] == "boolean"
+
+
+def test_schema_points_each_today_endpoint_to_its_own_item(schema):
+    def items_ref(path):
+        ref = schema["paths"][path]["get"]["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+        return schema["components"]["schemas"][ref.rsplit("/", 1)[1]]["properties"]["items"]["items"]["$ref"]
+
+    assert items_ref(SHOWCASE_URL).endswith("/ShowcaseItem")
+    assert items_ref(SLICES_URL).endswith("/StockItem")
 
 
 # --- Campo "destacado en la portada" ---

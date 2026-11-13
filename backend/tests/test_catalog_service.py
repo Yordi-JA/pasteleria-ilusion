@@ -44,6 +44,7 @@ def product(id, slug, category="cake", *, presentations=("whole", "slice"), feat
             servings=19 if presentation == "whole" else None,
             photo=photos.get(presentation) or photo,
             stock=None,
+            product_photo=photo,
         )
         for index, presentation in enumerate(presentations, start=1)
     )
@@ -156,6 +157,30 @@ def test_in_showcase_today_needs_a_piece_left_today_outside_the_slices():
     }
 
 
+def test_sliced_today_needs_slices_left_today():
+    """"Rebanado hoy" (D60): el producto tiene rebanadas cargadas hoy y queda al menos una."""
+    rows = stock(
+        ("durazno", "slice", 6),
+        ("fresa", "slice", 0),
+        ("zarzamora", "slice", 6, TODAY + timedelta(days=1)),
+        ("cajeta", "whole", 1),
+        ("imposible", "slice", 3),
+    )
+    sliced = {card.slug: card.sliced_today for card in catalog_service.list_catalog(products=repo(stock=rows), today=TODAY)}
+    assert sliced == {
+        "flan": False, "durazno": True, "fresa": False, "zarzamora": False,
+        "cajeta": False, "galleta": False, "imposible": True,
+    }
+    detail = catalog_service.get_product("durazno", products=repo(stock=rows), today=TODAY)
+    assert (detail.sliced_today, detail.in_showcase_today) == (True, False)
+
+
+def test_a_mini_in_the_showcase_and_the_sliced_cake_of_one_flavor_carry_both_labels():
+    rows = stock(("durazno", "mini", 2), ("durazno", "slice", 6))
+    detail = catalog_service.get_product("durazno", products=repo(stock=rows), today=TODAY)
+    assert (detail.in_showcase_today, detail.sliced_today) == (True, True)
+
+
 def test_catalog_passes_the_category_and_the_search_to_the_repository():
     service_repo = repo()
     assert card_slugs(catalog_service.list_catalog("dessert", products=service_repo, today=TODAY)) == ["flan", "imposible"]
@@ -202,7 +227,7 @@ def test_product_detail_carries_the_stock_of_today_and_related_cards_of_today():
 
 
 def test_showcase_tells_sold_out_from_available_and_carries_the_date():
-    rows = stock(("durazno", "whole", 0), ("fresa", "whole", 2), ("fresa", "slice", 4), ("flan", "whole", 1))
+    rows = stock(("durazno", "whole", 0), ("fresa", "whole", 2), ("flan", "whole", 1))
     showcase = catalog_service.get_showcase(products=repo(stock=rows), today=TODAY)
     assert showcase.date == TODAY
     assert [(i.product_slug, i.presentation, i.stock, i.sold_out) for i in showcase.items] == [
@@ -210,6 +235,46 @@ def test_showcase_tells_sold_out_from_available_and_carries_the_date():
     ]
     cakes = catalog_service.get_showcase("cake", products=repo(stock=rows), today=TODAY)
     assert [i.product_slug for i in cakes.items] == ["durazno", "fresa"]
+
+
+def sliced_items(showcase):
+    return [(i.product_slug, i.presentation, i.stock, i.sold_out, i.sliced) for i in showcase.items]
+
+
+def test_showcase_carries_the_sliced_cake_in_its_place_without_a_whole_row():
+    """El rebanado (D60): se ve completo en la vitrina, aunque solo tenga rebanadas cargadas."""
+    rows = stock(("flan", "whole", 1), ("durazno", "mini", 2), ("fresa", "slice", 4), ("zarzamora", "whole", 1))
+    showcase = catalog_service.get_showcase(products=repo(stock=rows), today=TODAY)
+    assert sliced_items(showcase) == [
+        ("flan", "whole", 1, False, False),
+        ("durazno", "mini", 2, False, False),
+        ("fresa", "slice", 4, False, True),
+        ("zarzamora", "whole", 1, False, False),
+    ]
+    desserts = catalog_service.get_showcase("dessert", products=repo(stock=rows), today=TODAY)
+    assert [i.product_slug for i in desserts.items] == ["flan"]
+
+
+def test_a_sliced_cake_with_no_slices_left_is_sold_out():
+    showcase = catalog_service.get_showcase(products=repo(stock=stock(("imposible", "slice", 0))), today=TODAY)
+    assert sliced_items(showcase) == [("imposible", "slice", 0, True, True)]
+
+
+def test_the_sliced_cake_shows_the_photo_of_the_product_and_the_slice_keeps_its_own():
+    records = [product(3, "fresa", photo="fresa.webp", offering_photos={"slice": "fresa-rebanada.webp"})]
+    slice_id = next(o.id for o in records[0].offerings if o.presentation == "slice")
+    rows = {(slice_id, TODAY): 4}
+    showcase = catalog_service.get_showcase(products=repo(records, stock=rows), today=TODAY)
+    slices = catalog_service.get_slices(products=repo(records, stock=rows), today=TODAY)
+    assert [i.photo for i in showcase.items] == ["fresa.webp"]
+    assert [i.photo for i in slices.items] == ["fresa-rebanada.webp"]
+
+
+def test_the_slices_list_does_not_change_with_the_sliced_cake():
+    rows = stock(("fresa", "slice", 4), ("durazno", "whole", 1))
+    slices = catalog_service.get_slices(products=repo(stock=rows), today=TODAY)
+    assert [(i.product_slug, i.presentation) for i in slices.items] == [("fresa", "slice")]
+    assert not hasattr(slices.items[0], "sliced")
 
 
 def test_slices_carry_only_the_slices_and_the_date():
@@ -293,3 +358,14 @@ def test_smaller_alternatives_skip_order_only_cakes_desserts_and_missing_data():
     )
     result = catalog_service.get_smaller_alternatives(products=repo([order_only, product(1, "flan", "dessert")]), today=TODAY)
     assert result == catalog_service.SmallerAlternatives(showcase_cake=None, mini_cake=None)
+
+
+def test_if_a_product_comes_whole_and_sliced_the_same_day_the_sliced_cake_wins():
+    """Defensa ante un dato que saltó `Inventory.clean()`: es el mismo pastel, sale una vez, como rebanado."""
+    rows = stock(("fresa", "whole", 1), ("fresa", "slice", 6), ("durazno", "whole", 1), ("durazno", "mini", 2))
+    showcase = catalog_service.get_showcase(products=repo(stock=rows), today=TODAY)
+    assert sliced_items(showcase) == [
+        ("durazno", "whole", 1, False, False),
+        ("durazno", "mini", 2, False, False),
+        ("fresa", "slice", 6, False, True),
+    ]
