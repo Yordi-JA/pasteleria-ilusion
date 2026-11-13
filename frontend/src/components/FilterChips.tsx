@@ -11,15 +11,16 @@ type FilterChipsProps<T extends string> = {
   onChange: (value: T) => void
   /** Sobre un campo `mermelada` (la vitrina de la portada). */
   onColor?: boolean
+  className?: string
 }
 
 /**
  * Filtros de una sola elección (Todo, Pasteles, Postres) como chips de `ChoiceOption`: un grupo de radios con su
  * leyenda, así las flechas del teclado recorren los chips y el lector dice cuál está elegido.
  */
-export default function FilterChips<T extends string>({ legend, name, options, onChange, onColor = false }: FilterChipsProps<T>) {
+export default function FilterChips<T extends string>({ legend, name, options, onChange, onColor = false, className }: FilterChipsProps<T>) {
   return (
-    <fieldset>
+    <fieldset className={className}>
       <legend className="sr-only">{legend}</legend>
       <div className="flex flex-wrap gap-2">
         {options.map((option) => (

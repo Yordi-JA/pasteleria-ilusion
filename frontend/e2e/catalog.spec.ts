@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { mockCakeDesignOptions } from './support/cake-design.ts'
-import { mockProducts } from './support/products.ts'
+import { mockProducts, productCards } from './support/products.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 
 /**
@@ -61,6 +61,24 @@ test('lists cakes and desserts with their counts, tags, prices and links to the 
   // La sección destacada lleva a realizar un pedido.
   const band = page.getByRole('region', { name: '¿No encuentras el pastel que imaginas?' })
   await expect(band.getByRole('link', { name: 'Realizar pedido' })).toHaveAttribute('href', '/pedido')
+})
+
+test('the cake sliced today says "Rebanado hoy", next to "En vitrina hoy" when a mini of it is there too', async ({ page }) => {
+  const sliced: Record<string, { sliced_today: boolean; in_showcase_today: boolean }> = {
+    'tres-leches-de-fresa': { sliced_today: true, in_showcase_today: false },
+    'tres-leches-de-durazno': { sliced_today: true, in_showcase_today: true },
+    imposible: { sliced_today: true, in_showcase_today: false },
+  }
+  await mockProducts(page, { cards: productCards.map((card) => ({ ...card, ...sliced[card.slug] })) })
+  await page.goto('/catalogo')
+  const card = (name: string) => page.getByRole('article').filter({ has: page.getByRole('heading', { name, exact: true }) })
+  await expect(card('Tres leches de fresa')).toContainText('Rebanado hoy')
+  await expect(card('Tres leches de fresa')).not.toContainText('En vitrina hoy')
+  await expect(card('Tres leches de durazno')).toContainText('En vitrina hoy')
+  await expect(card('Tres leches de durazno')).toContainText('Rebanado hoy')
+  await expect(card('Imposible')).toContainText('Rebanado hoy')
+  await expect(card('Choco-pingüino')).not.toContainText('Rebanado hoy')
+  await expect(page.getByText('Rebanado hoy')).toHaveCount(3)
 })
 
 test('the category chips filter through the URL and the back button restores them', async ({ page }) => {
@@ -234,6 +252,39 @@ test('a chip after coming back from a product starts a new history entry', async
   await page.goBack()
   await expect(page).toHaveURL(/\?categoria=postres$/)
   await expect(page.getByRole('radio', { name: 'Postres' })).toBeChecked()
+})
+
+test('a chip after back and forward starts a new history entry', async ({ page }) => {
+  await mockProducts(page)
+  await page.goto('/catalogo')
+  await expect(cardNames(cakes(page))).toHaveCount(5)
+  await chip(page, 'Pasteles').click()
+  await expect(page).toHaveURL(/\?categoria=pasteles$/)
+  await page.goBack()
+  await expect(page).toHaveURL(/\/catalogo$/)
+  await page.goForward()
+  await expect(page).toHaveURL(/\?categoria=pasteles$/)
+  await expect(page.getByRole('radio', { name: 'Pasteles' })).toBeChecked()
+  // Adelante termina la racha: "Postres" no reemplaza la entrada de "Pasteles".
+  await chip(page, 'Postres').click()
+  await expect(page).toHaveURL(/\?categoria=postres$/)
+  await page.goBack()
+  await expect(page).toHaveURL(/\?categoria=pasteles$/)
+  await expect(page.getByRole('radio', { name: 'Pasteles' })).toBeChecked()
+})
+
+test('a chip on a catalog URL opened from another route keeps that URL in the history', async ({ page }) => {
+  await mockProducts(page)
+  await page.goto('/bases')
+  await page.goto('/catalogo?categoria=postres')
+  await expect(cardNames(desserts(page))).toHaveCount(3)
+  // La entrada no la creó un chip: el chip agrega la suya en lugar de reemplazarla.
+  await chip(page, 'Pasteles').click()
+  await expect(page).toHaveURL(/\?categoria=pasteles$/)
+  await page.goBack()
+  await expect(page).toHaveURL(/\/catalogo\?categoria=postres$/)
+  await expect(page.getByRole('radio', { name: 'Postres' })).toBeChecked()
+  await expect(cardNames(desserts(page))).toHaveCount(3)
 })
 
 test('the filter bar stays at the top while scrolling', async ({ page }) => {

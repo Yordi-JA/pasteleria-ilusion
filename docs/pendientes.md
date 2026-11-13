@@ -81,9 +81,23 @@ Lo construido está en D59 ([`proyecto/decisiones.md`](proyecto/decisiones.md)),
 1. "Pastel mini": el mockup dice "para unas 3 personas", pero las tarjetas de `GET /api/v1/products/` no traen las personas de cada presentación (la ficha sí). Hoy la frase va sin ese dato. Para mostrarlo, la API tendría que agregar `servings` a `CardOfferingSerializer`. El botón "Ver sabores" del mockup no se hizo: no hay una pantalla de sabores del mini, y cada ficha ya ofrece "Mini".
 2. "Encargarlo para una fecha" agrega una línea `order` sin fecha. La fecha y la hora, el encargo de hoy con 2 horas de anticipación y la disponibilidad de pan (`Inventory`, D30) son de la entrega (Etapa 4).
 3. Fotos de producto: siguen PENDIENTE (el hueco "Foto del pastel"). Van en `frontend/public/fotos/` (D32, D47).
-4. Revisión con datos reales: hecha en local el 12 de noviembre con la vitrina del día (durazno solo con rebanadas, fresa con un completo). Falta revisar en Heroku. Un pastel que hoy solo tiene rebanadas no lleva "En vitrina hoy" (regla 2) y su ficha abre en "Completo" con "Hoy" desactivado; la etiqueta propia del pastel "Rebanado" es de la rama siguiente (vitrina y rebanadas) y vive en `showcaseStatus` (`frontend/src/viewmodels/productCards.ts`).
+4. Revisión con datos reales: hecha en local el 12 de noviembre con la vitrina del día (durazno solo con rebanadas, fresa con un completo). Falta revisar en Heroku. El rebanado ya tiene su etiqueta "Rebanado hoy" y su aviso en la ficha (D60).
 5. Prueba que ya fallaba: `e2e/cake-designer-lid.spec.ts:210` ("the message stays inside the lid") falla en esta rama con 1 y con 2 workers, y también en 79982c6, antes de D59 (con 1 worker): el contorno del mensaje en su tamaño máximo sale del círculo de la tapa. No es de esta rama; falta revisarla.
-6. Carga diferida de las rutas. `App.tsx` importa todas las vistas directamente, así que cada pantalla nueva entra al chunk principal: con D59 pasó de 488.41 kB a 527.76 kB (medido con `npm run build` en 79982c6 y en esta rama) y Vite avisa que pasa de 500 kB. Cargar las rutas con `React.lazy` lo bajaría; no entra en esta rama.
+6. Carga diferida de las rutas. `App.tsx` importa todas las vistas directamente, así que cada pantalla nueva entra al chunk principal: con D59 pasó de 488.41 kB a 527.76 kB y con D60 a 543.73 kB (medido con `npm run build`), y Vite avisa que pasa de 500 kB. Cargar las rutas con `React.lazy` lo bajaría; no entra en estas ramas.
+
+## Vitrina y rebanadas (D60)
+
+Lo construido está en D60 ([`proyecto/decisiones.md`](proyecto/decisiones.md)), en la rama `feat/vitrina-y-rebanadas`, sin desplegar. Quedan estos puntos:
+
+1. Revisar en Heroku la vitrina y las rebanadas con los datos del día.
+2. Cuando exista `InventoryObserver` (Etapa 4), su reintegro de existencias (`restock_showcase` al cancelar un pedido) debe respetar el tope de 1 completo por sabor: hoy `product_repo.restock_showcase` suma sin revisar la regla, porque no pasa por `Inventory.clean()`.
+3. "Encargarlo completo" en un producto `showcase_only`: el rebanado lleva ese enlace a la ficha, y en un producto que solo se vende en vitrina la ficha no deja encargarlo. Hoy ningún producto `showcase_only` tiene rebanada (son gelatinas en vaso), y la partida de `showcase/` no trae `sales_channel`, así que el frontend no puede ocultar el enlace; si llegara a pasar, `showcase/` tendría que mandar el canal.
+4. Si la pastelería quiere que el rebanado agotado se vea distinto (hoy sale como lo demás agotado, sin "Rebanado"), se cambia en `components/ShowcaseShelfItem.tsx`.
+5. La validación del pedido de la Etapa 4 (backend) debe rechazar una línea `order` con presentación de rebanada: las rebanadas solo se venden de la vitrina del día (D60). Hoy solo lo impide el frontend. Además, D59 ya está en Heroku y su ficha dejaba encargar una rebanada, así que un carrito guardado en el navegador puede traer esa línea: la pantalla del carrito (Etapa 4) debe marcarla o quitarla (`isSliceOrder`) antes de llegar al pago.
+6. Menores que dejó la última revisión del aviso de "Agregar al pedido" (`components/AddToCartNotice.tsx`), que no bloquean:
+    - "Cerrar" manda el foco al principio de `main` (`#contenido`), y quien usa el teclado pierde su lugar en la lista. Debería regresar al botón que agregó, si sigue en la página.
+    - "Cerrar" está dentro de la región `role="status"`, así que algunos lectores de pantalla lo leen con cada aviso; podría ir fuera de la región, como hermano.
+    - El espacio que reserva `scroll-padding-top` se mide una vez por aviso: si se gira el teléfono con el aviso visible, queda unos píxeles descuadrado.
 
 ## Etapa 4: lo que dejó la auditoría de seguridad de D55
 

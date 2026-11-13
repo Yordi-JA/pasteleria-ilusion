@@ -9,6 +9,7 @@ import ChoiceOption from '../components/ChoiceOption.tsx'
 import Duya from '../components/Duya.tsx'
 import LeadDays from '../components/LeadDays.tsx'
 import LoadErrorNotice from '../components/LoadErrorNotice.tsx'
+import Notice from '../components/Notice.tsx'
 import PageHeader from '../components/PageHeader.tsx'
 import Pending from '../components/Pending.tsx'
 import ProductPhoto from '../components/ProductPhoto.tsx'
@@ -41,10 +42,14 @@ function Hero({ view }: { view: Ready }) {
         </div>
         <div className="flex flex-col gap-4 pb-12 max-[960px]:pb-0">
           <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Catálogo', to: '/catalogo' }, { label: view.name }]} />
-          {(view.kind || view.status) && (
+          {(view.kind || view.statuses.length > 0) && (
             <p className="flex flex-wrap gap-x-2 text-nota text-mermelada-suave">
               {view.kind && <span>{view.kind}</span>}
-              {view.status && <span className="font-semibold">{view.status}</span>}
+              {view.statuses.map((status) => (
+                <span key={status} className="font-semibold">
+                  {status}
+                </span>
+              ))}
             </p>
           )}
           <h1 id="ficha-titulo" className="font-display text-display max-[600px]:text-titulo-1">
@@ -63,6 +68,13 @@ function ChooseCard({ detail, view }: { detail: ProductDetailView; view: Ready }
   const { actions } = detail
   return (
     <Card large className="flex flex-col gap-5">
+      {view.slicedToday && (
+        // Ya está al cargar la ficha: no es una región viva (D43).
+        <Notice title="Hoy se vende en rebanadas" live={false}>
+          <p>Llévate una rebanada hoy de la vitrina, o encarga el pastel completo.</p>
+          <TextLink to="/rebanadas">Ver rebanadas de hoy</TextLink>
+        </Notice>
+      )}
       {view.presentations.length > 0 ? (
         <>
           <fieldset className="flex flex-col gap-2">
@@ -75,6 +87,8 @@ function ChooseCard({ detail, view }: { detail: ProductDetailView; view: Ready }
                 label={option.label}
                 description={option.description ?? undefined}
                 trailing={option.price}
+                disabled={option.disabledReason !== null}
+                disabledReason={option.disabledReason ?? undefined}
                 checked={option.checked}
                 onChange={() => actions.choosePresentation(option.id)}
               />

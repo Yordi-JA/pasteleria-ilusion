@@ -31,6 +31,18 @@ const LIMIT_NOTICE: AddNotice = {
   detail: 'Tu pedido ya tiene el máximo de piezas que se pueden pedir en línea. Para más, escríbenos por WhatsApp.',
 }
 
+/** Las rebanadas se venden solo de la vitrina del día (D60): una línea de encargo de rebanada no entra. */
+const SLICE_ORDER_NOTICE: AddNotice = {
+  tone: 'attention',
+  title: 'No se pudo agregar',
+  detail: 'Las rebanadas son solo de la vitrina del día; no se encargan para una fecha.',
+}
+
+/** Si la línea sería un encargo de rebanada, que no se permite (D60). */
+export function isSliceOrder(offering: Pick<CartOffering, 'presentation' | 'fulfillment'>): boolean {
+  return offering.presentation === 'slice' && offering.fulfillment === 'order'
+}
+
 /**
  * Arma el aviso a partir de lo que pasó: todo entró, entró una parte porque no quedaban más, no entró nada, o
  * el carrito ya tenía más de las que quedan (bajaron las existencias). En el último caso el carrito no se
@@ -87,15 +99,37 @@ export function useAddToCart() {
 
   const add = useCallback(
     (offering: CartOffering, quantity = 1, maxQuantity?: number) => {
+      const line = { offeringId: offering.offeringId, fulfillment: offering.fulfillment }
+      // Defensa en el único camino al carrito de las presentaciones: ninguna pantalla debería pedirlo.
+      if (isSliceOrder(offering)) {
+        setFeedback({ ...SLICE_ORDER_NOTICE, id: nextId.current++, line, quantity: lineQuantity(items, line) })
+        return
+      }
       const outcome = addToCart(offering, quantity, maxQuantity)
       // Solo vuela una perla si entró algo, y trae las piezas que entraron.
       launch(outcome.added)
       const notice = describeAdd(offering, outcome, quantity, maxQuantity)
-      const line = { offeringId: offering.offeringId, fulfillment: offering.fulfillment }
       setFeedback({ ...notice, id: nextId.current++, line, quantity: outcome.quantity })
     },
-    [addToCart, launch],
+    [addToCart, items, launch],
   )
 
-  return { add, feedback }
+  /** Quita el aviso ("Cerrar" del aviso fijo); la región sigue montada. */
+  const dismiss = useCallback(() => setFeedback(null), [])
+
+  return { add, feedback, dismiss }
+}
+
+/** Algo que se puede agregar al pedido desde una tarjeta. */
+export type Addable = {
+  offering: CartOffering
+  /** Lo que queda hoy, cuando se sabe: el carrito no lo pasa. */
+  maxQuantity?: number
+}
+
+/** "Agregar al pedido" de una pieza por clic, el de las tarjetas sin contador (portada y vitrina). */
+export function useAddOne() {
+  const { add, feedback, dismiss } = useAddToCart()
+  const addItem = useCallback((item: Addable) => add(item.offering, 1, item.maxQuantity), [add])
+  return { add: addItem, feedback, dismiss }
 }

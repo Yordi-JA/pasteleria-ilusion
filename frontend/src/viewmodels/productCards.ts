@@ -21,8 +21,8 @@ export type ProductCardView = {
   photo: PhotoView
   /** Tipo y canal de venta, como texto pequeño: "Tres leches", "Seco, solo por encargo", "Solo en vitrina". */
   kind: string | null
-  /** "En vitrina hoy" o `null`. */
-  status: string | null
+  /** "En vitrina hoy" y "Rebanado hoy", las que apliquen (ver `showcaseStatus`). */
+  statuses: string[]
   /** El precio principal: "$350" o, si no es el completo, "Grande, $360". `null` sin presentaciones. */
   price: string | null
   /** El segundo precio: "$35 la rebanada", "Individual, $35" o "Por pedido, $280 por kg". */
@@ -86,11 +86,15 @@ export function productKind(card: Pick<ProductCard, 'category' | 'cakeType' | 's
 }
 
 /**
- * "En vitrina hoy" (regla 2: alguna presentación que no es rebanada tiene piezas hoy, según `in_showcase_today`), o
- * `null`. Un producto solo por encargo nunca la lleva. Única fuente de esta etiqueta para la tarjeta y la ficha.
+ * Las etiquetas de hoy de un producto, única fuente para la tarjeta y la ficha (regla 2):
+ * - "En vitrina hoy": alguna presentación que no es rebanada tiene piezas hoy (`in_showcase_today`).
+ * - "Rebanado hoy": es el pastel que se vende en rebanadas y le quedan (`sliced_today`, D60). No se compra completo.
+ * Pueden ir las dos: un mini de cajeta en la vitrina y el pastel de cajeta rebanado. Un producto solo por encargo no
+ * lleva ninguna.
  */
-export function showcaseStatus(card: Pick<ProductCard, 'inShowcaseToday' | 'salesChannel'>): string | null {
-  return card.inShowcaseToday && card.salesChannel !== 'order_only' ? 'En vitrina hoy' : null
+export function showcaseStatus(card: Pick<ProductCard, 'inShowcaseToday' | 'slicedToday' | 'salesChannel'>): string[] {
+  if (card.salesChannel === 'order_only') return []
+  return [card.inShowcaseToday && 'En vitrina hoy', card.slicedToday && 'Rebanado hoy'].filter((label): label is string => Boolean(label))
 }
 
 /** "Ver pastel" o "Ver detalle", como el mockup. */
@@ -109,7 +113,7 @@ export function toProductCardView(card: ProductCard, options: CakeDesignOptions 
     summary: card.summary,
     photo: photoView(card.photo, card.name, PHOTO_PLACEHOLDER[card.category]),
     kind: productKind(card),
-    status: showcaseStatus(card),
+    statuses: showcaseStatus(card),
     ...priceSummary(card, options),
   }
 }

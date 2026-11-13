@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { mockCakeDesignOptions } from './support/cake-design.ts'
+import { mockCatalog } from './support/catalog.ts'
 import { durazno, mockProductDetails, mockProducts } from './support/products.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 
@@ -41,6 +42,8 @@ test.beforeEach(async ({ page }) => {
   await mockCakeDesignOptions(page)
   await mockProducts(page)
   await mockProductDetails(page, [durazno])
+  // La vitrina y las rebanadas también (D60).
+  await mockCatalog(page)
 })
 
 for (const { path, heading, title = heading } of routes) {

@@ -29,6 +29,19 @@ export type PresentationChoice = {
   description: string | null
   price: string
   checked: boolean
+  /** "Agotada por hoy" en la rebanada sin piezas; si no, `null`. */
+  disabledReason: string | null
+}
+
+/** Las rebanadas se venden solo de la vitrina del día, nunca por encargo (decisión del dueño, D60). */
+export const SLICES_ONLY_TODAY = 'Las rebanadas son solo de la vitrina'
+
+/**
+ * Las presentaciones que ofrece la ficha. La rebanada solo sale si hoy hay rebanadas cargadas de ese producto (es el
+ * rebanado); sin piezas, sale desactivada con "Agotada por hoy". Las demás salen siempre.
+ */
+export function offeredPresentations(offerings: DetailOffering[]): DetailOffering[] {
+  return offerings.filter((offering) => offering.presentation !== 'slice' || offering.stock !== null)
 }
 
 function remaining(stock: number): string {
@@ -49,11 +62,26 @@ export function offeringSize(offering: Pick<DetailOffering, 'approxWeightKg' | '
  * quedan piezas y el producto se vende ahí, o encargarla si se hace por pedido. La fecha y la hora de un encargo se
  * eligen en la entrega (Etapa 4), así que aquí no se piden.
  */
-export function fulfillmentChoices(product: Pick<ProductDetail, 'salesChannel'>, offering: DetailOffering, chosen: Fulfillment | null): FulfillmentChoice[] {
+export function fulfillmentChoices(
+  product: Pick<ProductDetail, 'salesChannel' | 'slicedToday'>,
+  offering: DetailOffering,
+  chosen: Fulfillment | null,
+): FulfillmentChoice[] {
   const orderOnly = product.salesChannel === 'order_only'
   const showcaseOnly = product.salesChannel === 'showcase_only'
   const stock = offering.stock
-  const showcaseReason = orderOnly ? 'Solo por encargo' : stock === null ? 'Hoy no está en la vitrina' : stock === 0 ? 'Agotada por hoy' : null
+  const slice = offering.presentation === 'slice'
+  // El rebanado (D60) se ve completo en la vitrina, pero completo solo se encarga; eso va antes que sus existencias.
+  const showcaseReason = orderOnly
+    ? 'Solo por encargo'
+    : product.slicedToday && offering.presentation === 'whole'
+      ? 'Hoy se vende en rebanadas'
+      : stock === null
+        ? 'Hoy no está en la vitrina'
+        : stock === 0
+          ? 'Agotada por hoy'
+          : null
+  const orderReason = showcaseOnly ? 'Solo en vitrina' : slice ? SLICES_ONLY_TODAY : null
   return [
     {
       value: 'showcase',
@@ -65,8 +93,8 @@ export function fulfillmentChoices(product: Pick<ProductDetail, 'salesChannel'>,
     {
       value: 'order',
       label: 'Encargarlo para una fecha',
-      description: showcaseOnly ? null : 'La fecha y la hora las eliges al terminar tu pedido.',
-      disabledReason: showcaseOnly ? 'Solo en vitrina' : null,
+      description: orderReason ? null : 'La fecha y la hora las eliges al terminar tu pedido.',
+      disabledReason: orderReason,
       checked: chosen === 'order',
     },
   ]
@@ -103,7 +131,9 @@ export function useProductDetail(slug: string) {
 
   const view = useMemo(() => {
     if (!product) return null
-    const offering = product.offerings.find((o) => o.id === offeringId) ?? product.offerings[0] ?? null
+    const offered = offeredPresentations(product.offerings)
+    const selectable = offered.filter((o) => !(o.presentation === 'slice' && o.stock === 0))
+    const offering = selectable.find((o) => o.id === offeringId) ?? selectable[0] ?? null
     const fulfillments = offering ? fulfillmentChoices(product, offering, null) : []
     const fulfillment = effectiveFulfillment(fulfillments, wanted)
     const maxQuantity = fulfillment === 'showcase' && offering?.stock ? offering.stock : MAX_LINE_QUANTITY
@@ -114,17 +144,20 @@ export function useProductDetail(slug: string) {
     return {
       name: product.name,
       kind: productKind(product),
-      status: showcaseStatus(product),
+      statuses: showcaseStatus(product),
+      /** Hoy es el rebanado: la ficha dice que hay rebanadas y que el completo se encarga. */
+      slicedToday: product.slicedToday && product.salesChannel !== 'order_only',
       description: product.description || product.summary,
       /** "$350 · $35 la rebanada". */
       price: [summary.price, summary.secondaryPrice].filter(Boolean).join(' · '),
       photo: photoView(offering?.photo ?? product.photo, product.name, PHOTO_PLACEHOLDER[product.category]),
-      presentations: product.offerings.map<PresentationChoice>((o) => ({
+      presentations: offered.map<PresentationChoice>((o) => ({
         id: o.id,
         label: PRESENTATION_LABELS[o.presentation],
         description: offeringSize(o),
         price: formatPrice(o.price) ?? '',
         checked: o.id === offering?.id,
+        disabledReason: o.presentation === 'slice' && o.stock === 0 ? 'Agotada por hoy' : null,
       })),
       fulfillments: fulfillments.map((choice) => ({ ...choice, checked: choice.value === fulfillment })),
       canAdd: offering !== null && fulfillment !== null,
@@ -153,6 +186,8 @@ export function useProductDetail(slug: string) {
   const addToOrder = useCallback(() => {
     if (!product || !view?.offering || !view.fulfillment) return
     const { offering, fulfillment } = view
+    // Defensa: una rebanada nunca se encarga (la opción ya va desactivada).
+    if (offering.presentation === 'slice' && fulfillment === 'order') return
     add(toCartOffering(product, offering, fulfillment), view.quantity, fulfillment === 'showcase' ? (offering.stock ?? 0) : undefined)
   }, [add, product, view])
 

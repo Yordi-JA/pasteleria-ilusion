@@ -6,9 +6,9 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.contrib.postgres.constraints import ExclusionConstraint
 from django.contrib.postgres.fields import ArrayField, IntegerRangeField, RangeOperators
-from django.core.exceptions import ValidationError
+from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
-from django.db import models
+from django.db import models, transaction
 from django.db.models import F, Func, Q, Value
 from django.db.models.functions import Lower
 from django.utils import timezone
@@ -1657,6 +1657,8 @@ class Inventory(models.Model):
                 errors["offering"] = "Elige la presentación."
             elif self.offering.product.sales_channel == SalesChannel.ORDER_ONLY:
                 errors["offering"] = "Un producto solo por encargo no tiene existencias de vitrina."
+            else:
+                errors.update(self._one_cake_per_flavor_errors())
             if self.bread_id:
                 errors["bread"] = "Las existencias de vitrina no llevan pan."
         elif self.kind == InventoryKind.BREAD:
@@ -1666,6 +1668,71 @@ class Inventory(models.Model):
                 errors["offering"] = "El pan de hoy no lleva presentación."
         if errors:
             raise ValidationError(errors)
+
+    # Regla 2 y D60: en la vitrina hay un solo pastel de cada sabor, completo o rebanado.
+    ONE_WHOLE_CAKE_MESSAGE = (
+        "En la vitrina hay un solo pastel completo de cada sabor: pon 1, o 0 si ya se vendió."
+    )
+    WHOLE_AND_SLICES_MESSAGES = {
+        Presentation.WHOLE: (
+            "Ese día este producto ya se vende en rebanadas (es el rebanado). No va completo y en "
+            "rebanadas el mismo día: para venderlo completo, borra antes sus rebanadas de ese día."
+        ),
+        Presentation.SLICE: (
+            "Ese día este producto ya está completo en la vitrina. No va completo y en rebanadas el "
+            "mismo día: para rebanarlo, pon el completo en 0 si ya se vendió, o bórralo si no salió."
+        ),
+    }
+
+    def _one_cake_per_flavor_errors(self) -> dict:
+        """Un pastel por sabor (D60), en los productos que se venden en rebanadas.
+
+        El completo lleva como mucho 1 pieza por día, y un producto no tiene un completo
+        en la vitrina y rebanadas el mismo día: el que tiene rebanadas cargadas es el
+        rebanado. "Dejar rebanarlo" (decisión de la dueña): un completo ya vendido (en 0)
+        no impide rebanar otro pastel del mismo sabor ese día; una rebanada en 0 sí
+        cuenta (el rebanado ya se acabó y el completo no vuelve). Una presentación de
+        rebanada inactiva también cuenta para saber si el producto se vende en
+        rebanadas. El mini y lo que no tiene rebanada (gelatina de molde, tarta) quedan
+        fuera. Las 8 piezas, las 15 gelatinas y las 10 rebanadas son referencias, no topes.
+        """
+        offering = self.offering
+        if offering.presentation not in self.WHOLE_AND_SLICES_MESSAGES:
+            return {}
+        sold_in_slices = offering.presentation == Presentation.SLICE or (
+            ProductOffering.objects.filter(product_id=offering.product_id, presentation=Presentation.SLICE).exists()
+        )
+        if not sold_in_slices:
+            return {}
+        self.lock_product(offering.product_id)
+        errors = {}
+        whole = offering.presentation == Presentation.WHOLE
+        if whole and self.quantity is not None and self.quantity > 1:
+            errors["quantity"] = self.ONE_WHOLE_CAKE_MESSAGE
+        others = Inventory.objects.filter(
+            kind=InventoryKind.SHOWCASE,
+            offering__product_id=offering.product_id,
+            offering__presentation=Presentation.SLICE if whole else Presentation.WHOLE,
+            stock_date=self.stock_date,
+        ).exclude(pk=self.pk)
+        if not whole:
+            # Un completo vendido no estorba: deja rebanar otro pastel del mismo sabor.
+            others = others.filter(quantity__gt=0)
+        conflict = (not whole or (self.quantity or 0) > 0) and self.stock_date and others.exists()
+        if conflict:
+            # Sin campo: en la lista de la vitrina solo se edita la cantidad.
+            errors[NON_FIELD_ERRORS] = self.WHOLE_AND_SLICES_MESSAGES[offering.presentation]
+        return errors
+
+    @staticmethod
+    def lock_product(product_id) -> None:
+        """Bloquea el producto hasta el fin de la transacción: dos altas a la vez del completo
+        y de las rebanadas se validan una tras otra. El admin valida y guarda dentro de una
+        transacción (`changeform_view` y la lista de `InventoryAdmin`); fuera de una, como en
+        `full_clean()` desde la consola, no hay a quién esperar y no se bloquea.
+        """
+        if transaction.get_connection().in_atomic_block:
+            Product.objects.select_for_update().filter(pk=product_id).values_list("pk", flat=True).first()
 
     def save(self, *args, **kwargs):
         if self.forced_kind:

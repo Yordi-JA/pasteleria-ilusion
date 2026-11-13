@@ -23,6 +23,7 @@ const card = (slug: string, name: string, category: 'cake' | 'dessert', summary:
   summary,
   photo: null,
   in_showcase_today: true,
+  sliced_today: false,
   offerings,
 })
 
@@ -49,16 +50,16 @@ export const featuredProducts = [
   ]),
 ]
 
-type StockOverrides = { stock?: number; sold_out?: boolean; photo?: string | null }
+type StockOverrides = { stock?: number; sold_out?: boolean; photo?: string | null; sliced?: boolean }
 
-const stockItem = (
+export const stockItem = (
   offeringId: number,
   slug: string,
   name: string,
   category: 'cake' | 'dessert',
   presentation: string,
   price: string,
-  { stock = 2, sold_out = stock === 0, photo = null }: StockOverrides = {},
+  { stock = 2, sold_out = stock === 0, photo = null, sliced }: StockOverrides = {},
 ) => ({
   offering_id: offeringId,
   product_slug: slug,
@@ -69,6 +70,8 @@ const stockItem = (
   photo,
   stock,
   sold_out,
+  // Solo la vitrina manda `sliced` (D60); las rebanadas no lo llevan.
+  ...(sliced === undefined ? {} : { sliced }),
 })
 
 /** Vitrina de hoy: diez partidas (la portada muestra ocho), un mini y un Imposible agotado. */

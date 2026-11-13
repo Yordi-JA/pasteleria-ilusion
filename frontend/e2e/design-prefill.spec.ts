@@ -166,11 +166,11 @@ test('a failed product load shows the notice and the retry prefills', async ({ p
   await failed.getByRole('button', { name: 'Volver a intentar' }).click()
   await expect(page.getByText('Buscando el pastel…')).toBeVisible()
   await expect(stepTitle(page)).toBeVisible()
-  // El foco no cae a <body> cuando el botón desaparece.
-  expect(await page.evaluate(() => document.activeElement !== document.body)).toBe(true)
+  // El foco no cae a <body> cuando el botón desaparece: pasa al contenedor del aviso.
+  await expect(page.getByRole('group', { name: 'Aviso de tu pastel' })).toBeFocused()
   await expect(page.getByRole('status').filter({ hasText: 'Empezaste con Tres leches de durazno' })).toBeVisible()
   // Ya prellenado: el foco sigue en el aviso y el esqueleto nunca volvió.
-  expect(await page.evaluate(() => document.activeElement !== document.body)).toBe(true)
+  await expect(page.getByRole('group', { name: 'Aviso de tu pastel' })).toBeFocused()
   expect(await page.evaluate(() => (window as unknown as { __skeletonSeen: boolean }).__skeletonSeen)).toBe(false)
   expect(await storedDraft(page)).toMatchObject({ cakeType: 'tres_leches', fillingBase: 'normal', flavors: ['durazno'] })
 })

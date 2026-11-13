@@ -36,7 +36,8 @@ test('shows the product with its tags, prices, sizes, pending details and relate
   await expect(hero).toContainText('$350 · $35 la rebanada')
   await expect(hero.getByRole('navigation', { name: 'Ruta' }).getByRole('link', { name: 'Catálogo' })).toHaveAttribute('href', '/catalogo')
 
-  await expect(presentation(page).getByRole('radio')).toHaveCount(3)
+  // Sin rebanadas cargadas hoy, la ficha no ofrece "Rebanada": son solo de la vitrina del día (D60).
+  await expect(presentation(page).getByRole('radio')).toHaveCount(2)
   await expect(option(presentation(page), 'Completo')).toContainText('Aprox. 2.7 kg, unas 19 personas')
   await expect(option(presentation(page), 'Completo')).toContainText('$350')
   await expect(option(presentation(page), 'Mini')).toContainText('Unas 3 personas')
@@ -101,6 +102,69 @@ test('Red velvet is only made to order: the showcase option says why, and the pr
   await expect(page.getByRole('region', { name: 'Detalles' })).toContainText('En refrigeración, hasta 3 días.')
   // Un pan fijo no se ofrece en todos los tipos: no se promete "seco o envinado".
   await expect(page.getByRole('heading', { level: 3, name: '¿Lo quieres más grande o a tu gusto?' })).toBeVisible()
+})
+
+test('the cake sliced today says so: its slices are taken today and the whole cake can only be ordered', async ({ page }) => {
+  // Durazno es el rebanado (D60): 6 rebanadas hoy y ninguna fila del completo.
+  const sliced = productDetail('tres-leches-de-durazno', { stock: { 2: 6 }, sliced_today: true, in_showcase_today: false, filling_flavor: 'durazno' })
+  await mockProductDetails(page, [sliced])
+  await page.goto('/pasteles/tres-leches-de-durazno')
+  const hero = page.getByRole('region', { name: 'Tres leches de durazno' })
+  await expect(hero).toContainText('Rebanado hoy')
+  await expect(hero).not.toContainText('En vitrina hoy')
+  const notice = page.locator('strong', { hasText: 'Hoy se vende en rebanadas' }).locator('..')
+  await expect(notice).toContainText('Llévate una rebanada hoy de la vitrina, o encarga el pastel completo.')
+  await expect(notice.getByRole('link', { name: 'Ver rebanadas de hoy' })).toHaveAttribute('href', '/rebanadas')
+
+  // El completo: la vitrina dice por qué no, y queda elegido el encargo.
+  await expect(presentation(page).getByRole('radio', { name: /Completo/ })).toBeChecked()
+  await expect(when(page).getByRole('radio', { name: /Hoy, de la vitrina/ })).toBeDisabled()
+  await expect(when(page)).toContainText('Hoy se vende en rebanadas')
+  await expect(when(page).getByRole('radio', { name: /Encargarlo/ })).toBeChecked()
+  await page.getByRole('button', { name: 'Agregar al pedido' }).click()
+  // La rebanada sí se lleva hoy, con tope en lo que queda.
+  await option(presentation(page), 'Rebanada').click()
+  await expect(option(when(page), 'Hoy, de la vitrina')).toContainText('Quedan 6')
+  await expect(when(page).getByRole('radio', { name: /Hoy, de la vitrina/ })).toBeChecked()
+  await page.getByRole('button', { name: 'Agregar al pedido' }).click()
+  expect(await cartLines(page)).toEqual([
+    expect.objectContaining({ offeringId: 1, fulfillment: 'order', presentation: 'whole' }),
+    expect.objectContaining({ offeringId: 2, fulfillment: 'showcase', presentation: 'slice' }),
+  ])
+})
+
+test('a flavor without slices today does not offer "Rebanada": slices are only from the vitrina of the day', async ({ page }) => {
+  await mockProductDetails(page, [productDetail('tres-leches-de-fresa', { filling_flavor: 'fresa' })])
+  await page.goto('/pasteles/tres-leches-de-fresa')
+  await expect(presentation(page).getByRole('radio')).toHaveCount(2)
+  await expect(presentation(page).getByRole('radio', { name: /Rebanada/ })).toHaveCount(0)
+})
+
+test('the sliced cake offers "Rebanada" from the vitrina only; it cannot be ordered for a date', async ({ page }) => {
+  const sliced = productDetail('tres-leches-de-durazno', { stock: { 2: 6 }, sliced_today: true, in_showcase_today: false })
+  await mockProductDetails(page, [sliced])
+  await page.goto('/pasteles/tres-leches-de-durazno')
+  await option(presentation(page), 'Rebanada').click()
+  const order = when(page).getByRole('radio', { name: /Encargarlo/ })
+  await expect(order).toBeDisabled()
+  await expect(when(page)).toContainText('Las rebanadas son solo de la vitrina')
+  await expect(when(page).getByRole('radio', { name: /Hoy, de la vitrina/ })).toBeChecked()
+})
+
+test('the slices of the sliced cake that ran out show "Rebanada" disabled, sold out today', async ({ page }) => {
+  await mockProductDetails(page, [productDetail('tres-leches-de-durazno', { stock: { 2: 0 }, sliced_today: false })])
+  await page.goto('/pasteles/tres-leches-de-durazno')
+  await expect(presentation(page).getByRole('radio', { name: /Rebanada/ })).toBeDisabled()
+  await expect(presentation(page)).toContainText('Agotada por hoy')
+  await expect(presentation(page).getByRole('radio', { name: /Completo/ })).toBeChecked()
+})
+
+test('with the whole cake sold and the cake sliced, the whole cake says it is sold in slices, not sold out', async ({ page }) => {
+  await mockProductDetails(page, [productDetail('tres-leches-de-durazno', { stock: { 1: 0, 2: 6 }, sliced_today: true, in_showcase_today: false })])
+  await page.goto('/pasteles/tres-leches-de-durazno')
+  await expect(presentation(page).getByRole('radio', { name: /Completo/ })).toBeChecked()
+  await expect(when(page)).toContainText('Hoy se vende en rebanadas')
+  await expect(when(page)).not.toContainText('Agotada por hoy')
 })
 
 test('a showcase-only cup sold out today cannot be added, and says why', async ({ page }) => {

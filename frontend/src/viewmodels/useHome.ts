@@ -1,12 +1,13 @@
-import { useCallback, useMemo, useState } from 'react'
-import type { CartOffering } from '../models/cart.ts'
-import { featuredOffering, getFeaturedProducts, getShowcase, getSlices, stockItemToCartOffering, toCartOffering } from '../models/catalog.ts'
-import type { ProductCard, ProductCategory, StockItem, TodayStock } from '../models/catalog.ts'
+import { useMemo, useState } from 'react'
+import { featuredOffering, getFeaturedProducts, getShowcase, getSlices, toCartOffering } from '../models/catalog.ts'
+import type { ProductCard, StockItem, TodayStock } from '../models/catalog.ts'
 import { formatTodayDate } from '../models/dates.ts'
 import { formatPrice } from '../models/money.ts'
 import { offeringLabel, PRESENTATION_LABELS } from '../models/presentation.ts'
-import { useAddToCart } from './useAddToCart.ts'
-import type { AddFeedback } from './useAddToCart.ts'
+import { availableFirst, showcaseView, toSliceItem } from './todayItems.ts'
+import type { ShowcaseFilter } from './todayItems.ts'
+import { useAddOne } from './useAddToCart.ts'
+import type { AddFeedback, Addable } from './useAddToCart.ts'
 import { PHOTO_PLACEHOLDER, photoView } from './productPhoto.ts'
 import type { PhotoView } from './productPhoto.ts'
 import { useRemoteData } from './useRemoteData.ts'
@@ -34,33 +35,15 @@ export type SectionBase = {
   feedback: AddFeedback | null
 }
 
-/** Algo que se puede agregar al pedido desde una tarjeta. */
-export type Addable = {
-  offering: CartOffering
-  /** Lo que queda hoy, cuando se sabe: el carrito no lo pasa. */
-  maxQuantity?: number
-}
-
 function price(value: string): string {
   // El modelo ya validó el monto; el respaldo vacío solo cubre al tipo.
   return formatPrice(value) ?? ''
-}
-
-/** Lo disponible primero, en el orden de la API; lo agotado al final, para que no ocupe los primeros lugares. */
-function availableFirst(items: StockItem[]): StockItem[] {
-  return [...items.filter((item) => !item.soldOut), ...items.filter((item) => item.soldOut)]
 }
 
 /** Si la sección aparece y qué dice vacía (ver `SectionBase`). */
 function presence(status: RemoteData<unknown>['status'], empty: boolean, hadError: boolean, emptyText: string) {
   const emptyNow = status === 'ready' && empty
   return { visible: !emptyNow || hadError, emptyAfterError: emptyNow && hadError ? emptyText : null }
-}
-
-function useAddInSection() {
-  const { add, feedback } = useAddToCart()
-  const addItem = useCallback((item: Addable) => add(item.offering, 1, item.maxQuantity), [add])
-  return { add: addItem, feedback }
 }
 
 // --- Pasteles de la casa ---
@@ -91,7 +74,7 @@ function toFeaturedItem(card: ProductCard): FeaturedItemView {
 
 export function useFeaturedSection() {
   const { state, retry, hadError } = useRemoteData(getFeaturedProducts, 'No se pudieron cargar los pasteles de la casa.')
-  const { add, feedback } = useAddInSection()
+  const { add, feedback } = useAddOne()
   const items = useMemo(() => (state.status === 'ready' ? state.data.map(toFeaturedItem) : []), [state])
   return {
     status: state.status,
@@ -106,58 +89,20 @@ export function useFeaturedSection() {
 
 // --- Vitrina ---
 
-export type ShowcaseFilter = 'all' | ProductCategory
-
-const FILTERS: { value: ShowcaseFilter; label: string }[] = [
-  { value: 'all', label: 'Todo' },
-  { value: 'cake', label: 'Pasteles' },
-  { value: 'dessert', label: 'Postres' },
-]
-
-const FILTER_EMPTY: Record<ProductCategory, string> = {
-  cake: 'Hoy no hay pasteles en la vitrina.',
-  dessert: 'Hoy no hay postres en la vitrina.',
-}
-
-export type ShowcaseItemView = Addable & {
-  key: string
-  /** El producto, con la presentación cuando no es el completo: "Mini de tres leches de durazno". */
-  label: string
-  price: string
-  photo: PhotoView
-  soldOut: boolean
-}
-
-function toShowcaseItem(item: StockItem): ShowcaseItemView {
-  const label = offeringLabel(item.productName, item.presentation)
-  return {
-    key: String(item.offeringId),
-    label,
-    price: price(item.price),
-    photo: photoView(item.photo, label, PHOTO_PLACEHOLDER[item.category]),
-    soldOut: item.soldOut,
-    offering: stockItemToCartOffering(item),
-    maxQuantity: item.stock,
-  }
-}
-
 /**
  * La vitrina se pide completa una vez y los chips filtran en el navegador: cambiar de chip es inmediato, no gasta
- * el cupo del catálogo ni muestra un esqueleto, y la fecha y lo agotado salen de la misma respuesta (D47).
+ * el cupo del catálogo ni muestra un esqueleto, y la fecha y lo agotado salen de la misma respuesta (D47). El
+ * rebanado sale en su lugar, con sus rebanadas y el encargo del completo (D60).
  */
 export function useShowcaseSection() {
   const { state, retry, hadError } = useRemoteData(getShowcase, 'No se pudo cargar la vitrina.')
-  const { add, feedback } = useAddInSection()
+  const { add, feedback } = useAddOne()
   const store = useStoreDetails()
   const [filter, setFilter] = useState<ShowcaseFilter>('all')
 
   const view = useMemo(() => {
     const all: StockItem[] = state.status === 'ready' ? state.data.items : []
-    const allSoldOut = all.length > 0 && all.every((item) => item.soldOut)
-    const inFilter = filter === 'all' ? all : all.filter((item) => item.category === filter)
-    const items = availableFirst(inFilter).slice(0, SHOWCASE_LIMIT).map(toShowcaseItem)
-    const emptyFilter = !allSoldOut && items.length === 0 && filter !== 'all' ? FILTER_EMPTY[filter] : null
-    return { total: all.length, allSoldOut, items, emptyFilter }
+    return showcaseView(all, filter, SHOWCASE_LIMIT)
   }, [state, filter])
 
   return {
@@ -172,7 +117,7 @@ export function useShowcaseSection() {
     /** Frase para un chip sin nada hoy ("Hoy no hay postres en la vitrina."), o `null`. */
     emptyFilter: view.emptyFilter,
     /** Los chips se muestran solo con algo que filtrar. */
-    filters: view.total > 0 && !view.allSoldOut ? FILTERS.map((option) => ({ ...option, checked: option.value === filter })) : [],
+    filters: view.filters,
     setFilter,
     /** Días de anticipación para el texto de la vitrina agotada: `null` pendiente, `undefined` mientras carga. */
     leadDays: store.status === 'loading' ? undefined : store.leadDays,
@@ -181,33 +126,9 @@ export function useShowcaseSection() {
 
 // --- Rebanadas de hoy ---
 
-export type SliceItemView = Addable & {
-  key: string
-  name: string
-  /** "$35 la rebanada". */
-  price: string
-  /** "Quedan 3", "Queda 1"; `null` si se agotó. */
-  remaining: string | null
-  soldOut: boolean
-  photo: PhotoView
-}
-
-function toSliceItem(item: StockItem): SliceItemView {
-  return {
-    key: String(item.offeringId),
-    name: item.productName,
-    price: `${price(item.price)} la rebanada`,
-    remaining: item.soldOut ? null : item.stock === 1 ? 'Queda 1' : `Quedan ${item.stock}`,
-    soldOut: item.soldOut,
-    photo: photoView(item.photo, offeringLabel(item.productName, item.presentation), 'Foto de la rebanada'),
-    offering: stockItemToCartOffering(item),
-    maxQuantity: item.stock,
-  }
-}
-
 export function useSlicesSection() {
   const { state, retry, hadError } = useRemoteData(getSlices, 'No se pudieron cargar las rebanadas de hoy.')
-  const { add, feedback } = useAddInSection()
+  const { add, feedback } = useAddOne()
   const stock: TodayStock | null = state.status === 'ready' ? state.data : null
   // Hasta cuatro, primero las que quedan: una agotada solo entra si no hay cuatro disponibles.
   const items = useMemo(() => (stock ? availableFirst(stock.items).slice(0, SLICES_LIMIT).map(toSliceItem) : []), [stock])

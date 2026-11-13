@@ -27,6 +27,7 @@ from .serializers import (
     ProductCardSerializer,
     ProductDetailSerializer,
     ShowcaseQuerySerializer,
+    ShowcaseSerializer,
     StoreInfoSerializer,
     TodayStockSerializer,
 )
@@ -223,6 +224,7 @@ CARD_EXAMPLE = {
     "summary": "Relleno de durazno y cobertura de crema pastelera.",
     "photo": None,
     "in_showcase_today": True,
+    "sliced_today": False,
     "offerings": [
         {"id": 1, "presentation": "whole", "price": "350.00"},
         {"id": 2, "presentation": "slice", "price": "35.00"},
@@ -241,6 +243,17 @@ TODAY_STOCK_EXAMPLE = {
             "offering_id": 3, "product_slug": "tres-leches-de-durazno", "product_name": "Tres leches de durazno",
             "category": "cake", "presentation": "mini", "price": "130.00", "photo": None,
             "stock": 0, "sold_out": True,
+        },
+    ],
+}
+SHOWCASE_EXAMPLE = {
+    "date": "2026-11-06",
+    "items": [
+        {**TODAY_STOCK_EXAMPLE["items"][1], "sliced": False},
+        {
+            "offering_id": 5, "product_slug": "tres-leches-de-fresa", "product_name": "Tres leches de fresa",
+            "category": "cake", "presentation": "slice", "price": "35.00", "photo": None,
+            "stock": 6, "sold_out": False, "sliced": True,
         },
     ],
 }
@@ -339,15 +352,17 @@ class ShowcaseView(PublicCatalogView):
         operation_id="catalog_showcase",
         summary="Vitrina de hoy",
         description=(
-            "Presentaciones cargadas hoy en la vitrina, sin rebanadas, en el orden del catálogo. "
-            "Con `stock` en 0 salen con `sold_out: true` (\"Agotada por hoy\"); lo que no se "
-            "cargó hoy no sale. Red velvet nunca sale. `date` es la fecha de hoy en la pastelería."
+            "Presentaciones cargadas hoy en la vitrina, en el orden del catálogo. Un producto con "
+            "rebanadas cargadas hoy es el rebanado: sale una vez, con `sliced: true`, como su "
+            "rebanada (se ve completo, pero completo solo se encarga). Con `stock` en 0 salen con "
+            "`sold_out: true` (\"Agotada por hoy\"); lo que no se cargó hoy no sale. Red velvet "
+            "nunca sale. `date` es la fecha de hoy en la pastelería."
         ),
         parameters=[ShowcaseQuerySerializer],
         responses={
             200: OpenApiResponse(
-                response=TodayStockSerializer,
-                examples=[OpenApiExample("Una disponible y una agotada", value=TODAY_STOCK_EXAMPLE)],
+                response=ShowcaseSerializer,
+                examples=[OpenApiExample("Una agotada y el rebanado", value=SHOWCASE_EXAMPLE)],
             ),
             400: INVALID_QUERY,
         },
@@ -356,7 +371,7 @@ class ShowcaseView(PublicCatalogView):
     def get(self, request):
         query = self.validated_query(ShowcaseQuerySerializer, request)
         showcase = catalog_service.get_showcase(category=query.get("category"))
-        return Response(TodayStockSerializer(showcase).data)
+        return Response(ShowcaseSerializer(showcase).data)
 
 
 class SliceListView(PublicCatalogView):

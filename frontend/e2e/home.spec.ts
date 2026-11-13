@@ -9,6 +9,7 @@ import {
   SHOWCASE_PATH,
   showcaseItems,
   sliceItems,
+  stockItem,
   todayStock,
 } from './support/catalog.ts'
 import type { CatalogMocks } from './support/catalog.ts'
@@ -182,6 +183,33 @@ test.describe('portada with data', () => {
     await expect(soldOut.getByRole('button')).toHaveCount(0)
     await expect(desserts.first().getByRole('img', { name: 'Foto del postre pendiente' })).toBeVisible()
     await expectRequestCountStays(requests.showcase, before)
+  })
+
+  test('the sliced cake keeps its place in the vitrina with "Rebanado" and its two links instead of the cart button', async ({ page }) => {
+    const rebanado = stockItem(5, 'tres-leches-de-fresa', 'Tres leches de fresa', 'cake', 'slice', '35.00', { stock: 6, sliced: true })
+    await openHome(page, { showcase: [todayStock([showcaseItems[0], rebanado, ...showcaseItems.slice(1, 4)])] })
+    const list = showcase(page).getByRole('list')
+    // En su lugar del catálogo; el Imposible agotado, al final.
+    await expect(articleNames(list)).toHaveText(['Tres leches de durazno', 'Tres leches de fresa', 'Tres leches con queso y zarzamora', 'Choco-pingüino', 'Imposible'])
+    const fresa = list.getByRole('article').nth(1)
+    await expect(fresa).toContainText('Rebanado')
+    await expect(fresa).toContainText('$35 la rebanada')
+    await expect(fresa.getByRole('button')).toHaveCount(0)
+    await expect(fresa.getByRole('link', { name: 'Ver las rebanadas: Tres leches de fresa' })).toHaveAttribute('href', '/rebanadas')
+    await expect(fresa.getByRole('link', { name: 'Encargarlo completo: Tres leches de fresa' })).toHaveAttribute('href', '/pasteles/tres-leches-de-fresa')
+  })
+
+  test('Rebanadas with a single flavor: a wide card beside "¿Lo quieres completo?", no empty columns', async ({ page }) => {
+    await openHome(page, { slices: [todayStock([sliceItems[0]])] })
+    const section = slices(page)
+    const slice = section.getByRole('article')
+    await expect(slice).toHaveCount(1)
+    await expect(slice).toContainText('Tres leches de durazno')
+    await expect(slice.getByRole('button', { name: 'Agregar al pedido: Rebanada de tres leches de durazno' })).toBeVisible()
+    expect((await slice.boundingBox())!.width).toBeGreaterThan(600)
+    const whole = section.getByRole('complementary', { name: '¿Lo quieres completo?' })
+    await expect(whole.getByRole('link', { name: 'Encargarlo completo: Tres leches de durazno' })).toHaveAttribute('href', '/pasteles/tres-leches-de-durazno')
+    await expect(section.getByRole('region', { name: 'Tarjetas de las rebanadas de hoy' })).toHaveCount(0)
   })
 
   test('a chip with nothing today says so and keeps the other chips', async ({ page }) => {

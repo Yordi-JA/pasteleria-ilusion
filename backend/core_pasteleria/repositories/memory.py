@@ -106,11 +106,13 @@ class MemoryProductRepo:
                 if record.stock is not None:
                     yield record
 
-    def list_showcase(self, on_date: date, category: str | None = None) -> list[OfferingRecord]:
+    def list_showcase(
+        self, on_date: date, category: str | None = None, *, include_slices: bool = False
+    ) -> list[OfferingRecord]:
         return [
             offering
             for offering in self._stocked(on_date)
-            if offering.presentation != _SLICE and (not category or offering.category == category)
+            if (include_slices or offering.presentation != _SLICE) and (not category or offering.category == category)
         ]
 
     def list_slices(self, on_date: date) -> list[OfferingRecord]:
