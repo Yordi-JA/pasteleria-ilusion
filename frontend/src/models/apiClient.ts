@@ -44,10 +44,14 @@ export function devRequestTimeoutMs(override: string): number {
   return typeof value === 'number' && value > 0 ? value : REQUEST_TIMEOUT_MS
 }
 
-/** Pide un recurso de la API y devuelve el JSON sin validar; el modelo de cada recurso lo valida. */
-export async function getJson(segments: string[], init: { signal?: AbortSignal } = {}): Promise<unknown> {
+/**
+ * Pide un recurso de la API y devuelve el JSON sin validar; el modelo de cada recurso lo valida. `query` va en la
+ * cadena de consulta con `URLSearchParams`, que codifica cada valor (nunca se arma a mano).
+ */
+export async function getJson(segments: string[], init: { signal?: AbortSignal; query?: Record<string, string> } = {}): Promise<unknown> {
   const path = apiPath(...segments)
-  const response = await fetch(`${API_BASE}${path}`, {
+  const search = init.query && Object.keys(init.query).length > 0 ? `?${new URLSearchParams(init.query).toString()}` : ''
+  const response = await fetch(`${API_BASE}${path}${search}`, {
     headers: { Accept: 'application/json' },
     signal: init.signal,
   })

@@ -19,9 +19,13 @@ export const HERO_CAKE: CakeShape = {
 /** El lienzo sube 72 px por encima de la caja (el piso de arriba con los pisos separados): también cuenta para "se ve". */
 const VISIBLE_MARGIN = '72px 0px 0px 0px'
 
-/** View-model del pastel de la portada: la escena compartida (`useCakeScene`) con el pastel del hero. */
-export function useHeroCake() {
-  return useCakeScene(HERO_CAKE, VISIBLE_MARGIN)
+/**
+ * View-model del pastel de tres pisos: la escena compartida (`useCakeScene`) con el pastel del hero. En la portada los
+ * pisos se separan con el scroll y el lienzo sube 72 px; en el catálogo (D59) el mismo pastel no se separa, así que
+ * solo cuenta su caja para saber si se ve.
+ */
+export function useHeroCake({ separateOnScroll = true }: { separateOnScroll?: boolean } = {}) {
+  return { ...useCakeScene(HERO_CAKE, separateOnScroll ? VISIBLE_MARGIN : '0px'), separateOnScroll }
 }
 
-export type HeroCakeView = CakeSceneView
+export type HeroCakeView = CakeSceneView & { separateOnScroll: boolean }

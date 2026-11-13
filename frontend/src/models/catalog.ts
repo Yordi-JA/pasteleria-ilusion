@@ -1,5 +1,5 @@
-import { devRequestTimeoutMs, getJson, REQUEST_TIMEOUT_MS } from './apiClient.ts'
-import type { CartOffering } from './cart.ts'
+import { ApiError, devRequestTimeoutMs, getJson, REQUEST_TIMEOUT_MS } from './apiClient.ts'
+import type { CartOffering, Fulfillment } from './cart.ts'
 import { PRICE_PATTERN } from './money.ts'
 import { isOfferingPresentation, offeringLabel } from './presentation.ts'
 import type { OfferingPresentation } from './presentation.ts'
@@ -211,17 +211,17 @@ export function featuredOffering(card: Pick<ProductCard, 'offerings'>): CardOffe
 }
 
 /**
- * Adaptador de una tarjeta o ficha al carrito: un encargo (`order`), sin tope de existencias. El nombre lleva la
- * presentación cuando no es el completo.
+ * Adaptador de una tarjeta o ficha al carrito: por omisión un encargo (`order`), sin tope de existencias; la ficha
+ * pasa `showcase` cuando se lleva hoy de la vitrina. El nombre lleva la presentación cuando no es el completo.
  */
-export function toCartOffering(card: Pick<ProductCard, 'slug' | 'name'>, offering: CardOffering): CartOffering {
+export function toCartOffering(card: Pick<ProductCard, 'slug' | 'name'>, offering: CardOffering, fulfillment: Fulfillment = 'order'): CartOffering {
   return {
     offeringId: offering.id,
     name: offeringLabel(card.name, offering.presentation),
     presentation: offering.presentation,
     unitPrice: offering.price,
     slug: card.slug,
-    fulfillment: 'order',
+    fulfillment,
   }
 }
 
@@ -259,4 +259,120 @@ export async function getShowcase(signal: AbortSignal): Promise<TodayStock> {
 /** Rebanadas de hoy. */
 export async function getSlices(signal: AbortSignal): Promise<TodayStock> {
   return parseTodayStock(await getJson(['slices'], { signal: withTimeout(signal) }))
+}
+
+// --- Catálogo y ficha ---
+
+/**
+ * Tope del término de búsqueda del catálogo: el `max_length` de `search` en `CatalogQuerySerializer` (el largo del
+ * nombre de un producto). Un término más largo, la API lo rechaza con 400.
+ */
+export const SEARCH_MAX_LENGTH = MAX_TEXT_LENGTH
+
+/** Lo que filtra el catálogo: la categoría (`null` es Todo) y el término de búsqueda (vacío, sin buscar). */
+export type CatalogQuery = { category: ProductCategory | null; search: string }
+
+/** Una presentación en la ficha: además del precio, el peso, las personas, la foto y las existencias de hoy. */
+export type DetailOffering = CardOffering & {
+  /** Kilos aproximados como texto ("2.7"); `null` si aún no se define. */
+  approxWeightKg: string | null
+  /** Personas que rinde; `null` si aún no se define. */
+  servings: number | null
+  /** La foto de la presentación o, si no tiene, la del producto; `null` mientras falta. */
+  photo: string | null
+  /** Piezas en la vitrina de hoy: `null` si no se cargó hoy (solo por encargo), `0` si se agotó. */
+  stock: number | null
+}
+
+/** Ficha de producto (`ProductDetailSerializer`). `null` en `storageNotes` y `transportNotes` es PENDIENTE. */
+export type ProductDetail = Omit<ProductCard, 'offerings'> & {
+  /** Descripción de la ficha; vacía si no tiene. */
+  description: string
+  /** Sabor de relleno, para "Personalizar este pastel"; `null` si no lleva. */
+  fillingFlavor: string | null
+  storageNotes: string | null
+  transportNotes: string | null
+  offerings: DetailOffering[]
+  /** "También te puede gustar": hasta tres productos de la misma categoría. */
+  related: ProductCard[]
+}
+
+// Los kilos aproximados: `DecimalField(max_digits=4, decimal_places=1)`.
+const WEIGHT = /^\d{1,3}(?:\.\d)?$/
+// Las notas de la ficha son texto libre del admin; un tope técnico contra datos alterados.
+const MAX_NOTES_LENGTH = 2000
+
+function notes(value: unknown): string | null {
+  return text(value, MAX_NOTES_LENGTH)
+}
+
+function parseDetailOffering(data: unknown): DetailOffering | null {
+  const offering = parseOffering(data)
+  if (!offering || !isRecord(data)) return null
+  const { servings, stock } = data
+  return {
+    ...offering,
+    approxWeightKg: typeof data.approx_weight_kg === 'string' && WEIGHT.test(data.approx_weight_kg) ? data.approx_weight_kg : null,
+    servings: typeof servings === 'number' && Number.isSafeInteger(servings) && servings > 0 ? servings : null,
+    photo: photo(data.photo),
+    stock: typeof stock === 'number' && Number.isSafeInteger(stock) && stock >= 0 ? stock : null,
+  }
+}
+
+/**
+ * Valida la ficha. Una ficha sin `slug`, nombre o categoría válidos es un `TypeError`; una presentación o un
+ * relacionado dudoso se descarta, como en las tarjetas.
+ */
+export function parseProductDetail(data: unknown): ProductDetail {
+  const card = parseCard(data)
+  if (!card || !isRecord(data)) throw new TypeError('La ficha del producto no tiene la forma esperada.')
+  const offerings = Array.isArray(data.offerings) ? data.offerings.map(parseDetailOffering).filter((o): o is DetailOffering => o !== null) : []
+  const related = Array.isArray(data.related) ? data.related.map(parseCard).filter((c): c is ProductCard => c !== null && c.slug !== card.slug) : []
+  return {
+    ...card,
+    description: typeof data.description === 'string' ? data.description.trim() : '',
+    fillingFlavor: text(data.filling_flavor, MAX_TEXT_LENGTH, SLUG),
+    storageNotes: notes(data.storage_notes),
+    transportNotes: notes(data.transport_notes),
+    offerings,
+    related: related.slice(0, 3),
+  }
+}
+
+/** Si un texto de la URL puede ser el `slug` de un producto; si no, ni se pide. */
+export function isProductSlug(value: string): boolean {
+  return value.length <= MAX_TEXT_LENGTH && SLUG.test(value)
+}
+
+/**
+ * Productos del catálogo con su categoría y su búsqueda (D45). El término se recorta y se corta a
+ * `SEARCH_MAX_LENGTH`; vacío, no se manda.
+ */
+export async function getProducts(query: CatalogQuery, signal: AbortSignal): Promise<ProductCard[]> {
+  const search = query.search.trim().slice(0, SEARCH_MAX_LENGTH)
+  const params: Record<string, string> = {}
+  if (query.category) params.category = query.category
+  if (search) params.search = search
+  return parseProductCards(await getJson(['products'], { signal: withTimeout(signal), query: params }))
+}
+
+/**
+ * Ficha de un producto activo. `null` si no existe (404, o un `slug` que no puede serlo, que ni se pide): la
+ * pantalla dice "No encontramos este pastel" en vez de un error con reintento.
+ */
+export async function getProduct(slug: string, signal: AbortSignal): Promise<ProductDetail | null> {
+  if (!isProductSlug(slug)) return null
+  try {
+    return parseProductDetail(await getJson(['products', slug], { signal: withTimeout(signal) }))
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null
+    throw error
+  }
+}
+
+/** Nombre de cada tipo de pastel en la interfaz, tomado de las `choices` de `CakeType` (como `PRESENTATION_LABELS`). */
+export const CAKE_TYPE_LABELS: Readonly<Record<string, string>> = {
+  tres_leches: 'Tres leches',
+  seco: 'Seco',
+  envinado: 'Envinado',
 }

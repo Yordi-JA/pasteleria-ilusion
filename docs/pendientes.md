@@ -74,6 +74,17 @@ Lo construido está en D57 ([`proyecto/decisiones.md`](proyecto/decisiones.md)),
 3. Sugerencia para la dueña: dar de alta "Negro" y "Gris" en el admin ("nombres de color de referencia"), para que el negro y los grises tengan nombre en el "parecido a". Con la lista de la semilla, medida el 11 de noviembre de 2026, también salen mal nombrados el vino (`#800000`) y el verde oscuro (`#006400`), que dan "parecido a café", y el rosa intenso (`#ff69b4`), que da "parecido a rojo": la lista no tiene colores oscuros ni un rosa intenso. Se corrige agregando esos nombres en el admin, sin cambiar código.
 4. Grises claros. Con la lista de la semilla, un gris desde alrededor de `#ABABAB` se nombra "parecido a blanco", porque su distancia a "Blanco" baja de 0.25; el negro y los grises más oscuros no tienen nombre. Falta decidir si eso es lo que se quiere. El umbral está en `MAX_NAME_DISTANCE` (`frontend/src/viewmodels/colors.ts`).
 
+## Catálogo y ficha (D59)
+
+Lo construido está en D59 ([`proyecto/decisiones.md`](proyecto/decisiones.md)), en la rama `feat/catalogo`, sin desplegar. Quedan estos puntos:
+
+1. "Pastel mini": el mockup dice "para unas 3 personas", pero las tarjetas de `GET /api/v1/products/` no traen las personas de cada presentación (la ficha sí). Hoy la frase va sin ese dato. Para mostrarlo, la API tendría que agregar `servings` a `CardOfferingSerializer`. El botón "Ver sabores" del mockup no se hizo: no hay una pantalla de sabores del mini, y cada ficha ya ofrece "Mini".
+2. "Encargarlo para una fecha" agrega una línea `order` sin fecha. La fecha y la hora, el encargo de hoy con 2 horas de anticipación y la disponibilidad de pan (`Inventory`, D30) son de la entrega (Etapa 4).
+3. Fotos de producto: siguen PENDIENTE (el hueco "Foto del pastel"). Van en `frontend/public/fotos/` (D32, D47).
+4. Revisión con datos reales: hecha en local el 12 de noviembre con la vitrina del día (durazno solo con rebanadas, fresa con un completo). Falta revisar en Heroku. Un pastel que hoy solo tiene rebanadas no lleva "En vitrina hoy" (regla 2) y su ficha abre en "Completo" con "Hoy" desactivado; la etiqueta propia del pastel "Rebanado" es de la rama siguiente (vitrina y rebanadas) y vive en `showcaseStatus` (`frontend/src/viewmodels/productCards.ts`).
+5. Prueba que ya fallaba: `e2e/cake-designer-lid.spec.ts:210` ("the message stays inside the lid") falla en esta rama con 1 y con 2 workers, y también en 79982c6, antes de D59 (con 1 worker): el contorno del mensaje en su tamaño máximo sale del círculo de la tapa. No es de esta rama; falta revisarla.
+6. Carga diferida de las rutas. `App.tsx` importa todas las vistas directamente, así que cada pantalla nueva entra al chunk principal: con D59 pasó de 488.41 kB a 527.76 kB (medido con `npm run build` en 79982c6 y en esta rama) y Vite avisa que pasa de 500 kB. Cargar las rutas con `React.lazy` lo bajaría; no entra en esta rama.
+
 ## Etapa 4: lo que dejó la auditoría de seguridad de D55
 
 Lo recomienda la auditoría de seguridad del diseño (D55). Son requisitos de la Etapa 4, no trabajo de esta rama.
