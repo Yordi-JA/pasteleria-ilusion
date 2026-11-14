@@ -1,4 +1,4 @@
-import { User, X } from '@phosphor-icons/react'
+import { SignOut, User, UserCheck, X } from '@phosphor-icons/react'
 import { useEffect, useRef } from 'react'
 import type { KeyboardEvent, MouseEvent, RefObject } from 'react'
 import { Link, NavLink } from 'react-router'
@@ -9,6 +9,9 @@ import { LeadDaysText, StoreLoadingLabel, StoreSkeleton, WhatsAppWritePending } 
 
 type SiteMenuProps = {
   store: StoreDetails
+  /** Con sesión: "Mi cuenta" y "Cerrar sesión" en lugar de "Iniciar sesión o crear cuenta". */
+  signedIn: boolean
+  onSignOut: () => void
   isOpen: boolean
   /** Por qué está cerrado: solo un cierre del usuario devuelve el foco al botón (ver `useSiteMenu`). */
   closedBy: 'user' | 'navigation'
@@ -19,6 +22,8 @@ type SiteMenuProps = {
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])'
+
+const accountRow = `flex min-h-12 items-center gap-2.5 px-4 text-cuerpo font-semibold hover:underline hover:underline-offset-4 ${focusRing}`
 
 function focusMain() {
   document.getElementById('contenido')?.focus({ preventScroll: true })
@@ -37,7 +42,7 @@ function restoreFocus(button: HTMLElement | null) {
  * Menú del sitio en móvil (mockup MenuSitio): panel a la derecha sobre un velo `mermelada`. Es un `<dialog>`
  * modal, así que el fondo queda inerte; además el foco gira dentro del panel con Tab y Mayús+Tab.
  */
-export default function SiteMenu({ store, isOpen, closedBy, onClose, returnFocusTo }: SiteMenuProps) {
+export default function SiteMenu({ store, signedIn, onSignOut, isOpen, closedBy, onClose, returnFocusTo }: SiteMenuProps) {
   const dialog = useRef<HTMLDialogElement>(null)
   // Marca los cierres que pide el estado, para que su evento `close` no se tome como un cierre del navegador.
   const closingFromState = useRef(false)
@@ -145,13 +150,30 @@ export default function SiteMenu({ store, isOpen, closedBy, onClose, returnFocus
         >
           {ORDER_LINK.label}
         </Link>
-        <Link
-          to="/entrar"
-          className={`flex min-h-12 items-center gap-2.5 border-t border-relieve px-4 text-cuerpo font-semibold hover:underline hover:underline-offset-4 ${focusRing}`}
-        >
-          <User size={20} weight="regular" aria-hidden="true" />
-          Iniciar sesión o crear cuenta
-        </Link>
+        {signedIn ? (
+          <div className="flex flex-col border-t border-relieve">
+            <Link to="/cuenta" className={accountRow}>
+              <UserCheck size={20} weight="regular" aria-hidden="true" />
+              Mi cuenta
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                onClose()
+                onSignOut()
+              }}
+              className={`${accountRow} cursor-pointer text-left`}
+            >
+              <SignOut size={20} weight="regular" aria-hidden="true" />
+              Cerrar sesión
+            </button>
+          </div>
+        ) : (
+          <Link to="/entrar" className={`${accountRow} border-t border-relieve`}>
+            <User size={20} weight="regular" aria-hidden="true" />
+            Iniciar sesión o crear cuenta
+          </Link>
+        )}
         <div aria-busy={loading || undefined} className="mt-auto flex flex-col gap-1.5 rounded-md bg-fresa p-4">
           {loading && <StoreLoadingLabel />}
           <p className="text-nota text-mermelada-suave">

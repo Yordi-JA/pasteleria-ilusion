@@ -2,13 +2,15 @@ import { expect, test } from '@playwright/test'
 import { mockCakeDesignOptions } from './support/cake-design.ts'
 import { mockCatalog } from './support/catalog.ts'
 import { durazno, mockProductDetails, mockProducts } from './support/products.ts'
+import { signedIn } from './support/auth.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 
 /**
  * Cada ruta de docs/mapa-de-vistas.md con su h1 tal como el mockup. Cuando el h1 es un dato que todavía no
- * existe, lleva el marcador de pendiente y la pestaña (`title`) usa el nombre de la vista, sin corchetes.
+ * existe, lleva el marcador de pendiente y la pestaña (`title`) usa el nombre de la vista, sin corchetes. Las rutas de la
+ * cuenta (`account`) piden sesión (D62): se prueban con la de Ana, cuyo nombre ya es el del saludo.
  */
-const routes: { path: string; heading: string; title?: string }[] = [
+const routes: { path: string; heading: string; title?: string; account?: boolean }[] = [
   { path: '/catalogo', heading: 'Catálogo' },
   { path: '/vitrina', heading: 'Vitrina' },
   { path: '/rebanadas', heading: 'Rebanadas de hoy' },
@@ -18,11 +20,11 @@ const routes: { path: string; heading: string; title?: string }[] = [
   { path: '/registro', heading: 'Crea tu cuenta' },
   { path: '/recuperar', heading: 'Recupera tu contraseña' },
   { path: '/verificar', heading: 'Revisa tu correo' },
-  { path: '/cuenta', heading: 'Hola, [nombre por confirmar]', title: 'Mis pedidos' },
-  { path: '/cuenta/bases', heading: 'Hola, [nombre por confirmar]', title: 'Bases en préstamo' },
-  { path: '/cuenta/datos', heading: 'Hola, [nombre por confirmar]', title: 'Datos y avisos' },
-  { path: '/cuenta/pedidos/123', heading: 'Pedido #[número por confirmar]', title: 'Detalle de pedido' },
-  { path: '/cuenta/cotizaciones/45', heading: 'Solicitud #[número por confirmar]', title: 'Cotización' },
+  { path: '/cuenta', heading: 'Hola, Ana', title: 'Mis pedidos', account: true },
+  { path: '/cuenta/bases', heading: 'Hola, Ana', title: 'Bases en préstamo', account: true },
+  { path: '/cuenta/datos', heading: 'Hola, Ana', title: 'Datos y avisos', account: true },
+  { path: '/cuenta/pedidos/123', heading: 'Pedido #[número por confirmar]', title: 'Detalle de pedido', account: true },
+  { path: '/cuenta/cotizaciones/45', heading: 'Solicitud #[número por confirmar]', title: 'Cotización', account: true },
   { path: '/carrito', heading: 'Tu carrito' },
   { path: '/pedido', heading: 'Realizar pedido' },
   { path: '/pedido/disena', heading: 'Diseña tu pastel' },
@@ -46,8 +48,9 @@ test.beforeEach(async ({ page }) => {
   await mockCatalog(page)
 })
 
-for (const { path, heading, title = heading } of routes) {
+for (const { path, heading, title = heading, account = false } of routes) {
   test(`route ${path} shows its h1, its title and the site frame`, async ({ page }) => {
+    if (account) await signedIn(page)
     await page.goto(path)
     const h1 = page.getByRole('heading', { level: 1 })
     await expect(h1).toHaveText(heading)

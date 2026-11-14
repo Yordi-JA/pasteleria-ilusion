@@ -42,6 +42,25 @@ def test_database_url_configures_postgresql(load_settings):
     )
 
 
+def test_test_database_keeps_its_default_name_without_the_variable(load_settings):
+    assert "TEST" not in load_settings().DATABASES["default"]
+
+
+def test_postgres_test_db_sets_the_test_database_name(load_settings):
+    database = load_settings(POSTGRES_TEST_DB="test_otra_carpeta").DATABASES["default"]
+    assert database["TEST"]["NAME"] == "test_otra_carpeta"
+
+
+def test_postgres_test_db_equal_to_the_development_database_does_not_start(load_settings):
+    with pytest.raises(ImproperlyConfigured, match="POSTGRES_TEST_DB"):
+        load_settings(POSTGRES_TEST_DB="base")
+
+
+def test_postgres_test_db_without_the_test_prefix_does_not_start(load_settings):
+    with pytest.raises(ImproperlyConfigured, match="POSTGRES_TEST_DB"):
+        load_settings(POSTGRES_TEST_DB="otra_base")
+
+
 def test_hosts_are_read_as_a_list(load_settings):
     settings_module = load_settings(ALLOWED_HOSTS="www.ejemplo.com, api.ejemplo.com")
     assert settings_module.ALLOWED_HOSTS == ["www.ejemplo.com", "api.ejemplo.com"]
@@ -174,7 +193,16 @@ def test_axes_defaults(load_settings):
     module = load_settings()
     assert module.AXES_FAILURE_LIMIT == 5
     assert module.AXES_COOLOFF_TIME == timedelta(hours=1)
-    assert module.AXES_LOCKOUT_PARAMETERS == [["ip_address", "username"], "ip_address"]
+    # Por ruta (D62): el admin bloquea IP + correo y la IP sola; la API de clientes, solo IP + correo.
+    assert module.AXES_LOCKOUT_PARAMETERS == "config.security.lockout_parameters"
+    from django.test import RequestFactory
+
+    from config.security import lockout_parameters
+
+    factory = RequestFactory()
+    assert lockout_parameters(factory.post("/admin/login/")) == [["ip_address", "username"], "ip_address"]
+    assert lockout_parameters(factory.post("/otra/")) == [["ip_address", "username"], "ip_address"]
+    assert lockout_parameters(factory.post("/api/v1/auth/login/")) == [["ip_address", "username"]]
     assert module.AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT is False
     assert module.AXES_ENABLE_RETRY_AFTER_HEADER is True
     assert module.AUTHENTICATION_BACKENDS[0] == "axes.backends.AxesStandaloneBackend"
@@ -325,3 +353,79 @@ def test_security_warnings_reach_the_console(settings):
     finally:
         handler.setStream(original)
     assert "host de prueba" in buffer.getvalue()
+
+
+# --- Acceso (D62) ---
+
+
+def test_security_throttles_get_their_own_database_cache(load_settings):
+    """Un cull de la caché pública no reinicia los contadores del inicio de sesión."""
+    caches = load_settings().CACHES
+    assert caches["security"]["BACKEND"] == "django.core.cache.backends.db.DatabaseCache"
+    assert caches["security"]["LOCATION"] not in {caches["default"]["LOCATION"]}
+
+
+def test_security_throttle_rates_are_stricter_than_the_public_ones(load_settings):
+    rates = load_settings().REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
+    # Holgadas para una exposición con público en la misma red (ronda 1 de D62).
+    assert rates["login"] == "60/hour"
+    assert rates["register"] == "30/hour"
+    assert rates["session"] == "120/min"
+
+
+def test_jwt_is_signed_with_its_own_key(load_settings):
+    settings_module = load_settings(JWT_SIGNING_KEY="k" * 64)
+    assert settings_module.SIMPLE_JWT["SIGNING_KEY"] == "k" * 64
+    assert settings_module.SIMPLE_JWT["SIGNING_KEY"] != settings_module.SECRET_KEY
+
+
+def test_production_requires_the_jwt_signing_key(load_settings):
+    with pytest.raises(ImproperlyConfigured, match="JWT_SIGNING_KEY"):
+        load_settings(JWT_SIGNING_KEY=None)
+
+
+def test_development_falls_back_to_the_secret_key_for_jwt(load_settings):
+    settings_module = load_settings(DEBUG="True", JWT_SIGNING_KEY=None)
+    assert settings_module.SIMPLE_JWT["SIGNING_KEY"] == settings_module.SECRET_KEY
+
+
+def test_the_jwt_signing_key_cannot_be_the_secret_key(load_settings):
+    with pytest.raises(ImproperlyConfigured, match="JWT_SIGNING_KEY"):
+        load_settings(SECRET_KEY="s" * 60, JWT_SIGNING_KEY="s" * 60)
+
+
+def test_the_jwt_signing_key_must_be_long(load_settings):
+    with pytest.raises(ImproperlyConfigured, match="JWT_SIGNING_KEY"):
+        load_settings(JWT_SIGNING_KEY="corta")
+
+
+def test_google_client_id_is_optional(load_settings):
+    assert load_settings().GOOGLE_CLIENT_ID == ""
+
+
+def test_google_client_id_is_read_from_the_environment(load_settings):
+    client_id = "123-abc.apps.googleusercontent.com"
+    assert load_settings(GOOGLE_CLIENT_ID=f" {client_id} ").GOOGLE_CLIENT_ID == client_id
+
+
+def test_a_google_client_id_with_another_shape_does_not_start(load_settings):
+    with pytest.raises(ImproperlyConfigured, match="GOOGLE_CLIENT_ID"):
+        load_settings(GOOGLE_CLIENT_ID="GOCSPX-esto-es-el-secreto")
+
+
+def test_the_refresh_cookie_is_secure_in_production_only(load_settings):
+    assert load_settings().REFRESH_COOKIE_SECURE is True
+    assert load_settings(DEBUG="True").REFRESH_COOKIE_SECURE is False
+
+
+def test_the_refresh_cookie_has_the_secure_prefix_outside_development(load_settings):
+    assert load_settings().REFRESH_COOKIE_NAME == "__Secure-ilusion_refresh"
+    assert load_settings(DEBUG="True").REFRESH_COOKIE_NAME == "ilusion_refresh"
+
+
+def test_the_password_minimum_is_the_one_the_register_screen_shows(settings):
+    """`frontend/src/models/session.ts` (`PASSWORD_MIN_LENGTH`) repite este mínimo: cambien juntos."""
+    from django.contrib.auth.password_validation import MinimumLengthValidator, get_default_password_validators
+
+    minimum = [v for v in get_default_password_validators() if isinstance(v, MinimumLengthValidator)]
+    assert [v.min_length for v in minimum] == [8]
