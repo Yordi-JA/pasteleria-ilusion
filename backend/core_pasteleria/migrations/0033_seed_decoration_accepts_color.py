@@ -16,7 +16,7 @@ def seed(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("core_pasteleria", "0031_orders"),
+        ("core_pasteleria", "0032_orders"),
     ]
 
     operations = [migrations.RunPython(seed, migrations.RunPython.noop)]

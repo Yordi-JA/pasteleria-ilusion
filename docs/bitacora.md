@@ -405,10 +405,40 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Ronda de revisión y de comparación visual (13 de noviembre): "Dejar rebanarlo" (un completo vendido no impide rebanar otro pastel del mismo sabor ese día), candado del producto en `Inventory.clean()` contra dos altas a la vez, la vitrina muestra solo al rebanado si un dato trae completo y rebanadas, la lista de "Vitrina de hoy" ya no da 500 con un error de `offering`, el aviso de "Agregar al pedido" queda fijo bajo la barra en `/vitrina` y `/rebanadas`, las tarjetas de una fila de la vitrina miden lo mismo y la portada usa la tarjeta ancha con un solo sabor de rebanadas.
 - Tercera ronda (13 de noviembre): las rebanadas solo se venden de la vitrina del día (decisión del dueño), así que la ficha ofrece "Rebanada" solo con rebanadas cargadas hoy y no deja encargarla; el aviso fijo lleva "Cerrar" y reserva su alto para el foco del teclado; el formulario del inventario bloquea primero el producto y luego la fila; y el mensaje de completo y rebanadas dice cómo seguir ("pon el completo en 0 si ya se vendió, o bórralo si no salió").
 
+### Viernes 13 de noviembre: cierre de la Etapa 3
+
+- La Etapa 3 cierra el 13 de noviembre, la fecha del plan real, con el visto bueno del equipo. La fila 3 de "Ejecución real" en [`proyecto/plan-de-trabajo.md`](proyecto/plan-de-trabajo.md) y el estado del [`README.md`](../README.md) quedan al día. El registro de cambios del plan no cambia: el movimiento del acceso ya está en la fila del 12 de noviembre (D58).
+- Qué quedó: los PR #22 a #30 están en `main` y en Heroku. Son la portada con el pastel 3D, "Diseña tu pastel" en 8 pasos, la compresión del build, el catálogo y la ficha, y la vitrina, las rebanadas y el rebanado.
+- Verificación: pytest dio 1286 passed y 1 skipped (la prueba de brotli). `npm run typecheck`, `npm run lint` y `npm run build` pasan. Las E2E se corrieron por pantalla, con 131 de 131 en vitrina, rebanadas, catálogo, ficha, portada y carrito en la última rama. Cada rama pasó revisión de código hasta "ship". Las pantallas se compararon con las capturas a 1440 y 390 px. El 3D se revisó en un teléfono real el 11 de noviembre.
+- Decisiones: D58 (el acceso con correo pasa a la Etapa 4) y las reglas de D60: un pastel completo por sabor, con los minis fuera de la regla; el rebanado se deduce de las rebanadas; un completo vendido no impide rebanar otro pastel; y las rebanadas se venden solo de la vitrina del día.
+- Pasa a la Etapa 4: el acceso con correo; el backend del pedido debe rechazar encargos de rebanada y el carrito debe quitar las líneas viejas de rebanada; el tope de un completo al reintegrar existencias; y la carga diferida de las rutas (el chunk principal pasó de 488 kB a 544 kB).
+- Pendiente de la dueña: fotos de productos, precio de la oblea y visto bueno de las decoraciones. Hay además dos contradicciones del libro de marca por resolver: si la etiqueta "En vitrina hoy" lleva o no el fondo `fresa-claro`, y el dibujo del toldo en el encabezado de la vitrina.
+- Pruebas intermitentes: `cake-designer-lid.spec.ts:210` y `cake-designer.spec.ts:452` fallan a veces y también fallan en `main`.
+- Sigue pendiente revisar la vitrina en Heroku con los datos del día.
+
+### Viernes 13 de noviembre: inicio de la Etapa 4 (D61)
+
+- Decisión D61 en [`proyecto/decisiones.md`](proyecto/decisiones.md), rama `feat/acceso`: el usuario definió el mínimo para la exposición de la Etapa 4 (14 al 19 de noviembre; el 19 se congela el código), como pidió D58.
+- Obligatorio: acceso con correo y con Google (JWT); carrito y entrega con "Recoger en la pastelería" y la agenda sin empalmes (lapsos de 30 minutos, máximo 3 pedidos por lapso, 2 días de anticipación); pedido creado en el servidor, que recalcula el precio y revalida el diseño; pago con Mercado Pago, Stripe y efectivo (Factory Method y Adapter, `Idempotency-Key`, webhooks verificados); Observer del pedido; nota en PDF con QR, `/nota/:token` y devolución de la base; "Mis pedidos"; cancelaciones; envío de referencia y cotización.
+- Solo si sobra tiempo: entrega a domicilio con una API de rutas (mientras tanto se remite a WhatsApp), recuperación de contraseña y verificación del correo.
+- Acceso: el registro con un correo ya usado muestra "Ya hay una cuenta con este correo." con un límite de intentos por IP. El inicio de sesión de clientes bloquea IP + correo tras los fallos de D34, con un límite general por IP. El admin sigue bloqueando por IP sola.
+- Las imágenes de clientes se guardan en PostgreSQL, ya validadas, porque Heroku borra el disco en cada reinicio.
+- Orden: tanda 1, el acceso y la API de pedidos en paralelo; tanda 2, el carrito, la entrega, los tres pagos y el Observer; tanda 3, la confirmación, la nota con QR, "Mis pedidos", las cancelaciones y el envío de referencia.
+- Salen tres filas de las decisiones abiertas (registro con correo ya usado, bloqueo por IP en el login de clientes y fotos de los clientes), y "API de distancias" pasa a "Solo si sobra tiempo en la Etapa 4". La etapa queda muy cargada: si el 18 de noviembre falta algo obligatorio, se avisa al equipo para decidir qué se recorta.
+
+### Viernes 13 de noviembre: acceso de clientes con correo y con Google (D62)
+
+- Decisión D62 en [`proyecto/decisiones.md`](proyecto/decisiones.md), rama `feat/acceso` (tanda 1 de D61).
+- Backend: `/api/v1/auth/` con `csrf/`, `register/`, `login/`, `google/`, `refresh/` y `logout/`. El access va en el cuerpo y el refresh en una cookie HttpOnly limitada a `/api/v1/auth/`, con rotación, lista negra y CSRF en cada operación que la toca. La renovación rechaza un refresh de antes de un cambio de contraseña. Los JWT se firman con `JWT_SIGNING_KEY`. django-axes bloquea por ruta: IP + correo en la API de clientes e IP sola además en el admin; los throttles `login`, `register` y `session` viven en su propia caché. Google se verifica con `google-auth` y se liga con una cuenta de correo solo si Google es la autoridad del correo; la contraseña anterior deja de servir. La sesión del sitio es solo de clientes. CSP para el sitio y la API, con lo que pide Google Identity Services. Migración `0031_user_profile_and_google` (nombre, teléfono y cuenta de Google).
+- Frontend: `/entrar` y `/registro` con sus estados de error del mockup y el pastel 3D en la escena chica, el botón oficial de Google (oculto sin `VITE_GOOGLE_CLIENT_ID`), la sesión en memoria con renovación entre pestañas, `?volver=`, las rutas de la cuenta protegidas, y el encabezado y el menú móvil con la sesión ("Mi cuenta" y "Cerrar sesión"). El carrito no cambia al entrar ni al salir.
+- Variables nuevas para Heroku: `JWT_SIGNING_KEY` (obligatoria), `GOOGLE_CLIENT_ID` y `VITE_GOOGLE_CLIENT_ID`. Orígenes autorizados en Google Cloud en D62.
+- Fuera: recuperar la contraseña y verificar el correo (D61). Verificado en local, sin desplegar.
+- Ronda 1 de correcciones (14 de noviembre), tras la revisión de código y la auditoría de seguridad: la API ya no revisa la contraseña de una cuenta del personal (el intento cuenta como fallo en django-axes), la rotación del refresh es atómica, un refresh rotado conserva la cookie solo 60 s, entrar de nuevo cierra el refresh anterior, ligar Google y cerrar sesiones van en una transacción, `hd` solo responde por su dominio, IPv6 cuenta por /64, la cookie se llama `__Secure-ilusion_refresh` en producción y los throttles suben a 60, 30 y 120 para la exposición. En el sitio: una renovación que llega después de "Cerrar sesión" ya no reabre la sesión, un 429 o un 5xx al renovar no la cierran, salir sin red lo avisa, y volver a la cuenta tras salir pide entrar. `pip-audit` sin vulnerabilidades. Detalle en D62.
+
 ### Viernes 13 de noviembre: API de pedidos, agenda e imágenes de clientes (D63)
 
 - Decisión D63 en [`proyecto/decisiones.md`](proyecto/decisiones.md), rama `feat/pedidos-api`, sin desplegar. Es la parte del backend del mínimo de pedidos de D61. El frontend no cambia.
-- Modelos `Order`, `OrderItem`, `CakeDesign`, `DeliverySlot` y `CustomerImage` (migración `0031_orders`) y el admin del pedido en solo lectura.
+- Modelos `Order`, `OrderItem`, `CakeDesign`, `DeliverySlot` y `CustomerImage` (migración `0031_orders`, hoy `0032_orders`) y el admin del pedido en solo lectura.
 - `POST/GET /api/v1/orders/` y `GET /api/v1/orders/<id>/`, con JWT e `Idempotency-Key`. El servidor recalcula el precio, la base y el anticipo, aparta el lapso, la vitrina y el pan de hoy en una sola transacción, y crea el pedido en `awaiting_payment` (con caducidad al cierre) o en `awaiting_quote`. La entrega a domicilio remite a WhatsApp.
 - `GET /api/v1/delivery-slots/`: los lapsos del día con su anticipación por tipo de línea y el cupo de 3.
 - `POST` y `GET /api/v1/customer-images/`: imágenes de la oblea y de "Otra decoración" en PostgreSQL. Pillow las valida (40 megapíxeles) y las vuelve a codificar sin EXIF; el tamaño máximo se revisa antes de leer el cuerpo, solo las ven su dueño y el personal, y hay throttle por usuario y por IP. Dependencia nueva: Pillow 13.0.0.
@@ -416,6 +446,14 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Reglas: las secciones 2 y 12 de [`reglas-de-negocio.md`](reglas-de-negocio.md) dicen ahora que la vitrina de hoy no se junta con un diseño y que `awaiting_payment` cubre también el pago en línea sin confirmar.
 - Pendientes cerrados en [`pendientes.md`](pendientes.md): el 13 de D50, el 10 de D53, el 2 y el 5 de D60 y los puntos 1, 2, 3, 6, 8, 9, 10 y 11 de la auditoría de D55.
 - Pruebas: 1 395 de pytest pasan y 3 se saltan (sin build del frontend); antes eran 1 284. `manage.py check`, `makemigrations --check` y `spectacular --validate --fail-on-warn` pasan sin avisos.
+
+### Sábado 14 de noviembre: sin vistas del personal (D64)
+
+- Decisión D64 en [`proyecto/decisiones.md`](proyecto/decisiones.md): para terminar a tiempo, desde hoy no se construyen vistas, pantallas ni endpoints para el personal. La tomó el usuario.
+- El admin de Django (precios, productos, vitrina, configuración y su bloqueo por IP) no se toca y las vistas nuevas no lo mencionan. La sesión del sitio sigue siendo solo de clientes (D62).
+- Las tres acciones del personal de D61 se hacen desde el registro básico del pedido en el admin: registrar el pago en efectivo de un apartado, marcar la base como devuelta (con el depósito reembolsado) y poner el precio de un envío de referencia. El Observer reacciona igual que con un pago en línea.
+- `/nota/:token` solo verifica la nota, sin el botón "Base devuelta". D61 lleva la nota "Reemplazado en parte por D64" y la sección 11 de [`reglas-de-negocio.md`](reglas-de-negocio.md) lleva su excepción.
+- Motivo: la Etapa 4 quedó muy cargada, el código se congela el 19 de noviembre y las vistas del personal no se iban a mostrar en la exposición.
 
 ### Sábado 14 de noviembre: pedidos sin vistas del personal, topes del admin y ronda 1 de correcciones (D63)
 
@@ -436,5 +474,23 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
   - De 85 a 36 consultas en un pedido con 3 diseños.
   - El color de una decoración que no lo admite: 400.
   - Prueba de dos pedidos con las mismas piezas en orden inverso.
-- Migraciones: la `0031_orders` se regeneró con los topes y `DecorationOption.accepts_color`. La `0032_seed_decoration_accepts_color` es nueva y está en `SEED_MIGRATIONS`.
+- Migraciones: la `0031_orders` (hoy `0032_orders`) se regeneró con los topes y `DecorationOption.accepts_color`. La `0032_seed_decoration_accepts_color` (hoy `0033_seed_decoration_accepts_color`) es nueva y está en `SEED_MIGRATIONS`.
 - Pruebas: 1 434 de pytest pasan y 3 se saltan (sin build del frontend). `manage.py check`, `makemigrations --check` y `spectacular --validate --fail-on-warn` pasan sin avisos.
+
+### Sábado 14 de noviembre: pruebas del backend en paralelo (D65)
+
+- Decisión D65 en [`proyecto/decisiones.md`](proyecto/decisiones.md): `pytest-xdist` 3.8.0 (con `execnet` 2.1.2) en `requirements-dev.txt`, `--reuse-db` en `pytest.ini` y `-n auto` solo cuando se pide.
+- Tiempos con las 1428 pruebas: 37.7 s en serie con base nueva, 34.7 s en serie con base reutilizada y de 19.8 a 24.4 s con `-n auto`. Mismos conteos en los tres modos: 1428 pasan y 1 se salta.
+- `POSTGRES_TEST_DB` (opcional) fija el nombre de la base de pruebas, para que dos carpetas de trabajo sobre la misma PostgreSQL no se pisen. Caso nuevo en `backend/tests/test_settings.py`.
+- Corrección en `backend/tests/conftest.py`: con la base reutilizada, terminar en una prueba transaccional dejaba la semilla vacía. Ahora una fixture de sesión la resiembra al cerrar. No cambia ninguna prueba.
+- Con `--reuse-db`, hay que correr `pytest --create-db` al cambiar, agregar o renumerar migraciones y al cambiar de rama.
+- Ronda 2 de revisión: `POSTGRES_TEST_DB` debe empezar con `test_` y ser distinta de la base de `DATABASE_URL` (dos casos nuevos en `test_settings.py`), y la fixture de sesión de `conftest.py` también resiembra al abrir, para que una corrida abortada no deje la base vacía.
+- Ronda 2 del acceso (D62): una renovación pasajera (429, 5xx o sin red) ya no cierra la sesión al pedir un recurso de la cuenta; `getJsonWithSession` falla con un 503. Prueba nueva en `e2e/session-model.spec.ts`.
+- `e2e/cake-designer-lid.spec.ts` "more size is capped at what fits" falla también en `main` (`5bc1acb`); quedó en `docs/pendientes.md` junto con los menores de la revisión del acceso.
+
+### Sábado 14 de noviembre: `main` con el acceso (D62 y D65) entra en `feat/pedidos-api`
+
+- Las dos ramas tenían una `0031`. La de pedidos pasa a `0032_orders` (después de la `0031_user_profile_and_google` del acceso) y la semilla a `0033_seed_decoration_accepts_color`, también en `SEED_MIGRATIONS` de `backend/tests/conftest.py`.
+- Los throttles de pedidos y de imágenes (`orders_create`, `customer_images_user` y `customer_images_ip`) cuentan ahora en `CACHES["security"]` y agrupan IPv6 por /64 con `config.security.group_ip`, como los del acceso; las tasas no cambian. Dos pruebas nuevas en `backend/tests/test_order_limits.py`. Detalle en D63.
+- D63 queda entre D62 y D64 en [`proyecto/decisiones.md`](proyecto/decisiones.md), y `backend/AGENTS.md`, `pendientes.md` y `proyecto/arquitectura.md` juntan lo de las dos ramas.
+- Pruebas: 1 580 de pytest pasan y 3 se saltan (sin build del frontend), con `--create-db -n auto`. `manage.py check`, `makemigrations --check` y `spectacular --validate --fail-on-warn` pasan sin avisos; `npm run typecheck` pasa.

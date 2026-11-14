@@ -178,6 +178,31 @@ def test_order_creation_is_throttled_per_ip_across_accounts(customer_user, djang
     assert [post(client, body(catalog_line())).status_code for client in clients] == [201, 201, 429]
 
 
+def test_order_creation_counts_a_whole_ipv6_slash_64_together(django_user_model, monkeypatch):
+    monkeypatch.setattr(throttles.OrderCreateIPThrottle, "rate", "2/min")
+
+    def client_from(ip, index):
+        client = APIClient(REMOTE_ADDR=ip)
+        client.force_authenticate(django_user_model.objects.create_user(f"v6-{index}@pasteleria.test", "clave-123"))
+        return client
+
+    same_64 = [client_from(f"2001:db8:1:2::{index + 1}", index) for index in range(3)]
+    assert [post(client, body(catalog_line())).status_code for client in same_64] == [201, 201, 429]
+    # Otra /64 tiene su propio contador.
+    assert post(client_from("2001:db8:1:3::1", 3), body(catalog_line())).status_code == 201
+
+
+def test_order_and_image_throttles_count_in_the_security_cache():
+    # El cull de la caché pública no reinicia estos contadores (D62).
+    for throttle in (
+        throttles.OrderCreateUserThrottle,
+        throttles.OrderCreateIPThrottle,
+        throttles.CustomerImageUserThrottle,
+        throttles.CustomerImageIPThrottle,
+    ):
+        assert throttle.cache._alias == "security"
+
+
 def test_the_creation_rate_is_10_per_hour():
     from django.conf import settings
 

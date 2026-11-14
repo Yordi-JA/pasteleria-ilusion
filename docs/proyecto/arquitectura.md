@@ -170,7 +170,9 @@ El detalle está en [`../../backend/AGENTS.md`](../../backend/AGENTS.md). Resume
 - Los datos de tarjeta solo pasan por los componentes de Stripe y Mercado Pago.
 - Cada recurso se autoriza por su dueño; pedir un recurso ajeno devuelve 404.
 - Sesión (D15): el access token JWT dura de 5 a 15 minutos y vive solo en memoria del frontend. El refresh va en una cookie HttpOnly, Secure y SameSite=Lax, con rotación y lista negra; exige CSRF. CORS usa orígenes explícitos tomados del entorno.
-- El backend verifica el ID token de Google.
+- El backend verifica el ID token de Google. Una cuenta de correo se liga a Google solo si Google es la autoridad del correo, y su contraseña deja de servir (D62).
+- El sitio y la API llevan Content-Security-Policy (D62); los JWT se firman con una llave propia (`JWT_SIGNING_KEY`), distinta de `SECRET_KEY`.
+- La sesión del sitio es solo de clientes; el personal entra por el admin, con el bloqueo por IP de django-axes (D34, D62).
 - Las subidas se validan por contenido, se guardan con nombre aleatorio y solo las sirve a su dueño y al superusuario (D63). Se guardan en PostgreSQL.
 - El token de la nota sale de `secrets.token_urlsafe(32)`, y solo el personal con permiso puede registrar "Base devuelta".
 - El efectivo pasa a `received` solo cuando el personal con permiso registra el cobro; los pagos en línea, solo por webhook verificado.

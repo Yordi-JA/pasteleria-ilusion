@@ -25,6 +25,7 @@ import Quote from './views/Quote.tsx'
 import ReferenceSent from './views/ReferenceSent.tsx'
 import ReferenceUpload from './views/ReferenceUpload.tsx'
 import Register from './views/Register.tsx'
+import RequireSession from './views/RequireSession.tsx'
 import Showcase from './views/Showcase.tsx'
 import SiteLayout from './views/SiteLayout.tsx'
 import Slices from './views/Slices.tsx'
@@ -49,11 +50,14 @@ export default function App() {
         <Route path="/recuperar" element={<PasswordRecovery />} />
         <Route path="/verificar" element={<EmailVerification />} />
 
-        <Route path="/cuenta" element={<MyOrders />} />
-        <Route path="/cuenta/bases" element={<AccountBases />} />
-        <Route path="/cuenta/datos" element={<AccountDetails />} />
-        <Route path="/cuenta/pedidos/:id" element={<OrderDetail />} />
-        <Route path="/cuenta/cotizaciones/:id" element={<Quote />} />
+        {/* La cuenta pide sesión: sin ella, a /entrar con ?volver= (D62). */}
+        <Route element={<RequireSession />}>
+          <Route path="/cuenta" element={<MyOrders />} />
+          <Route path="/cuenta/bases" element={<AccountBases />} />
+          <Route path="/cuenta/datos" element={<AccountDetails />} />
+          <Route path="/cuenta/pedidos/:id" element={<OrderDetail />} />
+          <Route path="/cuenta/cotizaciones/:id" element={<Quote />} />
+        </Route>
 
         <Route path="/carrito" element={<Cart />} />
         <Route path="/pedido" element={<OrderStart />} />

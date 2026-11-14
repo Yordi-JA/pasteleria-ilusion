@@ -12,7 +12,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core_pasteleria', '0030_coverage_color_reference_names'),
+        ('core_pasteleria', '0031_user_profile_and_google'),
     ]
 
     operations = [

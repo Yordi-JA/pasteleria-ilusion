@@ -12,6 +12,8 @@ import environ
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.http import is_same_domain
 
+from config.csp import add_whitenoise_csp
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 env = environ.Env()
@@ -103,6 +105,9 @@ MIDDLEWARE = [
     # Sirve los estáticos y el build de React; va justo después de la
     # redirección de www, antes de todo lo demás.
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    # Content-Security-Policy del sitio y de la API (D62). Lo que sirve WhiteNoise
+    # corta antes y la recibe de `_add_whitenoise_headers`.
+    "config.csp.ContentSecurityPolicyMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     # Antes de CommonMiddleware, como pide django-cors-headers.
     "corsheaders.middleware.CorsMiddleware",
@@ -139,6 +144,20 @@ WSGI_APPLICATION = "config.wsgi.application"
 # URL completa; Heroku aporta `DATABASE_URL`.
 DATABASES = {"default": env.db("DATABASE_URL")}
 
+# Nombre propio de la base de pruebas (opcional). Con `--reuse-db`, dos carpetas
+# de trabajo que comparten la misma PostgreSQL se pisarían la base
+# `test_<POSTGRES_DB>` si sus migraciones difieren; cada una fija la suya.
+# Debe empezar con `test_` y ser distinto de la base de desarrollo: `--create-db`
+# borra la base de pruebas y `--reuse-db` la vacía entre pruebas.
+if env("POSTGRES_TEST_DB", default=""):
+    _test_db_name = env("POSTGRES_TEST_DB")
+    if _test_db_name == DATABASES["default"]["NAME"] or not _test_db_name.startswith("test_"):
+        raise ImproperlyConfigured(
+            "POSTGRES_TEST_DB debe empezar con 'test_' y ser distinta de la base de DATABASE_URL: "
+            "las pruebas borran y vacían esa base."
+        )
+    DATABASES["default"]["TEST"] = {"NAME": _test_db_name}
+
 # --- Caché ---
 
 # Compartida entre procesos y dynos (los contadores del throttling no pueden
@@ -149,7 +168,17 @@ CACHES = {
         "BACKEND": "django.core.cache.backends.db.DatabaseCache",
         "LOCATION": "django_cache",
         "OPTIONS": {"MAX_ENTRIES": 10000},
-    }
+    },
+    # Contadores de los throttles del acceso (inicio de sesión, registro, sesión),
+    # de la creación de pedidos y de la subida de imágenes (`api/throttles.py`),
+    # en su propia tabla: cuando la caché pública llega a su máximo borra una parte
+    # de sus entradas (cull), y eso no debe reiniciar un contador de seguridad.
+    # `createcachetable` (en el release de Heroku) crea las dos tablas.
+    "security": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "django_cache_security",
+        "OPTIONS": {"MAX_ENTRIES": 50000},
+    },
 }
 
 # --- Usuario y contraseñas ---
@@ -179,10 +208,14 @@ if AXES_FAILURE_LIMIT < 1 or _axes_cooloff_minutes < 1:
         "AXES_FAILURE_LIMIT y AXES_COOLOFF_MINUTES deben ser al menos 1."
     )
 AXES_COOLOFF_TIME = timedelta(minutes=_axes_cooloff_minutes)
-# Se bloquea la combinación IP + correo y la IP sola (frena el rociado de
-# contraseñas desde una IP). No se bloquea el correo desde cualquier IP: así un
-# tercero no puede dejar fuera, a propósito, la cuenta de una persona del personal.
-AXES_LOCKOUT_PARAMETERS = [["ip_address", "username"], "ip_address"]
+# En el admin se bloquea la combinación IP + correo y la IP sola (frena el
+# rociado de contraseñas desde una IP); en el inicio de sesión de clientes por la
+# API, solo IP + correo, y el límite por IP lo pone el throttle `login` (D62). No
+# se bloquea el correo desde cualquier IP: así un tercero no puede dejar fuera, a
+# propósito, la cuenta de otra persona.
+AXES_LOCKOUT_PARAMETERS = "config.security.lockout_parameters"
+# La API responde el bloqueo en JSON; el admin, con el texto de siempre.
+AXES_LOCKOUT_CALLABLE = "config.security.lockout_response"
 # El bloqueo termina a la hora del último fallo registrado: los intentos que
 # llegan durante el bloqueo no lo alargan.
 AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False
@@ -198,7 +231,11 @@ AXES_USERNAME_CALLABLE = "config.security.normalized_username"
 AXES_COOLOFF_MESSAGE = "Demasiados intentos fallidos. Intenta de nuevo más tarde."
 
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "OPTIONS": {"user_attributes": ("email", "full_name")},
+    },
+    # El mínimo (8 por omisión) lo repite la pantalla de registro (D62).
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -244,6 +281,7 @@ def _add_whitenoise_headers(headers, path, url):
     """Encabezados de lo que WhiteNoise sirve, que corta el middleware antes de
     `XFrameOptionsMiddleware`."""
     headers["X-Frame-Options"] = "DENY"
+    add_whitenoise_csp(headers, path, url)
     if url == "/index.html":
         # Referencia archivos con hash nuevo en cada despliegue.
         headers["Cache-Control"] = "no-cache"
@@ -290,6 +328,13 @@ if NUM_PROXIES >= 1:
     # SECURE_SSL_REDIRECT redirige en bucle. Solo es seguro detrás de un proxy
     # que lo reescriba, como el de Heroku: por eso depende de NUM_PROXIES.
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Google Identity Services (D62): su ventana emergente necesita conservar el
+# `opener` (con `same-origin`, el que Django pone por omisión, el acceso no vuelve
+# a la página), y Google valida el origen con el `Referer`, que `same-origin` no
+# manda a otro sitio. `strict-origin-when-cross-origin` le manda solo el origen.
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
 # --- Seguridad en producción (DEBUG apagado) ---
 
@@ -348,8 +393,19 @@ REST_FRAMEWORK = {
         # Catálogo, ficha, pasteles de la casa, vitrina y rebanadas, juntos. La
         # portada pide tres por cada carga del pie: el triple de `store_info`.
         "catalog": "360/min",
+        # Acceso (D62), por IP y en la caché `security`. `login` lo comparten el
+        # correo y Google: frena el ataque a muchos correos desde una IP, que el
+        # bloqueo de axes (IP + correo) no ve. `register` acota cuántos correos se
+        # pueden revisar con "Ya hay una cuenta con este correo." (D61).
+        # `session`: CSRF, renovación y salida, que cada pestaña pide al cargar.
+        # Holgadas para una exposición con público en la misma red (una sola IP):
+        # 60 inicios de sesión y 30 registros por hora (ronda 1 de D62).
+        "login": "60/hour",
+        "register": "30/hour",
+        "session": "120/min",
         # Subida de imágenes de clientes (oblea, "Otra decoración"): por cuenta y,
-        # aparte, por IP, para que varias cuentas desde una conexión no sumen cupo.
+        # aparte, por IP, para que varias cuentas desde una conexión no sumen cupo,
+        # en la caché `security` como el acceso.
         # Cada imagen pesa hasta el máximo del admin y se guarda en PostgreSQL.
         "customer_images_user": "20/hour",
         "customer_images_ip": "40/hour",
@@ -365,15 +421,52 @@ REST_FRAMEWORK = {
 
 # --- SimpleJWT ---
 
+# Llave propia para firmar los JWT (D62): cambiarla cierra todas las sesiones de
+# clientes sin tocar `SECRET_KEY` (que firma las sesiones del admin y el CSRF), y
+# una filtración de una no compromete la otra. Obligatoria con DEBUG apagado; en
+# desarrollo, si falta, se usa `SECRET_KEY`.
+JWT_SIGNING_KEY = env("JWT_SIGNING_KEY", default="").strip()
+if not JWT_SIGNING_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured(
+            "JWT_SIGNING_KEY es obligatoria con DEBUG apagado (aleatoria, de 50 caracteres o más)."
+        )
+    JWT_SIGNING_KEY = SECRET_KEY
+elif JWT_SIGNING_KEY == SECRET_KEY:
+    raise ImproperlyConfigured("JWT_SIGNING_KEY debe ser distinta de SECRET_KEY.")
+elif len(JWT_SIGNING_KEY) < 50:
+    raise ImproperlyConfigured("JWT_SIGNING_KEY debe tener al menos 50 caracteres.")
+
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=10),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     # Los tokens llevan una huella de la contraseña: al cambiarla, los access
-    # emitidos antes dejan de valer.
+    # emitidos antes dejan de valer, y la renovación rechaza el refresh (D62).
     "CHECK_REVOKE_TOKEN": True,
+    "SIGNING_KEY": JWT_SIGNING_KEY,
 }
+
+# Cookie del refresh (D15, D62): HttpOnly, SameSite=Lax y solo en las rutas de
+# acceso; Secure fuera de desarrollo (el servidor de Vite y runserver van por http).
+# Con Secure lleva el prefijo `__Secure-`: el navegador no acepta esa cookie si no
+# llegó por HTTPS, así una red que inyecte HTTP no la puede plantar.
+REFRESH_COOKIE_PATH = "/api/v1/auth/"
+REFRESH_COOKIE_SECURE = not DEBUG
+REFRESH_COOKIE_NAME = "__Secure-ilusion_refresh" if REFRESH_COOKIE_SECURE else "ilusion_refresh"
+
+# --- Google Identity Services ---
+
+# Client ID de OAuth (público: el frontend lo lleva en VITE_GOOGLE_CLIENT_ID). Es la
+# audiencia que el backend exige en el ID token. Vacío: el acceso con Google
+# responde 503 y el sitio sigue con el correo.
+GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="").strip()
+if GOOGLE_CLIENT_ID and not GOOGLE_CLIENT_ID.endswith(".apps.googleusercontent.com"):
+    raise ImproperlyConfigured(
+        "GOOGLE_CLIENT_ID debe ser el ID de cliente de OAuth (termina en "
+        ".apps.googleusercontent.com), nunca el secreto."
+    )
 
 # --- drf-spectacular ---
 

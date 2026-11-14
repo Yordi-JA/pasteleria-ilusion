@@ -72,6 +72,8 @@ blob-report/
 **/playwright/.auth/
 **/e2e/.auth/
 **/storageState*.json
+# Capturas y registros del servidor MCP de Playwright
+.playwright-mcp/
 
 # --- Editor / sistema operativo ---
 .idea/
@@ -86,3 +88,4 @@ desktop.ini
 .claude/skills/
 .claude/settings.local.json
 CLAUDE.local.md
+.claude/worktrees/
