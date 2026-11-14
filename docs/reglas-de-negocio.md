@@ -21,6 +21,7 @@ Vocabulario obligatorio en la interfaz: se dice **"pan"**, nunca "bizcocho"; **"
 - La disponibilidad de pan vive en la **base de datos de inventario** (`Inventory`): el sitio consulta ahí si se puede hacer un pastel para hoy. Solo los encargos de vitrina del mismo día consumen esa disponibilidad; un pedido de "Diseña tu pastel" con 2 días de anticipación se hornea aparte y no la descuenta (D30).
 - Un lapso con 3 pedidos activos se muestra como "Lleno" y no se puede elegir.
 - Primer horario disponible para un encargo de hoy: hora actual + 2 h, redondeado al siguiente lapso de 30 min.
+- Se reserva hasta **60 días** adelante (`PolicySettings.max_days_ahead`, propuesto; la pastelería puede ajustarlo). Un cliente tiene como mucho **2 pedidos sin pagar** a la vez (`max_unpaid_orders_per_customer`, propuesto). Lo decidió el usuario el 14 de noviembre de 2026 (D63).
 
 ```python
 STORE_OPEN, STORE_CLOSE = "10:00", "22:30"
@@ -56,7 +57,7 @@ Todos los pasteles de vitrina son **tres leches**, excepto el **Choco-pingüino*
 - Las gelatinas en vaso aparecen en el catálogo con la etiqueta "Solo en vitrina"; no se pueden encargar.
 - Fotos de producto: se resuelven en la etapa de frontend.
 - **Pasteles de la casa (portada):** la pastelería elige en el admin qué productos salen, con "destacado en la portada" en la lista de productos (puede ser un pastel o un postre). Salen hasta 4 de los marcados, en el orden de la lista; si marca menos de 4, salen solo esos. Si no marca ninguno, salen los primeros 4 pasteles activos del catálogo, en el mismo orden. Al inicio no hay ninguno marcado: qué productos son "de la casa" lo decide la pastelería. Ver D45 en [`proyecto/decisiones.md`](proyecto/decisiones.md).
-- **Encargo o vitrina de hoy en el carrito:** una rebanada nunca es un encargo (ver "Un pastel por sabor en la vitrina"). Cada línea dice si es un encargo (desde "Pasteles de la casa", el catálogo o la ficha, sin tope de existencias) o de la vitrina de hoy (desde la vitrina o las rebanadas, sin pasar de lo que queda hoy). La misma presentación puede estar dos veces, una de cada tipo, y la línea conserva su tipo. Qué pasa cuando un pedido junta los dos (fecha, entrega, anticipación) lo decide la entrega, en la Etapa 4. Ver D47 en [`proyecto/decisiones.md`](proyecto/decisiones.md).
+- **Encargo o vitrina de hoy en el carrito:** una rebanada nunca es un encargo (ver "Un pastel por sabor en la vitrina"). Cada línea dice si es un encargo (desde "Pasteles de la casa", el catálogo o la ficha, sin tope de existencias) o de la vitrina de hoy (desde la vitrina o las rebanadas, sin pasar de lo que queda hoy). La misma presentación puede estar dos veces, una de cada tipo, y la línea conserva su tipo. Un pedido tiene una sola fecha y un solo lapso, y sigue la anticipación de su línea más estricta (sección 1): con la vitrina de hoy y un encargo, hoy con 2 horas de anticipación y pan del día; la vitrina de hoy y un pedido de "Diseña tu pastel" no caben en el mismo pedido (se hacen dos). Ver D47 y D63 en [`proyecto/decisiones.md`](proyecto/decisiones.md).
 - **"Hoy" en la vitrina y las rebanadas** es la fecha de la Ciudad de México. Un producto lleva "En vitrina hoy" si alguna de sus presentaciones que no es rebanada tiene piezas hoy. Una presentación cargada hoy con 0 piezas sale "Agotada por hoy"; la que no se cargó hoy no sale en la vitrina ni en las rebanadas.
 - **Un pastel por sabor en la vitrina** (lo dijo la pastelería el 12 de noviembre de 2026, D60):
     - Nunca hay más de un pastel completo del mismo sabor. En la vitrina caben unos 8 pasteles, más el Posible y el Imposible, y unas 15 gelatinas de vaso entre sus sabores. Son cifras de referencia, no topes.
@@ -377,6 +378,7 @@ Estados: `in_review` (En revisión) → `quote_ready` (Cotización lista) → (c
 
 - Métodos: **Mercado Pago**, **tarjeta (Stripe)** y **efectivo en la pastelería**. Sandbox en desarrollo.
 - Se paga un **anticipo** del pedido y el resto el día de la entrega. El porcentaje es `PolicySettings.advance_percent`, configurable en el admin entre 1 y 100; hoy vale **50%**. Aplica también a pasteles de vitrina encargados. Los ejemplos de esta sección usan 50%.
+- **Lo de la vitrina de hoy se paga completo** (anticipo del 100%); el anticipo de `PolicySettings.advance_percent` es para los encargos y los diseños. Lo decidió el usuario el 14 de noviembre de 2026 (D63).
 - El **depósito de la base y el envío no entran en el anticipo**: se pagan completos, aparte, el mismo día del anticipo.
 
 ```python
@@ -394,7 +396,8 @@ def payment_today(order_total, base_deposit, delivery_fee=0):
 Ejemplo: pedido $1,000 + base $150 + envío $80 → hoy $730 (500 + 150 + 80); el día de la entrega $500.
 
 - **Tarjeta / Mercado Pago**: se cobra solo `pay_today`.
-- **Efectivo**: el pedido queda **apartado**; el cliente debe llevar `pay_today` a la pastelería **el mismo día** (antes de las 22:30). **Si no lo lleva, el pedido se cancela.**
+- **Pedido sin pagar:** vence a los **30 minutos** (`PolicySettings.payment_window_minutes`, propuesto) y nunca después del inicio de su lapso; vencido, se cancela. Lo decidió el usuario el 14 de noviembre de 2026 (D63).
+- **Efectivo**: el pedido queda **apartado**; el cliente debe llevar `pay_today` a la pastelería **el mismo día** (antes de las 22:30). **Si no lo lleva, el pedido se cancela.** Al elegir efectivo, el plazo se extiende al cierre del día, sin pasar del inicio del lapso (tanda 2).
 - Los botones de pago muestran el monto exacto: "Pagar $X con tarjeta", "Pagar $X con Mercado Pago".
 - PENDIENTE: política de cambios y cancelaciones.
 
@@ -414,7 +417,7 @@ Los códigos son los identificadores del código (D29). Cada uno lleva su etique
 
 | Código | Etiqueta | Cuándo |
 |---|---|---|
-| `awaiting_payment` | Apartado, falta tu pago | Solo efectivo, mientras falta el pago |
+| `awaiting_payment` | Apartado, falta tu pago | Mientras falta el pago: el pedido nace así (efectivo o en línea, D63); vence a los 30 minutos o al empezar su lapso, y con efectivo, al cierre del día |
 | `received` | Recibido | El pago está registrado (en línea por webhook verificado, o en efectivo por el personal) |
 | `in_preparation` | En preparación | La pastelería prepara el pedido |
 | `ready_for_delivery` | Listo para entregar | Listo para la entrega |

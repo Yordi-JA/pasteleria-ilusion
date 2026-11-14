@@ -404,3 +404,37 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Pruebas: pytest nuevas del inventario, del servicio y de la API; E2E nuevas en `showcase.spec.ts` y `slices.spec.ts` y casos del rebanado en el catálogo, la ficha, la portada y el modelo. También las dos pruebas más fuertes que dejó la revisión de D59: el foco en el aviso de `design-prefill.spec.ts` y dos casos del historial en `catalog.spec.ts`.
 - Ronda de revisión y de comparación visual (13 de noviembre): "Dejar rebanarlo" (un completo vendido no impide rebanar otro pastel del mismo sabor ese día), candado del producto en `Inventory.clean()` contra dos altas a la vez, la vitrina muestra solo al rebanado si un dato trae completo y rebanadas, la lista de "Vitrina de hoy" ya no da 500 con un error de `offering`, el aviso de "Agregar al pedido" queda fijo bajo la barra en `/vitrina` y `/rebanadas`, las tarjetas de una fila de la vitrina miden lo mismo y la portada usa la tarjeta ancha con un solo sabor de rebanadas.
 - Tercera ronda (13 de noviembre): las rebanadas solo se venden de la vitrina del día (decisión del dueño), así que la ficha ofrece "Rebanada" solo con rebanadas cargadas hoy y no deja encargarla; el aviso fijo lleva "Cerrar" y reserva su alto para el foco del teclado; el formulario del inventario bloquea primero el producto y luego la fila; y el mensaje de completo y rebanadas dice cómo seguir ("pon el completo en 0 si ya se vendió, o bórralo si no salió").
+
+### Viernes 13 de noviembre: API de pedidos, agenda e imágenes de clientes (D63)
+
+- Decisión D63 en [`proyecto/decisiones.md`](proyecto/decisiones.md), rama `feat/pedidos-api`, sin desplegar. Es la parte del backend del mínimo de pedidos de D61. El frontend no cambia.
+- Modelos `Order`, `OrderItem`, `CakeDesign`, `DeliverySlot` y `CustomerImage` (migración `0031_orders`) y el admin del pedido en solo lectura.
+- `POST/GET /api/v1/orders/` y `GET /api/v1/orders/<id>/`, con JWT e `Idempotency-Key`. El servidor recalcula el precio, la base y el anticipo, aparta el lapso, la vitrina y el pan de hoy en una sola transacción, y crea el pedido en `awaiting_payment` (con caducidad al cierre) o en `awaiting_quote`. La entrega a domicilio remite a WhatsApp.
+- `GET /api/v1/delivery-slots/`: los lapsos del día con su anticipación por tipo de línea y el cupo de 3.
+- `POST` y `GET /api/v1/customer-images/`: imágenes de la oblea y de "Otra decoración" en PostgreSQL. Pillow las valida (40 megapíxeles) y las vuelve a codificar sin EXIF; el tamaño máximo se revisa antes de leer el cuerpo, solo las ven su dueño y el personal, y hay throttle por usuario y por IP. Dependencia nueva: Pillow 13.0.0.
+- El "parecido a" y la oblea contra la tapa real se calculan en el servidor. `restock_showcase` respeta un pastel por sabor.
+- Reglas: las secciones 2 y 12 de [`reglas-de-negocio.md`](reglas-de-negocio.md) dicen ahora que la vitrina de hoy no se junta con un diseño y que `awaiting_payment` cubre también el pago en línea sin confirmar.
+- Pendientes cerrados en [`pendientes.md`](pendientes.md): el 13 de D50, el 10 de D53, el 2 y el 5 de D60 y los puntos 1, 2, 3, 6, 8, 9, 10 y 11 de la auditoría de D55.
+- Pruebas: 1 395 de pytest pasan y 3 se saltan (sin build del frontend); antes eran 1 284. `manage.py check`, `makemigrations --check` y `spectacular --validate --fail-on-warn` pasan sin avisos.
+
+### Sábado 14 de noviembre: pedidos sin vistas del personal, topes del admin y ronda 1 de correcciones (D63)
+
+- Cambio de alcance del usuario: el proyecto no construye vistas, pantallas ni endpoints nuevos del personal. El admin del pedido queda como registro básico, con las líneas en solo lectura y el estado como único campo editable. Ahí se registran el cobro en efectivo y lo demás del personal. Las imágenes de los clientes solo las ven su dueño y el superusuario.
+- Decisiones del usuario, registradas en D63 y en las secciones 1, 10 y 12 de [`reglas-de-negocio.md`](reglas-de-negocio.md):
+  - Topes en el admin, con valores propuestos: 2 pedidos sin pagar por cliente, 60 días a futuro y 10 imágenes sin pedido.
+  - La vitrina de hoy no se junta con un diseño.
+  - Lo de la vitrina de hoy se paga completo.
+  - El pedido sin pagar vence a los 30 minutos y nunca después de su lapso; con efectivo (tanda 2), al cierre del día.
+- Ronda 1 de correcciones de la revisión de código y la auditoría de seguridad:
+  - Throttle `orders_create`, 10 por hora por cuenta y por IP.
+  - Topes de piezas por línea (20) y por pedido (100, propuesto por el equipo), y montos que no caben: 400, nunca 500.
+  - Imágenes: 12 MP configurables, MPO como JPEG, EXIF dañado (400), tope después de volver a codificar, `Cache-Control: private, no-store`. El pico de memoria con 12 MP bajó de 143 MB a 51 MB.
+  - La misma imagen en dos líneas: 400.
+  - Transiciones del estado en el admin con `ALLOWED_TRANSITIONS`, sin cancelar mientras no haya reintegro, y auditadas.
+  - El fin del lapso, de la cuadrícula vigente.
+  - La lista paginada en el repositorio.
+  - De 85 a 36 consultas en un pedido con 3 diseños.
+  - El color de una decoración que no lo admite: 400.
+  - Prueba de dos pedidos con las mismas piezas en orden inverso.
+- Migraciones: la `0031_orders` se regeneró con los topes y `DecorationOption.accepts_color`. La `0032_seed_decoration_accepts_color` es nueva y está en `SEED_MIGRATIONS`.
+- Pruebas: 1 434 de pytest pasan y 3 se saltan (sin build del frontend). `manage.py check`, `makemigrations --check` y `spectacular --validate --fail-on-warn` pasan sin avisos.

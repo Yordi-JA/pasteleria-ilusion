@@ -171,7 +171,7 @@ El detalle está en [`../../backend/AGENTS.md`](../../backend/AGENTS.md). Resume
 - Cada recurso se autoriza por su dueño; pedir un recurso ajeno devuelve 404.
 - Sesión (D15): el access token JWT dura de 5 a 15 minutos y vive solo en memoria del frontend. El refresh va en una cookie HttpOnly, Secure y SameSite=Lax, con rotación y lista negra; exige CSRF. CORS usa orígenes explícitos tomados del entorno.
 - El backend verifica el ID token de Google.
-- Las subidas se validan por contenido, se guardan con nombre aleatorio y solo las sirve a su dueño y al personal.
+- Las subidas se validan por contenido, se guardan con nombre aleatorio y solo las sirve a su dueño y al superusuario (D63). Se guardan en PostgreSQL.
 - El token de la nota sale de `secrets.token_urlsafe(32)`, y solo el personal con permiso puede registrar "Base devuelta".
 - El efectivo pasa a `received` solo cuando el personal con permiso registra el cobro; los pagos en línea, solo por webhook verificado.
 - Los serializadores de cliente dejan `status`, `refunded`, depósitos y montos de solo lectura, para evitar la asignación masiva.
@@ -191,12 +191,13 @@ Estas son las entidades del dominio. Las del catálogo, el inventario y la confi
 | `StoreSettings`, `CakeDesignSettings`, `PolicySettings` y `UploadSettings` | Configuraciones de una sola fila: horarios y entregas, límites y precios fijos de "Diseña tu pastel", políticas y subidas | Secciones 1, 3, 6 y 7; D31 | Implementadas |
 | `Bread`, `FillingBase`, `FillingFlavor`, `FillingPrice`, `TierRecommendation`, `CoverageColor` y `DecorationOption` | Opciones y precios editables de "Diseña tu pastel" | Secciones 3 a 6 | Implementadas |
 | `CakeStand` y `DeliveryFeeBand` | Tamaños de base con su depósito y tarifas de envío por distancia | Secciones 7 y 8 | Implementadas |
-| `Order` y `OrderItem` | Pedidos, sus partidas, pagos y estados | Secciones 10 y 12 | Prevista |
-| `CakeDesign` | Configuración guardada de "Diseña tu pastel" y su precio | Secciones 3 a 6 | Prevista |
+| `Order` y `OrderItem` | Pedidos, sus partidas, pagos y estados | Secciones 10 y 12 | Implementada (D63; los pagos, en la tanda 2) |
+| `CakeDesign` | Configuración guardada de "Diseña tu pastel" y su precio | Secciones 3 a 6 | Implementada (D63) |
 | `ReferenceRequest` | Envío de referencia (hasta 3 imágenes) y su seguimiento (`in_review`, `quote_ready`) | Sección 9 | Prevista |
 | `Quote` | Cotización que la pastelería fija a un envío de referencia | Sección 9 | Prevista |
 | `StandLoan` | Préstamo de una base con depósito, fecha límite y devolución | Secciones 7 y 11 | Prevista |
-| `DeliverySlot` | Lapsos de 30 min con máximo 3 pedidos activos | Sección 1 | Prevista |
+| `DeliverySlot` | Lapsos de 30 min con máximo 3 pedidos activos | Sección 1 | Implementada (D63) |
+| `CustomerImage` | Imágenes de los clientes (oblea, "Otra decoración"; después, el envío de referencia), guardadas en PostgreSQL | Secciones 6 y 9 | Implementada (D63) |
 
 Las secciones son las de [`../reglas-de-negocio.md`](../reglas-de-negocio.md). Los precios y los límites configurables viven en esas tablas, no en el código. Lo que la pastelería aún no define queda vacío y el admin lo muestra como "PENDIENTE".
 

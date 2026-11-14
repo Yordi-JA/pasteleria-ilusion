@@ -23,4 +23,10 @@ urlpatterns = [
     path("featured-products/", views.FeaturedProductListView.as_view(), name="featured-products"),
     path("showcase/", views.ShowcaseView.as_view(), name="showcase"),
     path("slices/", views.SliceListView.as_view(), name="slices"),
+    # Pedidos, su agenda y las imágenes de los clientes: exigen sesión (JWT).
+    path("delivery-slots/", views.DeliverySlotListView.as_view(), name="delivery-slots"),
+    path("orders/", views.OrderListCreateView.as_view(), name="order-list"),
+    path("orders/<int:order_id>/", views.OrderDetailView.as_view(), name="order-detail"),
+    path("customer-images/", views.CustomerImageUploadView.as_view(), name="customer-image-upload"),
+    path("customer-images/<uuid:image_id>/", views.CustomerImageView.as_view(), name="customer-image"),
 ]

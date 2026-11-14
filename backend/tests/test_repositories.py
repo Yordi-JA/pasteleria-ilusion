@@ -414,10 +414,11 @@ def test_decrement_ignores_bread_rows_with_the_same_id():
 
 
 def test_restock_adds_to_an_existing_row_and_never_creates_one():
-    offering = offering_of("tres-leches-de-fresa", "whole")
+    # El mini: el completo de un pastel con rebanadas vuelve como mucho a 1 (D60, `test_showcase_restock.py`).
+    offering = offering_of("tres-leches-de-fresa", "mini")
     assert product_repo.restock_showcase(offering.id, TODAY, 2) is False
     assert product_repo.get_showcase_stock(offering.id, TODAY) is None
-    load_stock("tres-leches-de-fresa", "whole", 1)
+    load_stock("tres-leches-de-fresa", "mini", 1)
     assert product_repo.restock_showcase(offering.id, TODAY, 2) is True
     assert product_repo.get_showcase_stock(offering.id, TODAY) == 3
 

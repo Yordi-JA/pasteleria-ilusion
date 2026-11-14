@@ -7,7 +7,7 @@ Lo que quedó abierto y todavía no se programa. Cada punto dice de dónde viene
 Lo construido está en D50 ([`proyecto/decisiones.md`](proyecto/decisiones.md)) y se subió a `main` y a Heroku (release v15) el 8 de noviembre de 2026. Las dos correcciones de la dueña a ese aspecto están en D51 (trozos de fruta y choco-vainilla por piso). Quedan estos puntos:
 
 1. Resuelto. La dueña dio el visto bueno al aspecto de los pasos 3, 4 y 5 el 8 de noviembre de 2026, con dos correcciones (los trozos de fruta de durazno y fresa, y el choco-vainilla por piso) que quedaron en D51.
-2. Resuelto el 10 de noviembre de 2026 (D52). La dueña pidió grumitos en la fresa con yogurt y trozos de nuez en la nuez: son los estilos `crumbles` y `nut_pieces` de `FillingFlavor.preview_style`. Sus colores están en el punto 14.
+2. Resuelto el 10 de noviembre de 2026 (D52). La dueña pidió grumitos en la fresa con yogurt y trozos de nuez en la nuez: son los estilos `crumbles` y `nut_pieces` de `FillingFlavor.preview_style`. Sus colores están en el punto 13.
 3. Aspecto propio del queso y del flan. Hoy la parte de queso o de flan es una franja lisa de crema, sin textura. Falta preguntar a la dueña si debe verse distinta.
 4. Resuelto. Los colores de los trozos (durazno `#FBD08F`, fresa `#C8283A`, galleta `#2B1D1A`, choco vainilla `#FFFBFB`, capuchino `#5A3A28` y chocolate `#3A2218`) quedaron dentro del visto bueno del 8 de noviembre. Siguen editables en el admin (`FillingFlavor.preview_color_secondary`).
 5. Granillo de dos colores. El granillo alterna el color de los trozos con el color del sabor. Si la dueña quiere dos colores distintos de esos, hace falta un campo más en el modelo.
@@ -18,9 +18,8 @@ Lo construido está en D50 ([`proyecto/decisiones.md`](proyecto/decisiones.md)) 
 10. Revisión en el sitio desplegado. El 9 de noviembre de 2026, con `curl`, la API de producción ya trae `tier_minimums`, los estilos de relleno y el choco-vainilla en dos colores. Falta abrir https://pasteleriailusion.me/pedido/disena en el navegador y comprobar que la vista previa se ve igual; el despliegue de D51 necesitará además la migración `0016` y la `0017`, y el de D52, de la `0018` a la `0022`.
 11. La descripción de los 5 panes sigue vacía en producción (D49). La pastelería la escribe en el admin (`Bread.description`); el paso 3 la muestra cuando existe.
 12. Resuelto el 11 de noviembre de 2026 (D56). `npm run build` comprime `dist/` con `frontend/scripts/compress-dist.mjs` (brotli y gzip) y WhiteNoise sirve las variantes. El chunk de la escena pasa de 940 757 bytes a 204 894 con brotli.
-13. Al construir el endpoint que guarda un `CakeDesign` o un pedido, debe exigir `tiers` y `form` y revalidarlos en el servidor: hoy `_check_tiers` solo corre si el cliente manda `tiers` y `POST cake-designs/price/` los trata como opcionales porque no cambian el precio (hallazgo de la auditoría de seguridad de D50). Un pedido guardado sin esa revisión podría llevar 5 pisos con 4 kg.
-14. Colores nuevos que esperan el visto bueno de la dueña (D52). Se editan en el admin (`FillingFlavor.preview_color_secondary` y `Bread.included_filling_preview_color_secondary`), no son colores de interfaz: los grumitos más rojos de la fresa con yogurt (`#D95F76`, propuesto) y los trozos de nuez (`#7A5230`, propuesto); y dos que reutilizan colores ya aprobados en un uso nuevo: las chispas redondas de chocolate del Choco-pingüino (`#3A2218`, el del chocolate) y el granillo rojo del Red velvet (`#C8283A`, el de la fresa).
-15. Tamaños de la vista previa. Los moldes que sembró la `0019` son las medidas que dio la dueña el 10 de noviembre de 2026; si compra uno, lo agrega en el admin ("Moldes") y la vista previa lo toma sin un despliegue. Falta que la dueña confirme que el tamaño que se ve con 4, 8 y 12 kg, con varios pisos y en rectangular le parece fiel.
+13. Colores nuevos que esperan el visto bueno de la dueña (D52). Se editan en el admin (`FillingFlavor.preview_color_secondary` y `Bread.included_filling_preview_color_secondary`), no son colores de interfaz: los grumitos más rojos de la fresa con yogurt (`#D95F76`, propuesto) y los trozos de nuez (`#7A5230`, propuesto); y dos que reutilizan colores ya aprobados en un uso nuevo: las chispas redondas de chocolate del Choco-pingüino (`#3A2218`, el del chocolate) y el granillo rojo del Red velvet (`#C8283A`, el de la fresa).
+14. Tamaños de la vista previa. Los moldes que sembró la `0019` son las medidas que dio la dueña el 10 de noviembre de 2026; si compra uno, lo agrega en el admin ("Moldes") y la vista previa lo toma sin un despliegue. Falta que la dueña confirme que el tamaño que se ve con 4, 8 y 12 kg, con varios pisos y en rectangular le parece fiel.
 
 ## Decoración del paso 6 de "Diseña tu pastel" (D53)
 
@@ -35,16 +34,7 @@ Lo construido está en D53 ([`proyecto/decisiones.md`](proyecto/decisiones.md)),
 7. Resuelto el 11 de noviembre de 2026. El equipo revisó el rendimiento de la decoración en un teléfono real. No se anotaron cifras de cuadros por segundo. La decoración comparte el presupuesto de 150 000 triángulos del punto 9 de la sección anterior.
 8. Producción. El despliegue necesita la migración `0023` (y, antes, de la `0018` a la `0022` de D52).
 9. Resuelto. La prueba intermitente `e2e/hero-cake.spec.ts` "leaving and coming back to the portada three times leaves exactly one canvas" fallaba también en `main` (5 de 8 repeticiones sueltas, comparadas con un worktree de `main` el 10 de noviembre de 2026), así que no era de D53. La causa era el tiempo: cuatro cargas de la escena con WebGL por software tardan unos 8 s cada una y la prueba se quedaba al borde de los 30 s por omisión (y de los 5 s de la espera de que el `canvas` desaparezca). Ahora tiene 90 s en total y 15 s en esa espera: 8 de 8 repeticiones pasan. No hubo fuga de la escena.
-10. La subida real de la imagen (Etapa 4), recomendaciones de la auditoría de seguridad de D53. La revisión del navegador (firma, tamaño y píxeles de la cabecera) es una comodidad, no una defensa: el servidor debe, como mínimo:
-    - verificar el contenido abriendo el archivo con Pillow, no por extensión ni por `Content-Type`;
-    - fijar `Image.MAX_IMAGE_PIXELS` (y tratar `DecompressionBombWarning` como error);
-    - rechazar por tamaño antes de leer el cuerpo (`Content-Length` y un tope duro), con el parser multipart propio de `backend/AGENTS.md`;
-    - volver a codificar la imagen sin metadatos EXIF;
-    - guardarla con un nombre de `uuid4`, y conservar el nombre original solo como metadato limpio (sin caracteres de control ni de formato), solo para mostrarlo;
-    - entregarla únicamente al dueño del pedido o al personal, por un endpoint con permisos, con `Content-Disposition`, `X-Content-Type-Options: nosniff` y CSP;
-    - limitar las subidas por usuario y por IP (`ScopedRateThrottle`);
-    - revalidar en el servidor `decoration`, `decorationColor`, `tiers` y `form` (el color de la decoración debe ser `#rrggbb` o `null`, D57);
-    - si se agrega una CSP, permitir `img-src blob:` para la miniatura de la imagen local.
+10. Si se agrega una CSP, permitir `img-src blob:` para la miniatura de la imagen local. Lo demás de la subida y su revisión en el servidor quedó en D63.
 
 ## Diseña tu pastel: pasos 7 y 8 (D55)
 
@@ -90,34 +80,34 @@ Lo construido está en D59 ([`proyecto/decisiones.md`](proyecto/decisiones.md)),
 Lo construido está en D60 ([`proyecto/decisiones.md`](proyecto/decisiones.md)), en la rama `feat/vitrina-y-rebanadas`, sin desplegar. Quedan estos puntos:
 
 1. Revisar en Heroku la vitrina y las rebanadas con los datos del día.
-2. Cuando exista `InventoryObserver` (Etapa 4), su reintegro de existencias (`restock_showcase` al cancelar un pedido) debe respetar el tope de 1 completo por sabor: hoy `product_repo.restock_showcase` suma sin revisar la regla, porque no pasa por `Inventory.clean()`.
-3. "Encargarlo completo" en un producto `showcase_only`: el rebanado lleva ese enlace a la ficha, y en un producto que solo se vende en vitrina la ficha no deja encargarlo. Hoy ningún producto `showcase_only` tiene rebanada (son gelatinas en vaso), y la partida de `showcase/` no trae `sales_channel`, así que el frontend no puede ocultar el enlace; si llegara a pasar, `showcase/` tendría que mandar el canal.
-4. Si la pastelería quiere que el rebanado agotado se vea distinto (hoy sale como lo demás agotado, sin "Rebanado"), se cambia en `components/ShowcaseShelfItem.tsx`.
-5. La validación del pedido de la Etapa 4 (backend) debe rechazar una línea `order` con presentación de rebanada: las rebanadas solo se venden de la vitrina del día (D60). Hoy solo lo impide el frontend. Además, D59 ya está en Heroku y su ficha dejaba encargar una rebanada, así que un carrito guardado en el navegador puede traer esa línea: la pantalla del carrito (Etapa 4) debe marcarla o quitarla (`isSliceOrder`) antes de llegar al pago.
-6. Menores que dejó la última revisión del aviso de "Agregar al pedido" (`components/AddToCartNotice.tsx`), que no bloquean:
+2. "Encargarlo completo" en un producto `showcase_only`: el rebanado lleva ese enlace a la ficha, y en un producto que solo se vende en vitrina la ficha no deja encargarlo. Hoy ningún producto `showcase_only` tiene rebanada (son gelatinas en vaso), y la partida de `showcase/` no trae `sales_channel`, así que el frontend no puede ocultar el enlace; si llegara a pasar, `showcase/` tendría que mandar el canal.
+3. Si la pastelería quiere que el rebanado agotado se vea distinto (hoy sale como lo demás agotado, sin "Rebanado"), se cambia en `components/ShowcaseShelfItem.tsx`.
+4. D59 ya está en Heroku y su ficha dejaba encargar una rebanada, así que un carrito guardado en el navegador puede traer esa línea: la pantalla del carrito (Etapa 4) debe marcarla o quitarla (`isSliceOrder`) antes de llegar al pago. El backend ya la rechaza (D63).
+5. Menores que dejó la última revisión del aviso de "Agregar al pedido" (`components/AddToCartNotice.tsx`), que no bloquean:
     - "Cerrar" manda el foco al principio de `main` (`#contenido`), y quien usa el teclado pierde su lugar en la lista. Debería regresar al botón que agregó, si sigue en la página.
     - "Cerrar" está dentro de la región `role="status"`, así que algunos lectores de pantalla lo leen con cada aviso; podría ir fuera de la región, como hermano.
     - El espacio que reserva `scroll-padding-top` se mide una vez por aviso: si se gira el teléfono con el aviso visible, queda unos píxeles descuadrado.
 
 ## Etapa 4: lo que dejó la auditoría de seguridad de D55
 
-Lo recomienda la auditoría de seguridad del diseño (D55). Son requisitos de la Etapa 4, no trabajo de esta rama.
+Lo recomienda la auditoría de seguridad del diseño (D55). Lo del servidor quedó en D63 (puntos 1, 2, 3, 6, 8, 9, 10 y 11 de la lista original); quedan los del frontend.
 
-1. El endpoint del pedido revalida todo en el servidor: `calculate_price`, `check_wafer_layout`, `check_message_layout` y `payment_for_design`. Nunca lee del cliente `total`, `baseDeposit`, `requiresQuote` ni `designId`.
-2. Mapear el snapshot del cliente (camelCase) campo por campo, sin pasarlo entero al modelo.
-3. Validar la oblea contra la tapa real. Hoy solo la revisa el frontend, que conoce el molde y el giro.
-4. Limpiar las imágenes huérfanas de IndexedDB (`ilusion.designImages`): un barrido al cargar y una caducidad.
-5. `readDesignImage` vuelve a validar el blob y lo muestra solo en un `<img>`.
-6. Subida de imágenes (oblea y "Otra decoración"):
-    - Pillow con `Image.MAX_IMAGE_PIXELS` alineado a 40 megapíxeles;
-    - quitar los metadatos EXIF al volver a codificar;
-    - nombre de archivo con `uuid4`;
-    - endpoint con revisión de dueño o de personal;
-    - `X-Content-Type-Options: nosniff`;
-    - throttle;
-    - tope de 10 MB en el servidor. La interfaz revisa 5 MB; las dos cifras están por confirmar.
-7. Una imagen de 40 megapíxeles tarda en decodificarse en un teléfono. Hay que decodificarla a escala reducida (`createImageBitmap` con `resize`) o bajar el límite a unos 12 megapíxeles para la oblea.
-8. El pedido exige `coverage_color` como `#rrggbb` y `decoration_color` como `#rrggbb` o `null`, con el mismo `normalize_hex_color` y `trim_whitespace=False` que `message_layout.color` (D57). La cobertura y la decoración no pasan por el servidor hoy.
-9. Volver a correr `check_message_layout` y guardar el color normalizado (en minúsculas).
-10. El servidor calcula el "parecido a" y el texto descriptivo. Nunca guarda ni muestra al personal el `details` del cliente.
-11. Al pintar el color en el admin o en los correos, usar `format_html` con el valor validado.
+1. Limpiar las imágenes huérfanas de IndexedDB (`ilusion.designImages`): un barrido al cargar y una caducidad.
+2. `readDesignImage` vuelve a validar el blob y lo muestra solo en un `<img>`.
+3. Una imagen de 40 megapíxeles tarda en decodificarse en un teléfono. Hay que decodificarla a escala reducida (`createImageBitmap` con `resize`) o bajar el límite a unos 12 megapíxeles para la oblea.
+
+## API de pedidos (D63)
+
+Lo construido está en D63 ([`proyecto/decisiones.md`](proyecto/decisiones.md)), en la rama `feat/pedidos-api`, sin desplegar. Quedan estos puntos:
+
+1. Tanda 2: el comando que cancela los pedidos sin pagar vencidos (`payment_due_at`, 30 minutos) y reintegra lo apartado con `restock_showcase` y `release_bread`. Con esa caducidad debe correr seguido (Heroku Scheduler, cada 10 minutos). Hasta entonces, un vencido no ocupa su lapso ni cuenta para el tope del cliente, pero conserva sus piezas y su pan.
+2. Tanda 2: al elegir efectivo, extender `payment_due_at` al cierre del día con `schedule_service.cash_payment_due_at` (ya existe y tiene prueba).
+3. Tanda 2: cancelar desde el admin. Hoy `ALLOWED_TRANSITIONS` no deja pasar a `cancelled` porque nada reintegra la vitrina ni el pan; cuando exista el reintegro, se agrega la transición.
+4. Tanda 2: el estado de la base (`StandLoan`), editable en el mismo registro básico del pedido en el admin, y el Observer que reacciona al cambio de estado que hace el personal ahí.
+5. La salida de `awaiting_quote` no está en `ALLOWED_TRANSITIONS`, porque las reglas no la definen (sección 14). Un pedido en ese estado ocupa su lapso y cuenta para el tope del cliente sin caducidad.
+6. Imágenes huérfanas: una imagen subida que nunca entra en un pedido se queda en PostgreSQL. El tope de 10 por cliente las acota, pero falta un barrido periódico. Heroku Postgres `essential-0` tiene 1 GB.
+7. Valores propuestos que la pastelería debe confirmar en el admin: 30 minutos para pagar, 2 pedidos sin pagar por cliente, 60 días a futuro, 20 piezas por línea de encargo, 10 imágenes sin pedido y 12 megapíxeles (los dio el usuario el 14 de noviembre de 2026), y 100 piezas por pedido (lo propuso el equipo, sin cifra del usuario).
+8. Unidad del pan para encargos de hoy: se cuenta una pieza de pan por pieza encargada. La unidad sigue siendo una pregunta para la pastelería ("Preguntas del catálogo" en las decisiones abiertas). Sin pan definido para el producto (PENDIENTE en la semilla, salvo Choco-pingüino y Red velvet), no hay encargo para hoy.
+9. `DecorationOption.accepts_color` no sale en `GET cake-designs/options/`: el frontend sigue decidiendo por `slug` qué decoraciones llevan color. Si la pastelería marca otra en el admin, el frontend no se entera hasta que la API lo mande.
+10. El frontend todavía no usa estos endpoints: falta subir las imágenes, mandar el pedido con `Idempotency-Key`, pedir los lapsos con `kind` y mostrar los errores de los topes.
+11. Producción: las migraciones `0031_orders` y `0032_seed_decoration_accepts_color` (pasarán a `0032` y `0033` al fusionar con `feat/acceso`) y Pillow 13.0.0 en el slug (está en `backend/requirements.txt`).

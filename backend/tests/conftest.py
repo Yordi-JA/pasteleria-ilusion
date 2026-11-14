@@ -111,6 +111,7 @@ SEED_MIGRATIONS = [
     ("0023_seed_decoration_designs", "seed"),
     ("0024_seed_rose_decoration", "seed"),
     ("0026_seed_decoration_prices", "seed"),
+    ("0032_seed_decoration_accepts_color", "seed"),
 ]
 _db_blocker = None
 

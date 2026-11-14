@@ -261,6 +261,12 @@ MEDIA_ROOT = BASE_DIR / "media"
 # restricción de la base de `UploadSettings`.
 UPLOAD_HARD_LIMIT_MB = 10
 
+# Tope duro de megapíxeles de una imagen subida (auditoría de D55). El admin edita
+# `UploadSettings.max_image_megapixels` (12 al inicio), nunca por encima de este.
+# También es `Image.MAX_IMAGE_PIXELS` de Pillow para todo el proceso. Cambiarlo
+# exige una migración, igual que `UPLOAD_HARD_LIMIT_MB`.
+UPLOAD_HARD_LIMIT_MEGAPIXELS = 40
+
 # Tope duro de imágenes por envío de referencia (regla 9: máximo 3). El admin
 # edita `UploadSettings.max_reference_images`, pero nunca puede pasar de aquí.
 # Cambiarlo exige una migración, igual que `UPLOAD_HARD_LIMIT_MB`.
@@ -342,6 +348,14 @@ REST_FRAMEWORK = {
         # Catálogo, ficha, pasteles de la casa, vitrina y rebanadas, juntos. La
         # portada pide tres por cada carga del pie: el triple de `store_info`.
         "catalog": "360/min",
+        # Subida de imágenes de clientes (oblea, "Otra decoración"): por cuenta y,
+        # aparte, por IP, para que varias cuentas desde una conexión no sumen cupo.
+        # Cada imagen pesa hasta el máximo del admin y se guarda en PostgreSQL.
+        "customer_images_user": "20/hour",
+        "customer_images_ip": "40/hour",
+        # Crear pedidos, por cuenta y por IP (D63): cada pedido aparta un lapso,
+        # existencias y pan mientras no se paga.
+        "orders_create": "10/hour",
     },
     # Saltos de proxy delante de la app (en Heroku, 1). Con 0 se ignora
     # X-Forwarded-For y se usa la dirección de la conexión: si no, un cliente

@@ -14,10 +14,13 @@ from django.db import transaction
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.html import format_html, format_html_join
+from django.utils.safestring import mark_safe
 
 from .models import (
     Bread,
     BreadInventory,
+    CakeDesign,
     CakeDesignSettings,
     CakeMold,
     CakeStand,
@@ -32,6 +35,9 @@ from .models import (
     FillingPreviewStyle,
     FillingPrice,
     Inventory,
+    Order,
+    OrderItem,
+    OrderStatus,
     SalesChannel,
     ShowcaseInventory,
     PolicySettings,
@@ -41,8 +47,10 @@ from .models import (
     TierRecommendation,
     UploadSettings,
     User,
+    WaferShape,
 )
 from .services.catalog_service import HOME_FEATURED_LIMIT
+from .services.orders import order_status
 
 
 class CustomUserCreationForm(AdminUserCreationForm):
@@ -664,3 +672,148 @@ class BreadInventoryAdmin(InventoryAdmin):
         if db_field.name == "bread":
             kwargs["queryset"] = Bread.objects.filter(is_active=True)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+
+# --- Pedidos ---
+#
+# Registro básico (sin vistas del personal, decisión del usuario del 14 de noviembre de 2026, D63): el pedido lo crea la
+# API, sus líneas van en solo lectura y el estado es el único campo editable, solo por las transiciones de
+# `services/orders/order_status.py` y siempre auditado. El texto que manda el cliente se escapa y los colores se pintan
+# con `format_html` y el valor que el servidor ya validó (auditoría de D55, punto 11).
+
+
+def _swatch(color: str, name: str) -> str:
+    """La muestra del color, su código y el "parecido a" que calculó el servidor."""
+    similar = format_html(", parecido a {}", name) if name else ""
+    return format_html(
+        '<span style="display:inline-block;width:1em;height:1em;vertical-align:middle;'
+        'border:1px solid #2b1d1a;background-color: {}"></span> {}{}',
+        color,
+        color.upper(),
+        similar,
+    )
+
+
+def _image_link(image_id) -> str:
+    return format_html('<a href="{}" target="_blank" rel="noopener">ver imagen</a>', reverse("customer-image", args=[image_id]))
+
+
+def design_lines(design: CakeDesign, show_images: bool = False) -> list[str]:
+    """El diseño en renglones para el personal, armado por el servidor (nunca con el texto del cliente).
+
+    El enlace a las imágenes sale solo con `show_images`: el endpoint de imágenes las entrega solo al superusuario.
+    """
+    flavors = ", ".join(flavor.name for flavor in (design.first_flavor, design.second_flavor) if flavor)
+    filling = f"relleno {design.filling_base.name.lower()}: {flavors}" if design.filling_base else "relleno incluido"
+    lines = [
+        format_html(
+            "{} kg ({} personas), {}, {} {}",
+            design.kg, design.people, design.get_form_display().lower(), design.tiers,
+            "piso" if design.tiers == 1 else "pisos",
+        ),
+        format_html("{}, pan {}, {}", design.get_cake_type_display(), design.bread.name.lower(), filling),
+        format_html("Cobertura: {}", _swatch(design.coverage_color, design.coverage_color_name)),
+    ]
+    decoration_color = (
+        _swatch(design.decoration_color, design.decoration_color_name) if design.decoration_color else "color automático"
+    )
+    lines.append(format_html("Decoración: {}, {}", design.decoration.name, decoration_color))
+    if design.decoration_image_id:
+        image = _image_link(design.decoration_image_id) if show_images else "subida por el cliente"
+        lines.append(format_html("Imagen de la decoración: {}", image))
+    if design.message:
+        color = design.message.get("color")
+        ink = _swatch(color, "") if color and color.startswith("#") else design.message.get("color_mode", "")
+        lines.append(format_html("Mensaje: «{}», {}", design.message.get("text", ""), ink))
+    if design.wafer:
+        shape = (design.wafer_layout or {}).get("shape", "")
+        image = _image_link(design.wafer_image_id) if design.wafer_image_id and show_images else ""
+        lines.append(format_html("Oblea: {} {}", WaferShape(shape).label.lower() if shape else "", image))
+    if design.occasion:
+        lines.append(format_html("Ocasión: {}", design.get_occasion_display()))
+    if design.requires_quote:
+        lines.append("Por cotizar: la decoración no está en el total.")
+    stand = format_html("Base: {} (depósito ${})", design.stand, design.stand_deposit) if design.stand else "Sin base"
+    lines.append(stand)
+    return lines
+
+
+class OrderItemInline(admin.TabularInline):
+    model = OrderItem
+    extra = 0
+    can_delete = False
+    line_fields = ("position", "kind", "product_name", "presentation", "quantity", "unit_price", "line_total")
+
+    def get_fields(self, request, obj=None):
+        # El superusuario ve el enlace a las imágenes; el resto del personal, el diseño sin él.
+        summary = "design_with_images" if request.user.is_superuser else "design_summary"
+        return (*self.line_fields, summary)
+
+    def get_readonly_fields(self, request, obj=None):
+        return self.get_fields(request, obj)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            "design__bread", "design__filling_base", "design__first_flavor", "design__second_flavor",
+            "design__decoration", "design__stand",
+        )
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    @staticmethod
+    def _summary(item, show_images):
+        if not item.design_id:
+            return "—"
+        return format_html_join(mark_safe("<br>"), "{}", ((line,) for line in design_lines(item.design, show_images)))
+
+    @admin.display(description="diseño")
+    def design_summary(self, item):
+        return self._summary(item, show_images=False)
+
+    @admin.display(description="diseño")
+    def design_with_images(self, item):
+        return self._summary(item, show_images=True)
+
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    # Registro básico: lista y detalle, sin filtros, acciones ni formularios propios (sin vistas nuevas para el
+    # personal, decisión del usuario del 14 de noviembre, D63). El personal registra el cobro en efectivo y lo demás
+    # cambiando el estado aquí; es el único campo editable, solo hacia los estados que permite `order_status`, y el
+    # Observer (tanda 2) reaccionará a ese cambio.
+    list_display = ("__str__", "customer", "status", "delivery_slot", "subtotal", "pay_today", "created_at")
+    list_select_related = ("customer", "delivery_slot")
+    # Sin la llave de idempotencia ni el token de la nota: no le sirven al personal y el token abre la nota.
+    fields = (
+        "customer", "status", "status_changed_at", "fulfillment", "delivery_slot", "subtotal", "stand_deposit",
+        "delivery_fee", "advance_percent", "advance", "pay_today", "pay_on_delivery", "payment_due_at", "created_at",
+    )
+    readonly_fields = tuple(field for field in fields if field != "status")
+    inlines = [OrderItemInline]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        if obj is not None and "status" in form.base_fields:
+            # Solo el estado actual y los siguientes que se permiten: lo demás ni se ofrece ni se acepta.
+            allowed = (obj.status, *order_status.next_statuses(obj.status))
+            form.base_fields["status"].choices = [(value, OrderStatus(value).label) for value in allowed]
+        return form
+
+    def save_model(self, request, obj, form, change):
+        # Nada más se edita: solo el cambio de estado, por el servicio (que lo revisa otra vez y lo audita).
+        if "status" not in form.changed_data:
+            return
+        try:
+            order_status.change_status(obj.pk, form.initial["status"], obj.status, actor_id=request.user.pk)
+        except order_status.StatusChangeError as error:
+            self.message_user(request, " ".join(error.errors["status"]), level=messages.ERROR)
