@@ -1,12 +1,11 @@
-import PageHeader from '../components/PageHeader.tsx'
-import Pending from '../components/Pending.tsx'
 import { usePageTitle } from '../viewmodels/usePageTitle.ts'
+import AccountHeader from './account/AccountHeader.tsx'
 
 /**
- * `/cuenta/bases`. Vista vacía: por ahora solo muestra su título. El h1 del mockup es un dato que todavía no
- * existe, así que lleva el marcador de pendiente; la pestaña usa el nombre de la vista, sin corchetes.
+ * `/cuenta/bases`. Vista vacía: por ahora solo muestra el saludo con el nombre de la cuenta y "Cerrar sesión".
+ * Pide sesión (`RequireSession`).
  */
 export default function AccountBases() {
   usePageTitle('Bases en préstamo')
-  return <PageHeader title={<>Hola, <Pending what="nombre" /></>} />
+  return <AccountHeader />
 }

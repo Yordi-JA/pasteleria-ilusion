@@ -415,3 +415,41 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Pendiente de la dueña: fotos de productos, precio de la oblea y visto bueno de las decoraciones. Hay además dos contradicciones del libro de marca por resolver: si la etiqueta "En vitrina hoy" lleva o no el fondo `fresa-claro`, y el dibujo del toldo en el encabezado de la vitrina.
 - Pruebas intermitentes: `cake-designer-lid.spec.ts:210` y `cake-designer.spec.ts:452` fallan a veces y también fallan en `main`.
 - Sigue pendiente revisar la vitrina en Heroku con los datos del día.
+
+### Viernes 13 de noviembre: inicio de la Etapa 4 (D61)
+
+- Decisión D61 en [`proyecto/decisiones.md`](proyecto/decisiones.md), rama `feat/acceso`: el usuario definió el mínimo para la exposición de la Etapa 4 (14 al 19 de noviembre; el 19 se congela el código), como pidió D58.
+- Obligatorio: acceso con correo y con Google (JWT); carrito y entrega con "Recoger en la pastelería" y la agenda sin empalmes (lapsos de 30 minutos, máximo 3 pedidos por lapso, 2 días de anticipación); pedido creado en el servidor, que recalcula el precio y revalida el diseño; pago con Mercado Pago, Stripe y efectivo (Factory Method y Adapter, `Idempotency-Key`, webhooks verificados); Observer del pedido; nota en PDF con QR, `/nota/:token` y devolución de la base; "Mis pedidos"; cancelaciones; envío de referencia y cotización.
+- Solo si sobra tiempo: entrega a domicilio con una API de rutas (mientras tanto se remite a WhatsApp), recuperación de contraseña y verificación del correo.
+- Acceso: el registro con un correo ya usado muestra "Ya hay una cuenta con este correo." con un límite de intentos por IP. El inicio de sesión de clientes bloquea IP + correo tras los fallos de D34, con un límite general por IP. El admin sigue bloqueando por IP sola.
+- Las imágenes de clientes se guardan en PostgreSQL, ya validadas, porque Heroku borra el disco en cada reinicio.
+- Orden: tanda 1, el acceso y la API de pedidos en paralelo; tanda 2, el carrito, la entrega, los tres pagos y el Observer; tanda 3, la confirmación, la nota con QR, "Mis pedidos", las cancelaciones y el envío de referencia.
+- Salen tres filas de las decisiones abiertas (registro con correo ya usado, bloqueo por IP en el login de clientes y fotos de los clientes), y "API de distancias" pasa a "Solo si sobra tiempo en la Etapa 4". La etapa queda muy cargada: si el 18 de noviembre falta algo obligatorio, se avisa al equipo para decidir qué se recorta.
+
+### Viernes 13 de noviembre: acceso de clientes con correo y con Google (D62)
+
+- Decisión D62 en [`proyecto/decisiones.md`](proyecto/decisiones.md), rama `feat/acceso` (tanda 1 de D61).
+- Backend: `/api/v1/auth/` con `csrf/`, `register/`, `login/`, `google/`, `refresh/` y `logout/`. El access va en el cuerpo y el refresh en una cookie HttpOnly limitada a `/api/v1/auth/`, con rotación, lista negra y CSRF en cada operación que la toca. La renovación rechaza un refresh de antes de un cambio de contraseña. Los JWT se firman con `JWT_SIGNING_KEY`. django-axes bloquea por ruta: IP + correo en la API de clientes e IP sola además en el admin; los throttles `login`, `register` y `session` viven en su propia caché. Google se verifica con `google-auth` y se liga con una cuenta de correo solo si Google es la autoridad del correo; la contraseña anterior deja de servir. La sesión del sitio es solo de clientes. CSP para el sitio y la API, con lo que pide Google Identity Services. Migración `0031_user_profile_and_google` (nombre, teléfono y cuenta de Google).
+- Frontend: `/entrar` y `/registro` con sus estados de error del mockup y el pastel 3D en la escena chica, el botón oficial de Google (oculto sin `VITE_GOOGLE_CLIENT_ID`), la sesión en memoria con renovación entre pestañas, `?volver=`, las rutas de la cuenta protegidas, y el encabezado y el menú móvil con la sesión ("Mi cuenta" y "Cerrar sesión"). El carrito no cambia al entrar ni al salir.
+- Variables nuevas para Heroku: `JWT_SIGNING_KEY` (obligatoria), `GOOGLE_CLIENT_ID` y `VITE_GOOGLE_CLIENT_ID`. Orígenes autorizados en Google Cloud en D62.
+- Fuera: recuperar la contraseña y verificar el correo (D61). Verificado en local, sin desplegar.
+- Ronda 1 de correcciones (14 de noviembre), tras la revisión de código y la auditoría de seguridad: la API ya no revisa la contraseña de una cuenta del personal (el intento cuenta como fallo en django-axes), la rotación del refresh es atómica, un refresh rotado conserva la cookie solo 60 s, entrar de nuevo cierra el refresh anterior, ligar Google y cerrar sesiones van en una transacción, `hd` solo responde por su dominio, IPv6 cuenta por /64, la cookie se llama `__Secure-ilusion_refresh` en producción y los throttles suben a 60, 30 y 120 para la exposición. En el sitio: una renovación que llega después de "Cerrar sesión" ya no reabre la sesión, un 429 o un 5xx al renovar no la cierran, salir sin red lo avisa, y volver a la cuenta tras salir pide entrar. `pip-audit` sin vulnerabilidades. Detalle en D62.
+
+### Sábado 14 de noviembre: sin vistas del personal (D64)
+
+- Decisión D64 en [`proyecto/decisiones.md`](proyecto/decisiones.md): para terminar a tiempo, desde hoy no se construyen vistas, pantallas ni endpoints para el personal. La tomó el usuario.
+- El admin de Django (precios, productos, vitrina, configuración y su bloqueo por IP) no se toca y las vistas nuevas no lo mencionan. La sesión del sitio sigue siendo solo de clientes (D62).
+- Las tres acciones del personal de D61 se hacen desde el registro básico del pedido en el admin: registrar el pago en efectivo de un apartado, marcar la base como devuelta (con el depósito reembolsado) y poner el precio de un envío de referencia. El Observer reacciona igual que con un pago en línea.
+- `/nota/:token` solo verifica la nota, sin el botón "Base devuelta". D61 lleva la nota "Reemplazado en parte por D64" y la sección 11 de [`reglas-de-negocio.md`](reglas-de-negocio.md) lleva su excepción.
+- Motivo: la Etapa 4 quedó muy cargada, el código se congela el 19 de noviembre y las vistas del personal no se iban a mostrar en la exposición.
+
+### Sábado 14 de noviembre: pruebas del backend en paralelo (D65)
+
+- Decisión D65 en [`proyecto/decisiones.md`](proyecto/decisiones.md): `pytest-xdist` 3.8.0 (con `execnet` 2.1.2) en `requirements-dev.txt`, `--reuse-db` en `pytest.ini` y `-n auto` solo cuando se pide.
+- Tiempos con las 1428 pruebas: 37.7 s en serie con base nueva, 34.7 s en serie con base reutilizada y de 19.8 a 24.4 s con `-n auto`. Mismos conteos en los tres modos: 1428 pasan y 1 se salta.
+- `POSTGRES_TEST_DB` (opcional) fija el nombre de la base de pruebas, para que dos carpetas de trabajo sobre la misma PostgreSQL no se pisen. Caso nuevo en `backend/tests/test_settings.py`.
+- Corrección en `backend/tests/conftest.py`: con la base reutilizada, terminar en una prueba transaccional dejaba la semilla vacía. Ahora una fixture de sesión la resiembra al cerrar. No cambia ninguna prueba.
+- Con `--reuse-db`, hay que correr `pytest --create-db` al cambiar, agregar o renumerar migraciones y al cambiar de rama.
+- Ronda 2 de revisión: `POSTGRES_TEST_DB` debe empezar con `test_` y ser distinta de la base de `DATABASE_URL` (dos casos nuevos en `test_settings.py`), y la fixture de sesión de `conftest.py` también resiembra al abrir, para que una corrida abortada no deje la base vacía.
+- Ronda 2 del acceso (D62): una renovación pasajera (429, 5xx o sin red) ya no cierra la sesión al pedir un recurso de la cuenta; `getJsonWithSession` falla con un 503. Prueba nueva en `e2e/session-model.spec.ts`.
+- `e2e/cake-designer-lid.spec.ts` "more size is capped at what fits" falla también en `main` (`5bc1acb`); quedó en `docs/pendientes.md` junto con los menores de la revisión del acceso.

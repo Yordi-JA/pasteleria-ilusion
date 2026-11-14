@@ -67,6 +67,19 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField("correo", unique=True)
     is_active = models.BooleanField("activo", default=True)
     is_staff = models.BooleanField("es personal", default=False)
+    # Datos del registro (D62). El nombre es obligatorio al registrarse con correo;
+    # con Google sale de la cuenta de Google y puede quedar vacío.
+    full_name = models.CharField("nombre completo", max_length=150, blank=True)
+    phone = models.CharField(
+        "teléfono o WhatsApp",
+        max_length=10,
+        blank=True,
+        validators=[RegexValidator(r"^[0-9]{10}$", "Escribe 10 dígitos.")],
+        help_text="10 dígitos, sin lada del país. Opcional.",
+    )
+    # Identificador estable de la cuenta de Google (`sub` del ID token). El correo de
+    # Google puede cambiar; `sub`, no. Vacío (null) si nunca entró con Google.
+    google_sub = models.CharField("cuenta de Google", max_length=255, null=True, blank=True, unique=True, editable=False)
 
     objects = UserManager()
 
@@ -81,6 +94,10 @@ class User(AbstractBaseUser, PermissionsMixin):
             # Última defensa en la base: vale aunque se salte save()
             # (bulk_create, update, SQL directo).
             models.UniqueConstraint(Lower("email"), name="user_email_ci_unique"),
+            models.CheckConstraint(
+                condition=Q(phone="") | Q(phone__regex=r"^[0-9]{10}$"),
+                name="user_phone_ten_digits",
+            ),
         ]
 
     def __str__(self):

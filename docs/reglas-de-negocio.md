@@ -404,7 +404,7 @@ Ejemplo: pedido $1,000 + base $150 + envío $80 → hoy $730 (500 + 150 + 80); e
 
 - Cada pedido genera una nota en PDF tamaño carta que sustituye la nota de papel; se descarga desde la confirmación y desde el detalle del pedido.
 - El QR abre una página de verificación con un enlace firmado (token no adivinable): "Nota válida", número de pedido, fecha, cliente (nombre e inicial del apellido), entrega, estado de la base (prestada o devuelta, con su fecha límite) y depósito. No muestra teléfono, correo ni dirección.
-- Si quien escanea es personal de la pastelería con sesión iniciada, ahí mismo puede registrar "Base devuelta", y el depósito queda marcado como reembolsado.
+- Si quien escanea es personal de la pastelería con sesión iniciada, ahí mismo puede registrar "Base devuelta", y el depósito queda marcado como reembolsado. En este proyecto, la devolución se registra desde el admin (D64); la página de verificación no lleva el botón.
 
 ---
 

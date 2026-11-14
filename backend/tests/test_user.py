@@ -2,7 +2,7 @@
 import pytest
 from django.contrib.auth import authenticate, get_user_model
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import DataError, IntegrityError, transaction
 from django.test import RequestFactory
 
 User = get_user_model()
@@ -113,3 +113,37 @@ def test_database_rejects_update_that_duplicates_email_with_different_case():
         User.objects.filter(pk=other.pk).update(email="Ana@Ejemplo.com")
     other.refresh_from_db()
     assert other.email == "beto@ejemplo.com"
+
+
+# --- Nombre, teléfono y cuenta de Google (D62) ---
+
+
+@pytest.mark.django_db
+def test_name_and_phone_are_optional_and_empty_by_default():
+    user = User.objects.create_user("ana@ejemplo.com", "clave-segura-123")
+    assert (user.full_name, user.phone, user.google_sub) == ("", "", None)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("phone", ["551234567", "55 1234 5678", "+525512345678", "55123456789", "55l2345678"])
+def test_the_database_only_accepts_ten_digit_phones(phone):
+    # Más de 10 caracteres los frena el largo de la columna; el resto, la restricción.
+    with pytest.raises((IntegrityError, DataError)), transaction.atomic():
+        User.objects.create_user("ana@ejemplo.com", "clave-segura-123", phone=phone)
+
+
+@pytest.mark.django_db
+def test_a_ten_digit_phone_is_accepted():
+    user = User.objects.create_user("ana@ejemplo.com", "clave-segura-123", phone="5512345678")
+    user.full_clean(exclude=["password"])
+    assert user.phone == "5512345678"
+
+
+@pytest.mark.django_db
+def test_two_accounts_cannot_share_a_google_account():
+    User.objects.create_user("ana@ejemplo.com", None, google_sub="110")
+    with pytest.raises(IntegrityError), transaction.atomic():
+        User.objects.create_user("beto@ejemplo.com", None, google_sub="110")
+    # Sin cuenta de Google (null) no choca.
+    User.objects.create_user("carla@ejemplo.com", None)
+    User.objects.create_user("dora@ejemplo.com", None)

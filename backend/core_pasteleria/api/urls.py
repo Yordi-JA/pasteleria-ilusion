@@ -2,9 +2,16 @@
 from django.urls import path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from . import views
+from . import auth_views, views
 
 urlpatterns = [
+    # Acceso de clientes (D62): la cookie del refresh vive solo bajo `auth/`.
+    path("auth/csrf/", auth_views.CsrfView.as_view(), name="auth-csrf"),
+    path("auth/register/", auth_views.RegisterView.as_view(), name="auth-register"),
+    path("auth/login/", auth_views.LoginView.as_view(), name="auth-login"),
+    path("auth/google/", auth_views.GoogleLoginView.as_view(), name="auth-google"),
+    path("auth/refresh/", auth_views.RefreshView.as_view(), name="auth-refresh"),
+    path("auth/logout/", auth_views.LogoutView.as_view(), name="auth-logout"),
     # Contrato OpenAPI y Swagger UI: solo para personal (SPECTACULAR_SETTINGS).
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     path("docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),

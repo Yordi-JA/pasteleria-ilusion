@@ -13,3 +13,6 @@ export const focusRingWithin =
 /** Mismo anillo en `betun`, para una opción elegible sobre un campo `mermelada`. */
 export const focusRingWithinOnColor =
   'has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-betun'
+
+/** Enlace dentro de una frase ("Inicia sesión", "Términos y condiciones"): subrayado y con el anillo de foco. */
+export const inlineLink = `rounded-sm underline underline-offset-2 ${focusRing}`

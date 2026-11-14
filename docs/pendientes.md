@@ -121,3 +121,28 @@ Lo recomienda la auditoría de seguridad del diseño (D55). Son requisitos de la
 9. Volver a correr `check_message_layout` y guardar el color normalizado (en minúsculas).
 10. El servidor calcula el "parecido a" y el texto descriptivo. Nunca guarda ni muestra al personal el `details` del cliente.
 11. Al pintar el color en el admin o en los correos, usar `format_html` con el valor validado.
+
+## Acceso de clientes: lo que dejó la revisión de código (D62 y D65)
+
+Menores de la segunda ronda de revisión de la rama `feat/acceso`. Ninguno bloquea; se anotan sin corregir.
+
+1. `frontend/src/models/session.ts` (`login`, `register` y `loginWithGoogle`): no toman `REFRESH_LOCK` ni suben `generation`. Si la persona sale y entra de nuevo mientras responde una renovación vieja, esa renovación puede cerrar la sesión nueva (con la limpieza de `logout` o con su `Set-Cookie`). Arreglo: pasar las tres por `withRefreshLock`.
+2. `backend/core_pasteleria/services/auth_service.py` (después de `authenticate`): no se revisa otra vez `_is_staff(user)`. Es defensa en profundidad.
+3. `backend/core_pasteleria/repositories/user_repo.py` (`_revoke_all_sessions`): no bloquea las filas. Con `remove_password=False`, un refresh que rota a la vez que se liga Google deja un `OutstandingToken` vivo.
+4. `backend/tests/conftest.py`: agregar a `item.fixturenames` no es API pública de pytest. Alternativa: una fixture autouse de función que pida la de sesión con `request.getfixturevalue`.
+5. `backend/core_pasteleria/services/google_identity.py` (`[:150]` después de `clean_name`): puede partir un grafema (un emoji o una letra con marcas combinantes).
+
+Menores de la revisión de los arreglos de la ronda 2:
+
+6. `frontend/src/models/session.ts` (`getJsonWithSession`): si la persona sale mientras una petición de la cuenta espera la renovación, `signOutLocally()` corre otra vez aunque el estado ya sea `anonymous`. Borra `signedOutFrom` y puede mandarla a `/entrar` en vez de a la portada. Arreglo: llamarla solo si el estado no es `anonymous`.
+7. `frontend/src/models/session.ts` (`getJsonWithSession`): con un access al que le quedan menos de 30 s y una renovación que recibe 429, la petición falla con 503 aunque el token todavía sirve. Arreglo: si el resultado es `'transient'` y el access no ha vencido, usarlo.
+8. `frontend/src/models/session.ts` (`getJsonWithSession`): una falla de red o un tiempo límite en la petición de la cuenta lanza el `TypeError` o el `DOMException` del navegador, no un `ApiError`. Ya era así antes de la ronda 2. Cuando "Mis pedidos" use `getJsonWithSession`, su view-model debe tratar un 503 y una falla de red como error de carga con "Volver a intentar".
+9. `backend/config/settings.py` (`POSTGRES_TEST_DB`): el valor no se recorta. Uno con un espacio al inicio se rechaza con el mensaje de "debe empezar con test_", que confunde pero no daña nada.
+
+E2E inestables bajo carga (pasan solos): `e2e/access.spec.ts:125` (un `page.goto` que pasa de 30 s) y `e2e/access.spec.ts:372`. Hay que vigilarlos en la corrida completa.
+
+## Prueba E2E que falla también en `main`
+
+`e2e/cake-designer-lid.spec.ts`, "the message stays inside the lid: more size is capped at what fits", falla de forma repetible. El 14 de noviembre de 2026 se corrió en un worktree limpio de `main` (commit `5bc1acb`, puerto 5180) y falló dos de dos veces con `inside` en `false` (línea 226), igual que en `feat/acceso`; no es una regresión del acceso (D62).
+
+Causa probable, sin confirmar: la prueba mide las cuatro esquinas del rectángulo del texto en el navegador (`getBoundingClientRect`) contra el círculo de la tapa, y el tope del control "Tamaño" sale de `fitMessage` con las medidas estimadas de `messageMetrics.ts` (Dancing Script). Si la caja real del texto con `Feliz cumpleaños muy querida Ana` en el máximo es más grande que la estimada (por la fuente que se dibuja con WebGL y SVG en Chromium de Playwright en Windows, o porque el contorno del rectángulo ya es más estricto que lo que `fitMessage` garantiza), las esquinas salen del círculo. Falta medir la caja real contra la estimada en el máximo, y decidir si se ajusta la estimación o la prueba (que mida el contorno de los glifos y no el rectángulo).
