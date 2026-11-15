@@ -19,6 +19,10 @@ Cada pastel del catálogo se entrega como un PNG recortado con fondo transparent
 - Una foto principal por pastel. Si el corte importa (rebanadas, sabores, rellenos), toma también una del pastel partido con el mismo ángulo.
 - Las bases y stands que se prestan se fotografían igual, solos.
 
+## Edición con Gemini
+
+Antes del recorte, la luz, el balance de blancos y el fondo se pueden mejorar con Gemini, sin cambiar nada del pastel. La instrucción y la revisión están en [`fotografia-edicion.md`](fotografia-edicion.md).
+
 ## Recorte
 
 - Quita el fondo con cualquier herramienta que lo haga: la función de aislar el sujeto del iPhone o del Mac, Photoshop o Canva.
@@ -34,7 +38,11 @@ Cada pastel del catálogo se entrega como un PNG recortado con fondo transparent
 
 ## Nombres de archivo
 
-- En minúsculas, con guiones, sin acentos ni ñ: `categoria-nombre.png`.
-- Categorías: `boda`, `xv`, `cumple`, `infantil`, `rebanada`, `postre`, `base`.
-- La foto del corte lleva `-corte` al final.
-- Ejemplos: `boda-tres-pisos-vainilla.png`, `xv-dos-pisos-fresa.png`, `rebanada-tres-leches.png`, `rebanada-tres-leches-corte.png`, `base-stand-dorado.png`.
+- En minúsculas, con guiones, sin acentos, sin ñ y sin guion bajo. El admin no acepta otra forma: el campo "archivo de la foto" solo recibe letras minúsculas, números y guiones, con extensión `webp`, `jpg`, `jpeg`, `png` o `avif`.
+- Un producto del catálogo usa su identificador del admin (el `slug`, la última parte de la dirección de su ficha). Así la foto y el producto se encuentran sin adivinar, aunque dos productos compartan sabor (hay tres de zarzamora y dos de cajeta).
+    - El pastel completo, que es el mismo en la vitrina y por encargo: `slug.png`. Va en el campo "archivo de la foto" del producto.
+    - El mini: `slug-mini.png`. La rebanada: `slug-rebanada.png`. Van en el campo "archivo de la foto" de esa presentación y reemplazan la del producto solo en ella.
+    - La foto del corte lleva `-corte` al final.
+    - Ejemplos: `tres-leches-de-cajeta.png`, `tres-leches-de-cajeta-mini.png`, `tres-leches-de-cajeta-rebanada.png`, `tres-leches-con-flan-y-cajeta-corte.png`, `imposible.png`.
+- Lo que no es un producto del catálogo usa `categoria-nombre.png`, con las categorías `boda`, `xv`, `cumple`, `infantil` y `base`. Ejemplos: `boda-tres-pisos-vainilla.png`, `base-dorada.png`.
+- La foto original, la que se toma con el teléfono, se queda con el nombre que le ponga la pastelería (por ejemplo, `Cajeta_Vitrina.jpg`), en `assets/pasteles/originales/`. Solo el archivo final sigue estas reglas.

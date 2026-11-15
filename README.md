@@ -162,7 +162,8 @@ El mockup (`mockup/fuente/*.dc.html`) son prototipos HTML de un lienzo de diseñ
 | [`docs/reglas-de-negocio.md`](docs/reglas-de-negocio.md) | Precios, límites, cálculos, estados y pendientes |
 | [`docs/libro-de-marca.md`](docs/libro-de-marca.md) | Color, tipografía, componentes, redacción y accesibilidad |
 | [`docs/mapa-de-vistas.md`](docs/mapa-de-vistas.md) | Cada pantalla con su ruta, archivo fuente y capturas |
-| [`docs/fotografia.md`](docs/fotografia.md) | Cómo deben ser las fotos de producto |
+| [`docs/fotografia.md`](docs/fotografia.md) | Cómo deben ser las fotos de producto y cómo se nombran |
+| [`docs/fotografia-edicion.md`](docs/fotografia-edicion.md) | Cómo se mejoran las fotos con Gemini sin cambiar el pastel |
 | [`docs/bitacora.md`](docs/bitacora.md) | Bitácora de trabajo |
 | [`design/`](design/) | `tokens.json`, `tokens.css`, `tailwind.preset.js` y código de referencia |
 | [`AGENTS.md`](AGENTS.md) | Instrucciones para agentes; hay otro en `backend/` y otro en `frontend/` |
