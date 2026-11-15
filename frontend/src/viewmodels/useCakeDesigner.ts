@@ -350,8 +350,8 @@ export function useCakeDesigner() {
   const waferLocal = waferImage.image && draft.waferEnabled ? waferImage.image : null
   const addToOrder = useCallback(async () => {
     if (!orderLine) return
-    await order.add(orderLine, { decoration: decorationLocal, wafer: waferLocal })
-  }, [decorationLocal, order, orderLine, waferLocal])
+    await order.add(orderLine, { decoration: decorationLocal, wafer: waferLocal }, draft.replaces)
+  }, [decorationLocal, draft.replaces, order, orderLine, waferLocal])
   const { clear: clearDecorationImage } = decorationImage
   const { clear: clearWaferImage } = waferImage
   /** Empieza con `fresh` en el paso 1, sin las imágenes del diseño anterior. */

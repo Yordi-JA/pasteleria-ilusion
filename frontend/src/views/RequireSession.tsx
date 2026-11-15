@@ -1,4 +1,4 @@
-import { Navigate, Outlet, useLocation } from 'react-router'
+import { Navigate, Outlet, useLocation, useOutletContext } from 'react-router'
 import Duya from '../components/Duya.tsx'
 import Skeleton, { LoadingRegion } from '../components/Skeleton.tsx'
 import { accessLink } from '../viewmodels/returnPath.ts'
@@ -20,12 +20,14 @@ function AccountSkeleton() {
 }
 
 /**
- * Las rutas de la cuenta (`/cuenta/...`) piden sesión (D62). Mientras se recupera, el esqueleto; sin sesión, a
+ * Las rutas de la cuenta (`/cuenta/...`) y la entrega (`/pedido/entrega`, D66) piden sesión (D62). Mientras se recupera, el esqueleto; sin sesión, a
  * `/entrar` con `?volver=` para regresar aquí al entrar, o a la portada si la persona acaba de salir.
  */
 export default function RequireSession() {
   const session = useSession()
   const location = useLocation()
+  // Los datos del negocio que da el marco pasan a la vista de adentro (la entrega muestra el WhatsApp).
+  const store: unknown = useOutletContext()
   if (session.status === 'anonymous') {
     // Salió a propósito desde esta misma ruta: a la portada. La sesión venció, nunca hubo o salió en otra ruta y ahora
     // vuelve a la cuenta: a entrar, para volver aquí.
@@ -34,7 +36,7 @@ export default function RequireSession() {
   }
   return (
     <LoadingRegion loading={session.status === 'checking'} label="Cargando tu cuenta" skeleton={<AccountSkeleton />}>
-      <Outlet />
+      <Outlet context={store} />
     </LoadingRegion>
   )
 }

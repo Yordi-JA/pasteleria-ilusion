@@ -393,6 +393,18 @@ export function removeItem(items: CartItem[], key: LineKey): CartItem[] {
   return items.filter((item) => item.kind !== 'offering' || !sameLine(item, key))
 }
 
+/**
+ * Cambia las piezas de una línea del catálogo (la pantalla del carrito, Etapa 4). Una línea que no está no se agrega; una
+ * cantidad fuera de 1 a `MAX_LINE_QUANTITY` es un `RangeError` (para quitar está `removeItem`). El tope de la vitrina de
+ * hoy lo revisa el servidor al crear el pedido: el carrito no sabe cuántas quedan.
+ */
+export function setItemQuantity(items: CartItem[], key: LineKey, quantity: number): CartItem[] {
+  assertQuantity(quantity)
+  const found = findOffering(items, key)
+  if (!found || found.item.quantity === quantity) return items
+  return items.map((item, index) => (index === found.index ? { ...found.item, quantity } : item))
+}
+
 /** Cuántas piezas hay en una línea; 0 si no está. */
 export function lineQuantity(items: CartItem[], key: LineKey): number {
   return findOffering(items, key)?.item.quantity ?? 0

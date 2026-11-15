@@ -1,12 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { addDesign, addItem, cartCount, CART_STORAGE_KEY, imageKeysOf, readCart, removeDesign, removeItem, writeCart } from '../models/cart.ts'
+import { addDesign, addItem, cartCount, CART_STORAGE_KEY, imageKeysOf, readCart, removeDesign, removeItem, setItemQuantity, writeCart } from '../models/cart.ts'
 import type { AddDesignResult, AddResult, CartItem, CartOffering, DesignItem, LineKey, StoredCart } from '../models/cart.ts'
 import { deleteDesignImages } from '../models/designImages.ts'
 
 /** Lo que devuelve `add`: cuántas entraron, cuántas hay y, si no entró nada por un tope técnico, `limit`. */
 export type AddOutcome = Omit<AddResult, 'items'>
 
-// `setQuantity` llega con la pantalla del carrito (Etapa 4), que es la única que la necesita.
 export type Cart = {
   items: CartItem[]
   /** Suma de las cantidades: lo que dice el contador del encabezado. */
@@ -15,6 +14,8 @@ export type Cart = {
   add: (offering: CartOffering, quantity: number, maxQuantity?: number) => AddOutcome
   /** Quita la línea de esa presentación y ese tipo (encargo o vitrina de hoy). */
   remove: (key: LineKey) => void
+  /** Cambia las piezas de una línea del catálogo (la pantalla del carrito). */
+  setQuantity: (key: LineKey, quantity: number) => void
   /** Agrega un pastel de "Diseña tu pastel" (D55); el mismo diseño no entra dos veces. */
   addDesign: (design: DesignItem) => Omit<AddDesignResult, 'items'>
   /** Quita un pastel diseñado y borra sus imágenes del navegador. */
@@ -104,6 +105,11 @@ export function useCartState(): Cart {
     [update],
   )
 
+  const setQuantity = useCallback(
+    (key: LineKey, quantity: number) => update((base) => ({ items: setItemQuantity(base.items, key, quantity), result: undefined })),
+    [update],
+  )
+
   const addDesignLine = useCallback(
     (design: DesignItem) =>
       update((base) => {
@@ -131,8 +137,8 @@ export function useCartState(): Cart {
   }, [update])
 
   return useMemo(
-    () => ({ items, count: cartCount(items), add, remove, addDesign: addDesignLine, removeDesign: removeDesignLine, clear }),
-    [items, add, remove, addDesignLine, removeDesignLine, clear],
+    () => ({ items, count: cartCount(items), add, remove, setQuantity, addDesign: addDesignLine, removeDesign: removeDesignLine, clear }),
+    [items, add, remove, setQuantity, addDesignLine, removeDesignLine, clear],
   )
 }
 

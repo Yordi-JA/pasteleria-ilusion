@@ -15,7 +15,7 @@ PHONE_SEPARATORS = re.compile(r"[\s().-]")
 PHONE_ERROR = "Escribe 10 dígitos, por ejemplo 55 1234 5678."
 
 
-class _StrictCharField(serializers.CharField):
+class StrictCharField(serializers.CharField):
     """`CharField` que rechaza números, listas y demás: DRF convertiría `123` en `"123"`."""
 
     default_error_messages = {"invalid": "Escribe un texto."}
@@ -27,14 +27,14 @@ class _StrictCharField(serializers.CharField):
 
 
 class LoginRequestSerializer(serializers.Serializer):
-    email = _StrictCharField(max_length=MAX_EMAIL_LENGTH, error_messages={"blank": "Escribe tu correo."})
-    password = _StrictCharField(
+    email = StrictCharField(max_length=MAX_EMAIL_LENGTH, error_messages={"blank": "Escribe tu correo."})
+    password = StrictCharField(
         max_length=MAX_PASSWORD_LENGTH, trim_whitespace=False, error_messages={"blank": "Escribe tu contraseña."}
     )
 
 
 class RegisterRequestSerializer(serializers.Serializer):
-    full_name = _StrictCharField(
+    full_name = StrictCharField(
         max_length=150,
         error_messages={
             "blank": "Escribe tu nombre.",
@@ -50,8 +50,8 @@ class RegisterRequestSerializer(serializers.Serializer):
             "required": "Escribe tu correo.",
         },
     )
-    phone = _StrictCharField(max_length=20, required=False, allow_blank=True, default="")
-    password = _StrictCharField(
+    phone = StrictCharField(max_length=20, required=False, allow_blank=True, default="")
+    password = StrictCharField(
         max_length=MAX_PASSWORD_LENGTH,
         trim_whitespace=False,
         error_messages={"blank": "Crea una contraseña.", "required": "Crea una contraseña."},
@@ -76,7 +76,7 @@ class RegisterRequestSerializer(serializers.Serializer):
 
 
 class GoogleLoginRequestSerializer(serializers.Serializer):
-    credential = _StrictCharField(max_length=MAX_CREDENTIAL_LENGTH)
+    credential = StrictCharField(max_length=MAX_CREDENTIAL_LENGTH)
 
 
 class SessionUserSerializer(serializers.Serializer):

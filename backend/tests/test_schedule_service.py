@@ -21,18 +21,6 @@ def at(hour, minute=0, day=TODAY):
     return datetime(day.year, day.month, day.day, hour, minute, tzinfo=CDMX)
 
 
-class Counts:
-    """Conteos de pedidos por lapso, como los daría `order_repo.count_orders_by_slot`."""
-
-    def __init__(self, counts=None):
-        self.counts = counts or {}
-        self.asked = None
-
-    def count_orders_by_slot(self, on_date, **kwargs):
-        self.asked = (on_date, kwargs)
-        return self.counts
-
-
 def test_the_grid_has_30_minute_slots_from_the_first_to_the_last():
     grid = schedule_service.slot_grid(STORE)
     assert len(grid) == 24
@@ -85,33 +73,6 @@ def test_without_kinds_there_is_no_rule():
         schedule_service.lead_rule(set(), at(15, 10), STORE, POLICY)
 
 
-def test_the_day_schedule_marks_too_soon_and_full_slots():
-    counts = Counts({time(17, 30): 3, time(18, 0): 2})
-    schedule = schedule_service.day_schedule(
-        TODAY, {"order"}, now=at(15, 10), settings=data.settings_repo(), orders=counts
-    )
-    by_start = {slot.starts_at: slot for slot in schedule.slots}
-    assert (by_start[time(17, 0)].available, by_start[time(17, 0)].reason) == (False, "too_soon")
-    assert (by_start[time(17, 30)].available, by_start[time(17, 30)].reason) == (False, "full")
-    assert (by_start[time(18, 0)].available, by_start[time(18, 0)].reason) == (True, None)
-    assert schedule.earliest_date == TODAY
-    # Cuenta como ocupado lo activo y lo apartado que aún no vence.
-    assert counts.asked[0] == TODAY
-    assert counts.asked[1]["unpaid_status"] == "awaiting_payment"
-    assert "received" in counts.asked[1]["holding_statuses"]
-    assert "cancelled" not in counts.asked[1]["holding_statuses"]
-
-
-def test_the_earliest_date_skips_a_day_without_slots_left():
-    late = schedule_service.day_schedule(TODAY, {"order"}, now=at(21, 0), settings=data.settings_repo(), orders=Counts())
-    assert late.earliest_date == date(2026, 11, 14)
-    showcase = schedule_service.day_schedule(
-        TODAY, {"showcase"}, now=at(22, 10), settings=data.settings_repo(), orders=Counts()
-    )
-    assert showcase.earliest_date is None
-    assert not any(slot.available for slot in showcase.slots)
-
-
 def test_find_slot_rejects_a_time_outside_the_grid_and_one_too_soon():
     rule = schedule_service.lead_rule({"design"}, at(15, 10), STORE, POLICY)
     assert schedule_service.find_slot(date(2026, 11, 15), time(10, 30), rule, STORE).ends_at == time(11, 0)
@@ -137,13 +98,112 @@ def test_cash_will_be_due_at_closing_today_or_tomorrow():
     assert schedule_service.cash_payment_due_at(at(22, 40), far, STORE) == at(22, 30, day=tomorrow)
 
 
-def test_a_date_past_the_booking_window_is_refused():
-    schedule = schedule_service.day_schedule(
-        date(2027, 1, 12), {"design"}, now=at(15, 10), settings=data.settings_repo(), orders=Counts()
+# --- Calendario: un rango de días con sus lapsos (D66, decisión C del usuario) ---
+
+
+class DayCounts:
+    """Conteos por día y lapso, como los daría `order_repo.count_orders_by_date_and_slot`."""
+
+    def __init__(self, counts=None):
+        self.counts = counts or {}
+        self.asked = []
+
+    def count_orders_by_date_and_slot(self, start, end, **kwargs):
+        self.asked.append((start, end, kwargs))
+        return self.counts
+
+
+def calendar(start, end, kinds, now=None, counts=None):
+    return schedule_service.calendar_schedule(
+        start, end, kinds, now=now or at(15, 10), settings=data.settings_repo(), orders=counts or DayCounts()
     )
-    assert schedule.slots
+
+
+def test_the_calendar_gives_each_day_with_its_slots_in_one_query():
+    counts = DayCounts({(date(2026, 11, 16), time(15, 0)): 3})
+    month = calendar(date(2026, 11, 1), date(2026, 11, 30), {"design"}, counts=counts)
+    assert [day.date for day in month.days] == [date(2026, 11, d) for d in range(1, 31)]
+    assert len(counts.asked) == 1 and counts.asked[0][:2] == (date(2026, 11, 1), date(2026, 11, 30))
+    by_date = {day.date: day for day in month.days}
+    # Antes de hoy más dos días: no alcanza la anticipación, sin lapsos que mostrar.
+    assert (by_date[date(2026, 11, 14)].available, by_date[date(2026, 11, 14)].reason) == (False, "too_soon")
+    assert by_date[date(2026, 11, 14)].slots == ()
+    first = by_date[date(2026, 11, 15)]
+    assert (first.available, first.reason, len(first.slots)) == (True, None, 24)
+    slot = {s.starts_at: s for s in by_date[date(2026, 11, 16)].slots}[time(15, 0)]
+    assert (slot.available, slot.reason) == (False, "full")
+    assert month.earliest_date == date(2026, 11, 15)
+    assert month.latest_date == date(2027, 1, 12)
+
+
+def test_a_day_with_every_slot_full_is_full():
+    full_day = {(date(2026, 11, 20), slot.starts_at): 3 for slot in schedule_service.slot_grid(STORE)}
+    month = calendar(date(2026, 11, 19), date(2026, 11, 21), {"design"}, counts=DayCounts(full_day))
+    by_date = {day.date: day for day in month.days}
+    assert (by_date[date(2026, 11, 20)].available, by_date[date(2026, 11, 20)].reason) == (False, "full")
+    assert all(slot.reason == "full" for slot in by_date[date(2026, 11, 20)].slots)
+    assert by_date[date(2026, 11, 21)].available
+
+
+def test_today_with_some_slots_too_soon_and_the_rest_full_is_full():
+    # Un encargo para hoy a las 15:10 empieza a las 17:30; de ahí al cierre, todo lleno.
+    rest = {(TODAY, slot.starts_at): 3 for slot in schedule_service.slot_grid(STORE) if slot.starts_at >= time(17, 30)}
+    today = calendar(TODAY, TODAY, {"order"}, counts=DayCounts(rest)).days[0]
+    assert (today.available, today.reason) == (False, "full")
+    reasons = {slot.starts_at: slot.reason for slot in today.slots}
+    assert (reasons[time(17, 0)], reasons[time(17, 30)]) == ("too_soon", "full")
+
+
+def test_days_past_the_booking_window_are_too_far():
+    month = calendar(date(2027, 1, 1), date(2027, 1, 31), {"order"})
+    by_date = {day.date: day for day in month.days}
+    assert by_date[date(2027, 1, 12)].available
+    assert (by_date[date(2027, 1, 13)].available, by_date[date(2027, 1, 13)].reason) == (False, "too_far")
+    assert by_date[date(2027, 1, 13)].slots == ()
+
+
+def test_the_showcase_calendar_only_offers_today():
+    week = calendar(TODAY, date(2026, 11, 15), {"showcase"})
+    assert [(day.available, day.reason) for day in week.days] == [(True, None), (False, "too_far"), (False, "too_far")]
+    assert week.earliest_date == TODAY
+
+
+def test_the_calendar_takes_at_most_42_days_in_order():
+    assert len(calendar(date(2026, 11, 1), date(2026, 12, 12), {"order"}).days) == 42
+    with pytest.raises(DomainValidationError) as too_long:
+        calendar(date(2026, 11, 1), date(2026, 12, 13), {"order"})
+    assert too_long.value.errors == {"end": ["Pide como mucho 42 días a la vez."]}
+    with pytest.raises(DomainValidationError) as backwards:
+        calendar(date(2026, 11, 2), date(2026, 11, 1), {"order"})
+    assert backwards.value.errors == {"end": ["La fecha final va después de la inicial."]}
+
+
+def test_the_calendar_refuses_showcase_with_design():
     with pytest.raises(DomainValidationError) as error:
-        schedule_service.day_schedule(
-            date(2027, 1, 13), {"design"}, now=at(15, 10), settings=data.settings_repo(), orders=Counts()
-        )
-    assert "60 días" in error.value.errors["date"][0]
+        calendar(TODAY, TODAY, {"showcase", "design"})
+    assert error.value.errors == {"kind": [schedule_service.MIXED_MESSAGE]}
+
+
+def test_the_calendar_marks_too_soon_and_full_slots():
+    counts = DayCounts({(TODAY, time(17, 30)): 3, (TODAY, time(18, 0)): 2})
+    today = calendar(TODAY, TODAY, {"order"}, counts=counts)
+    by_start = {slot.starts_at: slot for slot in today.days[0].slots}
+    assert (by_start[time(17, 0)].available, by_start[time(17, 0)].reason) == (False, "too_soon")
+    assert (by_start[time(17, 30)].available, by_start[time(17, 30)].reason) == (False, "full")
+    assert (by_start[time(18, 0)].available, by_start[time(18, 0)].reason) == (True, None)
+    assert today.earliest_date == TODAY
+    # Cuenta como ocupado lo activo y lo apartado que aún no vence.
+    kwargs = counts.asked[0][2]
+    assert kwargs["unpaid_status"] == "awaiting_payment"
+    assert "received" in kwargs["holding_statuses"]
+    assert "cancelled" not in kwargs["holding_statuses"]
+    assert "awaiting_quote" not in kwargs["holding_statuses"]
+
+
+def test_the_earliest_date_skips_a_day_without_slots_left():
+    late = calendar(TODAY, TODAY, {"order"}, now=at(21, 0))
+    assert late.earliest_date == date(2026, 11, 14)
+    assert (late.days[0].available, late.days[0].reason) == (False, "too_soon")
+    showcase = calendar(TODAY, TODAY, {"showcase"}, now=at(22, 10))
+    assert showcase.earliest_date is None
+    assert not showcase.days[0].available

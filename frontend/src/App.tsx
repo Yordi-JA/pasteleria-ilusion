@@ -57,6 +57,8 @@ export default function App() {
           <Route path="/cuenta/datos" element={<AccountDetails />} />
           <Route path="/cuenta/pedidos/:id" element={<OrderDetail />} />
           <Route path="/cuenta/cotizaciones/:id" element={<Quote />} />
+          {/* La entrega crea el pedido en el servidor: pide sesión (D62, D66). */}
+          <Route path="/pedido/entrega" element={<Delivery />} />
         </Route>
 
         <Route path="/carrito" element={<Cart />} />
@@ -64,7 +66,6 @@ export default function App() {
         <Route path="/pedido/disena" element={<CakeDesigner />} />
         <Route path="/pedido/referencia" element={<ReferenceUpload />} />
         <Route path="/pedido/referencia/enviada" element={<ReferenceSent />} />
-        <Route path="/pedido/entrega" element={<Delivery />} />
         <Route path="/pedido/pago" element={<Payment />} />
         <Route path="/pedido/confirmacion" element={<OrderConfirmation />} />
         <Route path="/pedido/apartado" element={<OrderReserved />} />

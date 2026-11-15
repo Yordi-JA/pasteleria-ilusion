@@ -6,15 +6,44 @@ import { FOOTER_LINKS } from './navigation.ts'
 import Pending from './Pending.tsx'
 import { StoreLoadingLabel, StoreSkeleton, WhatsAppNumber, WhatsAppWritePending } from './StoreText.tsx'
 
-type SiteFooterProps = { store: StoreDetails }
+type SiteFooterProps = {
+  store: StoreDetails
+  /** En la entrega y el pago, el pie corto del mockup: solo el año y los legales, para no distraer de la compra. */
+  compact?: boolean
+}
 
 const heading = 'mb-1 text-etiqueta text-sobre-color'
 // Todo enlace del pie mide al menos 44 px de alto (libro de marca, "Accesibilidad").
 const link = `inline-flex min-h-11 items-center self-start rounded-sm ${focusRingOnColor}`
 
+function LegalRow({ bordered }: { bordered: boolean }) {
+  return (
+    <div className={`flex flex-wrap items-center justify-between gap-4 text-nota text-sobre-color-suave ${bordered ? 'border-t border-mermelada-suave pt-6' : ''}`}>
+      <p>© 2026 Pastelería Ilusión</p>
+      <div className="flex flex-wrap gap-x-6">
+        <Link to="/legal#privacidad" className={`${link} underline underline-offset-4`}>
+          Aviso de privacidad
+        </Link>
+        <Link to="/legal#terminos" className={`${link} underline underline-offset-4`}>
+          Términos y condiciones
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 /** Pie sobre campo `mermelada`, con el símbolo como estampa. La guirnalda que lo antecede la pone el layout. */
-export default function SiteFooter({ store }: SiteFooterProps) {
+export default function SiteFooter({ store, compact = false }: SiteFooterProps) {
   const loading = store.status === 'loading'
+  if (compact) {
+    return (
+      <footer className="bg-mermelada pb-8 pt-6 text-cuerpo text-sobre-color">
+        <div className="mx-auto max-w-[1200px] px-6 max-[600px]:px-4">
+          <LegalRow bordered={false} />
+        </div>
+      </footer>
+    )
+  }
   return (
     <footer className="bg-mermelada pb-8 pt-[72px] text-cuerpo text-sobre-color">
       <div className="mx-auto flex max-w-[1200px] flex-col gap-12 px-6 max-[600px]:px-4">
@@ -84,17 +113,7 @@ export default function SiteFooter({ store }: SiteFooterProps) {
           </nav>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-mermelada-suave pt-6 text-nota text-sobre-color-suave">
-          <p>© 2026 Pastelería Ilusión</p>
-          <div className="flex flex-wrap gap-x-6">
-            <Link to="/legal#privacidad" className={`${link} underline underline-offset-4`}>
-              Aviso de privacidad
-            </Link>
-            <Link to="/legal#terminos" className={`${link} underline underline-offset-4`}>
-              Términos y condiciones
-            </Link>
-          </div>
-        </div>
+        <LegalRow bordered />
       </div>
     </footer>
   )

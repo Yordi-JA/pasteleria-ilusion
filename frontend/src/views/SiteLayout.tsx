@@ -1,9 +1,9 @@
 import { useRef } from 'react'
-import { Outlet } from 'react-router'
+import { Outlet, useLocation } from 'react-router'
 import CartPearls from '../components/CartPearls.tsx'
 import Duya from '../components/Duya.tsx'
 import SiteFooter from '../components/SiteFooter.tsx'
-import SiteHeader from '../components/SiteHeader.tsx'
+import SiteHeader, { CheckoutHeader } from '../components/SiteHeader.tsx'
 import TopStrip from '../components/TopStrip.tsx'
 import LogoutUnconfirmedNotice from './account/LogoutUnconfirmedNotice.tsx'
 import { CartContext, useCartState } from '../viewmodels/useCart.ts'
@@ -13,6 +13,9 @@ import { useRouteFocus } from '../viewmodels/useRouteFocus.ts'
 import { useRestoreSession, useSession, useSignOut, useSignOutAcknowledgement } from '../viewmodels/useSession.ts'
 import { useSiteMenu } from '../viewmodels/useSiteMenu.ts'
 import { useStoreInfo } from '../viewmodels/useStoreInfo.ts'
+
+/** La entrega y el pago llevan el marco de la compra (mockup de Entrega y Pago): franja, barra y pie propios. */
+const CHECKOUT_PATHS = new Set(['/pedido/entrega', '/pedido/pago'])
 
 /**
  * Marco común de todas las rutas: franja, toldo, barra flotante, contenido, guirnalda y pie.
@@ -33,6 +36,7 @@ export default function SiteLayout() {
   const session = useSession()
   const signOut = useSignOut()
   const [closingField, setClosingField] = useClosingFieldState()
+  const checkout = CHECKOUT_PATHS.has(useLocation().pathname)
 
   return (
     <CartContext value={cart}>
@@ -49,24 +53,28 @@ export default function SiteLayout() {
             >
               Saltar al contenido
             </a>
-            <TopStrip store={store} />
+            <TopStrip store={store} checkout={checkout} />
             <div data-testid="toldo" className="toldo" aria-hidden="true" />
-            <SiteHeader
-              store={store}
-              menu={menu}
-              session={session}
-              onSignOut={signOut}
-              cartCount={cart.count}
-              shownCount={shownCount}
-              cartIconRef={iconRef}
-            />
+            {checkout ? (
+              <CheckoutHeader />
+            ) : (
+              <SiteHeader
+                store={store}
+                menu={menu}
+                session={session}
+                onSignOut={signOut}
+                cartCount={cart.count}
+                shownCount={shownCount}
+                cartIconRef={iconRef}
+              />
+            )}
             {session.status === 'anonymous' && session.logoutUnconfirmed && <LogoutUnconfirmedNotice onRetry={signOut} />}
             <main id="contenido" ref={main} tabIndex={-1} className="flex-1 scroll-mt-24 bg-nata outline-none">
               {/* Las vistas que necesitan los datos del negocio los leen con `useStoreDetails`, sin otra petición. */}
               <Outlet context={store} />
             </main>
             <Duya type="guirnalda" color={closingField} below="mermelada" />
-            <SiteFooter store={store} />
+            <SiteFooter store={store} compact={checkout} />
           </div>
           <CartPearls pearls={pearls} onArrive={arrive} />
         </ClosingFieldContext>

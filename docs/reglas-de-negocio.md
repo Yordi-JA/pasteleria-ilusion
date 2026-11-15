@@ -362,6 +362,9 @@ def delivery_fee(total_kg: float, km: float):
 
 - Distancia: calcularla con una API de rutas (p. ej. Google Distance Matrix) a partir de la dirección del cliente.
 - PENDIENTE: ¿la pastelería tiene repartidor propio o usará una aplicación? (con repartidor propio cuenta el regreso y la tarifa debería subir).
+- **Por ahora, en línea solo se recoge en la pastelería.** La entrega a domicilio se ve en la pantalla de entrega, desactivada, con "Por ahora la coordinamos por WhatsApp" y el enlace de WhatsApp de la pastelería; la dirección y el costo por distancia llegan con la API de rutas (solo si sobra tiempo, D61). Lo decidió el usuario el 14 de noviembre de 2026 (D66).
+- **Quién recoge:** el pedido guarda el nombre y el teléfono (10 dígitos) de quien lo recoge; la pantalla los llena con los de la cuenta y se pueden cambiar. Lo decidió el usuario el 14 de noviembre de 2026 (D66).
+- PENDIENTE: cuánto tiempo se conservan el nombre y el teléfono de quien recoge, que pueden ser de otra persona (no de la cuenta). Lo define la pastelería con su aviso de privacidad; mientras tanto se guardan con el pedido.
 
 ---
 

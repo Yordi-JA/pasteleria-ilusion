@@ -44,6 +44,8 @@ def request(line, day, slot, key=None):
     return order_service.OrderRequest(
         idempotency_key=key or uuid.uuid4().hex,
         fulfillment="pickup",
+        pickup_name="Ana López García",
+        pickup_phone="5512345678",
         delivery_date=day,
         slot_starts_at=datetime.strptime(slot, "%H:%M").time(),
         items=(line,),
@@ -113,6 +115,8 @@ def test_two_orders_with_the_same_pieces_in_reverse_order_do_not_deadlock(django
         request = order_service.OrderRequest(
             idempotency_key=uuid.uuid4().hex,
             fulfillment="pickup",
+            pickup_name="Ana López García",
+            pickup_phone="5512345678",
             delivery_date=TODAY,
             # Lapsos distintos: el candado del lapso no los pone en fila y solo queda el orden de las existencias.
             slot_starts_at=datetime.strptime(("12:30", "13:00")[index], "%H:%M").time(),

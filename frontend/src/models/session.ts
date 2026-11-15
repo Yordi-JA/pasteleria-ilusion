@@ -7,6 +7,7 @@
  * que la primera rote la cookie y manda ya la nueva, en lugar de la vieja que el backend puso en la lista negra.
  */
 import { ApiError, apiPath, REQUEST_TIMEOUT_MS } from './apiClient.ts'
+import { resetPurchase } from './checkout.ts'
 
 const API_BASE = '/api/v1/'
 
@@ -92,6 +93,9 @@ function setState(next: SessionState) {
 function signOutLocally({ byPerson = false } = {}) {
   access = null
   generation += 1
+  // La compra en curso es de esta cuenta: su llave y sus imágenes subidas no pasan a la siguiente (D66). También corre
+  // con el aviso de salida de otra pestaña, que llega aquí.
+  resetPurchase()
   setState({ status: 'anonymous', signedOutFrom: byPerson ? window.location.pathname : undefined })
 }
 
@@ -362,22 +366,56 @@ async function freshAccess(): Promise<string | null | 'transient'> {
   return outcome === 'ok' && access ? access.token : null
 }
 
+/** Lo que acepta `requestWithSession`. `query` admite listas (`?kind=order&kind=design`). */
+export type SessionRequest = {
+  method?: 'GET' | 'POST'
+  query?: Record<string, string | string[]>
+  /** El cuerpo JSON de un `POST`. */
+  json?: unknown
+  /** El cuerpo multipart de una subida (el navegador pone el `Content-Type` con su separador). */
+  form?: FormData
+  headers?: Record<string, string>
+  signal?: AbortSignal
+  /** Corte propio, por ejemplo para subir una imagen grande; por omisión, 10 s. */
+  timeoutMs?: number
+}
+
+/** La respuesta de un recurso de la cuenta: el código y el JSON sin validar (`null` sin cuerpo). */
+export type SessionResponse = { status: number; body: unknown }
+
+function searchOf(query: SessionRequest['query']): string {
+  if (!query) return ''
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(query)) {
+    for (const item of Array.isArray(value) ? value : [value]) params.append(key, item)
+  }
+  const text = params.toString()
+  return text ? `?${text}` : ''
+}
+
 /**
- * Pide un recurso de la cuenta (por ejemplo, "Mis pedidos") con `Authorization: Bearer`. Un 401 renueva una vez y
- * reintenta; un segundo 401 o un refresh rechazado terminan la sesión; una renovación pasajera falla con 503 sin
- * cerrarla. Se corta a los 10 s, además de la señal de quien llama.
+ * Pide o envía un recurso de la cuenta (pedidos, agenda, imágenes) con `Authorization: Bearer`. Un 401 renueva una vez
+ * y reintenta (con el mismo cuerpo: el servidor no hizo nada con el 401); un segundo 401 o un refresh rechazado
+ * terminan la sesión; una renovación pasajera falla con 503 sin cerrarla. Una respuesta fuera de 2xx es un `ApiError`
+ * con su cuerpo, para que quien llama lea los errores por campo. Los endpoints con JWT no piden CSRF: el token no viaja
+ * solo como una cookie. Se corta a los 10 s (o `timeoutMs`), además de la señal de quien llama; sin red, `fetch` lanza.
  */
-export async function getJsonWithSession(segments: string[], init: { signal?: AbortSignal } = {}): Promise<unknown> {
+export async function requestWithSession(segments: string[], init: SessionRequest = {}): Promise<SessionResponse> {
   const path = apiPath(...segments)
-  const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+  const method = init.method ?? 'GET'
+  const timeout = AbortSignal.timeout(init.timeoutMs ?? REQUEST_TIMEOUT_MS)
   const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout
+  const body = init.form ?? (init.json === undefined ? undefined : JSON.stringify(init.json))
+  const contentType: Record<string, string> = init.json === undefined ? {} : { 'Content-Type': 'application/json' }
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const token = await freshAccess()
     // Sin red, con límite de peticiones o con el servidor caído no se sabe si la sesión sigue: se falla sin cerrarla.
-    if (token === 'transient') throw new ApiError(503, path)
+    if (token === 'transient') throw new ApiError(503, path, method)
     if (!token) break
-    const response = await fetch(`${API_BASE}${path}`, {
-      headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+    const response = await fetch(`${API_BASE}${path}${searchOf(init.query)}`, {
+      method,
+      headers: { Accept: 'application/json', ...contentType, ...init.headers, Authorization: `Bearer ${token}` },
+      body,
       signal,
     })
     if (response.status === 401) {
@@ -386,9 +424,21 @@ export async function getJsonWithSession(segments: string[], init: { signal?: Ab
       if (access?.token === token) access = null
       continue
     }
-    if (!response.ok) throw new ApiError(response.status, path)
-    return (await response.json()) as unknown
+    const data: unknown = response.status === 204 ? null : await response.json().catch(() => undefined)
+    if (!response.ok) throw new ApiError(response.status, path, method, data)
+    return { status: response.status, body: data }
   }
   signOutLocally()
-  throw new ApiError(401, path)
+  throw new ApiError(401, path, method)
+}
+
+/**
+ * Pide un recurso de la cuenta (por ejemplo, "Mis pedidos") y devuelve su JSON sin validar. Es `requestWithSession`
+ * con `GET`: las mismas reglas de renovación, cierre y corte.
+ */
+export async function getJsonWithSession(
+  segments: string[],
+  init: { signal?: AbortSignal; query?: SessionRequest['query'] } = {},
+): Promise<unknown> {
+  return (await requestWithSession(segments, init)).body
 }
