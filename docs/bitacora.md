@@ -494,3 +494,34 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Los throttles de pedidos y de imágenes (`orders_create`, `customer_images_user` y `customer_images_ip`) cuentan ahora en `CACHES["security"]` y agrupan IPv6 por /64 con `config.security.group_ip`, como los del acceso; las tasas no cambian. Dos pruebas nuevas en `backend/tests/test_order_limits.py`. Detalle en D63.
 - D63 queda entre D62 y D64 en [`proyecto/decisiones.md`](proyecto/decisiones.md), y `backend/AGENTS.md`, `pendientes.md` y `proyecto/arquitectura.md` juntan lo de las dos ramas.
 - Pruebas: 1 580 de pytest pasan y 3 se saltan (sin build del frontend), con `--create-db -n auto`. `manage.py check`, `makemigrations --check` y `spectacular --validate --fail-on-warn` pasan sin avisos; `npm run typecheck` pasa.
+
+### Sábado 14 de noviembre: ronda 2 de la API de pedidos (D63)
+
+- Decisiones del usuario, en D63 y en las secciones 1, 6.1, 10, 12 y 14 de [`reglas-de-negocio.md`](reglas-de-negocio.md):
+  - Con el precio que pone el personal en el admin, un pedido `awaiting_quote` pasa a `awaiting_payment` con su plazo para pagar. El precio solo se edita mientras el pedido espera cotización.
+  - Cuánto espera una cotización sin precio queda PENDIENTE (`PolicySettings.quote_expiry_hours`, vacío); mientras tanto no vence.
+  - El personal cancela desde el admin solo antes del pago, con el reintegro del lapso, la vitrina y el pan.
+  - Topes nuevos por cliente: 1 pedido esperando cotización y 10 piezas de la vitrina sin pagar.
+- Comando `cancel_expired_orders` (antes planeado como `cancel_unpaid_cash_orders`): cancela lo vencido con el mismo reintegro y borra las imágenes de sus diseños. Es idempotente y seguro con dos corridas a la vez. Falta programarlo en Heroku Scheduler.
+- También: cobrar un apartado vencido revisa otra vez el cupo de su lapso; el primer lapso deja completos los 30 minutos para pagar; una decoración por cotizar por pedido; `orders_create_user` (10/hora) y `orders_create_ip` (60/hora); un reintento con la misma `Idempotency-Key` no gasta cupo; el admin muestra solo el error de un cambio rechazado y no lo anota en el historial; `payment.paid_in_full` en la respuesta; un lapso fuera de los días que se reservan es un 400.
+- Migración `0034_order_round2_policy` (`quote_expiry_hours` vacío y dos textos de ayuda).
+- Pruebas: `backend/tests/test_order_round2.py` (24: las 20 de la revisión y 4 nuevas). Antes de implementar fallaban 22 y pasaban 2 contra el código del commit `0420e87`. Se ajustaron pruebas de la ronda 1 que contradecían las decisiones (detalle en D63). La suite da 1 604 de pytest que pasan y 3 que se saltan (sin build del frontend), con `--create-db -n auto`. `manage.py check`, `makemigrations --check` y `spectacular --validate --fail-on-warn` pasan sin avisos.
+
+### Sábado 14 de noviembre: arreglos de la revisión de la ronda 2 de pedidos (D63)
+
+- La revisión de código y la auditoría de seguridad de la ronda 2 no dejaron hallazgos que bloquearan. Se corrigieron los tres mayores:
+  - Cancelar devuelve la vitrina por id, después el pan por id y al final las imágenes, el orden de la creación. Con el orden anterior, cancelar y crear la misma combinación a la vez daba un deadlock.
+  - Un reintento con una `Idempotency-Key` usada tiene su propio throttle, `orders_retry_user` (120 por minuto), y recibe su pedido antes de que se valide el cuerpo.
+  - Al hacer un pedido, primero se cancelan con su reintegro los apartados vencidos del mismo cliente, cada uno en su transacción y antes de la de creación. Antes, una cuenta podía apartar otras 10 piezas de la vitrina con las primeras 10 todavía fuera.
+- Decisiones del usuario, en D63 y en las secciones 1, 6.1, 10 y 12 de [`reglas-de-negocio.md`](reglas-de-negocio.md): una cotización con precio se paga hasta el cierre del día; un pedido en pausa por cotización no ocupa lapso y el cupo se revisa al ponerle precio; se confirman el primer lapso con 30 minutos para pagar, los 60 pedidos por hora por IP y que la cotización con precio no revise el tope de 2 sin pagar; `cancel_expired_orders` se programará en Heroku Scheduler cada 10 minutos.
+- Menores: la auditoría de `price_quote` registra el precio y lo que se paga hoy, y la de la cancelación, los ids. Un error en un pedido ya no corta la corrida del comando.
+- Quedan anotados en [`pendientes.md`](pendientes.md): permisos propios para cotizar y cancelar, la auditoría que se escribe dentro de la transacción del admin y la anticipación que no se revisa al cotizar. En D63 queda el reembolso automático de un pago que llega para un pedido ya cancelado (tanda 2).
+- Pruebas: 8 nuevas en `backend/tests/test_order_round2.py`, todas en rojo antes de su arreglo, y se ajustó la del precio de la cotización (vence a las 22:30, no a los 30 minutos). La suite da 1 612 de pytest que pasan y 3 que se saltan (sin build del frontend), con `-n auto`. `manage.py check`, `makemigrations --check` y `spectacular --validate --fail-on-warn` pasan sin avisos.
+
+### Sábado 14 de noviembre: re-auditoría de la ronda 2 de pedidos (D63)
+
+- La re-revisión de código dio "ship". La re-auditoría de seguridad dejó un riesgo, y el usuario lo decidió: una pausa por cuenta contra acaparar la vitrina. Las piezas de los pedidos que la cuenta dejó vencer siguen contando para su tope de 10 durante 24 horas (`PolicySettings.expired_showcase_cooldown_hours`, propuesto por el equipo). No cuentan las cancelaciones del personal. `Order.cancellation_reason` distingue una de otra (migración `0035_showcase_cooldown_and_cancellation_reason`).
+- Riesgo aceptado por el usuario: con varias cuentas todavía se puede apartar la vitrina; el personal lo atiende desde el admin. Quedó en D63 y en [`pendientes.md`](pendientes.md).
+- El admin muestra "Vigencia de la cotización: PENDIENTE, no vence" mientras `quote_expiry_hours` esté vacío, en las políticas y en el pedido que espera cotización.
+- Menores: la limpieza de vencidos al crear un pedido ya no escribe en la auditoría si no canceló nada; un vencido que no se pudo cancelar sigue contando para los topes; se aclararon las descripciones de la creación y del plazo de la cotización; el inicio del lapso de una cotización sale de `schedule_service.starts_at`.
+- Pruebas: 5 nuevas en `backend/tests/test_order_round2.py` (4 en rojo antes del cambio; la de la cancelación del personal ya pasaba y queda como guarda) y se ajustó la de la limpieza de vencidos, que ahora rechaza las otras 10 piezas por la pausa. La suite da 1 617 de pytest que pasan y 3 que se saltan (sin build del frontend), con `--create-db -n auto`. `manage.py check`, `makemigrations --check` y `spectacular --validate --fail-on-warn` pasan sin avisos.

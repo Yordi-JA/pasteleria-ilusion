@@ -552,7 +552,8 @@ class PolicySettings(SingletonSettings):
     max_unpaid_orders_per_customer = _proposed_limit(
         "pedidos sin pagar por cliente",
         2,
-        "Cuántos pedidos apartados sin pagar (o en pausa por cotización) puede tener un cliente a la vez.",
+        "Cuántos pedidos apartados sin pagar puede tener un cliente a la vez. Los que esperan cotización tienen su "
+        "propio tope.",
     )
     max_days_ahead = _proposed_limit("días a futuro para reservar", 60, "Hasta cuántos días adelante se puede pedir.")
     max_pieces_per_line = _proposed_limit(
@@ -561,10 +562,15 @@ class PolicySettings(SingletonSettings):
     max_pieces_per_order = _proposed_limit(
         "piezas por pedido", 100, "Cuántas piezas lleva un pedido en total, sumando todas sus líneas."
     )
-    quote_expiry_hours = _proposed_limit(
+    # PENDIENTE de la pastelería (D63, ronda 2; lo decidió el usuario): sin valor, la cotización no vence.
+    quote_expiry_hours = models.PositiveSmallIntegerField(
         "horas para cotizar un pedido",
-        24,
-        "Un pedido en pausa por cotización sin precio se cancela pasadas estas horas.",
+        null=True,
+        blank=True,
+        help_text=(
+            "Vacío es PENDIENTE: un pedido en pausa por cotización no vence. Con un valor, el pedido que sigue sin "
+            "precio se cancela pasadas estas horas y devuelve su lapso."
+        ),
     )
     max_quote_orders_per_customer = _proposed_limit(
         "pedidos en pausa por cotización por cliente", 1, "Cuántos pedidos esperando cotización tiene un cliente a la vez."
@@ -573,6 +579,14 @@ class PolicySettings(SingletonSettings):
         "piezas de vitrina apartadas por cliente",
         10,
         "Cuántas piezas de la vitrina de hoy puede tener apartadas sin pagar un cliente, sumando sus pedidos.",
+    )
+    # Re-auditoría de la ronda 2 de D63 (lo decidió el usuario; las 24 horas las propuso el equipo).
+    expired_showcase_cooldown_hours = _proposed_limit(
+        "horas que cuenta la vitrina vencida",
+        24,
+        "Las piezas de la vitrina de un pedido que se canceló por vencido siguen contando para el tope de piezas del "
+        "cliente durante estas horas: así una cuenta no la mantiene apartada dejando vencer pedido tras pedido. Una "
+        "cancelación del personal no cuenta.",
     )
 
     class Meta(SingletonSettings.Meta):
@@ -596,11 +610,20 @@ class PolicySettings(SingletonSettings):
                 & Q(max_days_ahead__gt=0)
                 & Q(max_pieces_per_line__gt=0)
                 & Q(max_pieces_per_order__gt=0)
-                & Q(quote_expiry_hours__gt=0)
                 & Q(max_quote_orders_per_customer__gt=0)
                 & Q(max_unpaid_showcase_pieces__gt=0),
                 name="policysettings_order_limits_positive",
                 violation_error_message="Los topes de los pedidos deben ser más de 0.",
+            ),
+            models.CheckConstraint(
+                condition=Q(quote_expiry_hours__isnull=True) | Q(quote_expiry_hours__gt=0),
+                name="policysettings_quote_expiry_positive",
+                violation_error_message="Las horas para cotizar deben ser más de 0, o vacías (PENDIENTE).",
+            ),
+            models.CheckConstraint(
+                condition=Q(expired_showcase_cooldown_hours__gt=0),
+                name="policysettings_showcase_cooldown_positive",
+                violation_error_message="Las horas que cuenta la vitrina vencida deben ser más de 0.",
             ),
         ]
 
@@ -1915,6 +1938,13 @@ class OrderStatus(models.TextChoices):
     AWAITING_QUOTE = "awaiting_quote", "En pausa por cotización"
 
 
+class CancellationReason(models.TextChoices):
+    """Por qué se canceló un pedido: la pausa de la vitrina solo cuenta los vencidos (re-auditoría de la ronda 2)."""
+
+    EXPIRED = "expired", "Venció sin pagarse"
+    STAFF = "staff", "Lo canceló el personal"
+
+
 class Fulfillment(models.TextChoices):
     """Cómo se entrega el pedido (regla 8). A domicilio se acuerda por WhatsApp hasta tener la API de rutas."""
 
@@ -2089,7 +2119,13 @@ class CakeDesign(models.Model):
     cake_subtotal = _money("pastel")
     wafer_price = _money("oblea")
     decoration_price = _money("decoración")
-    total = _money("total", help_text="Sin el depósito de la base. Con una decoración por cotizar, sin la decoración.")
+    total = _money(
+        "total",
+        help_text=(
+            "Sin el depósito de la base. Con una decoración por cotizar, sin la decoración hasta que la pastelería le "
+            "pone precio."
+        ),
+    )
     requires_quote = models.BooleanField("por cotizar", default=False)
     stand = models.ForeignKey(
         CakeStand, on_delete=models.PROTECT, null=True, blank=True, related_name="+", verbose_name="base"
@@ -2167,6 +2203,9 @@ class Order(models.Model):
     payment_due_at = models.DateTimeField(
         "pagar antes de", null=True, blank=True, help_text="Solo con el pedido apartado: después se cancela."
     )
+    cancellation_reason = models.CharField(
+        "motivo de la cancelación", max_length=10, choices=CancellationReason.choices, blank=True
+    )
     idempotency_key = models.CharField("llave de idempotencia", max_length=64)
     # Se crea con el pedido (tabla vacía): agregarlo después con filas pediría una migración en tres pasos.
     note_token = models.CharField("token de la nota", max_length=64, unique=True, default=new_note_token, editable=False)
@@ -2193,6 +2232,11 @@ class Order(models.Model):
                 condition=Q(fulfillment__in=Fulfillment.values),
                 name="order_fulfillment_known",
                 violation_error_message="Esa forma de entrega no existe.",
+            ),
+            models.CheckConstraint(
+                condition=Q(cancellation_reason="") | Q(cancellation_reason__in=CancellationReason.values),
+                name="order_cancellation_reason_known",
+                violation_error_message="Ese motivo de cancelación no existe.",
             ),
             models.CheckConstraint(
                 condition=Q(subtotal__gte=0) & Q(stand_deposit__gte=0) & Q(delivery_fee__gte=0),

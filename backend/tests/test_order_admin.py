@@ -45,11 +45,14 @@ def test_staff_sees_the_order_with_its_lines_read_only(superuser_client, order):
 
 
 def change_post(client, order, **data):
-    item = order.items.get()
+    items = list(order.items.order_by("position"))
     management = {
-        "items-TOTAL_FORMS": "1", "items-INITIAL_FORMS": "1", "items-MIN_NUM_FORMS": "0", "items-MAX_NUM_FORMS": "1000",
-        "items-0-id": str(item.pk), "items-0-order": str(order.pk),
+        "items-TOTAL_FORMS": str(len(items)), "items-INITIAL_FORMS": str(len(items)),
+        "items-MIN_NUM_FORMS": "0", "items-MAX_NUM_FORMS": "1000",
     }
+    for index, item in enumerate(items):
+        management[f"items-{index}-id"] = str(item.pk)
+        management[f"items-{index}-order"] = str(order.pk)
     return client.post(f"/admin/core_pasteleria/order/{order.pk}/change/", {**management, **data})
 
 

@@ -64,13 +64,11 @@ def test_a_customer_has_at_most_two_unpaid_orders(api):
     assert post(api, body(catalog_line())).status_code == 201
 
 
-def test_an_order_awaiting_a_quote_counts_and_an_expired_one_does_not(api):
+def test_an_expired_order_does_not_count_for_the_unpaid_cap(api):
+    # Desde la ronda 2 una cotización tiene su propio tope (decisión 4 del usuario; `test_order_round2.py`).
     PolicySettings.objects.update(max_unpaid_orders_per_customer=1)
-    image_id = upload_image(api, "decoration")
-    assert post(api, body(design_line(decoration="otra", decoration_image_id=image_id))).status_code == 201
-    assert post(api, body(catalog_line())).status_code == 400
-    Order.objects.update(status="cancelled")
     assert post(api, body(catalog_line())).status_code == 201
+    assert post(api, body(catalog_line())).status_code == 400
     Order.objects.filter(status="awaiting_payment").update(payment_due_at=NOW - timedelta(minutes=1))
     assert post(api, body(catalog_line())).status_code == 201
 
@@ -126,16 +124,19 @@ def test_payment_summary_pays_the_full_part_and_the_advance_of_the_rest():
 # --- D. Caducidad ---
 
 
-def test_an_unpaid_order_expires_after_the_window_but_never_after_its_slot(api):
+def test_an_unpaid_order_expires_after_the_window_and_its_slot_leaves_the_whole_window(api):
     mini = offering("tres-leches-de-fresa", "mini")
     ShowcaseInventory.objects.create(offering=mini, stock_date=TODAY, quantity=1)
     response = post(api, body({"kind": "showcase", "offering_id": mini.id}, day=TODAY, slot="12:30"))
     # A las 12:00, 30 minutos son las 12:30, el mismo inicio del lapso.
     assert datetime.fromisoformat(response.json()["payment_due_at"]) == datetime(2026, 11, 13, 12, 30, tzinfo=CDMX)
+    # Ronda 2: con 90 minutos para pagar, el lapso de las 13:00 ya no se ofrece; el primero es el de las 13:30.
     PolicySettings.objects.update(payment_window_minutes=90)
     ShowcaseInventory.objects.filter(offering=mini).update(quantity=1)
-    later = post(api, body({"kind": "showcase", "offering_id": mini.id}, day=TODAY, slot="13:00"))
-    assert datetime.fromisoformat(later.json()["payment_due_at"]) == datetime(2026, 11, 13, 13, 0, tzinfo=CDMX)
+    too_soon = post(api, body({"kind": "showcase", "offering_id": mini.id}, day=TODAY, slot="13:00"))
+    assert too_soon.status_code == 400 and "delivery_date" in too_soon.json()
+    later = post(api, body({"kind": "showcase", "offering_id": mini.id}, day=TODAY, slot="13:30"))
+    assert datetime.fromisoformat(later.json()["payment_due_at"]) == datetime(2026, 11, 13, 13, 30, tzinfo=CDMX)
 
 
 def test_an_order_placed_after_closing_for_early_tomorrow_expires_in_30_minutes(api, monkeypatch):
@@ -203,10 +204,11 @@ def test_order_and_image_throttles_count_in_the_security_cache():
         assert throttle.cache._alias == "security"
 
 
-def test_the_creation_rate_is_10_per_hour():
+def test_the_creation_rate_is_10_per_hour_per_account():
     from django.conf import settings
 
-    assert settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["orders_create"] == "10/hour"
+    # Por IP es otra tasa desde la ronda 2 (`test_order_round2.py`).
+    assert settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["orders_create_user"] == "10/hour"
 
 
 def test_a_catalog_line_has_at_most_20_pieces(api):

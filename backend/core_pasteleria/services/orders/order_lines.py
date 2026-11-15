@@ -145,6 +145,8 @@ class OfferingLine:
             unit_price=offering.price,
             line_total=(offering.price * line.quantity).quantize(CENT),
             design=None,
+            # Se guarda con la línea para devolverlo si el pedido se cancela.
+            bread_id=reservation.get("bread_id"),
         )
         return PreparedLine(item=item, **reservation)
 

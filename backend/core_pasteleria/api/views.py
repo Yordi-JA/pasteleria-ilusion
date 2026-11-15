@@ -51,6 +51,7 @@ from .throttles import (
     CustomerImageUserThrottle,
     OrderCreateIPThrottle,
     OrderCreateUserThrottle,
+    OrderRetryUserThrottle,
 )
 
 
@@ -578,10 +579,22 @@ class OrderListCreateView(ListAPIView):
         return order_service.list_orders(self.request.user.pk)
 
     def get_throttles(self):
-        # Crear pedidos tiene su propio cupo, por cuenta y por IP; leerlos usa el general.
-        if self.request.method == "POST":
-            return [OrderCreateUserThrottle(), OrderCreateIPThrottle()]
-        return super().get_throttles()
+        # Crear pedidos tiene su propio cupo, por cuenta y por IP; leerlos usa el general. Un reintento con una llave
+        # que ya tiene pedido no crea nada: no gasta el cupo de creación, pero tiene el suyo.
+        if self.request.method != "POST":
+            return super().get_throttles()
+        if self._is_retry(self.request):
+            return [OrderRetryUserThrottle()]
+        return [OrderCreateUserThrottle(), OrderCreateIPThrottle()]
+
+    @staticmethod
+    def _is_retry(request) -> bool:
+        key = request.headers.get("Idempotency-Key", "")
+        return (
+            request.user.is_authenticated
+            and IDEMPOTENCY_KEY.fullmatch(key) is not None
+            and order_service.has_order_with_key(request.user.pk, key)
+        )
 
     @extend_schema(
         operation_id="orders_list",
@@ -600,10 +613,18 @@ class OrderListCreateView(ListAPIView):
             "base y su depósito, anticipo (`PolicySettings.advance_percent`; la base y el envío van aparte) y estado. "
             "Nunca lee montos, `requiresQuote` ni el id del diseño del cliente. Aparta en ese momento, de forma "
             "atómica, el lapso (máximo de pedidos por lapso), las piezas de la vitrina de hoy y el pan de un encargo "
-            "para hoy. Nace `awaiting_payment` con `payment_due_at` a los 30 minutos (`PolicySettings`), nunca después "
-            "del inicio del lapso, o `awaiting_quote` con \"Otra decoración\" (sin montos de pago). Lo de la vitrina de "
-            "hoy se paga completo. Topes del admin: pedidos sin pagar por cliente, días a futuro y piezas por línea y "
-            "por pedido. Throttle propio, por cuenta y por IP. Por ahora solo se recoge en la pastelería."
+            "para hoy; un pedido en pausa por cotización no ocupa el lapso, y su cupo se revisa cuando la pastelería "
+            "le pone precio. Antes, cancela con su reintegro los pedidos vencidos de la misma cuenta. Nace "
+            "`awaiting_payment` con `payment_due_at` a los 30 minutos (`PolicySettings`), nunca después del inicio del "
+            "lapso (el primer lapso que se puede elegir deja ese plazo completo), o `awaiting_quote` con \"Otra "
+            "decoración\" (sin montos de pago; la pastelería pone el precio en el admin y entonces se paga hasta el "
+            "cierre del día). Lo de la vitrina de hoy se paga completo (`payment.paid_in_full`). Topes del admin: "
+            "pedidos sin pagar por cliente, piezas de la vitrina sin pagar por cliente (con las de sus pedidos "
+            "vencidos de las últimas `expired_showcase_cooldown_hours`), pedidos esperando cotización por cliente, una "
+            "decoración por cotizar por pedido, días a futuro y piezas por línea y por pedido. Throttle propio, por "
+            "cuenta y por IP. Un reintento "
+            "con la misma `Idempotency-Key` responde el pedido que ya existe (200), aunque traiga otro cuerpo, sin "
+            "gastar ese cupo: tiene el suyo (`orders_retry_user`). Por ahora solo se recoge en la pastelería."
         ),
         parameters=[IDEMPOTENCY_HEADER],
         request=OrderCreateSerializer,
@@ -618,6 +639,10 @@ class OrderListCreateView(ListAPIView):
         key = request.headers.get("Idempotency-Key", "")
         if not IDEMPOTENCY_KEY.fullmatch(key):
             raise ValidationError({"idempotency_key": ["Falta el encabezado Idempotency-Key o no es válido."]})
+        # Con la misma llave, el pedido que ya existe, aunque llegue otro cuerpo: no se vuelve a validar.
+        existing = order_service.find_order_by_key(request.user.pk, key)
+        if existing is not None:
+            return Response(OrderSerializer(existing).data, status=status.HTTP_200_OK)
         serializer = OrderCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:

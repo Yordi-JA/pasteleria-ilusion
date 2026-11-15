@@ -1,8 +1,8 @@
-"""Transiciones del estado del pedido desde el registro básico del admin (D63, ronda 1).
+"""Transiciones del estado del pedido desde el registro básico del admin (D63, rondas 1 y 2).
 
-El personal cambia el estado sin pantallas nuevas (decisión del usuario del 14 de noviembre de 2026), pero solo por las
-transiciones de `ALLOWED_TRANSITIONS`. Mientras no exista el reintegro (tanda 2) no se cancela desde el admin. Cada
-cambio queda en la auditoría con el pedido, quién y los dos estados.
+El personal cambia el estado sin pantallas nuevas (D64), pero solo por las transiciones de `ALLOWED_TRANSITIONS`.
+Desde la ronda 2 cancela un pedido que todavía no se paga, con su reintegro (`test_order_round2.py`). Cada cambio queda
+en la auditoría con el pedido, quién y los dos estados.
 """
 import logging
 
@@ -55,13 +55,14 @@ def status_options(client, order):
 
 def test_every_status_has_its_transitions():
     assert set(order_status.ALLOWED_TRANSITIONS) == set(OrderStatus.values)
-    for targets in order_status.ALLOWED_TRANSITIONS.values():
-        # Sin el reintegro de existencias (tanda 2), nada pasa a cancelado.
-        assert OrderStatus.CANCELLED not in targets
+    # Solo se cancela antes del pago (decisión 3 del usuario, ronda 2).
+    transitions = order_status.ALLOWED_TRANSITIONS
+    cancellable = {status for status, targets in transitions.items() if OrderStatus.CANCELLED in targets}
+    assert cancellable == {OrderStatus.AWAITING_PAYMENT, OrderStatus.AWAITING_QUOTE}
 
 
 def test_the_admin_offers_only_the_current_status_and_its_next_ones(superuser_client, order):
-    assert status_options(superuser_client, order) == ["awaiting_payment", "received"]
+    assert status_options(superuser_client, order) == ["awaiting_payment", "received", "cancelled"]
     Order.objects.filter(pk=order.pk).update(status="ready_for_delivery")
     assert status_options(superuser_client, order) == ["ready_for_delivery", "delivered"]
 

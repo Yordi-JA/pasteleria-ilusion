@@ -132,8 +132,8 @@ def test_a_design_order_is_priced_by_the_server_and_ignores_client_amounts(api, 
     assert order["status"] == "awaiting_payment"
     assert (order["subtotal"], order["stand_deposit"], order["delivery_fee"]) == ("1020.00", "70.00", "0.00")
     assert order["payment"] == {
-        "advance_percent": 50, "advance": "510.00", "base_deposit": "70.00", "delivery_fee": "0.00",
-        "pay_today": "580.00", "pay_on_delivery": "510.00",
+        "advance_percent": 50, "advance": "510.00", "paid_in_full": "0.00", "base_deposit": "70.00",
+        "delivery_fee": "0.00", "pay_today": "580.00", "pay_on_delivery": "510.00",
     }
     # Vence a los 30 minutos (`PolicySettings.payment_window_minutes`), antes de su lapso (D63, decisión D).
     assert datetime.fromisoformat(order["payment_due_at"]) == datetime(2026, 11, 13, 12, 30, tzinfo=CDMX)

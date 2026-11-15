@@ -50,7 +50,8 @@ from .models import (
     WaferShape,
 )
 from .services.catalog_service import HOME_FEATURED_LIMIT
-from .services.orders import order_status
+from .services.errors import DomainValidationError
+from .services.orders import order_status, quote_service
 
 
 class CustomUserCreationForm(AdminUserCreationForm):
@@ -224,9 +225,23 @@ class CakeDesignSettingsAdmin(SingletonAdmin):
     pass
 
 
+QUOTE_EXPIRY_LABEL = "Vigencia de la cotización"
+QUOTE_EXPIRY_PENDING = "PENDIENTE, no vence"
+
+
+def quote_expiry_notice() -> str:
+    """Cuánto espera un pedido sin precio antes de cancelarse; mientras la pastelería no lo fije, el marcador PENDIENTE."""
+    hours = PolicySettings.objects.values_list("quote_expiry_hours", flat=True).first()
+    return QUOTE_EXPIRY_PENDING if hours is None else f"{hours} horas sin precio; después se cancela"
+
+
 @admin.register(PolicySettings)
 class PolicySettingsAdmin(SingletonAdmin):
-    pass
+    readonly_fields = ("quote_expiry_notice",)
+
+    @admin.display(description=QUOTE_EXPIRY_LABEL)
+    def quote_expiry_notice(self, obj):
+        return quote_expiry_notice()
 
 
 @admin.register(UploadSettings)
@@ -676,10 +691,11 @@ class BreadInventoryAdmin(InventoryAdmin):
 
 # --- Pedidos ---
 #
-# Registro básico (sin vistas del personal, decisión del usuario del 14 de noviembre de 2026, D63): el pedido lo crea la
-# API, sus líneas van en solo lectura y el estado es el único campo editable, solo por las transiciones de
-# `services/orders/order_status.py` y siempre auditado. El texto que manda el cliente se escapa y los colores se pintan
-# con `format_html` y el valor que el servidor ya validó (auditoría de D55, punto 11).
+# Registro básico (sin vistas del personal, D63 y D64): el pedido lo crea la API y sus líneas van en solo lectura. Se
+# editan solo el estado, por las transiciones de `services/orders/order_status.py`, y el precio de una decoración por
+# cotizar mientras el pedido la espera (`services/orders/quote_service.py`, ronda 2); los dos, auditados. El texto que
+# manda el cliente se escapa y los colores se pintan con `format_html` y el valor que el servidor ya validó (auditoría
+# de D55, punto 11).
 
 
 def _swatch(color: str, name: str) -> str:
@@ -732,7 +748,12 @@ def design_lines(design: CakeDesign, show_images: bool = False) -> list[str]:
     if design.occasion:
         lines.append(format_html("Ocasión: {}", design.get_occasion_display()))
     if design.requires_quote:
-        lines.append("Por cotizar: la decoración no está en el total.")
+        quoted = design.decoration_price > 0
+        lines.append(
+            format_html("Cotizada: la decoración (${}) ya está en el total.", design.decoration_price)
+            if quoted
+            else "Por cotizar: la decoración no está en el total."
+        )
     stand = format_html("Base: {} (depósito ${})", design.stand, design.stand_deposit) if design.stand else "Sin base"
     lines.append(stand)
     return lines
@@ -779,20 +800,37 @@ class OrderItemInline(admin.TabularInline):
         return self._summary(item, show_images=True)
 
 
+# Marca en la petición que un servicio rechazó el cambio: así no se registra ni se anuncia como guardado.
+ORDER_CHANGE_REFUSED = "_order_change_refused"
+ONE_CHANGE_AT_A_TIME_MESSAGE = "Pon el precio o cambia el estado, no las dos cosas a la vez."
+
+
+def _change_order_status(request, obj, form):
+    order_status.change_status(obj.pk, form.initial["status"], obj.status, actor_id=request.user.pk)
+
+
+def _price_order_quote(request, obj, form):
+    quote_service.price_quote(obj.pk, obj.quoted_decoration_price, actor_id=request.user.pk)
+
+
+# Cada campo editable del pedido, con el servicio que lo cambia.
+ORDER_EDITS = {"status": _change_order_status, "quoted_decoration_price": _price_order_quote}
+
+
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     # Registro básico: lista y detalle, sin filtros, acciones ni formularios propios (sin vistas nuevas para el
-    # personal, decisión del usuario del 14 de noviembre, D63). El personal registra el cobro en efectivo y lo demás
-    # cambiando el estado aquí; es el único campo editable, solo hacia los estados que permite `order_status`, y el
-    # Observer (tanda 2) reaccionará a ese cambio.
+    # personal, D63 y D64). El personal registra el cobro en efectivo, avanza o cancela el pedido cambiando el estado
+    # aquí, solo hacia los estados que permite `order_status`, y pone el precio de una decoración por cotizar mientras
+    # el pedido la espera. El Observer (tanda 2) reaccionará a esos cambios.
     list_display = ("__str__", "customer", "status", "delivery_slot", "subtotal", "pay_today", "created_at")
     list_select_related = ("customer", "delivery_slot")
     # Sin la llave de idempotencia ni el token de la nota: no le sirven al personal y el token abre la nota.
     fields = (
-        "customer", "status", "status_changed_at", "fulfillment", "delivery_slot", "subtotal", "stand_deposit",
-        "delivery_fee", "advance_percent", "advance", "pay_today", "pay_on_delivery", "payment_due_at", "created_at",
+        "customer", "status", "status_changed_at", "fulfillment", "delivery_slot", "quoted_decoration_price",
+        "subtotal", "stand_deposit", "delivery_fee", "advance_percent", "advance", "pay_today", "pay_on_delivery",
+        "payment_due_at", "created_at",
     )
-    readonly_fields = tuple(field for field in fields if field != "status")
     inlines = [OrderItemInline]
 
     def has_add_permission(self, request):
@@ -800,6 +838,22 @@ class OrderAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+    def get_fields(self, request, obj=None):
+        # Un pedido que espera cotización muestra también cuánto puede esperar (PENDIENTE mientras no se fije).
+        if obj is not None and obj.status == OrderStatus.AWAITING_QUOTE:
+            return (*self.fields, "quote_expiry_notice")
+        return self.fields
+
+    def get_readonly_fields(self, request, obj=None):
+        # Lo único que se edita está en `ORDER_EDITS`; el precio de la cotización, solo mientras el pedido la espera.
+        quoting = obj is not None and obj.status == OrderStatus.AWAITING_QUOTE
+        editable = tuple(ORDER_EDITS) if quoting else ("status",)
+        return tuple(field for field in self.get_fields(request, obj) if field not in editable)
+
+    @admin.display(description=QUOTE_EXPIRY_LABEL)
+    def quote_expiry_notice(self, obj):
+        return quote_expiry_notice()
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
@@ -810,10 +864,30 @@ class OrderAdmin(admin.ModelAdmin):
         return form
 
     def save_model(self, request, obj, form, change):
-        # Nada más se edita: solo el cambio de estado, por el servicio (que lo revisa otra vez y lo audita).
-        if "status" not in form.changed_data:
+        # Nunca `obj.save()`: cada cambio pasa por su servicio. Si el servicio lo rechaza, la página muestra solo su
+        # error, sin el aviso de guardado ni la entrada del historial (`response_change` y `log_change`).
+        changed = [field for field in ORDER_EDITS if field in form.changed_data]
+        if len(changed) > 1:
+            self._refuse(request, [ONE_CHANGE_AT_A_TIME_MESSAGE])
+            return
+        if not changed:
             return
         try:
-            order_status.change_status(obj.pk, form.initial["status"], obj.status, actor_id=request.user.pk)
-        except order_status.StatusChangeError as error:
-            self.message_user(request, " ".join(error.errors["status"]), level=messages.ERROR)
+            ORDER_EDITS[changed[0]](request, obj, form)
+        except DomainValidationError as error:
+            self._refuse(request, [message for messages_ in error.errors.values() for message in messages_])
+
+    def _refuse(self, request, texts):
+        setattr(request, ORDER_CHANGE_REFUSED, True)
+        for text in texts:
+            self.message_user(request, text, level=messages.ERROR)
+
+    def log_change(self, request, obj, message):
+        if getattr(request, ORDER_CHANGE_REFUSED, False):
+            return None
+        return super().log_change(request, obj, message)
+
+    def response_change(self, request, obj):
+        if getattr(request, ORDER_CHANGE_REFUSED, False):
+            return redirect(request.path)
+        return super().response_change(request, obj)

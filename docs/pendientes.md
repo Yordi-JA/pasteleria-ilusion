@@ -100,17 +100,35 @@ Lo recomienda la auditoría de seguridad del diseño (D55). Lo del servidor qued
 
 Lo construido está en D63 ([`proyecto/decisiones.md`](proyecto/decisiones.md)), en la rama `feat/pedidos-api`, sin desplegar. Quedan estos puntos:
 
-1. Tanda 2: el comando que cancela los pedidos sin pagar vencidos (`payment_due_at`, 30 minutos) y reintegra lo apartado con `restock_showcase` y `release_bread`. Con esa caducidad debe correr seguido (Heroku Scheduler, cada 10 minutos). Hasta entonces, un vencido no ocupa su lapso ni cuenta para el tope del cliente, pero conserva sus piezas y su pan.
+1. Resuelto en la ronda 2 de D63 (14 de noviembre de 2026): el comando `cancel_expired_orders` cancela lo vencido y reintegra lo apartado. El usuario aprobó programarlo en Heroku Scheduler cada 10 minutos; lo hace el equipo al desplegar (comando y verificación en `backend/AGENTS.md`).
 2. Tanda 2: al elegir efectivo, extender `payment_due_at` al cierre del día con `schedule_service.cash_payment_due_at` (ya existe y tiene prueba).
-3. Tanda 2: cancelar desde el admin. Hoy `ALLOWED_TRANSITIONS` no deja pasar a `cancelled` porque nada reintegra la vitrina ni el pan; cuando exista el reintegro, se agrega la transición.
+3. Resuelto en la ronda 2 de D63: el personal cancela desde el admin un pedido sin pagar o en pausa por cotización, con su reintegro. Cancelar un pedido pagado espera el reembolso (tanda 2).
 4. Tanda 2: el estado de la base (`StandLoan`), editable en el mismo registro básico del pedido en el admin, y el Observer que reacciona al cambio de estado que hace el personal ahí.
-5. La salida de `awaiting_quote` no está en `ALLOWED_TRANSITIONS`, porque las reglas no la definen (sección 14). Un pedido en ese estado ocupa su lapso y cuenta para el tope del cliente sin caducidad.
+5. Resuelto en la ronda 2 de D63 (lo decidió el usuario): con el precio que pone la pastelería en el admin, el pedido pasa a `awaiting_payment`. Sigue PENDIENTE cuánto espera sin precio antes de cancelarse (`PolicySettings.quote_expiry_hours`, vacío: mientras tanto no vence).
 6. Imágenes huérfanas: una imagen subida que nunca entra en un pedido se queda en PostgreSQL. El tope de 10 por cliente las acota, pero falta un barrido periódico. Heroku Postgres `essential-0` tiene 1 GB.
 7. Valores propuestos que la pastelería debe confirmar en el admin: 30 minutos para pagar, 2 pedidos sin pagar por cliente, 60 días a futuro, 20 piezas por línea de encargo, 10 imágenes sin pedido y 12 megapíxeles (los dio el usuario el 14 de noviembre de 2026), y 100 piezas por pedido (lo propuso el equipo, sin cifra del usuario).
 8. Unidad del pan para encargos de hoy: se cuenta una pieza de pan por pieza encargada. La unidad sigue siendo una pregunta para la pastelería ("Preguntas del catálogo" en las decisiones abiertas). Sin pan definido para el producto (PENDIENTE en la semilla, salvo Choco-pingüino y Red velvet), no hay encargo para hoy.
 9. `DecorationOption.accepts_color` no sale en `GET cake-designs/options/`: el frontend sigue decidiendo por `slug` qué decoraciones llevan color. Si la pastelería marca otra en el admin, el frontend no se entera hasta que la API lo mande.
 10. El frontend todavía no usa estos endpoints: falta subir las imágenes, mandar el pedido con `Idempotency-Key`, pedir los lapsos con `kind` y mostrar los errores de los topes.
-11. Producción: las migraciones `0032_orders` y `0033_seed_decoration_accepts_color` (eran la `0031` y la `0032`; se renumeraron al fusionar con el acceso, que trae la `0031_user_profile_and_google`) y Pillow 13.0.0 en el slug (está en `backend/requirements.txt`).
+11. Producción: las migraciones `0032_orders` y `0033_seed_decoration_accepts_color` (eran la `0031` y la `0032`; se renumeraron al fusionar con el acceso, que trae la `0031_user_profile_and_google`) más la `0034_order_round2_policy` de la ronda 2, y Pillow 13.0.0 en el slug (está en `backend/requirements.txt`).
+12. Decidido por el usuario el 14 de noviembre de 2026: el primer lapso que se puede elegir empieza por lo menos `payment_window_minutes` (30) después de ahora.
+13. Ronda 2: valores propuestos que la pastelería debe confirmar en el admin: 1 pedido esperando cotización por cliente y 10 piezas de la vitrina sin pagar por cliente (los dio el usuario). Los 60 pedidos por hora por IP los decidió el usuario el 14 de noviembre de 2026.
+14. Ronda 2: el tope de cotizaciones cuenta las que vencieron y nadie ha cancelado todavía (como mucho 10 minutos, o hasta que el cliente haga otro pedido). Que una cotización con precio no revise el tope de 2 sin pagar lo decidió el usuario el 14 de noviembre de 2026.
+15. Tanda 2: cuando el efectivo extienda `payment_due_at`, el `UPDATE` de `cancel_expired_orders` debe volver a revisar el plazo, no solo el estado. Hoy el plazo no cambia mientras el pedido sigue apartado, y revisar el estado basta.
+16. `UploadSettings.daily_upload_mb` y `daily_upload_count` existen desde la `0032_orders` y salen en el admin, pero ningún servicio los usa. Hay que aplicarlos en `customer_image_service` o quitarlos.
+17. Revisión de la ronda 2: un solo permiso, `change_order`, cubre cobrar en efectivo, cancelar y cotizar. Falta separarlo con permisos propios (`price_order_quote`, `cancel_order`).
+18. Revisión de la ronda 2: `@audit_operation` registra `ok` dentro del `atomic` de `changeform_view` del admin. Si después falla `save_related` o `log_change`, la auditoría dice algo que se deshizo.
+19. Revisión de la ronda 2: al ponerle precio, una cotización no vuelve a revisar la anticipación del diseño (2 días); solo revisa que su lapso no haya empezado y que tenga cupo.
+20. Riesgo aceptado por el usuario el 14 de noviembre de 2026 (re-auditoría de la ronda 2): con varias cuentas gratis (el registro no verifica el correo) todavía se puede mantener apartada la vitrina, aun con la pausa de 24 horas por cuenta. No hay pérdida de dinero ni de datos; el personal lo atiende cancelando desde el admin y desactivando las cuentas. Se descartaron para esta etapa exigir el correo verificado o Google para la vitrina y un tope de piezas por IP (bloquearía la exposición con el público en una sola red).
+21. Valor propuesto por el equipo que la pastelería debe confirmar en el admin: 24 horas de pausa para la vitrina vencida (`PolicySettings.expired_showcase_cooldown_hours`).
+22. Producción: la migración `0035_showcase_cooldown_and_cancellation_reason` va junto con la `0034` (punto 11).
+
+Menores de la última revisión de código de la ronda 2 (ninguno bloquea; se anotan sin corregir):
+
+23. `repositories/order_repo.py` (`count_unpaid_orders` y `count_unpaid_showcase_pieces`): la rama de `also_order_ids` no filtra por estado. Si otro proceso cancela o cobra un vencido que la limpieza no pudo cancelar, sus piezas cuentan de más (nunca de menos), y solo después de un error de la base. Arreglo: agregar `status=unpaid_status` a esa rama.
+24. `models.py` (`order_cancellation_reason_known`): la restricción no amarra el motivo al estado; un pedido que no está cancelado podría tener `expired`. Arreglo: `Q(cancellation_reason="") | Q(status="cancelled", cancellation_reason__in=...)`.
+25. `admin.py` (`OrderAdmin`): `cancellation_reason` no se muestra, así que el personal no ve por qué se canceló un pedido ni por qué un cliente está en pausa. Arreglo: agregarlo como campo de solo lectura.
+26. `admin.py` (`quote_expiry_notice`): lee `PolicySettings` con el ORM en lugar de `settings_repo.get_policy_settings()`.
 
 ## Acceso de clientes: lo que dejó la revisión de código (D62 y D65)
 

@@ -61,14 +61,19 @@ class CustomerImageIPThrottle(SimpleRateThrottle):
 
 
 class OrderCreateUserThrottle(CustomerImageUserThrottle):
-    """Crear pedidos, por cuenta (`orders_create`, 10 por hora): cada pedido aparta lapso y existencias."""
+    """Crear pedidos, por cuenta (`orders_create_user`, 10 por hora): cada pedido aparta lapso y existencias."""
 
-    scope = "orders_create"
-    cache_format = "throttle_%(scope)s_user_%(ident)s"
+    scope = "orders_create_user"
+
+
+class OrderRetryUserThrottle(CustomerImageUserThrottle):
+    """Reintentos con una llave que ya tiene pedido (`orders_retry_user`, 120 por minuto): no crean nada, pero tampoco
+    salen sin límite."""
+
+    scope = "orders_retry_user"
 
 
 class OrderCreateIPThrottle(CustomerImageIPThrottle):
-    """Crear pedidos, por IP, con la misma tasa que por cuenta."""
+    """Crear pedidos, por IP (`orders_create_ip`, 60 por hora): más holgada, porque varias personas comparten la red."""
 
-    scope = "orders_create"
-    cache_format = "throttle_%(scope)s_ip_%(ident)s"
+    scope = "orders_create_ip"

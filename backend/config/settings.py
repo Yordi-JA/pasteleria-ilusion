@@ -409,9 +409,15 @@ REST_FRAMEWORK = {
         # Cada imagen pesa hasta el máximo del admin y se guarda en PostgreSQL.
         "customer_images_user": "20/hour",
         "customer_images_ip": "40/hour",
-        # Crear pedidos, por cuenta y por IP (D63): cada pedido aparta un lapso,
-        # existencias y pan mientras no se paga.
-        "orders_create": "10/hour",
+        # Crear pedidos (D63): cada pedido aparta un lapso, existencias y pan
+        # mientras no se paga. Por cuenta, 10 por hora; por IP, 60 por hora, porque
+        # en la exposición muchas personas comparten la red (ronda 2). Un reintento
+        # con la misma `Idempotency-Key` no gasta este cupo.
+        "orders_create_user": "10/hour",
+        "orders_create_ip": "60/hour",
+        # Un reintento con una llave que ya tiene pedido responde ese pedido: tiene
+        # su propio cupo, holgado, en vez de ninguno (revisión de la ronda 2).
+        "orders_retry_user": "120/min",
     },
     # Saltos de proxy delante de la app (en Heroku, 1). Con 0 se ignora
     # X-Forwarded-For y se usa la dirección de la conexión: si no, un cliente

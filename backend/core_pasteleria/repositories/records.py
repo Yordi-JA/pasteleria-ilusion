@@ -193,9 +193,11 @@ class PolicySettingsRecord:
     max_days_ahead: int = 60
     max_pieces_per_line: int = 20
     max_pieces_per_order: int = 100
-    quote_expiry_hours: int = 24
+    # `None`: PENDIENTE; la cotización no vence (D63, ronda 2).
+    quote_expiry_hours: int | None = None
     max_quote_orders_per_customer: int = 1
     max_unpaid_showcase_pieces: int = 10
+    expired_showcase_cooldown_hours: int = 24
 
 
 @dataclass(frozen=True)
@@ -385,3 +387,43 @@ class ReleasedLine:
     bread_id: int | None
     quantity: int
     on_date: date
+
+
+@dataclass(frozen=True)
+class OrderSlotRecord:
+    """El lapso de un pedido y hasta cuándo se puede pagar, para volver a revisar el cupo al cobrarlo."""
+
+    delivery_slot_id: int
+    payment_due_at: datetime | None
+
+
+@dataclass(frozen=True)
+class QuoteRecord:
+    """Un pedido en pausa por cotización, bloqueado, con lo que hace falta para ponerle precio."""
+
+    order_id: int
+    subtotal: Decimal
+    stand_deposit: Decimal
+    delivery_fee: Decimal
+    paid_in_full: Decimal
+    delivery_date: date
+    slot_starts_at: time
+    design_id: int
+    design_total: Decimal
+
+
+@dataclass(frozen=True)
+class QuotePrice:
+    """Los montos que calcula el servicio al cotizar; el repositorio solo los guarda."""
+
+    decoration_price: Decimal
+    design_total: Decimal
+    subtotal: Decimal
+    advance_percent: int
+    advance: Decimal
+    pay_today: Decimal
+    pay_on_delivery: Decimal
+    paid_in_full: Decimal
+    payment_due_at: datetime
+    status: str
+    status_changed_at: datetime

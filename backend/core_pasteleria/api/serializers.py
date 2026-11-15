@@ -965,7 +965,9 @@ class OrderDesignOutSerializer(serializers.Serializer):
     price_per_kg = money()
     cake_subtotal = money()
     wafer_price = money()
-    decoration_price = money(help_text="Con una decoración por cotizar es 0: no se suma.")
+    decoration_price = money(
+        help_text="Con una decoración por cotizar es 0 hasta que la pastelería le pone precio; después, ese precio."
+    )
     total = money(help_text="Sin el depósito de la base.")
     requires_quote = serializers.BooleanField()
     stand = OrderStandSerializer(source="*", allow_null=True)
@@ -986,7 +988,12 @@ class OrderPaymentSerializer(serializers.Serializer):
     """Lo que se paga hoy y el día de la entrega (regla 10); `null` mientras el pedido espera cotización."""
 
     advance_percent = serializers.IntegerField()
-    advance = money(help_text="El anticipo del pedido, sin la base ni el envío.")
+    advance = money(help_text="El anticipo del pedido, sin la base ni el envío. Incluye completo `paid_in_full`.")
+    paid_in_full = money(
+        help_text=(
+            "La parte del pedido que se paga completa hoy: lo de la vitrina de hoy. Al resto se le aplica el porcentaje."
+        )
+    )
     base_deposit = money(source="stand_deposit", help_text="Depósitos de las bases, completos y aparte.")
     delivery_fee = money(help_text="Envío, completo y aparte; $0 al recoger en la pastelería.")
     pay_today = money()
@@ -1002,7 +1009,8 @@ class OrderSerializer(serializers.Serializer):
         choices=OrderStatus.choices,
         help_text=(
             "`awaiting_payment` (apartado, falta el pago) o `awaiting_quote` al crearse. Lo cambian los servicios y el "
-            "personal desde el admin, solo por las transiciones permitidas; nunca esta API."
+            "personal desde el admin, solo por las transiciones permitidas; nunca esta API. Un apartado vencido o una "
+            "cotización vencida pasan a `cancelled`."
         ),
     )
     fulfillment = serializers.ChoiceField(choices=Fulfillment.choices)

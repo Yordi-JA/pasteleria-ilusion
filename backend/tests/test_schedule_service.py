@@ -14,6 +14,7 @@ from tests import memory_cake_design as data
 CDMX = ZoneInfo("America/Mexico_City")
 TODAY = date(2026, 11, 13)
 STORE = data.STORE_SETTINGS
+POLICY = data.settings_repo().get_policy_settings()
 
 
 def at(hour, minute=0, day=TODAY):
@@ -40,7 +41,7 @@ def test_the_grid_has_30_minute_slots_from_the_first_to_the_last():
 
 
 def test_a_design_needs_two_days():
-    rule = schedule_service.lead_rule({"design"}, at(15, 10), STORE)
+    rule = schedule_service.lead_rule({"design"}, at(15, 10), STORE, POLICY)
     assert not rule.allows(date(2026, 11, 14), time(22, 0))
     assert rule.allows(date(2026, 11, 15), time(10, 30))
 
@@ -50,36 +51,38 @@ def test_a_design_needs_two_days():
     [(at(15, 10), time(17, 30)), (at(15, 0), time(17, 0)), (at(10, 0), time(12, 0))],
 )
 def test_a_catalog_order_for_today_is_now_plus_two_hours_rounded_up_to_the_next_slot(now, first_today):
-    rule = schedule_service.lead_rule({"order"}, now, STORE)
+    rule = schedule_service.lead_rule({"order"}, now, STORE, POLICY)
     grid = schedule_service.slot_grid(STORE)
     allowed = [slot.starts_at for slot in grid if rule.allows(TODAY, slot.starts_at)]
     assert allowed[0] == first_today
     assert rule.allows(date(2026, 11, 14), time(10, 30))
 
 
-def test_the_showcase_is_only_today_from_the_next_slot():
-    rule = schedule_service.lead_rule({"showcase"}, at(15, 10), STORE)
-    assert not rule.allows(TODAY, time(15, 0))
-    assert rule.allows(TODAY, time(15, 30))
+def test_the_showcase_is_only_today_from_the_first_slot_that_leaves_time_to_pay():
+    # Ronda 2: el lapso empieza por lo menos `payment_window_minutes` (30) después de ahora; antes era el siguiente.
+    rule = schedule_service.lead_rule({"showcase"}, at(15, 10), STORE, POLICY)
+    assert not rule.allows(TODAY, time(15, 30))
+    assert rule.allows(TODAY, time(16, 0))
     assert not rule.allows(date(2026, 11, 14), time(10, 30))
 
 
 def test_a_mixed_order_follows_its_strictest_line():
-    rule = schedule_service.lead_rule({"showcase", "order"}, at(15, 10), STORE)
+    rule = schedule_service.lead_rule({"showcase", "order"}, at(15, 10), STORE, POLICY)
     assert not rule.allows(TODAY, time(17, 0))
     assert rule.allows(TODAY, time(17, 30))
-    assert schedule_service.lead_rule({"order", "design"}, at(15, 10), STORE).allows(date(2026, 11, 15), time(10, 30))
+    mixed = schedule_service.lead_rule({"order", "design"}, at(15, 10), STORE, POLICY)
+    assert mixed.allows(date(2026, 11, 15), time(10, 30))
 
 
 def test_showcase_and_design_cannot_share_an_order():
     with pytest.raises(DomainValidationError) as error:
-        schedule_service.lead_rule({"showcase", "design"}, at(15, 10), STORE, field="items")
+        schedule_service.lead_rule({"showcase", "design"}, at(15, 10), STORE, POLICY, field="items")
     assert "hoy" in error.value.errors["items"][0]
 
 
 def test_without_kinds_there_is_no_rule():
     with pytest.raises(DomainValidationError):
-        schedule_service.lead_rule(set(), at(15, 10), STORE)
+        schedule_service.lead_rule(set(), at(15, 10), STORE, POLICY)
 
 
 def test_the_day_schedule_marks_too_soon_and_full_slots():
@@ -110,7 +113,7 @@ def test_the_earliest_date_skips_a_day_without_slots_left():
 
 
 def test_find_slot_rejects_a_time_outside_the_grid_and_one_too_soon():
-    rule = schedule_service.lead_rule({"design"}, at(15, 10), STORE)
+    rule = schedule_service.lead_rule({"design"}, at(15, 10), STORE, POLICY)
     assert schedule_service.find_slot(date(2026, 11, 15), time(10, 30), rule, STORE).ends_at == time(11, 0)
     with pytest.raises(DomainValidationError) as outside:
         schedule_service.find_slot(date(2026, 11, 15), time(10, 45), rule, STORE)

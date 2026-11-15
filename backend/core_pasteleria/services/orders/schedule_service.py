@@ -10,10 +10,12 @@ Anticipación por tipo de línea (`OrderLineKind`), una regla por tipo en un reg
   revisa la creación del pedido.
 - `showcase` (vitrina de hoy): solo hoy, desde el siguiente lapso.
 Un pedido sigue la regla más estricta de sus líneas: el inicio más tarde y el último día más temprano. La vitrina de hoy
-y un diseño no caben en el mismo pedido.
+y un diseño no caben en el mismo pedido. Además, el lapso empieza por lo menos `payment_window_minutes` después de ahora
+(D63, ronda 2): el plazo para pagar nunca queda recortado por el inicio del lapso, así que siempre hay tiempo de pagar.
 
 Ocupan un lapso los pedidos en `HOLDING_STATUSES` y los apartados (`awaiting_payment`) que aún no vencen: un apartado
-vencido deja de ocupar lugar aunque la tarea que lo cancela todavía no haya corrido.
+vencido deja de ocupar lugar aunque la tarea que lo cancela todavía no haya corrido. Un pedido en pausa por cotización
+no ocupa lapso (lo decidió el usuario el 14 de noviembre de 2026): el cupo se revisa al ponerle precio.
 
 Se reserva hasta `PolicySettings.max_days_ahead` días adelante (60 propuestos; lo decidió el usuario el 14 de
 noviembre de 2026). Un pedido sin pagar vence a los `PolicySettings.payment_window_minutes` (30 propuestos), y nunca
@@ -38,7 +40,6 @@ HOLDING_STATUSES = (
     OrderStatus.RECEIVED,
     OrderStatus.IN_PREPARATION,
     OrderStatus.READY_FOR_DELIVERY,
-    OrderStatus.AWAITING_QUOTE,
 )
 UNPAID_STATUS = OrderStatus.AWAITING_PAYMENT
 
@@ -115,13 +116,17 @@ LEAD_RULES = {
 }
 
 
-def lead_rule(kinds: Collection[str], now: datetime, store: StoreSettingsRecord, field: str = "kind") -> LeadRule:
-    """La regla del pedido: la más estricta de sus tipos de línea. `field` es el campo del error."""
+def lead_rule(
+    kinds: Collection[str], now: datetime, store: StoreSettingsRecord, policy, field: str = "kind"
+) -> LeadRule:
+    """La regla del pedido: la más estricta de sus tipos de línea, y nunca antes de que se cumpla el plazo para pagar.
+    `field` es el campo del error."""
     if not kinds:
         raise DomainValidationError({field: [NO_ITEMS_MESSAGE]})
     rules = [LEAD_RULES[kind](now, store) for kind in kinds]
     latest = [rule.latest_date for rule in rules if rule.latest_date is not None]
-    combined = LeadRule(max(rule.earliest for rule in rules), min(latest, default=None))
+    time_to_pay = now + timedelta(minutes=policy.payment_window_minutes)
+    combined = LeadRule(max(time_to_pay, *(rule.earliest for rule in rules)), min(latest, default=None))
     if combined.latest_date is not None and combined.earliest.date() > combined.latest_date:
         raise DomainValidationError({field: [MIXED_MESSAGE]})
     return combined
@@ -176,7 +181,7 @@ def day_schedule(
     policy = settings.get_policy_settings()
     if on_date > latest_booking_date(now, policy):
         raise DomainValidationError({"date": [too_far_message(policy.max_days_ahead)]})
-    rule = lead_rule(kinds, now, store)
+    rule = lead_rule(kinds, now, store, policy)
     counts = orders.count_orders_by_slot(on_date, **holding_filter(now))
     slots = []
     for slot in slot_grid(store):
@@ -208,8 +213,13 @@ def find_slot(
     return slot
 
 
+def starts_at(on_date: date, start: time, now: datetime) -> datetime:
+    """El momento en que empieza un lapso, en la zona de `now` (la de la pastelería)."""
+    return datetime.combine(on_date, start, tzinfo=now.tzinfo)
+
+
 def slot_start(on_date: date, slot: Slot, now: datetime) -> datetime:
-    return datetime.combine(on_date, slot.starts_at, tzinfo=now.tzinfo)
+    return starts_at(on_date, slot.starts_at, now)
 
 
 def payment_due_at(now: datetime, starts: datetime, policy) -> datetime:
@@ -219,7 +229,8 @@ def payment_due_at(now: datetime, starts: datetime, policy) -> datetime:
 
 
 def cash_payment_due_at(now: datetime, starts: datetime, store: StoreSettingsRecord) -> datetime:
-    """Para la tanda 2: al elegir efectivo, el plazo se extiende al cierre del día (regla 10), el de mañana si ya
-    cerró, y tampoco pasa del inicio del lapso."""
+    """El cierre del día (regla 10), el de mañana si ya cerró, sin pasar del inicio del lapso. Ya fija el plazo de una
+    cotización con precio (`quote_service`, decisión del usuario de la revisión de la ronda 2); en la tanda 2 también
+    extenderá el de un apartado al elegir efectivo."""
     closing = datetime.combine(now.date(), store.store_closes_at, tzinfo=now.tzinfo)
     return min(closing if now < closing else closing + timedelta(days=1), starts)

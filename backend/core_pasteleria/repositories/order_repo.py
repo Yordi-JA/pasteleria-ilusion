@@ -3,18 +3,28 @@
 La creación del pedido corre en una transacción (`atomic`) con candados en un orden fijo para no trabarse con otra
 creación: el cliente, el lapso, las existencias (por id) y las imágenes. Qué estados ocupan un lapso es una regla del
 servicio (`schedule_service`); aquí solo se cuentan los que el servicio dice.
+
+Orden de los candados (D63):
+- Crear: el cliente, el lapso, la vitrina por id de la presentación, el pan por id y las imágenes por id.
+- Cancelar: el pedido (su `UPDATE` condicional) y después lo que devuelve en el orden de la creación: la vitrina por id,
+  el pan por id y las imágenes (`order_status._give_back`). Los vencidos de un cliente se cancelan antes de su
+  transacción de creación, cada uno en la suya.
+- Cobrar un apartado vencido y poner el precio de una cotización: el lapso y después el pedido.
+Los montos de una cotización los calcula el servicio: aquí solo se guardan.
 """
 from collections.abc import Collection
 from datetime import date, datetime, time
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, Prefetch, Q, Sum
 
 from ..models import (
     Bread,
     CakeDesign,
     CakeStand,
+    CustomerImage,
     DecorationOption,
     DeliverySlot,
     FillingBase,
@@ -22,7 +32,17 @@ from ..models import (
     Order,
     OrderItem,
 )
-from .records import CakeDesignRecord, NewCakeDesign, NewOrder, OrderItemRecord, OrderRecord
+from .records import (
+    CakeDesignRecord,
+    NewCakeDesign,
+    NewOrder,
+    OrderItemRecord,
+    OrderRecord,
+    OrderSlotRecord,
+    QuotePrice,
+    QuoteRecord,
+    ReleasedLine,
+)
 
 
 def atomic():
@@ -61,11 +81,44 @@ def count_orders_in_slot(
     return Order.objects.filter(_holding(holding_statuses, unpaid_status, now), delivery_slot_id=slot_id).count()
 
 
+def _unpaid(customer_id: int, unpaid_status: str, now: datetime, also_order_ids: Collection[int] = ()) -> Q:
+    """Los apartados del cliente que aún no vencen, más los de `also_order_ids` (vencidos que no se pudieron cancelar)."""
+    unpaid = Q(customer_id=customer_id, status=unpaid_status, payment_due_at__gt=now)
+    return unpaid | Q(customer_id=customer_id, pk__in=list(also_order_ids)) if also_order_ids else unpaid
+
+
+def _showcase_pieces(showcase_kind: str, orders) -> int:
+    total = OrderItem.objects.filter(kind=showcase_kind, order__in=orders).aggregate(total=Sum("quantity"))["total"]
+    return total or 0
+
+
 def count_unpaid_orders(
-    customer_id: int, *, waiting_statuses: Collection[str], unpaid_status: str, now: datetime
+    customer_id: int, *, unpaid_status: str, now: datetime, also_order_ids: Collection[int] = ()
 ) -> int:
-    """Pedidos del cliente que esperan su pago o su cotización (los apartados vencidos no cuentan)."""
-    return Order.objects.filter(_holding(waiting_statuses, unpaid_status, now), customer_id=customer_id).count()
+    """Pedidos del cliente que esperan su pago (los apartados vencidos no cuentan, salvo los de `also_order_ids`)."""
+    return Order.objects.filter(_unpaid(customer_id, unpaid_status, now, also_order_ids)).count()
+
+
+def count_unpaid_showcase_pieces(
+    customer_id: int, *, unpaid_status: str, showcase_kind: str, now: datetime, also_order_ids: Collection[int] = ()
+) -> int:
+    """Piezas de la vitrina que el cliente tiene apartadas en pedidos sin pagar que aún no vencen (y en los de
+    `also_order_ids`)."""
+    return _showcase_pieces(showcase_kind, Order.objects.filter(_unpaid(customer_id, unpaid_status, now, also_order_ids)))
+
+
+def count_recently_cancelled_showcase_pieces(
+    customer_id: int, *, cancelled_status: str, reason: str, showcase_kind: str, since: datetime
+) -> int:
+    """Piezas de la vitrina de los pedidos del cliente cancelados con `reason` después de `since`."""
+    cancelled = Order.objects.filter(
+        customer_id=customer_id, status=cancelled_status, cancellation_reason=reason, status_changed_at__gt=since
+    )
+    return _showcase_pieces(showcase_kind, cancelled)
+
+
+def count_customer_orders_in_status(customer_id: int, status: str) -> int:
+    return Order.objects.filter(customer_id=customer_id, status=status).count()
 
 
 def count_orders_by_slot(
@@ -156,6 +209,9 @@ def _order_record(order: Order) -> OrderRecord:
         pay_on_delivery=order.pay_on_delivery,
         payment_due_at=order.payment_due_at,
         created_at=order.created_at,
+        paid_in_full=order.paid_in_full,
+        status_changed_at=order.status_changed_at,
+        delivery_slot_id=order.delivery_slot_id,
         items=tuple(
             OrderItemRecord(
                 kind=item.kind,
@@ -172,14 +228,23 @@ def _order_record(order: Order) -> OrderRecord:
     )
 
 
+def has_order_with_key(customer_id: int, key: str) -> bool:
+    """Si el cliente ya tiene un pedido con esa llave, sin leerlo."""
+    return Order.objects.filter(customer_id=customer_id, idempotency_key=key).exists()
+
+
 def find_order_by_idempotency_key(customer_id: int, key: str) -> OrderRecord | None:
     order = _orders().filter(customer_id=customer_id, idempotency_key=key).first()
     return _order_record(order) if order else None
 
 
-def change_status(order_id: int, current: str, new: str, changed_at: datetime) -> bool:
-    """Pasa el pedido de `current` a `new` solo si sigue en `current`; `False` si ya había cambiado."""
-    return Order.objects.filter(pk=order_id, status=current).update(status=new, status_changed_at=changed_at) == 1
+def change_status(order_id: int, current: str, new: str, changed_at: datetime, *, cancellation_reason: str = "") -> bool:
+    """Pasa el pedido de `current` a `new` solo si sigue en `current`; `False` si ya había cambiado. Con
+    `cancellation_reason`, guarda también el motivo."""
+    fields = {"status": new, "status_changed_at": changed_at}
+    if cancellation_reason:
+        fields["cancellation_reason"] = cancellation_reason
+    return Order.objects.filter(pk=order_id, status=current).update(**fields) == 1
 
 
 def get_customer_order(customer_id: int, order_id: int) -> OrderRecord | None:
@@ -268,6 +333,7 @@ def create_order(new: NewOrder) -> OrderRecord:
         advance=new.advance,
         pay_today=new.pay_today,
         pay_on_delivery=new.pay_on_delivery,
+        paid_in_full=new.paid_in_full,
         payment_due_at=new.payment_due_at,
     )
     options = _options_for([item.design for item in new.items if item.design])
@@ -285,6 +351,7 @@ def create_order(new: NewOrder) -> OrderRecord:
             kind=item.kind,
             offering_id=item.offering_id,
             design=designs.get(position),
+            bread_id=item.bread_id,
             product_name=item.product_name,
             presentation=item.presentation,
             quantity=item.quantity,
@@ -294,3 +361,113 @@ def create_order(new: NewOrder) -> OrderRecord:
         for position, item in enumerate(new.items, start=1)
     )
     return _order_record(_orders().get(pk=order.pk))
+
+
+# --- Vencimiento, cancelación y cobro (D63, ronda 2) ---
+
+
+def list_expired_orders(
+    *,
+    unpaid_status: str,
+    now: datetime,
+    quote_status: str,
+    quoted_before: datetime | None,
+    customer_id: int | None = None,
+) -> list[tuple[int, str]]:
+    """Los pedidos vencidos, con su estado: los apartados con el plazo cumplido y, si `quoted_before` no es `None`, los
+    que esperan cotización desde antes de ese momento. Con `customer_id`, solo los de ese cliente. Del más viejo al más
+    nuevo."""
+    expired = Q(status=unpaid_status, payment_due_at__lte=now)
+    if quoted_before is not None:
+        expired |= Q(status=quote_status, status_changed_at__lte=quoted_before)
+    orders = Order.objects.filter(expired)
+    if customer_id is not None:
+        orders = orders.filter(customer_id=customer_id)
+    return list(orders.order_by("pk").values_list("pk", "status"))
+
+
+def list_reserved_lines(order_id: int, *, showcase_kind: str) -> list[ReleasedLine]:
+    """Lo que el pedido apartó al crearse: las piezas de la vitrina y el pan del día, con el día del lapso."""
+    items = (
+        OrderItem.objects.filter(Q(kind=showcase_kind) | Q(bread__isnull=False), order_id=order_id)
+        .order_by("offering_id", "bread_id")
+        .values("kind", "offering_id", "bread_id", "quantity", "order__delivery_slot__date")
+    )
+    return [
+        ReleasedLine(
+            offering_id=item["offering_id"] if item["kind"] == showcase_kind else None,
+            bread_id=item["bread_id"],
+            quantity=item["quantity"],
+            on_date=item["order__delivery_slot__date"],
+        )
+        for item in items
+    ]
+
+
+def delete_order_images(order_id: int) -> int:
+    """Quita de los diseños del pedido sus imágenes y las borra. Devuelve cuántas borró."""
+    designs = CakeDesign.objects.filter(item__order_id=order_id)
+    image_ids = [
+        image_id
+        for pair in designs.values_list("decoration_image_id", "wafer_image_id")
+        for image_id in pair
+        if image_id is not None
+    ]
+    if not image_ids:
+        return 0
+    designs.update(decoration_image=None, wafer_image=None)
+    deleted, _ = CustomerImage.objects.filter(pk__in=image_ids).delete()
+    return deleted
+
+
+def lock_order_slot(order_id: int) -> OrderSlotRecord | None:
+    """Bloquea el lapso del pedido hasta el fin de la transacción; `None` si el pedido no existe."""
+    row = Order.objects.filter(pk=order_id).values("delivery_slot_id", "payment_due_at").first()
+    if row is None:
+        return None
+    DeliverySlot.objects.select_for_update().filter(pk=row["delivery_slot_id"]).values_list("pk", flat=True).first()
+    return OrderSlotRecord(delivery_slot_id=row["delivery_slot_id"], payment_due_at=row["payment_due_at"])
+
+
+def lock_quote(order_id: int, *, status: str) -> QuoteRecord | None:
+    """Bloquea el pedido si sigue en `status` y tiene un diseño por cotizar; `None` si no."""
+    order = (
+        Order.objects.select_for_update(of=("self",))
+        .select_related("delivery_slot")
+        .filter(pk=order_id, status=status)
+        .first()
+    )
+    if order is None:
+        return None
+    design = CakeDesign.objects.filter(item__order_id=order_id, requires_quote=True).values("pk", "total").first()
+    if design is None:
+        return None
+    return QuoteRecord(
+        order_id=order.pk,
+        subtotal=order.subtotal,
+        stand_deposit=order.stand_deposit,
+        delivery_fee=order.delivery_fee,
+        paid_in_full=order.paid_in_full or Decimal("0.00"),
+        delivery_date=order.delivery_slot.date,
+        slot_starts_at=order.delivery_slot.starts_at,
+        design_id=design["pk"],
+        design_total=design["total"],
+    )
+
+
+def apply_quote(order_id: int, design_id: int, price: QuotePrice) -> None:
+    """Guarda el precio de la decoración, los montos nuevos y el estado. Va dentro de `atomic()`, tras `lock_quote`."""
+    CakeDesign.objects.filter(pk=design_id).update(decoration_price=price.decoration_price, total=price.design_total)
+    OrderItem.objects.filter(design_id=design_id).update(unit_price=price.design_total, line_total=price.design_total)
+    Order.objects.filter(pk=order_id).update(
+        quoted_decoration_price=price.decoration_price,
+        subtotal=price.subtotal,
+        advance_percent=price.advance_percent,
+        advance=price.advance,
+        pay_today=price.pay_today,
+        pay_on_delivery=price.pay_on_delivery,
+        paid_in_full=price.paid_in_full,
+        payment_due_at=price.payment_due_at,
+        status=price.status,
+        status_changed_at=price.status_changed_at,
+    )
