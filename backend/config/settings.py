@@ -422,6 +422,14 @@ REST_FRAMEWORK = {
         # hasta 42 días. Por cuenta y aparte del cupo general `user`; un mes con
         # sus cambios de mes y recargas tras un "Lleno" cabe holgado.
         "delivery_slots": "30/min",
+        # Iniciar un pago (D68): por cuenta, en la caché `security`. Cada intento
+        # nuevo crea una preferencia o un PaymentIntent en la pasarela; cambiar de
+        # método y reintentar caben holgados. Consultar el estado usa `user`.
+        "payments_user": "20/min",
+        # Webhooks de las pasarelas, por IP: la firma es la autenticación y solo
+        # una notificación firmada consulta a Mercado Pago. Holgado para no perder
+        # avisos legítimos; aparte del cupo `anon` del sitio.
+        "payment_webhooks": "300/min",
     },
     # Saltos de proxy delante de la app (en Heroku, 1). Con 0 se ignora
     # X-Forwarded-For y se usa la dirección de la conexión: si no, un cliente
@@ -477,6 +485,31 @@ if GOOGLE_CLIENT_ID and not GOOGLE_CLIENT_ID.endswith(".apps.googleusercontent.c
         "GOOGLE_CLIENT_ID debe ser el ID de cliente de OAuth (termina en "
         ".apps.googleusercontent.com), nunca el secreto."
     )
+
+# --- Pagos (D68) ---
+
+# Llaves secretas de las pasarelas, en sandbox durante el proyecto. Cada método
+# necesita las dos de su pasarela (el cobro y la clave de su webhook): si falta
+# una, ese método responde 503 y los demás siguen funcionando. Nunca van al
+# frontend; ahí solo va la llave pública de Stripe (`pk_`).
+MERCADOPAGO_ACCESS_TOKEN = env("MERCADOPAGO_ACCESS_TOKEN", default="").strip()
+MERCADOPAGO_WEBHOOK_SECRET = env("MERCADOPAGO_WEBHOOK_SECRET", default="").strip()
+STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="").strip()
+STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="").strip()
+if STRIPE_SECRET_KEY and not STRIPE_SECRET_KEY.startswith(("sk_", "rk_")):
+    raise ImproperlyConfigured(
+        "STRIPE_SECRET_KEY debe ser la llave secreta (sk_...) o restringida (rk_...), nunca la pública (pk_...)."
+    )
+# El proyecto solo cobra en sandbox: una llave real cobraría dinero de verdad. En Mercado Pago el prefijo no
+# distingue de forma confiable la llave de prueba de la real (las cuentas de prueba también usan `APP_USR-`), así
+# que ahí no se revisa.
+if STRIPE_SECRET_KEY.startswith(("sk_live_", "rk_live_")):
+    raise ImproperlyConfigured(
+        "STRIPE_SECRET_KEY es una llave real (sk_live_ o rk_live_): el proyecto solo usa llaves de prueba "
+        "(sk_test_ o rk_test_)."
+    )
+if STRIPE_WEBHOOK_SECRET and not STRIPE_WEBHOOK_SECRET.startswith("whsec_"):
+    raise ImproperlyConfigured("STRIPE_WEBHOOK_SECRET es el secreto del webhook de Stripe (whsec_...).")
 
 # --- drf-spectacular ---
 

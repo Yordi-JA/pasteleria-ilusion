@@ -66,3 +66,25 @@ export function formatMonth(year: number, month: number): string {
   const name = MONTHS[month - 1] ?? ''
   return `${name.charAt(0).toLocaleUpperCase('es-MX')}${name.slice(1)} ${year}`
 }
+
+const BAKERY_PARTS = new Intl.DateTimeFormat('en-CA', {
+  timeZone: BAKERY_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
+
+/**
+ * Un instante de la API (ISO 8601, por ejemplo `payment_due_at`) en la hora de la pastelería: su fecha "AAAA-MM-DD" y
+ * su hora "22:30", como las dice el mockup. `null` si no es un instante válido. Nunca usa la zona del navegador.
+ */
+export function bakeryMoment(value: unknown): { date: string; clock: string } | null {
+  if (typeof value !== 'string') return null
+  const instant = new Date(value)
+  if (Number.isNaN(instant.getTime())) return null
+  const parts = Object.fromEntries(BAKERY_PARTS.formatToParts(instant).map((part) => [part.type, part.value]))
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, clock: `${parts.hour}:${parts.minute}` }
+}

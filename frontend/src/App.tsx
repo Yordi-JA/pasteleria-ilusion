@@ -59,6 +59,9 @@ export default function App() {
           <Route path="/cuenta/cotizaciones/:id" element={<Quote />} />
           {/* La entrega crea el pedido en el servidor: pide sesión (D62, D66). */}
           <Route path="/pedido/entrega" element={<Delivery />} />
+          {/* El pago y el apartado leen el pedido de la cuenta (D68). */}
+          <Route path="/pedido/pago" element={<Payment />} />
+          <Route path="/pedido/apartado" element={<OrderReserved />} />
         </Route>
 
         <Route path="/carrito" element={<Cart />} />
@@ -66,9 +69,7 @@ export default function App() {
         <Route path="/pedido/disena" element={<CakeDesigner />} />
         <Route path="/pedido/referencia" element={<ReferenceUpload />} />
         <Route path="/pedido/referencia/enviada" element={<ReferenceSent />} />
-        <Route path="/pedido/pago" element={<Payment />} />
         <Route path="/pedido/confirmacion" element={<OrderConfirmation />} />
-        <Route path="/pedido/apartado" element={<OrderReserved />} />
 
         <Route path="/nota/:token" element={<NoteVerification />} />
         <Route path="/legal" element={<Legal />} />

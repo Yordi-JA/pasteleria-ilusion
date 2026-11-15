@@ -141,7 +141,8 @@ export function useDelivery(focus: DeliveryFocus) {
       focusTarget.current = 'placed'
       return
     }
-    navigate('/pedido/pago', { state: { orderId: result.order.id } })
+    // El pedido va en la URL (sobrevive a una recarga y al regreso de Mercado Pago, D68) y en el estado de la navegación.
+    navigate(`/pedido/pago?pedido=${result.order.id}`, { state: { orderId: result.order.id } })
   }
 
   return {

@@ -8,7 +8,7 @@ import { mockStoreInfo } from './support/store-info.ts'
 /**
  * Cada ruta de docs/mapa-de-vistas.md con su h1 tal como el mockup. Cuando el h1 es un dato que todavía no
  * existe, lleva el marcador de pendiente y la pestaña (`title`) usa el nombre de la vista, sin corchetes. Las rutas de la
- * cuenta y la entrega (`account`) piden sesión (D62, D66): se prueban con la de Ana, cuyo nombre ya es el del saludo.
+ * cuenta, la entrega, el pago y el apartado (`account`) piden sesión (D62, D66, D68): se prueban con la de Ana, cuyo nombre ya es el del saludo.
  */
 const routes: { path: string; heading: string; title?: string; account?: boolean }[] = [
   { path: '/catalogo', heading: 'Catálogo' },
@@ -31,9 +31,9 @@ const routes: { path: string; heading: string; title?: string; account?: boolean
   { path: '/pedido/referencia', heading: 'Envía tu referencia' },
   { path: '/pedido/referencia/enviada', heading: 'Recibimos tu solicitud' },
   { path: '/pedido/entrega', heading: '¿Cómo recibes tu pedido?', account: true },
-  { path: '/pedido/pago', heading: 'Paga tu pedido' },
+  { path: '/pedido/pago', heading: 'Paga tu pedido', account: true },
   { path: '/pedido/confirmacion', heading: 'Recibimos tu pedido' },
-  { path: '/pedido/apartado', heading: 'Tu pedido está apartado' },
+  { path: '/pedido/apartado', heading: 'Tu pedido está apartado', account: true },
   { path: '/nota/abc123', heading: 'Verificación de nota' },
   { path: '/legal', heading: 'Aviso de privacidad y términos' },
 ]

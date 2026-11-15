@@ -9,6 +9,7 @@ cliente no estrena contador con cada dirección.
   varias cuentas desde una misma conexión no multipliquen el cupo. `ScopedRateThrottle` solo lleva un alcance por
   vista, por eso son dos clases por cada uno.
 - Calendario de la entrega (D66): por usuario, aparte del cupo general `user`.
+- Iniciar un pago (D68): por usuario; los webhooks de pago, por IP con `SecurityScopedRateThrottle`.
 """
 from django.core.cache import caches
 from django.utils.connection import ConnectionProxy
@@ -85,3 +86,10 @@ class OrderCreateIPThrottle(CustomerImageIPThrottle):
     """Crear pedidos, por IP (`orders_create_ip`, 60 por hora): más holgada, porque varias personas comparten la red."""
 
     scope = "orders_create_ip"
+
+
+class PaymentStartUserThrottle(CustomerImageUserThrottle):
+    """Iniciar un pago, por cuenta (`payments_user`, 20 por minuto, D68): cada intento nuevo llama a una pasarela.
+    Consultar el estado del pago usa el cupo general `user`."""
+
+    scope = "payments_user"

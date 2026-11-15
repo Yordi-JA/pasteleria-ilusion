@@ -113,7 +113,7 @@ El registro admite `mercadopago`, `stripe` y `cash` (efectivo). Agregar una pasa
 
 ![Fábrica de pagos. create_payment_processor busca la clase en PAYMENT_GATEWAY_REGISTRY y devuelve una instancia de BasePayment. MercadoPagoPayment, StripePayment y CashPayment heredan de BasePayment. Los dos primeros delegan en MercadoPagoAdapter y StripeAdapter, que usan el SDK de cada proveedor; CashPayment no tiene adaptador.](diagramas/fabrica-pagos.svg)
 
-`PaymentResult` es el formato interno estándar de respuesta; su forma exacta se define en la Etapa 4. `CashPayment` no necesita adaptador: no hay SDK, y su resultado deja el pedido en estado `awaiting_payment`.
+`PaymentResult` es el formato interno estándar de respuesta (D68, `services/payments/results.py`): el id del pedido, el método, el estado del intento (`pending` al iniciar), el monto y la moneda (MXN), el `checkout_id` que creó la pasarela (la preferencia de Mercado Pago o el PaymentIntent de Stripe), la `redirect_url` de Checkout Pro y el `client_secret` de Stripe, que es solo para el navegador y nunca se guarda ni se registra. El `payload` de `charge` es un `ChargeRequest` (pedido, llave de idempotencia, descripción, URL de regreso y del webhook, y plazo para pagar), y lo que confirma un webhook verificado es un `PaymentNotice`. `CashPayment` no necesita adaptador: no hay SDK, y su resultado deja el pedido en estado `awaiting_payment`.
 
 ### Observer de eventos del pedido
 
@@ -124,7 +124,8 @@ El registro admite `mercadopago`, `stripe` y `cash` (efectivo). Agregar una pasa
 | Observador | Responsabilidad |
 | --- | --- |
 | `CustomerNotificationObserver` | Registra o envía el aviso de cada cambio de estado y de la confirmación de agenda |
-| `InventoryObserver` | Descuenta las existencias de vitrina cuando el pedido entra en `awaiting_payment` o `received` (lo que ocurra primero) y las reintegra al entrar en `cancelled`. Así no se vende dos veces una pieza apartada en efectivo. Los pedidos personalizados no descuentan vitrina (D14) |
+| `StripeCheckoutObserver` | Al entrar el pedido en `cancelled`, cancela en Stripe sus PaymentIntent abiertos después del commit, como mejor esfuerzo: si Stripe falla, deja un WARNING y el pedido sigue cancelado (D68) |
+| `InventoryObserver` | Descuenta las existencias de vitrina cuando el pedido entra en `awaiting_payment` o `received` (lo que ocurra primero) y las reintegra al entrar en `cancelled`. Así no se vende dos veces una pieza apartada en efectivo. Los pedidos personalizados no descuentan vitrina (D14). Desde D68 el observador hace el reintegro; el descuento lo hace la creación del pedido, que nace `awaiting_payment`, porque decide si el pedido puede existir |
 | `StandLoanObserver` | Al entrar el pedido en `delivered`, crea la base `on_loan` con fecha límite igual a la entrega más 15 días y retiene el depósito. Con el evento "base devuelta", que emite `warranty_service` cuando el personal la registra en `/nota/:token`, marca la base `returned` y el depósito como reembolsado |
 
 ## Estados del pedido y de la base
@@ -194,6 +195,7 @@ Estas son las entidades del dominio. Las del catálogo, el inventario y la confi
 | `Bread`, `FillingBase`, `FillingFlavor`, `FillingPrice`, `TierRecommendation`, `CoverageColor` y `DecorationOption` | Opciones y precios editables de "Diseña tu pastel" | Secciones 3 a 6 | Implementadas |
 | `CakeStand` y `DeliveryFeeBand` | Tamaños de base con su depósito y tarifas de envío por distancia | Secciones 7 y 8 | Implementadas |
 | `Order` y `OrderItem` | Pedidos, sus partidas, pagos y estados | Secciones 10 y 12 | Implementada (D63; los pagos, en la tanda 2) |
+| `Payment` | Cada intento de cobro de un pedido (Mercado Pago, Stripe o efectivo), con su estado y los ids de la pasarela | Sección 10 | Implementada (D68) |
 | `CakeDesign` | Configuración guardada de "Diseña tu pastel" y su precio | Secciones 3 a 6 | Implementada (D63) |
 | `ReferenceRequest` | Envío de referencia (hasta 3 imágenes) y su seguimiento (`in_review`, `quote_ready`) | Sección 9 | Prevista |
 | `Quote` | Cotización que la pastelería fija a un envío de referencia | Sección 9 | Prevista |

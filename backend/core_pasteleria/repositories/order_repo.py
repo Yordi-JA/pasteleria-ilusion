@@ -50,6 +50,11 @@ def atomic():
     return transaction.atomic()
 
 
+def on_commit(callback) -> None:
+    """Corre `callback` cuando se confirme la transacción en curso (en el acto si no hay ninguna)."""
+    transaction.on_commit(callback)
+
+
 def lock_customer(customer_id: int) -> None:
     """Bloquea al cliente: dos creaciones suyas a la vez (doble clic) se revisan una tras otra."""
     get_user_model().objects.select_for_update().filter(pk=customer_id).values_list("pk", flat=True).first()
@@ -242,13 +247,25 @@ def find_order_by_idempotency_key(customer_id: int, key: str) -> OrderRecord | N
     return _order_record(order) if order else None
 
 
-def change_status(order_id: int, current: str, new: str, changed_at: datetime, *, cancellation_reason: str = "") -> bool:
+def change_status(
+    order_id: int,
+    current: str,
+    new: str,
+    changed_at: datetime,
+    *,
+    cancellation_reason: str = "",
+    due_by: datetime | None = None,
+) -> bool:
     """Pasa el pedido de `current` a `new` solo si sigue en `current`; `False` si ya había cambiado. Con
-    `cancellation_reason`, guarda también el motivo."""
+    `cancellation_reason`, guarda también el motivo. Con `due_by`, solo si su plazo para pagar ya se cumplió para
+    entonces: la cancelación de lo vencido no gana a un plazo que se extendió después de listarlo (D68)."""
     fields = {"status": new, "status_changed_at": changed_at}
     if cancellation_reason:
         fields["cancellation_reason"] = cancellation_reason
-    return Order.objects.filter(pk=order_id, status=current).update(**fields) == 1
+    orders = Order.objects.filter(pk=order_id, status=current)
+    if due_by is not None:
+        orders = orders.filter(payment_due_at__lte=due_by)
+    return orders.update(**fields) == 1
 
 
 def get_customer_order(customer_id: int, order_id: int) -> OrderRecord | None:
@@ -477,3 +494,13 @@ def apply_quote(order_id: int, design_id: int, price: QuotePrice) -> None:
         status=price.status,
         status_changed_at=price.status_changed_at,
     )
+
+
+# --- Pago (D68) ---
+
+
+def extend_payment_due_at(order_id: int, due_at: datetime, *, unpaid_status: str, now: datetime) -> bool:
+    """Mueve el plazo para pagar de un apartado que todavía no vence; `False` si ya no espera pago o ya venció. Es la
+    otra mitad de `change_status(..., due_by=)`: los dos `UPDATE` condicionales sobre la misma fila, y gana uno solo."""
+    orders = Order.objects.filter(pk=order_id, status=unpaid_status, payment_due_at__gt=now)
+    return orders.update(payment_due_at=due_at) == 1

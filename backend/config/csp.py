@@ -13,11 +13,20 @@ y no necesita `'unsafe-inline'` ni `ws:` para Vite.
 La API devuelve JSON: su política no deja cargar nada (`default-src 'none'`), por si
 un navegador llegara a interpretar una respuesta como documento.
 
+El pago con tarjeta (D68) usa Stripe.js: su script, sus iframes (los campos de la
+tarjeta y la verificación 3D Secure de `hooks.stripe.com`) y su API. Es la lista de
+Stripe para Stripe.js (https://docs.stripe.com/security/guide), sin Google Maps, que
+solo pide su Address Element y aquí no se usa. Mercado Pago es una redirección a
+Checkout Pro y no necesita nada.
+
 El admin y Swagger UI quedan fuera: traen código en línea y necesitan su propia
 política (pendiente en `docs/proyecto/decisiones.md`).
 """
 
 GOOGLE_IDENTITY = "https://accounts.google.com/gsi/"
+STRIPE_JS = ["https://js.stripe.com", "https://*.js.stripe.com"]
+STRIPE_HOOKS = "https://hooks.stripe.com"
+STRIPE_API = "https://api.stripe.com"
 
 
 def _policy(directives: dict[str, list[str]]) -> str:
@@ -27,12 +36,12 @@ def _policy(directives: dict[str, list[str]]) -> str:
 SITE_POLICY = _policy(
     {
         "default-src": ["'self'"],
-        "script-src": ["'self'", f"{GOOGLE_IDENTITY}client"],
+        "script-src": ["'self'", f"{GOOGLE_IDENTITY}client", *STRIPE_JS],
         "style-src": ["'self'", f"{GOOGLE_IDENTITY}style"],
         "img-src": ["'self'", "data:", "blob:"],
         "font-src": ["'self'"],
-        "connect-src": ["'self'", "blob:", GOOGLE_IDENTITY],
-        "frame-src": [GOOGLE_IDENTITY],
+        "connect-src": ["'self'", "blob:", GOOGLE_IDENTITY, STRIPE_API],
+        "frame-src": [GOOGLE_IDENTITY, *STRIPE_JS, STRIPE_HOOKS],
         "object-src": ["'none'"],
         "base-uri": ["'none'"],
         "form-action": ["'self'"],

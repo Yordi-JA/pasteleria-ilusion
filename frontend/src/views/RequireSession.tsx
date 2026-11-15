@@ -20,7 +20,8 @@ function AccountSkeleton() {
 }
 
 /**
- * Las rutas de la cuenta (`/cuenta/...`) y la entrega (`/pedido/entrega`, D66) piden sesión (D62). Mientras se recupera, el esqueleto; sin sesión, a
+ * Las rutas de la cuenta (`/cuenta/...`), la entrega (`/pedido/entrega`, D66), el pago y el apartado (`/pedido/pago` y
+ * `/pedido/apartado`, D68) piden sesión (D62). Mientras se recupera, el esqueleto; sin sesión, a
  * `/entrar` con `?volver=` para regresar aquí al entrar, o a la portada si la persona acaba de salir.
  */
 export default function RequireSession() {
