@@ -121,16 +121,18 @@ def count_customer_orders_in_status(customer_id: int, status: str) -> int:
     return Order.objects.filter(customer_id=customer_id, status=status).count()
 
 
-def count_orders_by_slot(
-    on_date: date, *, holding_statuses: Collection[str], unpaid_status: str, now: datetime
-) -> dict[time, int]:
-    """Pedidos que ocupan cada lapso de ese día, por la hora en que empieza el lapso."""
+def count_orders_by_date_and_slot(
+    start: date, end: date, *, holding_statuses: Collection[str], unpaid_status: str, now: datetime
+) -> dict[tuple[date, time], int]:
+    """Pedidos que ocupan cada lapso de los días de `start` a `end`, por día y hora en que empieza el lapso."""
     rows = (
-        Order.objects.filter(_holding(holding_statuses, unpaid_status, now), delivery_slot__date=on_date)
-        .values("delivery_slot__starts_at")
+        Order.objects.filter(
+            _holding(holding_statuses, unpaid_status, now), delivery_slot__date__gte=start, delivery_slot__date__lte=end
+        )
+        .values("delivery_slot__date", "delivery_slot__starts_at")
         .annotate(total=Count("pk"))
     )
-    return {row["delivery_slot__starts_at"]: row["total"] for row in rows}
+    return {(row["delivery_slot__date"], row["delivery_slot__starts_at"]): row["total"] for row in rows}
 
 
 # --- Lectura ---
@@ -212,6 +214,8 @@ def _order_record(order: Order) -> OrderRecord:
         paid_in_full=order.paid_in_full,
         status_changed_at=order.status_changed_at,
         delivery_slot_id=order.delivery_slot_id,
+        pickup_name=order.pickup_name,
+        pickup_phone=order.pickup_phone,
         items=tuple(
             OrderItemRecord(
                 kind=item.kind,
@@ -326,6 +330,8 @@ def create_order(new: NewOrder) -> OrderRecord:
         status_changed_at=new.status_changed_at,
         fulfillment=new.fulfillment,
         delivery_slot_id=new.delivery_slot_id,
+        pickup_name=new.pickup_name,
+        pickup_phone=new.pickup_phone,
         subtotal=new.subtotal,
         stand_deposit=new.stand_deposit,
         delivery_fee=new.delivery_fee,

@@ -116,6 +116,9 @@ class OrderRequest:
     delivery_date: date
     slot_starts_at: time
     items: tuple[LineRequest, ...]
+    # Quién recoge (D66, decisión A del usuario): ya limpios por la API.
+    pickup_name: str
+    pickup_phone: str
 
 
 class _ReadOnce:
@@ -262,6 +265,8 @@ def _new_order(
         status_changed_at=now,
         fulfillment=request.fulfillment,
         delivery_slot_id=slot_id,
+        pickup_name=request.pickup_name,
+        pickup_phone=request.pickup_phone,
         subtotal=subtotal,
         stand_deposit=stand_deposit,
         delivery_fee=delivery_fee,
@@ -342,10 +347,10 @@ def create_order(
     images=customer_image_repo,
 ) -> tuple[OrderRecord, bool]:
     """Crea el pedido, o devuelve el que ya existe con esa llave. El segundo valor dice si se creó."""
-    existing = orders.find_order_by_idempotency_key(customer_id, request.idempotency_key)
+    now = now or schedule_service.bakery_now()
+    existing = find_order_by_key(customer_id, request.idempotency_key, now=now, orders=orders, products=products, settings=settings)
     if existing is not None:
         return existing, False
-    now = now or schedule_service.bakery_now()
     # Sus piezas y su pan vencidos vuelven antes de revisar las existencias y los topes.
     cleanup = order_status.cancel_customer_expired_orders(
         customer_id, now=now, orders=orders, products=products, settings=settings
@@ -401,8 +406,32 @@ def has_order_with_key(customer_id: int, idempotency_key: str, orders=order_repo
     return orders.has_order_with_key(customer_id, idempotency_key)
 
 
-def find_order_by_key(customer_id: int, idempotency_key: str, orders=order_repo) -> OrderRecord | None:
-    """El pedido que el cliente ya hizo con esa llave; con él, un reintento no es un pedido nuevo."""
+def _is_overdue(order: OrderRecord, now: datetime) -> bool:
+    """Un apartado al que ya se le pasó el plazo para pagar, aunque el comando todavía no lo cancele."""
+    return order.status == OrderStatus.AWAITING_PAYMENT and order.payment_due_at is not None and order.payment_due_at <= now
+
+
+def find_order_by_key(
+    customer_id: int,
+    idempotency_key: str,
+    *,
+    now: datetime | None = None,
+    orders=order_repo,
+    products=product_repo,
+    settings=settings_repo,
+) -> OrderRecord | None:
+    """El pedido que el cliente ya hizo con esa llave; con él, un reintento no es un pedido nuevo.
+
+    Si ese pedido ya venció sin pagarse y el comando todavía no corre (Heroku Scheduler, cada 10 minutos), se cancelan
+    antes los vencidos del cliente, con su reintegro, y se devuelve ya cancelado: el navegador no lo toma por un pedido
+    vigente (re-revisión de D66). Es la misma limpieza que corre al crear, fuera de toda transacción y cada cancelación
+    en la suya, así que no cambia el orden de los candados de D63; solo corre cuando el pedido encontrado venció.
+    """
+    now = now or schedule_service.bakery_now()
+    existing = orders.find_order_by_idempotency_key(customer_id, idempotency_key)
+    if existing is None or not _is_overdue(existing, now):
+        return existing
+    order_status.cancel_customer_expired_orders(customer_id, now=now, orders=orders, products=products, settings=settings)
     return orders.find_order_by_idempotency_key(customer_id, idempotency_key)
 
 

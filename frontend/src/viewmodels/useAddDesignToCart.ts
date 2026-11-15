@@ -41,7 +41,7 @@ async function blobOf(image: LocalImage) {
  * Guardar el diseño en el servidor es de la Etapa 4. Como el aviso del carrito, no se quita solo (WCAG 2.2.1).
  */
 export function useAddDesignToCart() {
-  const { addDesign, items } = useCart()
+  const { addDesign, removeDesign, items } = useCart()
   const { launch } = useCartFlight()
   const [feedback, setFeedback] = useState<DesignFeedback | null>(null)
   const [busy, setBusy] = useState(false)
@@ -51,7 +51,12 @@ export function useAddDesignToCart() {
   const show = useCallback((notice: AddNotice) => setFeedback({ ...notice, id: nextId.current++ }), [])
 
   const add = useCallback(
-    async (line: Omit<DesignItem, 'images'>, images: { decoration: LocalImage | null; wafer: LocalImage | null }) => {
+    async (
+      line: Omit<DesignItem, 'images'>,
+      images: { decoration: LocalImage | null; wafer: LocalImage | null },
+      /** La huella del pastel del carrito que este reemplaza ("Editar pedido", D66), o `null`. */
+      replaces: string | null = null,
+    ) => {
       if (adding.current) return
       adding.current = true
       setBusy(true)
@@ -89,20 +94,25 @@ export function useAddDesignToCart() {
           show(outcome.limit ? LIMIT_NOTICE : DUPLICATE_NOTICE)
           return
         }
-        launch(1)
+        // El pastel editado ocupa el lugar del que se editó: el de antes sale del carrito (y sus imágenes, del navegador).
+        const replaced = replaces !== null && items.some((item) => item.kind === 'design' && item.designId === replaces)
+        if (replaced) removeDesign(replaces)
+        else launch(1)
         show({
           tone: lost ? 'attention' : 'success',
           title: 'Agregado al pedido',
           detail: lost
             ? 'Tu pastel quedó en tu pedido, pero no pudimos guardar tu imagen en este navegador: tendrás que elegirla otra vez.'
-            : 'Tu pastel quedó en tu pedido.',
+            : replaced
+              ? 'Tu pastel quedó en tu pedido en lugar del que editaste.'
+              : 'Tu pastel quedó en tu pedido.',
         })
       } finally {
         adding.current = false
         setBusy(false)
       }
     },
-    [addDesign, items, launch, show],
+    [addDesign, items, launch, removeDesign, show],
   )
 
   /** Si un pastel con esa huella ya está en el pedido. */

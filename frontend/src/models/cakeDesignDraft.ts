@@ -54,6 +54,11 @@ export type CakeDesignDraft = {
   occasion: Occasion | null
   /** Pasos que la persona ya confirmó con "Continuar". Un paso está completo si es válido y está aquí. */
   confirmed: number[]
+  /**
+   * La huella del pastel del carrito que se está editando ("Editar pedido", D66): al agregar este, ese sale del carrito.
+   * `null` en un diseño nuevo.
+   */
+  replaces: string | null
 }
 
 export const DRAFT_STORAGE_KEY = 'ilusion.cakeDesign.v1'
@@ -87,6 +92,7 @@ export function emptyDraft(): CakeDesignDraft {
     waferImageName: null,
     occasion: null,
     confirmed: [],
+    replaces: null,
   }
 }
 
@@ -132,7 +138,31 @@ export function parseDraft(data: unknown): CakeDesignDraft {
     waferImageName: displayFileName(raw.waferImageName),
     occasion: parseOccasion(raw.occasion),
     confirmed: [...new Set(confirmed)].sort((a, b) => a - b),
+    replaces: typeof raw.replaces === 'string' && raw.replaces.length <= 40 ? slugOrNull(raw.replaces) : null,
   }
+}
+
+/** Los pasos que un pastel ya armado tiene confirmados: todos menos la revisión. */
+const ARMED_STEPS = [1, 2, 3, 4, 5, 6, 7]
+
+/**
+ * El borrador de un pastel que ya está en el carrito ("Editar pedido", D66), a partir de lo que guardó la línea
+ * (`designSnapshot`). Pasa por `parseDraft`, así lo que no sirva toma su valor inicial. Las imágenes no viajan: viven en
+ * `IndexedDB` con la línea, y el diseñador pide elegirlas otra vez.
+ */
+export function draftFromDesign(snapshot: Record<string, unknown>, designId: string): CakeDesignDraft {
+  const flavors = Array.isArray(snapshot.flavors) ? snapshot.flavors : []
+  const message = snapshot.message
+  const wafer = snapshot.wafer
+  return parseDraft({
+    ...snapshot,
+    flavorCount: flavors.length === 2 ? 2 : 1,
+    messageEnabled: typeof message === 'object' && message !== null,
+    message: message ?? undefined,
+    waferEnabled: typeof wafer === 'object' && wafer !== null,
+    confirmed: ARMED_STEPS,
+    replaces: designId,
+  })
 }
 
 export function readDraft(): CakeDesignDraft {

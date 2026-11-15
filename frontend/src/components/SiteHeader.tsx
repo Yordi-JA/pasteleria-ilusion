@@ -37,6 +37,27 @@ const navLink =
   `aria-[current=page]:underline aria-[current=page]:decoration-2 ${focusRing}`
 
 /**
+ * La barra de la compra (mockup de Entrega y Pago): el logo y "Volver al carrito", sin la navegación ni el menú, para
+ * que la persona termine su pedido. Misma barra flotante y fija que la del sitio.
+ */
+export function CheckoutHeader() {
+  return (
+    <header className="sticky top-4 z-30 mt-5 max-[600px]:mt-3">
+      <div className="mx-auto max-w-[1200px] px-6 max-[600px]:px-4">
+        <div data-testid="barra" className="flex min-h-16 items-center justify-between gap-4 rounded-lg border border-relieve bg-betun py-2 pl-6 pr-3 max-[600px]:pl-4">
+          <Link to="/" className={`block shrink-0 rounded-sm ${focusRing}`}>
+            <img src={logo} alt="Pastelería Ilusión, inicio" width={150} height={66} className="h-auto w-[150px] max-[600px]:w-[120px]" />
+          </Link>
+          <Link to="/carrito" className={`inline-flex min-h-11 items-center rounded-sm px-2 text-etiqueta text-mermelada underline underline-offset-4 ${focusRing}`}>
+            Volver al carrito
+          </Link>
+        </div>
+      </div>
+    </header>
+  )
+}
+
+/**
  * Barra flotante del encabezado (libro de marca, "Presencia de marca"): queda 20 px bajo el remate del
  * toldo (12 px en móvil) y se fija a 16 px del borde superior al hacer scroll. Los cuatro enlaces pasan
  * al menú por debajo de 768 px, porque entre 601 y 767 px ya no caben en una línea junto al logo y los íconos.

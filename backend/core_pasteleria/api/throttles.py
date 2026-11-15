@@ -8,6 +8,7 @@ cliente no estrena contador con cada dirección.
 - Subida de imágenes y creación de pedidos (auditorías de D53, D55 y D63): por usuario y, aparte, por IP, para que
   varias cuentas desde una misma conexión no multipliquen el cupo. `ScopedRateThrottle` solo lleva un alcance por
   vista, por eso son dos clases por cada uno.
+- Calendario de la entrega (D66): por usuario, aparte del cupo general `user`.
 """
 from django.core.cache import caches
 from django.utils.connection import ConnectionProxy
@@ -71,6 +72,13 @@ class OrderRetryUserThrottle(CustomerImageUserThrottle):
     salen sin límite."""
 
     scope = "orders_retry_user"
+
+
+class DeliverySlotUserThrottle(CustomerImageUserThrottle):
+    """El calendario de la entrega, por cuenta (`delivery_slots`, 30 por minuto, D66): cada consulta cuenta los pedidos
+    de hasta 42 días, así que no comparte el cupo general de la cuenta."""
+
+    scope = "delivery_slots"
 
 
 class OrderCreateIPThrottle(CustomerImageIPThrottle):

@@ -34,7 +34,7 @@ from .serializers import (
     CatalogQuerySerializer,
     CustomerImageSerializer,
     CustomerImageUploadSerializer,
-    DayScheduleSerializer,
+    DeliveryCalendarSerializer,
     DeliverySlotQuerySerializer,
     OrderCreateSerializer,
     OrderSerializer,
@@ -49,6 +49,7 @@ from .serializers import (
 from .throttles import (
     CustomerImageIPThrottle,
     CustomerImageUserThrottle,
+    DeliverySlotUserThrottle,
     OrderCreateIPThrottle,
     OrderCreateUserThrottle,
     OrderRetryUserThrottle,
@@ -543,20 +544,33 @@ ORDER_ERRORS = OpenApiResponse(
 
 
 class DeliverySlotListView(APIView):
+    # Su propio cupo por cuenta (D66), en la caché `security`: no gasta el general `user`.
+    throttle_classes = [DeliverySlotUserThrottle]
+
     @extend_schema(
         operation_id="delivery_slots",
-        summary="Lapsos para recoger un pedido",
+        summary="Calendario para recoger un pedido",
         description=(
-            "Los lapsos de un día (de `StoreSettings`), con `available` y su motivo: `too_soon` (no alcanza la "
-            "anticipación del pedido o ya pasó) o `full` (ya tiene el máximo de pedidos). La anticipación depende de "
-            "los tipos de línea del carrito (`kind`). La creación del pedido vuelve a revisar el lapso."
+            "Cada día de `start` a `end` (como mucho 42, un mes con sus semanas) con sus lapsos (de `StoreSettings`). "
+            "Un día dice si se puede elegir (`available`) o por qué no: `too_soon` (ya pasó o no alcanza la "
+            "anticipación del pedido), `full` (\"Lleno\": los lapsos que alcanzan la anticipación tienen el máximo de "
+            "pedidos) o `too_far` (después del último día que se reserva). Cada lapso lleva `available` y su motivo, "
+            "`too_soon` o `full`. La anticipación depende de los tipos de línea del carrito (`kind`). Los pedidos de "
+            "todo el rango se cuentan en una sola consulta. La creación del pedido vuelve a revisar el lapso. "
+            "Reemplaza la consulta de un solo día (`?date=`) de D63; un día es `start` igual a `end` (D66)."
         ),
         parameters=[DeliverySlotQuerySerializer],
         responses={
-            200: DayScheduleSerializer,
+            200: DeliveryCalendarSerializer,
             400: OpenApiResponse(
-                description="Parámetro inválido o un pedido que junta la vitrina de hoy con un diseño.",
-                examples=[OpenApiExample("Vitrina y diseño", value={"kind": [schedule_service.MIXED_MESSAGE]})],
+                description=(
+                    "Parámetro inválido, un rango al revés o de más de 42 días, o un pedido que junta la vitrina de hoy "
+                    "con un diseño."
+                ),
+                examples=[
+                    OpenApiExample("Vitrina y diseño", value={"kind": [schedule_service.MIXED_MESSAGE]}),
+                    OpenApiExample("Rango largo", value={"end": [schedule_service.TOO_LONG_RANGE_MESSAGE]}),
+                ],
             ),
         },
         tags=[ORDERS_TAG],
@@ -564,11 +578,12 @@ class DeliverySlotListView(APIView):
     def get(self, request):
         query = DeliverySlotQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)
+        data = query.validated_data
         try:
-            schedule = schedule_service.day_schedule(query.validated_data["date"], query.validated_data["kind"])
+            calendar = schedule_service.calendar_schedule(data["start"], data["end"], data["kind"])
         except DomainValidationError as error:
             raise ValidationError(error.errors) from error
-        return Response(DayScheduleSerializer(schedule).data)
+        return Response(DeliveryCalendarSerializer(calendar).data)
 
 
 class OrderListCreateView(ListAPIView):

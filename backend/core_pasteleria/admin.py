@@ -827,9 +827,9 @@ class OrderAdmin(admin.ModelAdmin):
     list_select_related = ("customer", "delivery_slot")
     # Sin la llave de idempotencia ni el token de la nota: no le sirven al personal y el token abre la nota.
     fields = (
-        "customer", "status", "status_changed_at", "fulfillment", "delivery_slot", "quoted_decoration_price",
-        "subtotal", "stand_deposit", "delivery_fee", "advance_percent", "advance", "pay_today", "pay_on_delivery",
-        "payment_due_at", "created_at",
+        "customer", "status", "status_changed_at", "fulfillment", "delivery_slot", "pickup_name", "pickup_phone",
+        "quoted_decoration_price", "subtotal", "stand_deposit", "delivery_fee", "advance_percent", "advance", "pay_today",
+        "pay_on_delivery", "payment_due_at", "created_at",
     )
     inlines = [OrderItemInline]
 

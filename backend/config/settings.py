@@ -418,6 +418,10 @@ REST_FRAMEWORK = {
         # Un reintento con una llave que ya tiene pedido responde ese pedido: tiene
         # su propio cupo, holgado, en vez de ninguno (revisión de la ronda 2).
         "orders_retry_user": "120/min",
+        # El calendario de la entrega (D66): cada consulta cuenta los pedidos de
+        # hasta 42 días. Por cuenta y aparte del cupo general `user`; un mes con
+        # sus cambios de mes y recargas tras un "Lleno" cabe holgado.
+        "delivery_slots": "30/min",
     },
     # Saltos de proxy delante de la app (en Heroku, 1). Con 0 se ignora
     # X-Forwarded-For y se usa la dirección de la conexión: si no, un cliente

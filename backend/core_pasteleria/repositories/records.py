@@ -336,6 +336,9 @@ class NewOrder:
     items: tuple[NewOrderItem, ...]
     # Lo de la vitrina de hoy, que se paga completo dentro del anticipo.
     paid_in_full: Decimal | None = None
+    # Quién recoge (D66): nombre limpio y 10 dígitos.
+    pickup_name: str = ""
+    pickup_phone: str = ""
 
 
 @dataclass(frozen=True)
@@ -377,6 +380,8 @@ class OrderRecord:
     paid_in_full: Decimal | None = None
     status_changed_at: datetime | None = None
     delivery_slot_id: int | None = None
+    pickup_name: str = ""
+    pickup_phone: str = ""
 
 
 @dataclass(frozen=True)

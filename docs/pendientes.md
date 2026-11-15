@@ -154,3 +154,17 @@ E2E inestables bajo carga (pasan solos): `e2e/access.spec.ts:125` (un `page.goto
 `e2e/cake-designer-lid.spec.ts`, "the message stays inside the lid: more size is capped at what fits", falla de forma repetible. El 14 de noviembre de 2026 se corrió en un worktree limpio de `main` (commit `5bc1acb`, puerto 5180) y falló dos de dos veces con `inside` en `false` (línea 226), igual que en `feat/acceso`; no es una regresión del acceso (D62).
 
 Causa probable, sin confirmar: la prueba mide las cuatro esquinas del rectángulo del texto en el navegador (`getBoundingClientRect`) contra el círculo de la tapa, y el tope del control "Tamaño" sale de `fitMessage` con las medidas estimadas de `messageMetrics.ts` (Dancing Script). Si la caja real del texto con `Feliz cumpleaños muy querida Ana` en el máximo es más grande que la estimada (por la fuente que se dibuja con WebGL y SVG en Chromium de Playwright en Windows, o porque el contorno del rectángulo ya es más estricto que lo que `fitMessage` garantiza), las esquinas salen del círculo. Falta medir la caja real contra la estimada en el máximo, y decidir si se ajusta la estimación o la prueba (que mida el contorno de los glifos y no el rectángulo).
+
+## Carrito y entrega: lo que dejó la revisión (D66)
+
+Se anotaron sin arreglar en la revisión de código y la auditoría de seguridad de `feat/carrito-entrega` (14 de noviembre de 2026):
+
+1. `frontend/src/viewmodels/useDelivery.ts`: al crear el pedido, `cart.clear()` vacía todo el carrito, también las líneas que otra pestaña agregó mientras se enviaba el pedido. Habría que quitar solo las líneas que se mandaron.
+2. Dos pestañas que crean un pedido a la vez mandan llaves distintas y hacen dos pedidos. Lo acota el tope de 2 pedidos sin pagar y el segundo vence a los 30 minutos (D66).
+3. `frontend/src/models/orders.ts`: el corte de 20 s de `POST orders/` incluye la renovación del token, si toca renovar. Con una renovación lenta queda menos tiempo para la creación.
+4. `frontend/src/viewmodels/useDeliveryCalendar.ts`: `firstMonth` se fija al montar la pantalla. Si la pestaña queda abierta de un mes a otro, "Mes anterior" deja volver a un mes que ya pasó (sus días salen no disponibles).
+5. Retención de `Order.pickup_name` y `Order.pickup_phone`: son datos de un tercero y cuánto se guardan es PENDIENTE de la pastelería (sección 8 de [`reglas-de-negocio.md`](reglas-de-negocio.md)).
+6. La nota en PDF de la tanda 3 debe escapar `pickup_name` al armarse (es texto del cliente).
+7. `frontend/src/models/checkout.ts`: si la persona recarga a mitad de la creación y el refresh de la sesión ya venció, cerrar la sesión olvida la llave (`resetPurchase`) y el siguiente intento lleva otra; si el primer pedido sí se creó, queda un duplicado, acotado por el tope de 2 sin pagar.
+8. `frontend/src/models/checkout.ts` (`purchaseFingerprint`): la huella usa el nombre de quien recoge recortado pero sin juntar los espacios de en medio, y el servidor sí los junta. "Ana  López" y "Ana López" dan dos huellas (dos llaves) para el mismo pedido.
+

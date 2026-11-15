@@ -2179,6 +2179,15 @@ class Order(models.Model):
     delivery_slot = models.ForeignKey(
         DeliverySlot, on_delete=models.PROTECT, related_name="orders", verbose_name="lapso de entrega"
     )
+    # Quién recoge (D66, decisión A del usuario). La API los exige; vacíos solo en los pedidos de antes de la `0036`.
+    pickup_name = models.CharField("nombre de quien recoge", max_length=150, blank=True)
+    pickup_phone = models.CharField(
+        "teléfono de quien recoge",
+        max_length=10,
+        blank=True,
+        validators=[RegexValidator(r"^[0-9]{10}$", "Escribe 10 dígitos.")],
+        help_text="10 dígitos, sin lada del país.",
+    )
     subtotal = _money("pedido", help_text="Sin la base ni el envío.")
     stand_deposit = _money("depósitos de las bases")
     delivery_fee = _money("envío")
@@ -2237,6 +2246,11 @@ class Order(models.Model):
                 condition=Q(cancellation_reason="") | Q(cancellation_reason__in=CancellationReason.values),
                 name="order_cancellation_reason_known",
                 violation_error_message="Ese motivo de cancelación no existe.",
+            ),
+            models.CheckConstraint(
+                condition=Q(pickup_phone="") | Q(pickup_phone__regex=r"^[0-9]{10}$"),
+                name="order_pickup_phone_ten_digits",
+                violation_error_message="El teléfono de quien recoge lleva 10 dígitos.",
             ),
             models.CheckConstraint(
                 condition=Q(subtotal__gte=0) & Q(stand_deposit__gte=0) & Q(delivery_fee__gte=0),

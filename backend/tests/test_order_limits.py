@@ -78,8 +78,10 @@ def test_orders_are_taken_up_to_60_days_ahead(api):
     assert post(api, body(catalog_line(), day=TODAY + timedelta(days=60))).status_code == 201
     late = post(api, body(catalog_line(), day=TODAY + timedelta(days=61)))
     assert "60 días" in late.json()["delivery_date"][0]
-    slots = api.get("/api/v1/delivery-slots/", {"date": (TODAY + timedelta(days=61)).isoformat(), "kind": "order"})
-    assert slots.status_code == 400 and "date" in slots.json()
+    day = (TODAY + timedelta(days=61)).isoformat()
+    slots = api.get("/api/v1/delivery-slots/", {"start": day, "end": day, "kind": "order"})
+    assert slots.status_code == 200
+    assert (slots.json()["days"][0]["available"], slots.json()["days"][0]["reason"]) == (False, "too_far")
 
 
 def test_lock_slot_never_creates_a_row_past_the_window():

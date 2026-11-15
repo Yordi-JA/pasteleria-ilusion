@@ -5,7 +5,7 @@ en el viernes 13 de noviembre de 2026 a las 12:00 (Ciudad de México).
 """
 import io
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -33,6 +33,7 @@ NOW = datetime(2026, 11, 13, 12, 0, tzinfo=CDMX)
 TODAY = NOW.date()
 IN_TWO_DAYS = TODAY + timedelta(days=2)
 URL = "/api/v1/orders/"
+SLOTS = "/api/v1/delivery-slots/"
 
 # 30 personas: 4 kg (regla 3.1). Tres leches, pan de chocolate, con queso y zarzamora: 4 x ($250 + $5) = $1,020.
 DESIGN = {
@@ -80,8 +81,15 @@ def design_line(**changes):
     return {"kind": "design", "design": {**DESIGN, **changes}}
 
 
-def body(*items, day=IN_TWO_DAYS, slot="15:00", fulfillment="pickup"):
-    return {"fulfillment": fulfillment, "delivery_date": day.isoformat(), "slot_starts_at": slot, "items": list(items)}
+def body(*items, day=IN_TWO_DAYS, slot="15:00", fulfillment="pickup", pickup_name="Ana López García", pickup_phone="5512345678"):
+    return {
+        "fulfillment": fulfillment,
+        "delivery_date": day.isoformat(),
+        "slot_starts_at": slot,
+        "pickup_name": pickup_name,
+        "pickup_phone": pickup_phone,
+        "items": list(items),
+    }
 
 
 def post(client, payload, key=None):
@@ -111,7 +119,7 @@ def test_anonymous_gets_401():
     client = APIClient()
     assert client.post(URL, body(design_line()), format="json").status_code == 401
     assert client.get(URL).status_code == 401
-    assert client.get("/api/v1/delivery-slots/", {"date": IN_TWO_DAYS, "kind": "design"}).status_code == 401
+    assert client.get(SLOTS, {"start": IN_TWO_DAYS, "end": IN_TWO_DAYS, "kind": "design"}).status_code == 401
 
 
 def test_the_idempotency_key_is_required(api):
@@ -375,23 +383,70 @@ def test_cancelled_and_delivered_orders_do_not_hold_the_slot(api):
     assert post(api, body(catalog_line())).status_code == 201
 
 
+def days(response):
+    return {day["date"]: day for day in response.json()["days"]}
+
+
 def test_the_slots_endpoint_marks_full_and_too_soon(api):
     StoreSettings.objects.update(max_orders_per_slot=1)
     assert post(api, body(catalog_line(), day=TODAY, slot="15:00")).status_code == 400  # sin pan hoy
     assert post(api, body(catalog_line(), day=IN_TWO_DAYS, slot="15:00")).status_code == 201
-    response = api.get("/api/v1/delivery-slots/", {"date": IN_TWO_DAYS.isoformat(), "kind": ["order", "design"]})
+    response = api.get(SLOTS, {"start": IN_TWO_DAYS.isoformat(), "end": IN_TWO_DAYS.isoformat(), "kind": ["order", "design"]})
     assert response.status_code == 200
-    schedule = response.json()
-    slots = {slot["starts_at"]: slot for slot in schedule["slots"]}
-    assert len(slots) == 24 and schedule["earliest_date"] == IN_TWO_DAYS.isoformat()
+    calendar = response.json()
+    assert calendar["earliest_date"] == IN_TWO_DAYS.isoformat()
+    slots = {slot["starts_at"]: slot for slot in days(response)[IN_TWO_DAYS.isoformat()]["slots"]}
+    assert len(slots) == 24
     assert (slots["15:00"]["available"], slots["15:00"]["reason"]) == (False, "full")
     assert slots["15:30"] == {"starts_at": "15:30", "ends_at": "16:00", "available": True, "reason": None}
-    today = api.get("/api/v1/delivery-slots/", {"date": TODAY.isoformat(), "kind": "order"}).json()
+    today = days(api.get(SLOTS, {"start": TODAY.isoformat(), "end": TODAY.isoformat(), "kind": "order"}))[TODAY.isoformat()]
     assert [s["reason"] for s in today["slots"] if s["starts_at"] in ("13:30", "14:00")] == ["too_soon", None]
 
 
+def test_the_slots_endpoint_gives_a_month_with_full_days(api):
+    """El calendario del mes (decisión C del usuario, D66): cada día con su motivo, en una sola petición."""
+    # Un día de un solo lapso y un pedido por lapso: con un pedido, el día queda lleno.
+    StoreSettings.objects.update(max_orders_per_slot=1, first_slot_starts_at=time(15, 0), last_slot_starts_at=time(15, 0))
+    full_day = TODAY + timedelta(days=3)
+    assert post(api, body(catalog_line(), day=full_day, slot="15:00")).status_code == 201
+    response = api.get(SLOTS, {"start": "2026-11-01", "end": "2026-11-30", "kind": "design"})
+    assert response.status_code == 200, response.json()
+    calendar = response.json()
+    assert (calendar["start"], calendar["end"]) == ("2026-11-01", "2026-11-30")
+    assert calendar["latest_date"] == (TODAY + timedelta(days=60)).isoformat()
+    by_date = days(response)
+    assert len(by_date) == 30
+    assert (by_date["2026-11-01"]["available"], by_date["2026-11-01"]["reason"], by_date["2026-11-01"]["slots"]) == (False, "too_soon", [])
+    assert (by_date[IN_TWO_DAYS.isoformat()]["available"], by_date[IN_TWO_DAYS.isoformat()]["reason"]) == (True, None)
+    assert (by_date[full_day.isoformat()]["available"], by_date[full_day.isoformat()]["reason"]) == (False, "full")
+
+
+def test_the_slots_endpoint_marks_days_past_the_window(api):
+    response = api.get(SLOTS, {"start": "2027-01-01", "end": "2027-01-20", "kind": "order"})
+    by_date = days(response)
+    assert by_date["2027-01-12"]["available"] is True
+    assert (by_date["2027-01-13"]["reason"], by_date["2027-01-13"]["slots"]) == ("too_far", [])
+
+
+@pytest.mark.parametrize(
+    "query, field",
+    [
+        ({"start": "2026-11-01", "end": "2026-12-13", "kind": "order"}, "end"),
+        ({"start": "2026-11-02", "end": "2026-11-01", "kind": "order"}, "end"),
+        ({"start": "2026-11-01", "kind": "order"}, "end"),
+        ({"end": "2026-11-01", "kind": "order"}, "start"),
+        ({"start": "1-11-2026", "end": "2026-11-30", "kind": "order"}, "start"),
+        ({"start": "2026-11-01", "end": "2026-11-30"}, "kind"),
+    ],
+)
+def test_the_slots_endpoint_checks_its_range(api, query, field):
+    response = api.get(SLOTS, query)
+    assert response.status_code == 400
+    assert field in response.json()
+
+
 def test_the_slots_endpoint_refuses_showcase_with_design(api):
-    response = api.get("/api/v1/delivery-slots/", {"date": TODAY.isoformat(), "kind": ["showcase", "design"]})
+    response = api.get(SLOTS, {"start": TODAY.isoformat(), "end": TODAY.isoformat(), "kind": ["showcase", "design"]})
     assert response.status_code == 400
     assert response.json() == {"kind": [schedule_service.MIXED_MESSAGE]}
 

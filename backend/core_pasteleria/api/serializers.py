@@ -1,4 +1,6 @@
 """DTOs: validan la entrada y dan forma a la salida JSON."""
+import re
+
 from rest_framework import serializers
 from rest_framework.validators import ProhibitSurrogateCharactersValidator
 
@@ -21,10 +23,12 @@ from ..models import (
 )
 from ..services import design_layout
 from ..services.design_layout import MessageLayout, WaferLayout
+from ..services.text_rules import has_forbidden_name_characters
 from ..services.orders import schedule_service
 from ..services.orders.order_lines import DesignRequest, LineRequest
 from ..services.orders.order_service import OrderRequest
 from ..services.pricing_service import CakeDesignChoice
+from .auth_serializers import PHONE_ERROR, PHONE_SEPARATORS, StrictCharField
 
 # El mismo largo que el `slug` de las opciones (`Bread`, `FillingBase`, ...).
 SLUG_MAX_LENGTH = Bread._meta.get_field("slug").max_length
@@ -726,7 +730,17 @@ def _hh_mm_input(help_text, **kwargs):
 
 
 class DeliverySlotQuerySerializer(serializers.Serializer):
-    date = serializers.DateField(help_text="Día de la entrega, AAAA-MM-DD.")
+    start = serializers.DateField(
+        help_text="Primer día del calendario, AAAA-MM-DD.",
+        error_messages={"required": "Indica el primer día.", "invalid": "Escribe la fecha como AAAA-MM-DD."},
+    )
+    end = serializers.DateField(
+        help_text=(
+            f"Último día del calendario, AAAA-MM-DD; como mucho {schedule_service.MAX_CALENDAR_DAYS} días contando "
+            "`start` (un mes con sus semanas)."
+        ),
+        error_messages={"required": "Indica el último día.", "invalid": "Escribe la fecha como AAAA-MM-DD."},
+    )
     kind = serializers.MultipleChoiceField(
         choices=OrderLineKind.choices,
         allow_empty=False,
@@ -749,13 +763,40 @@ class DaySlotSerializer(serializers.Serializer):
     )
 
 
-class DayScheduleSerializer(serializers.Serializer):
+class CalendarDaySerializer(serializers.Serializer):
     date = serializers.DateField()
+    available = serializers.BooleanField(help_text="Si tiene algún lapso que se puede elegir.")
+    reason = serializers.ChoiceField(
+        choices=[
+            (schedule_service.TOO_SOON, "Muy pronto"),
+            (schedule_service.FULL, "Lleno"),
+            (schedule_service.TOO_FAR, "Fuera de los días que se reservan"),
+        ],
+        allow_null=True,
+        help_text=(
+            "Por qué no se puede elegir: `too_soon` (ya pasó o no alcanza la anticipación), `full` (\"Lleno\": los "
+            "lapsos que alcanzan la anticipación tienen el máximo de pedidos) o `too_far` (después de "
+            "`PolicySettings.max_days_ahead`, o después de hoy si el pedido lleva la vitrina de hoy). `null` si se "
+            "puede elegir."
+        ),
+    )
+    slots = DaySlotSerializer(
+        many=True,
+        help_text="Los lapsos del día, en orden, con su disponibilidad. Vacío en los días `too_soon` y `too_far`.",
+    )
+
+
+class DeliveryCalendarSerializer(serializers.Serializer):
+    start = serializers.DateField()
+    end = serializers.DateField()
     earliest_date = serializers.DateField(
         allow_null=True,
         help_text="El primer día con algún lapso que alcanza la anticipación (sin contar el cupo); `null` si ya no hay.",
     )
-    slots = DaySlotSerializer(many=True, help_text="Los lapsos del día, en orden, con su disponibilidad.")
+    latest_date = serializers.DateField(
+        help_text="El último día que se puede reservar para este pedido (`PolicySettings.max_days_ahead`, o hoy con la vitrina)."
+    )
+    days = CalendarDaySerializer(many=True, help_text="Cada día de `start` a `end`, en orden.")
 
 
 # --- Pedidos (entrada) ---
@@ -764,6 +805,9 @@ class DayScheduleSerializer(serializers.Serializer):
 # de cada pieza de la vitrina son sus existencias.
 MAX_ORDER_LINES = 100
 MAX_LINE_QUANTITY = 999
+# Quién recoge (D66): el mismo largo que `User.full_name` y los 10 dígitos de `User.phone`.
+PICKUP_NAME_MAX_LENGTH = 150
+PICKUP_PHONE = re.compile(r"[0-9]{10}")
 HEX_COLOR_MESSAGE = "Escribe el color como #RRGGBB, por ejemplo #F0CE8A."
 
 
@@ -891,6 +935,22 @@ class OrderCreateSerializer(serializers.Serializer):
     )
     delivery_date = serializers.DateField(help_text="Día en que se recoge, AAAA-MM-DD.")
     slot_starts_at = _hh_mm_input("La hora en que empieza el lapso elegido, HH:MM (de `delivery-slots/`).")
+    pickup_name = StrictCharField(
+        max_length=PICKUP_NAME_MAX_LENGTH,
+        help_text=(
+            "Quién recoge el pedido (D66): las mismas reglas que el nombre del registro. Se guarda con los espacios juntos."
+        ),
+        error_messages={
+            "blank": "Escribe el nombre de quien recoge.",
+            "required": "Escribe el nombre de quien recoge.",
+            "max_length": f"Escribe el nombre en {PICKUP_NAME_MAX_LENGTH} caracteres o menos.",
+        },
+    )
+    pickup_phone = StrictCharField(
+        max_length=20,
+        help_text="Su teléfono: 10 dígitos. Los espacios, guiones, puntos y paréntesis se quitan.",
+        error_messages={"blank": PHONE_ERROR, "required": PHONE_ERROR, "max_length": PHONE_ERROR},
+    )
     items = OrderItemRequestSerializer(
         many=True,
         allow_empty=False,
@@ -899,6 +959,17 @@ class OrderCreateSerializer(serializers.Serializer):
         error_messages={"empty": "Tu pedido está vacío.", "not_a_list": "Las líneas van en una lista."},
     )
 
+    def validate_pickup_name(self, value):
+        if has_forbidden_name_characters(value):
+            raise serializers.ValidationError("Escribe el nombre solo con letras, espacios y signos comunes.")
+        return " ".join(value.split())
+
+    def validate_pickup_phone(self, value):
+        digits = PHONE_SEPARATORS.sub("", value)
+        if not PICKUP_PHONE.fullmatch(digits):
+            raise serializers.ValidationError(PHONE_ERROR)
+        return digits
+
     def to_request(self, idempotency_key: str) -> OrderRequest:
         data = self.validated_data
         return OrderRequest(
@@ -906,6 +977,8 @@ class OrderCreateSerializer(serializers.Serializer):
             fulfillment=data["fulfillment"],
             delivery_date=data["delivery_date"],
             slot_starts_at=data["slot_starts_at"],
+            pickup_name=data["pickup_name"],
+            pickup_phone=data["pickup_phone"],
             items=tuple(
                 LineRequest(
                     kind=item["kind"],
@@ -1014,6 +1087,8 @@ class OrderSerializer(serializers.Serializer):
         ),
     )
     fulfillment = serializers.ChoiceField(choices=Fulfillment.choices)
+    pickup_name = serializers.CharField(help_text="Quién recoge el pedido.")
+    pickup_phone = serializers.CharField(help_text="Su teléfono, 10 dígitos.")
     delivery_date = serializers.DateField()
     slot_starts_at = _hh_mm_input("")
     slot_ends_at = _hh_mm_input("")

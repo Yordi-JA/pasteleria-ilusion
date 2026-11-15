@@ -342,6 +342,8 @@ def test_a_slot_past_the_window_is_an_order_error(api, customer_user, monkeypatc
     request = order_service.OrderRequest(
         idempotency_key="fuera-de-rango-1",
         fulfillment="pickup",
+        pickup_name="Ana López García",
+        pickup_phone="5512345678",
         delivery_date=TODAY + timedelta(days=61),
         slot_starts_at=datetime.strptime("15:00", "%H:%M").time(),
         items=(order_service.LineRequest(kind="order", offering_id=offering("tres-leches-de-durazno").id),),

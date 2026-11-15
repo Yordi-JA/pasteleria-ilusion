@@ -18,6 +18,7 @@ from dataclasses import dataclass, replace
 from ..models import MessageArrangement, MessageColorMode, WaferShape
 from ..repositories.records import CakeDesignSettingsRecord
 from .errors import DomainValidationError
+from .text_rules import has_excess_combining_marks
 
 # Cotas técnicas del acomodo, contra números absurdos; no son reglas de negocio.
 MIN_WAFER_CM = 2.0
@@ -41,8 +42,6 @@ UNSAFE_CATEGORIES = frozenset({"Cc", "Cf", "Cs", "Co", "Cn", "Zl", "Zp"})
 # el patrón braille vacío (U+2800), la junta de grafemas (U+034F), las vocales inherentes del jemer (U+17B4 y U+17B5) y los
 # selectores de variación mongoles (U+180B a U+180F).
 BLANK_FILLERS = frozenset({"\u3164", "\u115f", "\u1160", "\uffa0", "\u2800", "\u034f", "\u17b4", "\u17b5", "\u180b", "\u180c", "\u180d", "\u180e", "\u180f"})
-# Marcas combinantes (Mn y Me) seguidas: un acento o dos caben; más apilan el texto sobre las líneas de arriba y de abajo.
-MAX_COMBINING_RUN = 2
 
 
 @dataclass(frozen=True)
@@ -79,18 +78,12 @@ class MessageLayout:
 def has_unsafe_characters(text: str) -> bool:
     """Si el texto lleva algo que no se imprime bien: por categoría Unicode, no por una lista de rangos.
 
-    Rechaza las categorías de `UNSAFE_CATEGORIES`, los rellenos que se ven en blanco y más de `MAX_COMBINING_RUN`
+    Rechaza las categorías de `UNSAFE_CATEGORIES`, los rellenos que se ven en blanco y más de `text_rules.MAX_COMBINING_RUN`
     marcas combinantes seguidas. El frontend (`cleanMessageText`) aplica el mismo criterio.
     """
-    marks = 0
-    for char in text:
-        category = unicodedata.category(char)
-        if category in UNSAFE_CATEGORIES or char in BLANK_FILLERS:
-            return True
-        marks = marks + 1 if category in ("Mn", "Me") else 0
-        if marks > MAX_COMBINING_RUN:
-            return True
-    return False
+    if any(unicodedata.category(char) in UNSAFE_CATEGORIES or char in BLANK_FILLERS for char in text):
+        return True
+    return has_excess_combining_marks(text)
 
 
 def check_wafer_layout(layout: WaferLayout, wafer: bool, limits: CakeDesignSettingsRecord) -> None:
