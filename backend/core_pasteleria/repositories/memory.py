@@ -32,6 +32,9 @@ from .records import (
 _SLICE = "slice"
 # Un producto solo por encargo nunca tiene existencias de vitrina (como en `product_repo`).
 _ORDER_ONLY = "order_only"
+# Un pastel por sabor (D60): `Inventory.MAX_WHOLE_CAKES_PER_DAY`, sin importar Django aquí.
+_WHOLE = "whole"
+_MAX_WHOLE_CAKES_PER_DAY = 1
 
 
 def _plain(text: str) -> str:
@@ -142,8 +145,40 @@ class MemoryProductRepo:
     def decrement_showcase_stock(self, offering_id: int, on_date: date, quantity: int) -> bool:
         return self._decrement(self._showcase_stock, (offering_id, on_date), quantity)
 
+    def _product_of(self, offering_id: int) -> tuple[ProductRecord, OfferingRecord] | None:
+        for product in self._products:
+            for offering in product.offerings:
+                if offering.id == offering_id:
+                    return product, offering
+        return None
+
+    def has_slices_loaded(self, product_id: int, on_date: date) -> bool:
+        product = next((p for p in self._products if p.id == product_id), None)
+        return product is not None and any(
+            offering.presentation == _SLICE and (offering.id, on_date) in self._showcase_stock
+            for offering in product.offerings
+        )
+
     def restock_showcase(self, offering_id: int, on_date: date, quantity: int) -> bool:
-        return self._increment(self._showcase_stock, (offering_id, on_date), quantity)
+        """Como `product_repo`: el completo de un producto con rebanadas vuelve hasta 1 y no vuelve con el rebanado.
+
+        Solo conoce las presentaciones activas que recibió (PostgreSQL cuenta también una rebanada desactivada).
+        """
+        found = self._product_of(offering_id)
+        one_per_flavor = (
+            found is not None
+            and found[1].presentation == _WHOLE
+            and any(offering.presentation == _SLICE for offering in found[0].offerings)
+        )
+        if not one_per_flavor:
+            return self._increment(self._showcase_stock, (offering_id, on_date), quantity)
+        if quantity < 1:
+            raise ValueError("La cantidad debe ser de 1 o más.")
+        key = (offering_id, on_date)
+        if key not in self._showcase_stock or self.has_slices_loaded(found[0].id, on_date):
+            return False
+        self._showcase_stock[key] = min(self._showcase_stock[key] + quantity, _MAX_WHOLE_CAKES_PER_DAY)
+        return True
 
     def get_bread_availability(self, bread_id: int, on_date: date) -> int | None:
         return self._bread_stock.get((bread_id, on_date))

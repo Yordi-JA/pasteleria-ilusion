@@ -19,8 +19,12 @@ Vocabulario obligatorio en la interfaz: se dice **"pan"**, nunca "bizcocho"; **"
 | Pastel de vitrina, encargado tal cual | Para cualquier fecha; **para el mismo día, con 2 horas de anticipación** y sujeto a que haya pan |
 
 - La disponibilidad de pan vive en la **base de datos de inventario** (`Inventory`): el sitio consulta ahí si se puede hacer un pastel para hoy. Solo los encargos de vitrina del mismo día consumen esa disponibilidad; un pedido de "Diseña tu pastel" con 2 días de anticipación se hornea aparte y no la descuenta (D30).
-- Un lapso con 3 pedidos activos se muestra como "Lleno" y no se puede elegir.
+- Un lapso con 3 pedidos activos se muestra como "Lleno" y no se puede elegir. Un pedido en pausa por cotización no ocupa lapso: el cupo se revisa cuando la pastelería le pone precio (lo decidió el usuario el 14 de noviembre de 2026, D63).
 - Primer horario disponible para un encargo de hoy: hora actual + 2 h, redondeado al siguiente lapso de 30 min.
+- Se reserva hasta **60 días** adelante (`PolicySettings.max_days_ahead`, propuesto; la pastelería puede ajustarlo). Un cliente tiene como mucho **2 pedidos sin pagar** a la vez (`max_unpaid_orders_per_customer`, propuesto). Lo decidió el usuario el 14 de noviembre de 2026 (D63).
+- Topes por cliente de la ronda 2 de D63 (lo decidió el usuario el 14 de noviembre de 2026; valores propuestos que la pastelería ajusta en el admin): **1 pedido en pausa por cotización** a la vez (`max_quote_orders_per_customer`), aparte de los 2 sin pagar, y **10 piezas de la vitrina de hoy** apartadas sin pagar, sumando sus pedidos (`max_unpaid_showcase_pieces`).
+- Pausa de la vitrina: las piezas de los pedidos del cliente que se cancelaron por vencidos siguen contando para ese tope durante **24 horas** (`PolicySettings.expired_showcase_cooldown_hours`, propuesto por el equipo; la pastelería lo ajusta). No cuentan los que canceló el personal. Lo decidió el usuario el 14 de noviembre de 2026 (D63). Con varias cuentas todavía se puede apartar la vitrina; el personal lo atiende cancelando desde el admin y desactivando las cuentas.
+- El primer lapso que se puede elegir deja completo el plazo para pagar: empieza por lo menos `payment_window_minutes` (30) después de la hora del pedido. Con la vitrina de hoy, a las 15:29 el primero es el de las 16:00, no el de las 15:30. Lo decidió el usuario el 14 de noviembre de 2026 (D63, ronda 2).
 
 ```python
 STORE_OPEN, STORE_CLOSE = "10:00", "22:30"
@@ -56,7 +60,7 @@ Todos los pasteles de vitrina son **tres leches**, excepto el **Choco-pingüino*
 - Las gelatinas en vaso aparecen en el catálogo con la etiqueta "Solo en vitrina"; no se pueden encargar.
 - Fotos de producto: se resuelven en la etapa de frontend.
 - **Pasteles de la casa (portada):** la pastelería elige en el admin qué productos salen, con "destacado en la portada" en la lista de productos (puede ser un pastel o un postre). Salen hasta 4 de los marcados, en el orden de la lista; si marca menos de 4, salen solo esos. Si no marca ninguno, salen los primeros 4 pasteles activos del catálogo, en el mismo orden. Al inicio no hay ninguno marcado: qué productos son "de la casa" lo decide la pastelería. Ver D45 en [`proyecto/decisiones.md`](proyecto/decisiones.md).
-- **Encargo o vitrina de hoy en el carrito:** una rebanada nunca es un encargo (ver "Un pastel por sabor en la vitrina"). Cada línea dice si es un encargo (desde "Pasteles de la casa", el catálogo o la ficha, sin tope de existencias) o de la vitrina de hoy (desde la vitrina o las rebanadas, sin pasar de lo que queda hoy). La misma presentación puede estar dos veces, una de cada tipo, y la línea conserva su tipo. Qué pasa cuando un pedido junta los dos (fecha, entrega, anticipación) lo decide la entrega, en la Etapa 4. Ver D47 en [`proyecto/decisiones.md`](proyecto/decisiones.md).
+- **Encargo o vitrina de hoy en el carrito:** una rebanada nunca es un encargo (ver "Un pastel por sabor en la vitrina"). Cada línea dice si es un encargo (desde "Pasteles de la casa", el catálogo o la ficha, sin tope de existencias) o de la vitrina de hoy (desde la vitrina o las rebanadas, sin pasar de lo que queda hoy). La misma presentación puede estar dos veces, una de cada tipo, y la línea conserva su tipo. Un pedido tiene una sola fecha y un solo lapso, y sigue la anticipación de su línea más estricta (sección 1): con la vitrina de hoy y un encargo, hoy con 2 horas de anticipación y pan del día; la vitrina de hoy y un pedido de "Diseña tu pastel" no caben en el mismo pedido (se hacen dos). Ver D47 y D63 en [`proyecto/decisiones.md`](proyecto/decisiones.md).
 - **"Hoy" en la vitrina y las rebanadas** es la fecha de la Ciudad de México. Un producto lleva "En vitrina hoy" si alguna de sus presentaciones que no es rebanada tiene piezas hoy. Una presentación cargada hoy con 0 piezas sale "Agotada por hoy"; la que no se cargó hoy no sale en la vitrina ni en las rebanadas.
 - **Un pastel por sabor en la vitrina** (lo dijo la pastelería el 12 de noviembre de 2026, D60):
     - Nunca hay más de un pastel completo del mismo sabor. En la vitrina caben unos 8 pasteles, más el Posible y el Imposible, y unas 15 gelatinas de vaso entre sus sabores. Son cifras de referencia, no topes.
@@ -273,7 +277,7 @@ Si la pastelería deja una decoración de precio fijo sin precio en el admin (PE
 
 Las hojas de las rosas siempre van en verde. Las chispas no llevan selector: su estilo y sus colores salen del relleno que copian (sabor o pan), que la pastelería edita en el admin. El color elegido se guarda con el diseño y llega al pedido. Los tonos automáticos son colores de la vista previa, no de la interfaz; su criterio está en D53.
 
-**Otra decoración.** El cliente elige una imagen (JPG, PNG o WebP). El pedido no sigue sin ella. El tamaño máximo en el navegador es de 5 MB, el mismo que fija el servidor al inicio para las imágenes de clientes; es una propuesta que la pastelería debe confirmar (`docs/pendientes.md`). La imagen se guarda cuando exista el pedido (Etapa 4), no antes.
+**Otra decoración.** El cliente elige una imagen (JPG, PNG o WebP). El pedido no sigue sin ella. Un pedido lleva una sola decoración por cotizar. La pastelería pone el precio en el registro del pedido en el admin y el pedido pasa a "Apartado, falta tu pago". Se paga hasta el cierre del día y nunca después del inicio de su lapso, porque el sitio todavía no le avisa al cliente y la pastelería le escribe por WhatsApp. Mientras espera su precio, el pedido no ocupa lapso: al ponerle precio se revisa el cupo, y si ya no hay lugar, la pastelería acuerda otro horario por WhatsApp. Una cotización con precio no revisa el tope de 2 pedidos sin pagar. Lo decidió el usuario el 14 de noviembre de 2026 (D63, ronda 2). El tamaño máximo en el navegador es de 5 MB, el mismo que fija el servidor al inicio para las imágenes de clientes; es una propuesta que la pastelería debe confirmar (`docs/pendientes.md`). La imagen se guarda cuando exista el pedido (Etapa 4), no antes.
 
 ### 6.2 Mensaje
 
@@ -377,6 +381,7 @@ Estados: `in_review` (En revisión) → `quote_ready` (Cotización lista) → (c
 
 - Métodos: **Mercado Pago**, **tarjeta (Stripe)** y **efectivo en la pastelería**. Sandbox en desarrollo.
 - Se paga un **anticipo** del pedido y el resto el día de la entrega. El porcentaje es `PolicySettings.advance_percent`, configurable en el admin entre 1 y 100; hoy vale **50%**. Aplica también a pasteles de vitrina encargados. Los ejemplos de esta sección usan 50%.
+- **Lo de la vitrina de hoy se paga completo** (anticipo del 100%); el anticipo de `PolicySettings.advance_percent` es para los encargos y los diseños. Lo decidió el usuario el 14 de noviembre de 2026 (D63).
 - El **depósito de la base y el envío no entran en el anticipo**: se pagan completos, aparte, el mismo día del anticipo.
 
 ```python
@@ -394,7 +399,11 @@ def payment_today(order_total, base_deposit, delivery_fee=0):
 Ejemplo: pedido $1,000 + base $150 + envío $80 → hoy $730 (500 + 150 + 80); el día de la entrega $500.
 
 - **Tarjeta / Mercado Pago**: se cobra solo `pay_today`.
-- **Efectivo**: el pedido queda **apartado**; el cliente debe llevar `pay_today` a la pastelería **el mismo día** (antes de las 22:30). **Si no lo lleva, el pedido se cancela.**
+- **Pedido sin pagar:** vence a los **30 minutos** (`PolicySettings.payment_window_minutes`, propuesto) y nunca después del inicio de su lapso; vencido, se cancela. Lo decidió el usuario el 14 de noviembre de 2026 (D63).
+- **Cancelar:** el comando `cancel_expired_orders` cancela los pedidos vencidos y devuelve lo que apartaron (las piezas de la vitrina y el pan del día); las imágenes de sus diseños se borran. El personal también puede cancelar desde el admin, pero solo antes del pago (`awaiting_payment` o `awaiting_quote`), con el mismo reintegro. Un pedido pagado no se cancela ahí mientras no exista el reembolso. Lo decidió el usuario el 14 de noviembre de 2026 (D63, ronda 2).
+- **Cobrar un apartado vencido:** si su lapso ya se llenó con otro pedido, no se puede registrar el cobro (D63, ronda 2).
+- **Al hacer un pedido** se cancelan antes, con su reintegro, los apartados vencidos del mismo cliente: sus piezas vuelven a la vitrina antes de que aparte otras (revisión de la ronda 2 de D63). Esas piezas siguen contando para su tope de vitrina durante la pausa de la sección 1.
+- **Efectivo**: el pedido queda **apartado**; el cliente debe llevar `pay_today` a la pastelería **el mismo día** (antes de las 22:30). **Si no lo lleva, el pedido se cancela.** Al elegir efectivo, el plazo se extiende al cierre del día, sin pasar del inicio del lapso (tanda 2).
 - Los botones de pago muestran el monto exacto: "Pagar $X con tarjeta", "Pagar $X con Mercado Pago".
 - PENDIENTE: política de cambios y cancelaciones.
 
@@ -414,13 +423,13 @@ Los códigos son los identificadores del código (D29). Cada uno lleva su etique
 
 | Código | Etiqueta | Cuándo |
 |---|---|---|
-| `awaiting_payment` | Apartado, falta tu pago | Solo efectivo, mientras falta el pago |
+| `awaiting_payment` | Apartado, falta tu pago | Mientras falta el pago: el pedido nace así (efectivo o en línea, D63); vence a los 30 minutos o al empezar su lapso, y con efectivo, al cierre del día |
 | `received` | Recibido | El pago está registrado (en línea por webhook verificado, o en efectivo por el personal) |
 | `in_preparation` | En preparación | La pastelería prepara el pedido |
 | `ready_for_delivery` | Listo para entregar | Listo para la entrega |
 | `delivered` | Entregado | Entregado al cliente |
-| `cancelled` | Cancelado | P. ej. efectivo no recibido el mismo día |
-| `awaiting_quote` | En pausa por cotización | Decoración por imagen pendiente de precio |
+| `cancelled` | Cancelado | Venció sin pagarse (o, si la pastelería fija cuánto espera una cotización, sin precio), o el personal lo canceló antes del pago (D63, ronda 2) |
+| `awaiting_quote` | En pausa por cotización | Decoración por imagen pendiente de precio. No ocupa lapso. Cuando la pastelería pone el precio en el admin, pasa a `awaiting_payment` y se paga hasta el cierre del día, sin pasar del inicio del lapso (D63, ronda 2) |
 
 La base tiene su propio seguimiento:
 
@@ -455,4 +464,4 @@ La dirección y el WhatsApp siguen PENDIENTE. La pastelería los captura en el a
 3. Vigencia de una cotización por referencia (la respuesta es en máximo 1 hora; falta cuánto tiempo es válida).
 4. Políticas de cambios y cancelaciones, y qué pasa si la base regresa dañada: el equipo prepara un texto base y la pastelería lo completa.
 5. Dirección, WhatsApp, aviso de privacidad y términos: el equipo prepara el texto base de los avisos y la pastelería lo completa.
-6. ¿A qué estado pasa un pedido `awaiting_quote` (decoración por imagen) cuando la pastelería da el precio? Las reglas no lo dicen. Pregunta para la pastelería; el equipo no supone la respuesta.
+6. Resuelto el 14 de noviembre de 2026 (lo decidió el usuario, D63 ronda 2): con el precio, un pedido `awaiting_quote` pasa a `awaiting_payment`. Sigue PENDIENTE cuánto espera un pedido sin precio antes de cancelarse (`PolicySettings.quote_expiry_hours`, vacío: mientras no tenga valor, no vence).

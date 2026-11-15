@@ -31,14 +31,18 @@ def payment_summary(
     base_deposit: Decimal = ZERO,
     delivery_fee: Decimal = ZERO,
     settings=settings_repo,
+    paid_in_full: Decimal = ZERO,
 ) -> PaymentSummary:
     """Anticipo, lo que se paga hoy y lo que queda para la entrega.
 
-    `order_total` es el pedido sin la base ni el envío. El anticipo se redondea
-    al centavo de .5 hacia arriba; el resto es lo que falta para el pedido.
+    `order_total` es el pedido sin la base ni el envío. `paid_in_full` es la parte de `order_total` que se paga
+    completa hoy: lo de la vitrina de hoy (D63, lo decidió el usuario el 14 de noviembre de 2026); al resto se le
+    aplica el porcentaje de anticipo. El anticipo se redondea al centavo de .5 hacia arriba; el resto es lo que falta
+    para el pedido.
     """
     percent = settings.get_policy_settings().advance_percent
-    advance = (order_total * percent / 100).quantize(CENT, rounding=ROUND_HALF_UP)
+    rest = order_total - paid_in_full
+    advance = paid_in_full + (rest * percent / 100).quantize(CENT, rounding=ROUND_HALF_UP)
     return PaymentSummary(
         advance_percent=percent,
         advance=advance,

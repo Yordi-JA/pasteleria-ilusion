@@ -5,8 +5,9 @@ Los repositorios no devuelven instancias del modelo: devuelven estos
 los servicios se prueben sin PostgreSQL. Este módulo no importa Django.
 """
 from dataclasses import dataclass
-from datetime import time
+from datetime import date, datetime, time
 from decimal import Decimal
+from uuid import UUID
 
 # --- Catálogo ---
 
@@ -123,6 +124,8 @@ class DecorationRecord:
     preview_bread: str | None = None
     # La decoración apunta a un sabor o a un pan que la pastelería desactivó: no hay de dónde dibujarla.
     preview_source_inactive: bool = False
+    # Los diseños con duya y las rosas: el cliente elige su color (regla 6.1).
+    accepts_color: bool = False
 
 
 @dataclass(frozen=True)
@@ -184,12 +187,28 @@ class PolicySettingsRecord:
     damaged_stand_policy: str
     # Parte del pedido que se paga hoy (regla 10); el resto, el día de la entrega.
     advance_percent: int
+    # Topes de los pedidos en línea (D63); los valores por omisión son los propuestos.
+    payment_window_minutes: int = 30
+    max_unpaid_orders_per_customer: int = 2
+    max_days_ahead: int = 60
+    max_pieces_per_line: int = 20
+    max_pieces_per_order: int = 100
+    # `None`: PENDIENTE; la cotización no vence (D63, ronda 2).
+    quote_expiry_hours: int | None = None
+    max_quote_orders_per_customer: int = 1
+    max_unpaid_showcase_pieces: int = 10
+    expired_showcase_cooldown_hours: int = 24
 
 
 @dataclass(frozen=True)
 class UploadSettingsRecord:
     max_upload_mb: int
     max_reference_images: int
+    # D63; los valores por omisión son los propuestos.
+    max_pending_images: int = 10
+    max_image_megapixels: int = 12
+    daily_upload_mb: int = 25
+    daily_upload_count: int = 20
 
 
 @dataclass(frozen=True)
@@ -206,3 +225,205 @@ class StandSizeRecord:
 class DeliveryBandRecord:
     max_km: Decimal
     fee: Decimal
+
+
+# --- Imágenes de clientes ---
+
+
+@dataclass(frozen=True)
+class NewCustomerImage:
+    """Imagen ya validada y vuelta a codificar, lista para guardarse."""
+
+    owner_id: int
+    purpose: str
+    content: bytes
+    content_type: str
+    width: int
+    height: int
+    original_name: str
+
+
+@dataclass(frozen=True)
+class CustomerImageRecord:
+    """Datos de una imagen, sin su contenido."""
+
+    id: UUID
+    owner_id: int
+    purpose: str
+    content_type: str
+    width: int
+    height: int
+    size_bytes: int
+    original_name: str
+
+
+@dataclass(frozen=True)
+class StoredImageRecord:
+    """El contenido de una imagen, para entregarlo."""
+
+    id: UUID
+    content: bytes
+    content_type: str
+
+
+# --- Pedidos ---
+
+
+@dataclass(frozen=True)
+class NewCakeDesign:
+    """Diseño ya revalidado y calculado por el servidor. Las opciones van por su `slug`."""
+
+    people: int
+    kg: int
+    form: str
+    tiers: int
+    cake_type: str
+    bread: str
+    filling_base: str | None
+    filling_flavors: tuple[str, ...]
+    coverage_color: str
+    coverage_color_name: str
+    decoration: str
+    decoration_color: str | None
+    decoration_color_name: str
+    decoration_image_id: UUID | None
+    message: dict | None
+    wafer: bool
+    wafer_layout: dict | None
+    wafer_image_id: UUID | None
+    occasion: str
+    price_per_kg: Decimal
+    cake_subtotal: Decimal
+    wafer_price: Decimal
+    decoration_price: Decimal
+    total: Decimal
+    requires_quote: bool
+    # El tamaño de base se identifica por sus kilos máximos (únicos); `None` sin base.
+    stand_max_kg: int | None
+    stand_deposit: Decimal
+
+
+@dataclass(frozen=True)
+class NewOrderItem:
+    kind: str
+    offering_id: int | None
+    product_name: str
+    presentation: str
+    quantity: int
+    unit_price: Decimal
+    line_total: Decimal
+    design: NewCakeDesign | None
+    # El pan del día que consume un encargo para hoy (se devuelve si el pedido se cancela).
+    bread_id: int | None = None
+
+
+@dataclass(frozen=True)
+class NewOrder:
+    customer_id: int
+    idempotency_key: str
+    status: str
+    status_changed_at: datetime
+    fulfillment: str
+    delivery_slot_id: int
+    subtotal: Decimal
+    stand_deposit: Decimal
+    delivery_fee: Decimal
+    advance_percent: int | None
+    advance: Decimal | None
+    pay_today: Decimal | None
+    pay_on_delivery: Decimal | None
+    payment_due_at: datetime | None
+    items: tuple[NewOrderItem, ...]
+    # Lo de la vitrina de hoy, que se paga completo dentro del anticipo.
+    paid_in_full: Decimal | None = None
+
+
+@dataclass(frozen=True)
+class CakeDesignRecord(NewCakeDesign):
+    stand_min_kg: int | None = None
+
+
+@dataclass(frozen=True)
+class OrderItemRecord:
+    kind: str
+    offering_id: int | None
+    product_name: str
+    presentation: str
+    quantity: int
+    unit_price: Decimal
+    line_total: Decimal
+    design: CakeDesignRecord | None
+
+
+@dataclass(frozen=True)
+class OrderRecord:
+    id: int
+    customer_id: int
+    status: str
+    fulfillment: str
+    delivery_date: date
+    slot_starts_at: time
+    slot_ends_at: time
+    subtotal: Decimal
+    stand_deposit: Decimal
+    delivery_fee: Decimal
+    advance_percent: int | None
+    advance: Decimal | None
+    pay_today: Decimal | None
+    pay_on_delivery: Decimal | None
+    payment_due_at: datetime | None
+    created_at: datetime
+    items: tuple[OrderItemRecord, ...]
+    paid_in_full: Decimal | None = None
+    status_changed_at: datetime | None = None
+    delivery_slot_id: int | None = None
+
+
+@dataclass(frozen=True)
+class ReleasedLine:
+    """Lo que un pedido cancelado devuelve: piezas de la vitrina o pan del día, con su día."""
+
+    offering_id: int | None
+    bread_id: int | None
+    quantity: int
+    on_date: date
+
+
+@dataclass(frozen=True)
+class OrderSlotRecord:
+    """El lapso de un pedido y hasta cuándo se puede pagar, para volver a revisar el cupo al cobrarlo."""
+
+    delivery_slot_id: int
+    payment_due_at: datetime | None
+
+
+@dataclass(frozen=True)
+class QuoteRecord:
+    """Un pedido en pausa por cotización, bloqueado, con lo que hace falta para ponerle precio."""
+
+    order_id: int
+    subtotal: Decimal
+    stand_deposit: Decimal
+    delivery_fee: Decimal
+    paid_in_full: Decimal
+    delivery_date: date
+    slot_starts_at: time
+    design_id: int
+    design_total: Decimal
+
+
+@dataclass(frozen=True)
+class QuotePrice:
+    """Los montos que calcula el servicio al cotizar; el repositorio solo los guarda."""
+
+    decoration_price: Decimal
+    design_total: Decimal
+    subtotal: Decimal
+    advance_percent: int
+    advance: Decimal
+    pay_today: Decimal
+    pay_on_delivery: Decimal
+    paid_in_full: Decimal
+    payment_due_at: datetime
+    status: str
+    status_changed_at: datetime

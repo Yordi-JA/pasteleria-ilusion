@@ -21,7 +21,7 @@ def _test_environment(settings):
     # contadores del throttling no deben filtrarse entre pruebas.
     settings.CACHES = {
         "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
-        # Contadores de los throttles de seguridad (acceso), aparte de los públicos.
+        # Contadores de los throttles de seguridad (acceso, pedidos e imágenes), aparte de los públicos.
         "security": {
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
             "LOCATION": "security",
@@ -120,6 +120,7 @@ SEED_MIGRATIONS = [
     ("0023_seed_decoration_designs", "seed"),
     ("0024_seed_rose_decoration", "seed"),
     ("0026_seed_decoration_prices", "seed"),
+    ("0033_seed_decoration_accepts_color", "seed"),
 ]
 _db_blocker = None
 

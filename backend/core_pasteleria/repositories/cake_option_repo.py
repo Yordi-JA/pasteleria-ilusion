@@ -108,6 +108,7 @@ def _decoration_record(decoration: DecorationOption) -> DecorationRecord:
         preview_flavor=flavor.slug if flavor else None,
         preview_bread=bread.slug if bread else None,
         preview_source_inactive=linked and flavor is None and bread is None,
+        accepts_color=decoration.accepts_color,
     )
 
 

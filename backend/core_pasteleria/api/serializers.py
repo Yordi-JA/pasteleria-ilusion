@@ -6,8 +6,13 @@ from ..models import (
     Bread,
     CakeShape,
     CakeType,
+    CustomerImagePurpose,
+    Fulfillment,
     MessageArrangement,
     MessageColorMode,
+    Occasion,
+    OrderLineKind,
+    OrderStatus,
     Presentation,
     Product,
     ProductCategory,
@@ -16,6 +21,9 @@ from ..models import (
 )
 from ..services import design_layout
 from ..services.design_layout import MessageLayout, WaferLayout
+from ..services.orders import schedule_service
+from ..services.orders.order_lines import DesignRequest, LineRequest
+from ..services.orders.order_service import OrderRequest
 from ..services.pricing_service import CakeDesignChoice
 
 # El mismo largo que el `slug` de las opciones (`Bread`, `FillingBase`, ...).
@@ -675,3 +683,346 @@ class ShowcaseSerializer(TodayStockSerializer):
     items = ShowcaseItemSerializer(
         many=True, help_text="Lo cargado hoy, en el orden del catálogo, con el rebanado en su lugar."
     )
+
+
+# --- Imágenes de clientes (entrada y salida) ---
+
+
+class CustomerImageUploadSerializer(serializers.Serializer):
+    """Una imagen del cliente. El servidor la abre con Pillow: la extensión y el tipo que declara no cuentan."""
+
+    image = serializers.FileField(
+        help_text="JPG, PNG o WebP, de hasta el tamaño máximo del admin (5 MB al inicio) y sus megapíxeles (12 al inicio).",
+        error_messages={"required": "Elige una imagen.", "invalid": "Elige una imagen.", "empty": "La imagen está vacía."},
+    )
+    purpose = serializers.ChoiceField(
+        choices=CustomerImagePurpose.choices,
+        help_text="`wafer` (oblea) o `decoration` (\"Otra decoración\").",
+        error_messages={"invalid_choice": "Indica si la imagen es de la oblea o de la decoración."},
+    )
+
+
+class CustomerImageSerializer(serializers.Serializer):
+    id = serializers.UUIDField(help_text="Con él se pone la imagen en el pedido y se pide para verla.")
+    purpose = serializers.ChoiceField(choices=CustomerImagePurpose.choices)
+    content_type = serializers.CharField(help_text="`image/jpeg`, `image/png` o `image/webp`: el de la imagen ya limpia.")
+    width = serializers.IntegerField()
+    height = serializers.IntegerField()
+    size_bytes = serializers.IntegerField()
+    original_name = serializers.CharField(help_text="El nombre del archivo, limpio; solo para mostrarlo.")
+
+
+# --- Agenda de entregas (entrada y salida) ---
+
+
+def _hh_mm_input(help_text, **kwargs):
+    return serializers.TimeField(
+        format="%H:%M",
+        input_formats=["%H:%M"],
+        help_text=help_text,
+        error_messages={"invalid": "Escribe la hora como HH:MM, por ejemplo 15:30."},
+        **kwargs,
+    )
+
+
+class DeliverySlotQuerySerializer(serializers.Serializer):
+    date = serializers.DateField(help_text="Día de la entrega, AAAA-MM-DD.")
+    kind = serializers.MultipleChoiceField(
+        choices=OrderLineKind.choices,
+        allow_empty=False,
+        help_text=(
+            "Los tipos de línea del pedido (se repite: `?kind=design&kind=order`). La anticipación es la del más "
+            "estricto: `design` 2 días; `order` hoy con 2 horas o cualquier otro día; `showcase` solo hoy."
+        ),
+        error_messages={"empty": "Indica qué lleva tu pedido.", "required": "Indica qué lleva tu pedido."},
+    )
+
+
+class DaySlotSerializer(serializers.Serializer):
+    starts_at = _hh_mm_input("Empieza, HH:MM.")
+    ends_at = _hh_mm_input("Termina, HH:MM.")
+    available = serializers.BooleanField()
+    reason = serializers.ChoiceField(
+        choices=[(schedule_service.TOO_SOON, "Muy pronto"), (schedule_service.FULL, "Lleno")],
+        allow_null=True,
+        help_text="`too_soon`: no alcanza la anticipación o ya pasó. `full`: \"Lleno\". `null` si se puede elegir.",
+    )
+
+
+class DayScheduleSerializer(serializers.Serializer):
+    date = serializers.DateField()
+    earliest_date = serializers.DateField(
+        allow_null=True,
+        help_text="El primer día con algún lapso que alcanza la anticipación (sin contar el cupo); `null` si ya no hay.",
+    )
+    slots = DaySlotSerializer(many=True, help_text="Los lapsos del día, en orden, con su disponibilidad.")
+
+
+# --- Pedidos (entrada) ---
+
+# Topes técnicos contra peticiones absurdas, como los del carrito (`MAX_LINES`, `MAX_LINE_QUANTITY`, D46): el límite real
+# de cada pieza de la vitrina son sus existencias.
+MAX_ORDER_LINES = 100
+MAX_LINE_QUANTITY = 999
+HEX_COLOR_MESSAGE = "Escribe el color como #RRGGBB, por ejemplo #F0CE8A."
+
+
+class HexColorField(serializers.CharField):
+    """Un color libre `#RRGGBB`, en minúsculas. Sin recortar espacios: `" #abcdef"` no es un color (D57)."""
+
+    def __init__(self, **kwargs):
+        super().__init__(trim_whitespace=False, max_length=7, **kwargs)
+
+    def to_internal_value(self, data):
+        color = design_layout.normalize_hex_color(super().to_internal_value(data))
+        if color is None:
+            raise serializers.ValidationError(HEX_COLOR_MESSAGE)
+        return color
+
+
+class OrderDesignSerializer(serializers.Serializer):
+    """Un pastel de "Diseña tu pastel", campo por campo. Montos, `requiresQuote` y el id del diseño no se leen."""
+
+    people = serializers.IntegerField(
+        min_value=1,
+        max_value=MAX_PEOPLE_IN_REQUEST,
+        help_text="Personas; el servidor calcula los kilos (regla 3.1).",
+        error_messages={
+            "invalid": "Las personas van en números enteros.",
+            "min_value": "Indica al menos una persona.",
+            "max_value": "Son demasiadas personas para pedir en línea. Escríbenos por WhatsApp.",
+        },
+    )
+    form = serializers.ChoiceField(
+        choices=CakeShape.choices, error_messages={"invalid_choice": "Elige una forma: redondo o rectangular."}
+    )
+    tiers = serializers.IntegerField(
+        min_value=1,
+        max_value=MAX_TIERS_IN_REQUEST,
+        help_text="Pisos; se revisan contra los kilos (regla 3.3).",
+        error_messages={
+            "invalid": "Los pisos van en números enteros.",
+            "min_value": "El pastel lleva al menos un piso.",
+            "max_value": "Son demasiados pisos para pedir en línea. Escríbenos por WhatsApp.",
+        },
+    )
+    cake_type = serializers.ChoiceField(choices=CakeType.choices)
+    bread = serializers.SlugField(max_length=SLUG_MAX_LENGTH)
+    filling_base = serializers.SlugField(max_length=SLUG_MAX_LENGTH, required=False, allow_null=True, default=None)
+    filling_flavors = serializers.ListField(
+        child=serializers.SlugField(max_length=SLUG_MAX_LENGTH), max_length=MAX_FLAVORS_IN_REQUEST, required=False, default=list
+    )
+    coverage_color = HexColorField(help_text="Color de la cobertura, `#RRGGBB`; se guarda en minúsculas.")
+    decoration = serializers.SlugField(max_length=SLUG_MAX_LENGTH, help_text="La decoración elegida, también \"Sin decoración\".")
+    decoration_color = HexColorField(
+        required=False, allow_null=True, default=None, help_text="`#RRGGBB`, o `null` para el color automático."
+    )
+    decoration_image_id = serializers.UUIDField(
+        required=False, allow_null=True, default=None, help_text="Obligatoria con \"Otra decoración\"; si no, va vacía."
+    )
+    message_layout = MessageLayoutSerializer(required=False, allow_null=True, default=None)
+    wafer = serializers.BooleanField(required=False, default=False)
+    wafer_layout = WaferLayoutSerializer(required=False, allow_null=True, default=None, help_text="Obligatorio con la oblea.")
+    wafer_image_id = serializers.UUIDField(
+        required=False, allow_null=True, default=None, help_text="Obligatoria con la oblea; si no, va vacía."
+    )
+    occasion = serializers.ChoiceField(choices=Occasion.choices, required=False, allow_null=True, default=None)
+
+    @staticmethod
+    def to_request(data) -> DesignRequest:
+        return DesignRequest(
+            people=data["people"],
+            form=data["form"],
+            tiers=data["tiers"],
+            cake_type=data["cake_type"],
+            bread=data["bread"],
+            filling_base=data["filling_base"],
+            filling_flavors=tuple(data["filling_flavors"]),
+            coverage_color=data["coverage_color"],
+            decoration=data["decoration"],
+            decoration_color=data["decoration_color"],
+            decoration_image_id=data["decoration_image_id"],
+            message_layout=MessageLayout(**data["message_layout"]) if data["message_layout"] else None,
+            wafer=data["wafer"],
+            wafer_layout=WaferLayout(**data["wafer_layout"]) if data["wafer_layout"] else None,
+            wafer_image_id=data["wafer_image_id"],
+            occasion=data["occasion"] or "",
+        )
+
+
+class OrderItemRequestSerializer(serializers.Serializer):
+    kind = serializers.ChoiceField(
+        choices=OrderLineKind.choices,
+        help_text="`order` (encargo del catálogo), `showcase` (vitrina de hoy) o `design` (\"Diseña tu pastel\").",
+    )
+    offering_id = serializers.IntegerField(
+        required=False, min_value=1, help_text="Con `order` y `showcase`: el id de la presentación."
+    )
+    quantity = serializers.IntegerField(
+        required=False,
+        default=1,
+        min_value=1,
+        max_value=MAX_LINE_QUANTITY,
+        help_text="Con `order` y `showcase`. Un diseño es siempre una pieza.",
+        error_messages={"min_value": "Pide al menos una pieza.", "max_value": "Son demasiadas piezas para pedir en línea."},
+    )
+    design = OrderDesignSerializer(required=False, help_text="Con `design`.")
+
+    def validate(self, attrs):
+        if attrs["kind"] == OrderLineKind.DESIGN:
+            if "design" not in attrs:
+                raise serializers.ValidationError({"design": ["Falta el diseño de tu pastel."]})
+            if "offering_id" in attrs:
+                raise serializers.ValidationError({"offering_id": ["Un diseño no lleva presentación del catálogo."]})
+        else:
+            if "offering_id" not in attrs:
+                raise serializers.ValidationError({"offering_id": ["Indica la presentación."]})
+            if "design" in attrs:
+                raise serializers.ValidationError({"design": ["Una presentación del catálogo no lleva diseño."]})
+        return attrs
+
+
+class OrderCreateSerializer(serializers.Serializer):
+    """El pedido que manda el carrito. Cualquier monto, depósito, `requiresQuote` o id de diseño se ignora."""
+
+    fulfillment = serializers.ChoiceField(
+        choices=Fulfillment.choices,
+        help_text="Por ahora solo `pickup`; `delivery` responde 400 y remite a WhatsApp.",
+    )
+    delivery_date = serializers.DateField(help_text="Día en que se recoge, AAAA-MM-DD.")
+    slot_starts_at = _hh_mm_input("La hora en que empieza el lapso elegido, HH:MM (de `delivery-slots/`).")
+    items = OrderItemRequestSerializer(
+        many=True,
+        allow_empty=False,
+        max_length=MAX_ORDER_LINES,
+        help_text="Las líneas del carrito, en su orden.",
+        error_messages={"empty": "Tu pedido está vacío.", "not_a_list": "Las líneas van en una lista."},
+    )
+
+    def to_request(self, idempotency_key: str) -> OrderRequest:
+        data = self.validated_data
+        return OrderRequest(
+            idempotency_key=idempotency_key,
+            fulfillment=data["fulfillment"],
+            delivery_date=data["delivery_date"],
+            slot_starts_at=data["slot_starts_at"],
+            items=tuple(
+                LineRequest(
+                    kind=item["kind"],
+                    offering_id=item.get("offering_id"),
+                    quantity=item["quantity"] if item["kind"] != OrderLineKind.DESIGN else 1,
+                    design=OrderDesignSerializer.to_request(item["design"]) if "design" in item else None,
+                )
+                for item in data["items"]
+            ),
+        )
+
+
+# --- Pedidos (salida) ---
+
+
+class BlankAsNullCharField(serializers.CharField):
+    """Un texto que, vacío, sale como `null`."""
+
+    def __init__(self, **kwargs):
+        super().__init__(allow_null=True, **kwargs)
+
+    def to_representation(self, value):
+        return value or None
+
+
+class OrderStandSerializer(serializers.Serializer):
+    """La base del pastel (regla 7), con su depósito; `null` si los kilos no llevan base."""
+
+    min_kg = serializers.IntegerField(source="stand_min_kg")
+    max_kg = serializers.IntegerField(source="stand_max_kg")
+    deposit = money(source="stand_deposit")
+
+    def to_representation(self, instance):
+        return None if instance.stand_max_kg is None else super().to_representation(instance)
+
+
+class OrderDesignOutSerializer(serializers.Serializer):
+    people = serializers.IntegerField()
+    kg = serializers.IntegerField(help_text="Calculados por el servidor.")
+    form = serializers.ChoiceField(choices=CakeShape.choices)
+    tiers = serializers.IntegerField()
+    cake_type = serializers.ChoiceField(choices=CakeType.choices)
+    bread = serializers.SlugField()
+    filling_base = serializers.SlugField(allow_null=True)
+    filling_flavors = serializers.ListField(child=serializers.SlugField())
+    coverage_color = serializers.CharField(help_text="`#rrggbb`.")
+    coverage_color_name = BlankAsNullCharField(help_text="\"Parecido a\", calculado por el servidor; `null` si ninguno.")
+    decoration = serializers.SlugField()
+    decoration_color = serializers.CharField(allow_null=True, help_text="`null`: automático.")
+    decoration_color_name = BlankAsNullCharField()
+    decoration_image_id = serializers.UUIDField(allow_null=True)
+    message_layout = MessageLayoutSerializer(source="message", allow_null=True)
+    wafer = serializers.BooleanField()
+    wafer_layout = WaferLayoutSerializer(allow_null=True)
+    wafer_image_id = serializers.UUIDField(allow_null=True)
+    occasion = BlankAsNullCharField()
+    price_per_kg = money()
+    cake_subtotal = money()
+    wafer_price = money()
+    decoration_price = money(
+        help_text="Con una decoración por cotizar es 0 hasta que la pastelería le pone precio; después, ese precio."
+    )
+    total = money(help_text="Sin el depósito de la base.")
+    requires_quote = serializers.BooleanField()
+    stand = OrderStandSerializer(source="*", allow_null=True)
+
+
+class OrderItemSerializer(serializers.Serializer):
+    kind = serializers.ChoiceField(choices=OrderLineKind.choices)
+    offering_id = serializers.IntegerField(allow_null=True)
+    product_name = BlankAsNullCharField(help_text="El nombre del producto al hacer el pedido; `null` en un diseño.")
+    presentation = BlankAsNullCharField(help_text="`whole`, `slice`, `mini`...; `null` en un diseño.")
+    quantity = serializers.IntegerField()
+    unit_price = money()
+    line_total = money()
+    design = OrderDesignOutSerializer(allow_null=True)
+
+
+class OrderPaymentSerializer(serializers.Serializer):
+    """Lo que se paga hoy y el día de la entrega (regla 10); `null` mientras el pedido espera cotización."""
+
+    advance_percent = serializers.IntegerField()
+    advance = money(help_text="El anticipo del pedido, sin la base ni el envío. Incluye completo `paid_in_full`.")
+    paid_in_full = money(
+        help_text=(
+            "La parte del pedido que se paga completa hoy: lo de la vitrina de hoy. Al resto se le aplica el porcentaje."
+        )
+    )
+    base_deposit = money(source="stand_deposit", help_text="Depósitos de las bases, completos y aparte.")
+    delivery_fee = money(help_text="Envío, completo y aparte; $0 al recoger en la pastelería.")
+    pay_today = money()
+    pay_on_delivery = money()
+
+    def to_representation(self, instance):
+        return None if instance.advance is None else super().to_representation(instance)
+
+
+class OrderSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    status = serializers.ChoiceField(
+        choices=OrderStatus.choices,
+        help_text=(
+            "`awaiting_payment` (apartado, falta el pago) o `awaiting_quote` al crearse. Lo cambian los servicios y el "
+            "personal desde el admin, solo por las transiciones permitidas; nunca esta API. Un apartado vencido o una "
+            "cotización vencida pasan a `cancelled`."
+        ),
+    )
+    fulfillment = serializers.ChoiceField(choices=Fulfillment.choices)
+    delivery_date = serializers.DateField()
+    slot_starts_at = _hh_mm_input("")
+    slot_ends_at = _hh_mm_input("")
+    subtotal = money(help_text="El pedido, sin la base ni el envío.")
+    stand_deposit = money(help_text="Depósitos de las bases.")
+    delivery_fee = money()
+    payment = OrderPaymentSerializer(source="*", allow_null=True)
+    payment_due_at = serializers.DateTimeField(
+        allow_null=True, help_text="El pedido apartado se cancela si no se paga antes; `null` si espera cotización."
+    )
+    created_at = serializers.DateTimeField()
+    items = OrderItemSerializer(many=True)

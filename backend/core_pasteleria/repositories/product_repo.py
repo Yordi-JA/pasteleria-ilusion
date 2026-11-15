@@ -10,7 +10,7 @@ from datetime import date
 
 from django.contrib.postgres.lookups import Unaccent
 from django.db.models import CharField, Case, F, IntegerField, OuterRef, Prefetch, Q, Subquery, Value, When
-from django.db.models.functions import Now
+from django.db.models.functions import Least, Now
 
 from ..models import Inventory, InventoryKind, Presentation, Product, ProductOffering, SalesChannel
 from .records import OfferingRecord, ProductRecord
@@ -224,16 +224,38 @@ def decrement_showcase_stock(offering_id: int, on_date: date, quantity: int) -> 
     return updated == 1
 
 
-def restock_showcase(offering_id: int, on_date: date, quantity: int) -> bool:
-    """Devuelve `quantity` a la vitrina; `False` si no había fila ese día.
+def has_slices_loaded(product_id: int, on_date: date) -> bool:
+    """Si el producto tiene rebanadas cargadas ese día, aunque estén en 0: es el rebanado (D60)."""
+    return Inventory.objects.filter(
+        kind=InventoryKind.SHOWCASE,
+        offering__product_id=product_id,
+        offering__presentation=Presentation.SLICE,
+        stock_date=on_date,
+    ).exists()
 
-    No crea la fila: lo que no se cargó para un día no se inventa.
+
+def restock_showcase(offering_id: int, on_date: date, quantity: int) -> bool:
+    """Devuelve `quantity` a la vitrina; `False` si no había fila ese día o si la regla no deja reintegrar.
+
+    No crea la fila: lo que no se cargó para un día no se inventa. Un pastel por sabor (D60, la misma regla de
+    `Inventory.clean()`): el completo de un producto que se vende en rebanadas (también si esa presentación está
+    desactivada) vuelve como mucho a `Inventory.MAX_WHOLE_CAKES_PER_DAY` piezas, y no vuelve si ese día ya tiene
+    rebanadas cargadas.
     """
     _check_quantity(quantity)
-    updated = Inventory.objects.filter(
-        kind=InventoryKind.SHOWCASE, offering_id=offering_id, stock_date=on_date
-    ).update(quantity=F("quantity") + quantity, updated_at=Now())
-    return updated == 1
+    rows = Inventory.objects.filter(kind=InventoryKind.SHOWCASE, offering_id=offering_id, stock_date=on_date)
+    offering = ProductOffering.objects.filter(pk=offering_id).values("product_id", "presentation").first()
+    one_per_flavor = (
+        offering is not None
+        and offering["presentation"] == Presentation.WHOLE
+        and ProductOffering.objects.filter(product_id=offering["product_id"], presentation=Presentation.SLICE).exists()
+    )
+    if not one_per_flavor:
+        return rows.update(quantity=F("quantity") + quantity, updated_at=Now()) == 1
+    if has_slices_loaded(offering["product_id"], on_date):
+        return False
+    restocked = Least(F("quantity") + quantity, Value(Inventory.MAX_WHOLE_CAKES_PER_DAY))
+    return rows.update(quantity=restocked, updated_at=Now()) == 1
 
 
 # --- Pan para encargos de vitrina del mismo día ---

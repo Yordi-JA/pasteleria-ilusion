@@ -1,5 +1,7 @@
 """Tablas y relaciones del dominio (ORM sobre PostgreSQL)."""
+import secrets
 import unicodedata
+import uuid
 from decimal import Decimal
 
 from django.conf import settings
@@ -508,6 +510,17 @@ class CakeDesignSettings(SingletonSettings):
             )
 
 
+def _proposed_limit(verbose_name, default, help_text, **kwargs):
+    """Un tope que la pastelería ajusta en el admin; su valor inicial es una propuesta (D63)."""
+    return models.PositiveSmallIntegerField(
+        verbose_name,
+        default=default,
+        db_default=default,
+        help_text=f"{help_text} Propuesto: {default}; la pastelería puede ajustarlo.",
+        **kwargs,
+    )
+
+
 class PolicySettings(SingletonSettings):
     """Políticas de la pastelería que el admin puede editar."""
 
@@ -529,6 +542,52 @@ class PolicySettings(SingletonSettings):
             "no pongas un valor supuesto."
         ),
     )
+    # Topes de los pedidos en línea (D63, 14 de noviembre de 2026; lo decidió el usuario). Los valores iniciales son
+    # propuestos: la pastelería puede ajustarlos aquí sin un despliegue.
+    payment_window_minutes = _proposed_limit(
+        "minutos para pagar un pedido",
+        30,
+        "Un pedido sin pagar se cancela pasados estos minutos, o al empezar su lapso si es antes.",
+    )
+    max_unpaid_orders_per_customer = _proposed_limit(
+        "pedidos sin pagar por cliente",
+        2,
+        "Cuántos pedidos apartados sin pagar puede tener un cliente a la vez. Los que esperan cotización tienen su "
+        "propio tope.",
+    )
+    max_days_ahead = _proposed_limit("días a futuro para reservar", 60, "Hasta cuántos días adelante se puede pedir.")
+    max_pieces_per_line = _proposed_limit(
+        "piezas por línea de encargo", 20, "Cuántas piezas de una presentación se encargan en una línea."
+    )
+    max_pieces_per_order = _proposed_limit(
+        "piezas por pedido", 100, "Cuántas piezas lleva un pedido en total, sumando todas sus líneas."
+    )
+    # PENDIENTE de la pastelería (D63, ronda 2; lo decidió el usuario): sin valor, la cotización no vence.
+    quote_expiry_hours = models.PositiveSmallIntegerField(
+        "horas para cotizar un pedido",
+        null=True,
+        blank=True,
+        help_text=(
+            "Vacío es PENDIENTE: un pedido en pausa por cotización no vence. Con un valor, el pedido que sigue sin "
+            "precio se cancela pasadas estas horas y devuelve su lapso."
+        ),
+    )
+    max_quote_orders_per_customer = _proposed_limit(
+        "pedidos en pausa por cotización por cliente", 1, "Cuántos pedidos esperando cotización tiene un cliente a la vez."
+    )
+    max_unpaid_showcase_pieces = _proposed_limit(
+        "piezas de vitrina apartadas por cliente",
+        10,
+        "Cuántas piezas de la vitrina de hoy puede tener apartadas sin pagar un cliente, sumando sus pedidos.",
+    )
+    # Re-auditoría de la ronda 2 de D63 (lo decidió el usuario; las 24 horas las propuso el equipo).
+    expired_showcase_cooldown_hours = _proposed_limit(
+        "horas que cuenta la vitrina vencida",
+        24,
+        "Las piezas de la vitrina de un pedido que se canceló por vencido siguen contando para el tope de piezas del "
+        "cliente durante estas horas: así una cuenta no la mantiene apartada dejando vencer pedido tras pedido. Una "
+        "cancelación del personal no cuenta.",
+    )
 
     class Meta(SingletonSettings.Meta):
         verbose_name = "políticas"
@@ -544,6 +603,27 @@ class PolicySettings(SingletonSettings):
                 condition=Q(advance_percent__gte=1) & Q(advance_percent__lte=100),
                 name="policysettings_advance_percent_range",
                 violation_error_message="El anticipo debe estar entre 1% y 100%.",
+            ),
+            models.CheckConstraint(
+                condition=Q(payment_window_minutes__gt=0)
+                & Q(max_unpaid_orders_per_customer__gt=0)
+                & Q(max_days_ahead__gt=0)
+                & Q(max_pieces_per_line__gt=0)
+                & Q(max_pieces_per_order__gt=0)
+                & Q(max_quote_orders_per_customer__gt=0)
+                & Q(max_unpaid_showcase_pieces__gt=0),
+                name="policysettings_order_limits_positive",
+                violation_error_message="Los topes de los pedidos deben ser más de 0.",
+            ),
+            models.CheckConstraint(
+                condition=Q(quote_expiry_hours__isnull=True) | Q(quote_expiry_hours__gt=0),
+                name="policysettings_quote_expiry_positive",
+                violation_error_message="Las horas para cotizar deben ser más de 0, o vacías (PENDIENTE).",
+            ),
+            models.CheckConstraint(
+                condition=Q(expired_showcase_cooldown_hours__gt=0),
+                name="policysettings_showcase_cooldown_positive",
+                violation_error_message="Las horas que cuenta la vitrina vencida deben ser más de 0.",
             ),
         ]
 
@@ -573,12 +653,48 @@ class UploadSettings(SingletonSettings):
             "el tope duro del sitio."
         ),
     )
+    # D63, 14 de noviembre de 2026 (lo decidió el usuario); valores propuestos.
+    max_pending_images = _proposed_limit(
+        "imágenes sin pedido por cliente",
+        10,
+        "Cuántas imágenes subidas que todavía no están en un pedido puede tener un cliente.",
+    )
+    max_image_megapixels = _proposed_limit(
+        "megapíxeles por imagen",
+        12,
+        f"Más que esto se rechaza. No puede pasar de {settings.UPLOAD_HARD_LIMIT_MEGAPIXELS}, el tope duro del sitio. "
+        "Subirlo de 12 exige revisar antes la memoria del dyno y WEB_CONCURRENCY: cada megapíxel ocupa unos 4 MB al "
+        "abrir la imagen, por cada subida a la vez.",
+        validators=[MinValueValidator(1), MaxValueValidator(settings.UPLOAD_HARD_LIMIT_MEGAPIXELS)],
+    )
+    daily_upload_mb = _proposed_limit(
+        "MB subidos por cliente en 24 horas",
+        25,
+        "Suma de todas sus imágenes subidas en las últimas 24 horas, estén o no en un pedido.",
+    )
+    daily_upload_count = _proposed_limit(
+        "imágenes subidas por cliente en 24 horas",
+        20,
+        "Cuántas imágenes sube un cliente en las últimas 24 horas, estén o no en un pedido.",
+    )
 
     class Meta(SingletonSettings.Meta):
         verbose_name = "subidas"
         verbose_name_plural = "subidas"
         constraints = [
             *SingletonSettings.Meta.constraints,
+            models.CheckConstraint(
+                condition=Q(max_pending_images__gt=0)
+                & Q(daily_upload_mb__gt=0)
+                & Q(daily_upload_count__gt=0)
+                & Q(max_image_megapixels__gte=1)
+                & Q(max_image_megapixels__lte=settings.UPLOAD_HARD_LIMIT_MEGAPIXELS),
+                name="uploadsettings_image_limits_range",
+                violation_error_message=(
+                    "Las imágenes sin pedido deben ser más de 0 y los megapíxeles, de 1 a "
+                    f"{settings.UPLOAD_HARD_LIMIT_MEGAPIXELS}."
+                ),
+            ),
             models.CheckConstraint(
                 condition=Q(max_upload_mb__gte=1)
                 & Q(max_upload_mb__lte=settings.UPLOAD_HARD_LIMIT_MB),
@@ -1177,6 +1293,15 @@ class DecorationOption(OrderedOption):
             "Déjalo vacío si no son chispas o si salen de un sabor."
         ),
     )
+    accepts_color = models.BooleanField(
+        "el cliente elige su color",
+        default=False,
+        db_default=False,
+        help_text=(
+            "Los diseños con duya y las rosas: el cliente elige automático o un color. Sin marcar, el pedido no "
+            "acepta un color para esta decoración (regla 6.1)."
+        ),
+    )
 
     class Meta:
         verbose_name = "decoración"
@@ -1687,6 +1812,8 @@ class Inventory(models.Model):
             raise ValidationError(errors)
 
     # Regla 2 y D60: en la vitrina hay un solo pastel de cada sabor, completo o rebanado.
+    # También lo respeta `product_repo.restock_showcase` al reintegrar un pedido cancelado.
+    MAX_WHOLE_CAKES_PER_DAY = 1
     ONE_WHOLE_CAKE_MESSAGE = (
         "En la vitrina hay un solo pastel completo de cada sabor: pon 1, o 0 si ya se vendió."
     )
@@ -1724,7 +1851,7 @@ class Inventory(models.Model):
         self.lock_product(offering.product_id)
         errors = {}
         whole = offering.presentation == Presentation.WHOLE
-        if whole and self.quantity is not None and self.quantity > 1:
+        if whole and self.quantity is not None and self.quantity > self.MAX_WHOLE_CAKES_PER_DAY:
             errors["quantity"] = self.ONE_WHOLE_CAKE_MESSAGE
         others = Inventory.objects.filter(
             kind=InventoryKind.SHOWCASE,
@@ -1789,3 +1916,382 @@ class BreadInventory(Inventory):
         proxy = True
         verbose_name = "pan de hoy"
         verbose_name_plural = "pan de hoy"
+
+
+# --- Pedidos ---
+#
+# Un pedido junta las líneas del carrito: encargos del catálogo, piezas de la vitrina de hoy y
+# diseños de "Diseña tu pastel". El servidor lo crea y recalcula todo (`services/orders/`). El
+# estado cambia por servicios o por el personal en el registro básico del admin, solo por las
+# transiciones de `order_status.ALLOWED_TRANSITIONS`; nunca por un PATCH genérico de la API.
+
+
+class OrderStatus(models.TextChoices):
+    """Estados del pedido (reglas de negocio, sección 12), con su etiqueta en español."""
+
+    AWAITING_PAYMENT = "awaiting_payment", "Apartado, falta tu pago"
+    RECEIVED = "received", "Recibido"
+    IN_PREPARATION = "in_preparation", "En preparación"
+    READY_FOR_DELIVERY = "ready_for_delivery", "Listo para entregar"
+    DELIVERED = "delivered", "Entregado"
+    CANCELLED = "cancelled", "Cancelado"
+    AWAITING_QUOTE = "awaiting_quote", "En pausa por cotización"
+
+
+class CancellationReason(models.TextChoices):
+    """Por qué se canceló un pedido: la pausa de la vitrina solo cuenta los vencidos (re-auditoría de la ronda 2)."""
+
+    EXPIRED = "expired", "Venció sin pagarse"
+    STAFF = "staff", "Lo canceló el personal"
+
+
+class Fulfillment(models.TextChoices):
+    """Cómo se entrega el pedido (regla 8). A domicilio se acuerda por WhatsApp hasta tener la API de rutas."""
+
+    PICKUP = "pickup", "Recoger en la pastelería"
+    DELIVERY = "delivery", "Entrega a domicilio"
+
+
+class OrderLineKind(models.TextChoices):
+    """Tipo de una línea del pedido; cada uno sigue su regla de anticipación (sección 1)."""
+
+    ORDER = "order", "Encargo"
+    SHOWCASE = "showcase", "Vitrina de hoy"
+    DESIGN = "design", "Diseña tu pastel"
+
+
+class Occasion(models.TextChoices):
+    """Ocasión del pastel (regla 6.4): opcional, no cambia el precio."""
+
+    BIRTHDAY = "birthday", "Cumpleaños"
+    WEDDING = "wedding", "Boda"
+    QUINCEANERA = "quinceanera", "XV años"
+    BAPTISM = "baptism", "Bautizo"
+    FIRST_COMMUNION = "first_communion", "Primera comunión"
+    BABY_SHOWER = "baby_shower", "Baby shower"
+    GRADUATION = "graduation", "Graduación"
+    ANNIVERSARY = "anniversary", "Aniversario"
+    OTHER = "other", "Otra"
+
+
+class CustomerImagePurpose(models.TextChoices):
+    """Para qué subió el cliente la imagen. El envío de referencia agregará su valor."""
+
+    DECORATION = "decoration", "Otra decoración"
+    WAFER = "wafer", "Oblea"
+
+
+# Lo único que se guarda: la imagen ya vuelta a codificar por el servidor.
+IMAGE_CONTENT_TYPES = ("image/jpeg", "image/png", "image/webp")
+# Un color de comida ya normalizado por el servidor (`design_layout.normalize_hex_color`).
+HEX_COLOR_SQL = "^#[0-9a-f]{6}$"
+
+
+class CustomerImage(models.Model):
+    """Imagen que sube un cliente, guardada en PostgreSQL (Heroku borra el disco en cada reinicio).
+
+    El servidor la abre con Pillow y la vuelve a codificar sin metadatos; el nombre original se
+    conserva limpio, solo para mostrarlo. El id es un `uuid4`: no se adivina ni se enumera. Sale
+    solo por el endpoint con permisos, a su dueño o al personal.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="images", verbose_name="cliente"
+    )
+    purpose = models.CharField("para qué", max_length=12, choices=CustomerImagePurpose.choices)
+    content = models.BinaryField("imagen")
+    content_type = models.CharField("tipo", max_length=12)
+    width = models.PositiveIntegerField("ancho (px)")
+    height = models.PositiveIntegerField("alto (px)")
+    size_bytes = models.PositiveIntegerField("tamaño (bytes)")
+    original_name = models.CharField("nombre original", max_length=120, blank=True)
+    created_at = models.DateTimeField("subida", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "imagen de cliente"
+        verbose_name_plural = "imágenes de clientes"
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(purpose__in=CustomerImagePurpose.values),
+                name="customerimage_purpose_known",
+                violation_error_message="Ese uso de la imagen no existe.",
+            ),
+            models.CheckConstraint(
+                condition=Q(content_type__in=IMAGE_CONTENT_TYPES),
+                name="customerimage_content_type_known",
+                violation_error_message="Solo se guardan imágenes JPEG, PNG o WebP.",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Imagen {self.pk}"
+
+
+class DeliverySlot(models.Model):
+    """Un lapso de la agenda (regla 1). La fila se crea con el primer pedido del lapso y es el
+    candado del cupo: la creación del pedido la bloquea antes de contar los pedidos activos."""
+
+    date = models.DateField("día")
+    starts_at = models.TimeField("empieza")
+    ends_at = models.TimeField("termina")
+
+    class Meta:
+        verbose_name = "lapso de entrega"
+        verbose_name_plural = "lapsos de entrega"
+        ordering = ["date", "starts_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["date", "starts_at"],
+                name="deliveryslot_unique_start",
+                violation_error_message="Ya existe ese lapso.",
+            ),
+            models.CheckConstraint(
+                condition=Q(ends_at__gt=F("starts_at")),
+                name="deliveryslot_ends_after_start",
+                violation_error_message="El lapso debe terminar después de empezar.",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.date:%d/%m/%Y} {self.starts_at:%H:%M}–{self.ends_at:%H:%M}"
+
+
+def _money(verbose_name, **kwargs):
+    return models.DecimalField(verbose_name, max_digits=10, decimal_places=2, **kwargs)
+
+
+class CakeDesign(models.Model):
+    """El diseño de "Diseña tu pastel" de una línea del pedido, como lo revalidó y calculó el servidor.
+
+    Nada sale del snapshot del cliente sin pasar por su validación: los kilos salen de las
+    personas, el precio de `pricing_service`, la base de `warranty_service` y el "parecido a" de
+    los colores, de la lista de nombres de referencia.
+    """
+
+    people = models.PositiveSmallIntegerField("personas")
+    kg = models.PositiveSmallIntegerField("kilos")
+    form = models.CharField("forma", max_length=12, choices=CakeShape.choices)
+    tiers = models.PositiveSmallIntegerField("pisos")
+    cake_type = models.CharField("tipo de pastel", max_length=20, choices=CakeType.choices)
+    bread = models.ForeignKey(Bread, on_delete=models.PROTECT, related_name="+", verbose_name="pan")
+    filling_base = models.ForeignKey(
+        FillingBase, on_delete=models.PROTECT, null=True, blank=True, related_name="+", verbose_name="base de relleno"
+    )
+    first_flavor = models.ForeignKey(
+        FillingFlavor, on_delete=models.PROTECT, null=True, blank=True, related_name="+", verbose_name="sabor"
+    )
+    second_flavor = models.ForeignKey(
+        FillingFlavor, on_delete=models.PROTECT, null=True, blank=True, related_name="+", verbose_name="segundo sabor"
+    )
+    coverage_color = models.CharField("color de la cobertura", max_length=7)
+    coverage_color_name = models.CharField(
+        "parecido a", max_length=60, blank=True, help_text="Lo calcula el servidor; vacío si ningún nombre se parece."
+    )
+    decoration = models.ForeignKey(
+        DecorationOption, on_delete=models.PROTECT, related_name="+", verbose_name="decoración"
+    )
+    decoration_color = models.CharField(
+        "color de la decoración", max_length=7, null=True, blank=True, help_text="Vacío: automático."
+    )
+    decoration_color_name = models.CharField("parecido a (decoración)", max_length=60, blank=True)
+    decoration_image = models.OneToOneField(
+        CustomerImage,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="decoration_design",
+        verbose_name="imagen de la decoración",
+    )
+    message = models.JSONField("mensaje", null=True, blank=True)
+    wafer = models.BooleanField("oblea", default=False)
+    wafer_layout = models.JSONField("acomodo de la oblea", null=True, blank=True)
+    wafer_image = models.OneToOneField(
+        CustomerImage,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="wafer_design",
+        verbose_name="imagen de la oblea",
+    )
+    occasion = models.CharField("ocasión", max_length=20, choices=Occasion.choices, blank=True)
+    price_per_kg = _money("precio por kilo")
+    cake_subtotal = _money("pastel")
+    wafer_price = _money("oblea")
+    decoration_price = _money("decoración")
+    total = _money(
+        "total",
+        help_text=(
+            "Sin el depósito de la base. Con una decoración por cotizar, sin la decoración hasta que la pastelería le "
+            "pone precio."
+        ),
+    )
+    requires_quote = models.BooleanField("por cotizar", default=False)
+    stand = models.ForeignKey(
+        CakeStand, on_delete=models.PROTECT, null=True, blank=True, related_name="+", verbose_name="base"
+    )
+    stand_deposit = _money("depósito de la base")
+
+    class Meta:
+        verbose_name = "diseño de pastel"
+        verbose_name_plural = "diseños de pastel"
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(coverage_color__regex=HEX_COLOR_SQL),
+                name="cakedesign_coverage_color_hex",
+                violation_error_message="El color de la cobertura va como #rrggbb.",
+            ),
+            models.CheckConstraint(
+                condition=Q(decoration_color__isnull=True) | Q(decoration_color__regex=HEX_COLOR_SQL),
+                name="cakedesign_decoration_color_hex",
+                violation_error_message="El color de la decoración va como #rrggbb o vacío.",
+            ),
+            models.CheckConstraint(
+                condition=Q(kg__gt=0) & Q(people__gt=0) & Q(tiers__gt=0),
+                name="cakedesign_size_positive",
+                violation_error_message="Las personas, los kilos y los pisos deben ser más de 0.",
+            ),
+            models.CheckConstraint(
+                condition=Q(wafer=True) | (Q(wafer_layout__isnull=True) & Q(wafer_image__isnull=True)),
+                name="cakedesign_wafer_parts_need_wafer",
+                violation_error_message="El acomodo y la imagen de la oblea exigen la oblea.",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Pastel de {self.kg} kg"
+
+
+def new_note_token():
+    """Token de la nota en PDF y su QR (regla 11): no adivinable, nunca el id ni un hash del id."""
+    return secrets.token_urlsafe(32)
+
+
+class Order(models.Model):
+    """Pedido de un cliente. Montos, base, anticipo y estado los fija el servidor al crearlo."""
+
+    customer = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="orders", verbose_name="cliente"
+    )
+    status = models.CharField("estado", max_length=20, choices=OrderStatus.choices)
+    status_changed_at = models.DateTimeField("último cambio de estado")
+    fulfillment = models.CharField("entrega", max_length=10, choices=Fulfillment.choices)
+    delivery_slot = models.ForeignKey(
+        DeliverySlot, on_delete=models.PROTECT, related_name="orders", verbose_name="lapso de entrega"
+    )
+    subtotal = _money("pedido", help_text="Sin la base ni el envío.")
+    stand_deposit = _money("depósitos de las bases")
+    delivery_fee = _money("envío")
+    # Vacíos mientras el pedido espera cotización: no se cobra nada hasta que la pastelería ponga el precio.
+    advance_percent = models.PositiveSmallIntegerField("porcentaje de anticipo", null=True, blank=True)
+    advance = _money("anticipo", null=True, blank=True)
+    pay_today = _money("se paga hoy", null=True, blank=True)
+    pay_on_delivery = _money("se paga en la entrega", null=True, blank=True)
+    paid_in_full = _money(
+        "se paga completo", null=True, blank=True, help_text="Lo de la vitrina de hoy: entra completo en el anticipo."
+    )
+    quoted_decoration_price = _money(
+        "precio de la decoración por cotizar",
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0.01"))],
+        help_text=(
+            "Solo con el pedido en pausa por cotización: al guardarlo, el servidor suma la decoración, recalcula el "
+            "pago y el pedido pasa a «Apartado, falta tu pago»."
+        ),
+    )
+    payment_due_at = models.DateTimeField(
+        "pagar antes de", null=True, blank=True, help_text="Solo con el pedido apartado: después se cancela."
+    )
+    cancellation_reason = models.CharField(
+        "motivo de la cancelación", max_length=10, choices=CancellationReason.choices, blank=True
+    )
+    idempotency_key = models.CharField("llave de idempotencia", max_length=64)
+    # Se crea con el pedido (tabla vacía): agregarlo después con filas pediría una migración en tres pasos.
+    note_token = models.CharField("token de la nota", max_length=64, unique=True, default=new_note_token, editable=False)
+    created_at = models.DateTimeField("creado", auto_now_add=True)
+    updated_at = models.DateTimeField("actualizado", auto_now=True)
+
+    class Meta:
+        verbose_name = "pedido"
+        verbose_name_plural = "pedidos"
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["delivery_slot", "status"], name="order_slot_status")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["customer", "idempotency_key"],
+                name="order_unique_idempotency_key",
+                violation_error_message="Ya existe un pedido con esa llave.",
+            ),
+            models.CheckConstraint(
+                condition=Q(status__in=OrderStatus.values),
+                name="order_status_known",
+                violation_error_message="Ese estado no existe.",
+            ),
+            models.CheckConstraint(
+                condition=Q(fulfillment__in=Fulfillment.values),
+                name="order_fulfillment_known",
+                violation_error_message="Esa forma de entrega no existe.",
+            ),
+            models.CheckConstraint(
+                condition=Q(cancellation_reason="") | Q(cancellation_reason__in=CancellationReason.values),
+                name="order_cancellation_reason_known",
+                violation_error_message="Ese motivo de cancelación no existe.",
+            ),
+            models.CheckConstraint(
+                condition=Q(subtotal__gte=0) & Q(stand_deposit__gte=0) & Q(delivery_fee__gte=0),
+                name="order_amounts_non_negative",
+                violation_error_message="Los montos no pueden ser negativos.",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Pedido {self.pk}"
+
+
+class OrderItem(models.Model):
+    """Línea del pedido: una presentación del catálogo (encargo o vitrina de hoy) o un diseño."""
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items", verbose_name="pedido")
+    position = models.PositiveSmallIntegerField("orden")
+    kind = models.CharField("tipo", max_length=10, choices=OrderLineKind.choices)
+    offering = models.ForeignKey(
+        ProductOffering, on_delete=models.PROTECT, null=True, blank=True, related_name="+", verbose_name="presentación"
+    )
+    design = models.OneToOneField(
+        CakeDesign, on_delete=models.PROTECT, null=True, blank=True, related_name="item", verbose_name="diseño"
+    )
+    # Un encargo para hoy consume pan del día (D30): se guarda para devolverlo si el pedido se cancela.
+    bread = models.ForeignKey(
+        Bread, on_delete=models.PROTECT, null=True, blank=True, related_name="+", verbose_name="pan del día que consumió"
+    )
+    # Lo que se vendió, como estaba al crear el pedido.
+    product_name = models.CharField("producto", max_length=80, blank=True)
+    presentation = models.CharField("presentación", max_length=12, choices=Presentation.choices, blank=True)
+    quantity = models.PositiveSmallIntegerField("cantidad")
+    unit_price = _money("precio por pieza")
+    line_total = _money("importe")
+
+    class Meta:
+        verbose_name = "línea del pedido"
+        verbose_name_plural = "líneas del pedido"
+        ordering = ["order", "position"]
+        constraints = [
+            models.UniqueConstraint(fields=["order", "position"], name="orderitem_unique_position"),
+            models.CheckConstraint(
+                condition=(
+                    Q(kind=OrderLineKind.DESIGN) & Q(design__isnull=False) & Q(offering__isnull=True) & Q(quantity=1)
+                )
+                | (
+                    Q(kind__in=[OrderLineKind.ORDER, OrderLineKind.SHOWCASE])
+                    & Q(offering__isnull=False)
+                    & Q(design__isnull=True)
+                    & Q(quantity__gte=1)
+                ),
+                name="orderitem_offering_or_design",
+                violation_error_message="Una línea es una presentación del catálogo o un diseño, no ambas.",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.get_kind_display()}: {self.product_name or 'diseño'} × {self.quantity}"

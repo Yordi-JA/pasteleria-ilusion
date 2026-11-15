@@ -170,6 +170,7 @@ CACHES = {
         "OPTIONS": {"MAX_ENTRIES": 10000},
     },
     # Contadores de los throttles del acceso (inicio de sesión, registro, sesión),
+    # de la creación de pedidos y de la subida de imágenes (`api/throttles.py`),
     # en su propia tabla: cuando la caché pública llega a su máximo borra una parte
     # de sus entradas (cull), y eso no debe reiniciar un contador de seguridad.
     # `createcachetable` (en el release de Heroku) crea las dos tablas.
@@ -298,6 +299,12 @@ MEDIA_ROOT = BASE_DIR / "media"
 # restricción de la base de `UploadSettings`.
 UPLOAD_HARD_LIMIT_MB = 10
 
+# Tope duro de megapíxeles de una imagen subida (auditoría de D55). El admin edita
+# `UploadSettings.max_image_megapixels` (12 al inicio), nunca por encima de este.
+# También es `Image.MAX_IMAGE_PIXELS` de Pillow para todo el proceso. Cambiarlo
+# exige una migración, igual que `UPLOAD_HARD_LIMIT_MB`.
+UPLOAD_HARD_LIMIT_MEGAPIXELS = 40
+
 # Tope duro de imágenes por envío de referencia (regla 9: máximo 3). El admin
 # edita `UploadSettings.max_reference_images`, pero nunca puede pasar de aquí.
 # Cambiarlo exige una migración, igual que `UPLOAD_HARD_LIMIT_MB`.
@@ -396,6 +403,21 @@ REST_FRAMEWORK = {
         "login": "60/hour",
         "register": "30/hour",
         "session": "120/min",
+        # Subida de imágenes de clientes (oblea, "Otra decoración"): por cuenta y,
+        # aparte, por IP, para que varias cuentas desde una conexión no sumen cupo,
+        # en la caché `security` como el acceso.
+        # Cada imagen pesa hasta el máximo del admin y se guarda en PostgreSQL.
+        "customer_images_user": "20/hour",
+        "customer_images_ip": "40/hour",
+        # Crear pedidos (D63): cada pedido aparta un lapso, existencias y pan
+        # mientras no se paga. Por cuenta, 10 por hora; por IP, 60 por hora, porque
+        # en la exposición muchas personas comparten la red (ronda 2). Un reintento
+        # con la misma `Idempotency-Key` no gasta este cupo.
+        "orders_create_user": "10/hour",
+        "orders_create_ip": "60/hour",
+        # Un reintento con una llave que ya tiene pedido responde ese pedido: tiene
+        # su propio cupo, holgado, en vez de ninguno (revisión de la ronda 2).
+        "orders_retry_user": "120/min",
     },
     # Saltos de proxy delante de la app (en Heroku, 1). Con 0 se ignora
     # X-Forwarded-For y se usa la dirección de la conexión: si no, un cliente

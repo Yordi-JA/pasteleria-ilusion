@@ -435,6 +435,18 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Fuera: recuperar la contraseña y verificar el correo (D61). Verificado en local, sin desplegar.
 - Ronda 1 de correcciones (14 de noviembre), tras la revisión de código y la auditoría de seguridad: la API ya no revisa la contraseña de una cuenta del personal (el intento cuenta como fallo en django-axes), la rotación del refresh es atómica, un refresh rotado conserva la cookie solo 60 s, entrar de nuevo cierra el refresh anterior, ligar Google y cerrar sesiones van en una transacción, `hd` solo responde por su dominio, IPv6 cuenta por /64, la cookie se llama `__Secure-ilusion_refresh` en producción y los throttles suben a 60, 30 y 120 para la exposición. En el sitio: una renovación que llega después de "Cerrar sesión" ya no reabre la sesión, un 429 o un 5xx al renovar no la cierran, salir sin red lo avisa, y volver a la cuenta tras salir pide entrar. `pip-audit` sin vulnerabilidades. Detalle en D62.
 
+### Viernes 13 de noviembre: API de pedidos, agenda e imágenes de clientes (D63)
+
+- Decisión D63 en [`proyecto/decisiones.md`](proyecto/decisiones.md), rama `feat/pedidos-api`, sin desplegar. Es la parte del backend del mínimo de pedidos de D61. El frontend no cambia.
+- Modelos `Order`, `OrderItem`, `CakeDesign`, `DeliverySlot` y `CustomerImage` (migración `0031_orders`, hoy `0032_orders`) y el admin del pedido en solo lectura.
+- `POST/GET /api/v1/orders/` y `GET /api/v1/orders/<id>/`, con JWT e `Idempotency-Key`. El servidor recalcula el precio, la base y el anticipo, aparta el lapso, la vitrina y el pan de hoy en una sola transacción, y crea el pedido en `awaiting_payment` (con caducidad al cierre) o en `awaiting_quote`. La entrega a domicilio remite a WhatsApp.
+- `GET /api/v1/delivery-slots/`: los lapsos del día con su anticipación por tipo de línea y el cupo de 3.
+- `POST` y `GET /api/v1/customer-images/`: imágenes de la oblea y de "Otra decoración" en PostgreSQL. Pillow las valida (40 megapíxeles) y las vuelve a codificar sin EXIF; el tamaño máximo se revisa antes de leer el cuerpo, solo las ven su dueño y el personal, y hay throttle por usuario y por IP. Dependencia nueva: Pillow 13.0.0.
+- El "parecido a" y la oblea contra la tapa real se calculan en el servidor. `restock_showcase` respeta un pastel por sabor.
+- Reglas: las secciones 2 y 12 de [`reglas-de-negocio.md`](reglas-de-negocio.md) dicen ahora que la vitrina de hoy no se junta con un diseño y que `awaiting_payment` cubre también el pago en línea sin confirmar.
+- Pendientes cerrados en [`pendientes.md`](pendientes.md): el 13 de D50, el 10 de D53, el 2 y el 5 de D60 y los puntos 1, 2, 3, 6, 8, 9, 10 y 11 de la auditoría de D55.
+- Pruebas: 1 395 de pytest pasan y 3 se saltan (sin build del frontend); antes eran 1 284. `manage.py check`, `makemigrations --check` y `spectacular --validate --fail-on-warn` pasan sin avisos.
+
 ### Sábado 14 de noviembre: sin vistas del personal (D64)
 
 - Decisión D64 en [`proyecto/decisiones.md`](proyecto/decisiones.md): para terminar a tiempo, desde hoy no se construyen vistas, pantallas ni endpoints para el personal. La tomó el usuario.
@@ -442,6 +454,28 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Las tres acciones del personal de D61 se hacen desde el registro básico del pedido en el admin: registrar el pago en efectivo de un apartado, marcar la base como devuelta (con el depósito reembolsado) y poner el precio de un envío de referencia. El Observer reacciona igual que con un pago en línea.
 - `/nota/:token` solo verifica la nota, sin el botón "Base devuelta". D61 lleva la nota "Reemplazado en parte por D64" y la sección 11 de [`reglas-de-negocio.md`](reglas-de-negocio.md) lleva su excepción.
 - Motivo: la Etapa 4 quedó muy cargada, el código se congela el 19 de noviembre y las vistas del personal no se iban a mostrar en la exposición.
+
+### Sábado 14 de noviembre: pedidos sin vistas del personal, topes del admin y ronda 1 de correcciones (D63)
+
+- Cambio de alcance del usuario: el proyecto no construye vistas, pantallas ni endpoints nuevos del personal. El admin del pedido queda como registro básico, con las líneas en solo lectura y el estado como único campo editable. Ahí se registran el cobro en efectivo y lo demás del personal. Las imágenes de los clientes solo las ven su dueño y el superusuario.
+- Decisiones del usuario, registradas en D63 y en las secciones 1, 10 y 12 de [`reglas-de-negocio.md`](reglas-de-negocio.md):
+  - Topes en el admin, con valores propuestos: 2 pedidos sin pagar por cliente, 60 días a futuro y 10 imágenes sin pedido.
+  - La vitrina de hoy no se junta con un diseño.
+  - Lo de la vitrina de hoy se paga completo.
+  - El pedido sin pagar vence a los 30 minutos y nunca después de su lapso; con efectivo (tanda 2), al cierre del día.
+- Ronda 1 de correcciones de la revisión de código y la auditoría de seguridad:
+  - Throttle `orders_create`, 10 por hora por cuenta y por IP.
+  - Topes de piezas por línea (20) y por pedido (100, propuesto por el equipo), y montos que no caben: 400, nunca 500.
+  - Imágenes: 12 MP configurables, MPO como JPEG, EXIF dañado (400), tope después de volver a codificar, `Cache-Control: private, no-store`. El pico de memoria con 12 MP bajó de 143 MB a 51 MB.
+  - La misma imagen en dos líneas: 400.
+  - Transiciones del estado en el admin con `ALLOWED_TRANSITIONS`, sin cancelar mientras no haya reintegro, y auditadas.
+  - El fin del lapso, de la cuadrícula vigente.
+  - La lista paginada en el repositorio.
+  - De 85 a 36 consultas en un pedido con 3 diseños.
+  - El color de una decoración que no lo admite: 400.
+  - Prueba de dos pedidos con las mismas piezas en orden inverso.
+- Migraciones: la `0031_orders` (hoy `0032_orders`) se regeneró con los topes y `DecorationOption.accepts_color`. La `0032_seed_decoration_accepts_color` (hoy `0033_seed_decoration_accepts_color`) es nueva y está en `SEED_MIGRATIONS`.
+- Pruebas: 1 434 de pytest pasan y 3 se saltan (sin build del frontend). `manage.py check`, `makemigrations --check` y `spectacular --validate --fail-on-warn` pasan sin avisos.
 
 ### Sábado 14 de noviembre: pruebas del backend en paralelo (D65)
 
@@ -453,3 +487,41 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Ronda 2 de revisión: `POSTGRES_TEST_DB` debe empezar con `test_` y ser distinta de la base de `DATABASE_URL` (dos casos nuevos en `test_settings.py`), y la fixture de sesión de `conftest.py` también resiembra al abrir, para que una corrida abortada no deje la base vacía.
 - Ronda 2 del acceso (D62): una renovación pasajera (429, 5xx o sin red) ya no cierra la sesión al pedir un recurso de la cuenta; `getJsonWithSession` falla con un 503. Prueba nueva en `e2e/session-model.spec.ts`.
 - `e2e/cake-designer-lid.spec.ts` "more size is capped at what fits" falla también en `main` (`5bc1acb`); quedó en `docs/pendientes.md` junto con los menores de la revisión del acceso.
+
+### Sábado 14 de noviembre: `main` con el acceso (D62 y D65) entra en `feat/pedidos-api`
+
+- Las dos ramas tenían una `0031`. La de pedidos pasa a `0032_orders` (después de la `0031_user_profile_and_google` del acceso) y la semilla a `0033_seed_decoration_accepts_color`, también en `SEED_MIGRATIONS` de `backend/tests/conftest.py`.
+- Los throttles de pedidos y de imágenes (`orders_create`, `customer_images_user` y `customer_images_ip`) cuentan ahora en `CACHES["security"]` y agrupan IPv6 por /64 con `config.security.group_ip`, como los del acceso; las tasas no cambian. Dos pruebas nuevas en `backend/tests/test_order_limits.py`. Detalle en D63.
+- D63 queda entre D62 y D64 en [`proyecto/decisiones.md`](proyecto/decisiones.md), y `backend/AGENTS.md`, `pendientes.md` y `proyecto/arquitectura.md` juntan lo de las dos ramas.
+- Pruebas: 1 580 de pytest pasan y 3 se saltan (sin build del frontend), con `--create-db -n auto`. `manage.py check`, `makemigrations --check` y `spectacular --validate --fail-on-warn` pasan sin avisos; `npm run typecheck` pasa.
+
+### Sábado 14 de noviembre: ronda 2 de la API de pedidos (D63)
+
+- Decisiones del usuario, en D63 y en las secciones 1, 6.1, 10, 12 y 14 de [`reglas-de-negocio.md`](reglas-de-negocio.md):
+  - Con el precio que pone el personal en el admin, un pedido `awaiting_quote` pasa a `awaiting_payment` con su plazo para pagar. El precio solo se edita mientras el pedido espera cotización.
+  - Cuánto espera una cotización sin precio queda PENDIENTE (`PolicySettings.quote_expiry_hours`, vacío); mientras tanto no vence.
+  - El personal cancela desde el admin solo antes del pago, con el reintegro del lapso, la vitrina y el pan.
+  - Topes nuevos por cliente: 1 pedido esperando cotización y 10 piezas de la vitrina sin pagar.
+- Comando `cancel_expired_orders` (antes planeado como `cancel_unpaid_cash_orders`): cancela lo vencido con el mismo reintegro y borra las imágenes de sus diseños. Es idempotente y seguro con dos corridas a la vez. Falta programarlo en Heroku Scheduler.
+- También: cobrar un apartado vencido revisa otra vez el cupo de su lapso; el primer lapso deja completos los 30 minutos para pagar; una decoración por cotizar por pedido; `orders_create_user` (10/hora) y `orders_create_ip` (60/hora); un reintento con la misma `Idempotency-Key` no gasta cupo; el admin muestra solo el error de un cambio rechazado y no lo anota en el historial; `payment.paid_in_full` en la respuesta; un lapso fuera de los días que se reservan es un 400.
+- Migración `0034_order_round2_policy` (`quote_expiry_hours` vacío y dos textos de ayuda).
+- Pruebas: `backend/tests/test_order_round2.py` (24: las 20 de la revisión y 4 nuevas). Antes de implementar fallaban 22 y pasaban 2 contra el código del commit `0420e87`. Se ajustaron pruebas de la ronda 1 que contradecían las decisiones (detalle en D63). La suite da 1 604 de pytest que pasan y 3 que se saltan (sin build del frontend), con `--create-db -n auto`. `manage.py check`, `makemigrations --check` y `spectacular --validate --fail-on-warn` pasan sin avisos.
+
+### Sábado 14 de noviembre: arreglos de la revisión de la ronda 2 de pedidos (D63)
+
+- La revisión de código y la auditoría de seguridad de la ronda 2 no dejaron hallazgos que bloquearan. Se corrigieron los tres mayores:
+  - Cancelar devuelve la vitrina por id, después el pan por id y al final las imágenes, el orden de la creación. Con el orden anterior, cancelar y crear la misma combinación a la vez daba un deadlock.
+  - Un reintento con una `Idempotency-Key` usada tiene su propio throttle, `orders_retry_user` (120 por minuto), y recibe su pedido antes de que se valide el cuerpo.
+  - Al hacer un pedido, primero se cancelan con su reintegro los apartados vencidos del mismo cliente, cada uno en su transacción y antes de la de creación. Antes, una cuenta podía apartar otras 10 piezas de la vitrina con las primeras 10 todavía fuera.
+- Decisiones del usuario, en D63 y en las secciones 1, 6.1, 10 y 12 de [`reglas-de-negocio.md`](reglas-de-negocio.md): una cotización con precio se paga hasta el cierre del día; un pedido en pausa por cotización no ocupa lapso y el cupo se revisa al ponerle precio; se confirman el primer lapso con 30 minutos para pagar, los 60 pedidos por hora por IP y que la cotización con precio no revise el tope de 2 sin pagar; `cancel_expired_orders` se programará en Heroku Scheduler cada 10 minutos.
+- Menores: la auditoría de `price_quote` registra el precio y lo que se paga hoy, y la de la cancelación, los ids. Un error en un pedido ya no corta la corrida del comando.
+- Quedan anotados en [`pendientes.md`](pendientes.md): permisos propios para cotizar y cancelar, la auditoría que se escribe dentro de la transacción del admin y la anticipación que no se revisa al cotizar. En D63 queda el reembolso automático de un pago que llega para un pedido ya cancelado (tanda 2).
+- Pruebas: 8 nuevas en `backend/tests/test_order_round2.py`, todas en rojo antes de su arreglo, y se ajustó la del precio de la cotización (vence a las 22:30, no a los 30 minutos). La suite da 1 612 de pytest que pasan y 3 que se saltan (sin build del frontend), con `-n auto`. `manage.py check`, `makemigrations --check` y `spectacular --validate --fail-on-warn` pasan sin avisos.
+
+### Sábado 14 de noviembre: re-auditoría de la ronda 2 de pedidos (D63)
+
+- La re-revisión de código dio "ship". La re-auditoría de seguridad dejó un riesgo, y el usuario lo decidió: una pausa por cuenta contra acaparar la vitrina. Las piezas de los pedidos que la cuenta dejó vencer siguen contando para su tope de 10 durante 24 horas (`PolicySettings.expired_showcase_cooldown_hours`, propuesto por el equipo). No cuentan las cancelaciones del personal. `Order.cancellation_reason` distingue una de otra (migración `0035_showcase_cooldown_and_cancellation_reason`).
+- Riesgo aceptado por el usuario: con varias cuentas todavía se puede apartar la vitrina; el personal lo atiende desde el admin. Quedó en D63 y en [`pendientes.md`](pendientes.md).
+- El admin muestra "Vigencia de la cotización: PENDIENTE, no vence" mientras `quote_expiry_hours` esté vacío, en las políticas y en el pedido que espera cotización.
+- Menores: la limpieza de vencidos al crear un pedido ya no escribe en la auditoría si no canceló nada; un vencido que no se pudo cancelar sigue contando para los topes; se aclararon las descripciones de la creación y del plazo de la cotización; el inicio del lapso de una cotización sale de `schedule_service.starts_at`.
+- Pruebas: 5 nuevas en `backend/tests/test_order_round2.py` (4 en rojo antes del cambio; la de la cancelación del personal ya pasaba y queda como guarda) y se ajustó la de la limpieza de vencidos, que ahora rechaza las otras 10 piezas por la pausa. La suite da 1 617 de pytest que pasan y 3 que se saltan (sin build del frontend), con `--create-db -n auto`. `manage.py check`, `makemigrations --check` y `spectacular --validate --fail-on-warn` pasan sin avisos.
