@@ -2,7 +2,7 @@
 from django.urls import path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from . import auth_views, payment_views, reference_views, views
+from . import account_views, auth_views, payment_views, reference_views, views
 
 urlpatterns = [
     # Acceso de clientes (D62): la cookie del refresh vive solo bajo `auth/`.
@@ -12,6 +12,9 @@ urlpatterns = [
     path("auth/google/", auth_views.GoogleLoginView.as_view(), name="auth-google"),
     path("auth/refresh/", auth_views.RefreshView.as_view(), name="auth-refresh"),
     path("auth/logout/", auth_views.LogoutView.as_view(), name="auth-logout"),
+    # "Datos y avisos" (D72): la cuenta con JWT; la contraseña va bajo `auth/` porque pone la cookie del refresh.
+    path("auth/password/", auth_views.PasswordChangeView.as_view(), name="auth-password"),
+    path("account/", account_views.AccountView.as_view(), name="account"),
     # Contrato OpenAPI y Swagger UI: solo para personal (SPECTACULAR_SETTINGS).
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     path("docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),

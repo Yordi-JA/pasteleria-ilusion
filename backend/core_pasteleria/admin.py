@@ -84,8 +84,11 @@ class CustomUserAdmin(UserAdmin):
     form = CustomUserChangeForm
     add_form = CustomUserCreationForm
 
+    customer_fields = ("full_name", "phone", "notify_whatsapp")
     fieldsets = (
         (None, {"fields": ("email", "password")}),
+        # Los cambia el cliente en "Datos y avisos" (D72); aquí solo se ven.
+        ("Datos y avisos", {"fields": customer_fields}),
         (
             "Permisos",
             {
@@ -129,7 +132,7 @@ class CustomUserAdmin(UserAdmin):
         return users.filter(is_staff=False, is_superuser=False)
 
     def get_readonly_fields(self, request, obj=None):
-        readonly = super().get_readonly_fields(request, obj)
+        readonly = (*super().get_readonly_fields(request, obj), *self.customer_fields)
         if request.user.is_superuser:
             return readonly
         # El correo identifica la cuenta y sirve para recuperarla: solo un
@@ -892,7 +895,8 @@ class OrderAdmin(ServiceEditAdminMixin, admin.ModelAdmin):
     list_select_related = ("customer", "delivery_slot")
     # Sin la llave de idempotencia ni el token de la nota: no le sirven al personal y el token abre la nota.
     fields = (
-        "customer", "status", "status_changed_at", "fulfillment", "delivery_slot", "pickup_name", "pickup_phone",
+        "customer", "customer_phone", "customer_notify_whatsapp", "status", "status_changed_at", "fulfillment",
+        "delivery_slot", "pickup_name", "pickup_phone",
         "quoted_decoration_price", "subtotal", "stand_deposit", "delivery_fee", "advance_percent", "advance", "pay_today",
         "pay_on_delivery", "payment_due_at", "created_at", "payments_summary",
     )
@@ -919,6 +923,17 @@ class OrderAdmin(ServiceEditAdminMixin, admin.ModelAdmin):
     @admin.display(description=QUOTE_EXPIRY_LABEL)
     def quote_expiry_notice(self, obj):
         return quote_expiry_notice()
+
+    # La cuenta del cliente, para escribirle (D72): su teléfono y si pidió avisos por WhatsApp. El sitio no los manda.
+    @admin.display(description="teléfono del cliente")
+    def customer_phone(self, obj):
+        return obj.customer.phone or "Sin teléfono en su cuenta"
+
+    @admin.display(description="avisos por WhatsApp")
+    def customer_notify_whatsapp(self, obj):
+        if obj.customer.notify_whatsapp:
+            return "Sí, escríbele por WhatsApp al teléfono de su cuenta"
+        return "No, solo por correo"
 
     @admin.display(description="pagos")
     def payments_summary(self, obj):

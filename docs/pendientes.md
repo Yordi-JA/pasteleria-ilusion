@@ -287,3 +287,15 @@ Menores de la revisión única de la tanda 3 (D70) que no se arreglaron:
 ## `/pedido`: dibujo de la tarjeta "Diseña tu pastel"
 
 1. El mockup `PedidoElegir` usa un pastel de línea de dos pisos con vela que no está en `assets/motivos/` ni en `LineDrawing`. Mientras tanto la tarjeta lleva el icono `Cake` de Phosphor (Regular, `mermelada`). Falta que se dibuje `dibujo-pastel.svg` en el estilo de los motivos y se agregue a `LineDrawing`.
+
+## `/cuenta/datos` (D72)
+
+Menores de la revisión única de "Datos y avisos" que no se implementaron:
+
+1. Mandar un correo al dueño de la cuenta cuando cambian su contraseña o su teléfono, para que note un cambio que no hizo (CWE-778, registro insuficiente de eventos de seguridad).
+2. Sin `navigator.locks` (el sitio abierto por `http://<IP>`), otra pestaña puede rotar la cookie vieja mientras se cambia la contraseña y cerrar la sesión: avisar "Vuelve a entrar con tu contraseña nueva" en ese caso.
+3. Contar en django-axes los fallos de la contraseña actual de `POST auth/password/`; hoy solo los limita el throttle por cuenta y por IP.
+4. Pruebas de `changePassword` (`models/session.ts`) para el 401 que renueva y reintenta, el segundo 401 que cierra la sesión y "la persona salió mientras llegaba" (cierra la cookie nueva).
+5. Un `StrictBooleanField` para `notify_whatsapp`: el `BooleanField` de DRF acepta `"true"`, `1` o `"sí"`.
+6. Una base común para los errores por campo con código, en lugar de `PasswordChangeError(RegistrationError)`.
+7. Avisar a las otras pestañas del nombre nuevo (`BroadcastChannel`); hoy lo toman al renovar la sesión o al recargar.

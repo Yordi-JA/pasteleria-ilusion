@@ -486,3 +486,19 @@ La pastelería dio la dirección y el WhatsApp el 15 de noviembre de 2026. Viven
 4. Políticas de cambios y qué pasa si la base regresa dañada: el equipo prepara un texto base y la pastelería lo completa. La cancelación por el cliente ya tiene su mecanismo (sección 10, D70): el usuario decidió el 50% retenido y que se cancele en cualquier momento antes de la entrega, sin corte de horas.
 5. Dirección y WhatsApp: resueltos el 15 de noviembre de 2026 (los dio la pastelería y viven en el admin, sección 13). Siguen el aviso de privacidad y los términos: el equipo prepara el texto base y la pastelería lo completa.
 6. Resuelto el 14 de noviembre de 2026 (lo decidió el usuario, D63 ronda 2): con el precio, un pedido `awaiting_quote` pasa a `awaiting_payment`. Sigue PENDIENTE cuánto espera un pedido sin precio antes de cancelarse (`PolicySettings.quote_expiry_hours`, vacío: mientras no tenga valor, no vence).
+
+---
+
+## 15. Cuenta del cliente: datos, avisos y contraseña
+
+Lo decidió el usuario el 15 de noviembre de 2026 (D72). Vive en `/cuenta/datos` ("Datos y avisos").
+
+| Dato | Regla |
+|---|---|
+| Nombre completo | Obligatorio al guardar, hasta 150 caracteres, con las mismas reglas que el registro (sin caracteres de control ni de formato; los espacios se juntan) |
+| Teléfono o WhatsApp | Opcional; si se escribe, exactamente 10 dígitos (los espacios, guiones, puntos y paréntesis se quitan) |
+| Correo | No se cambia. Debajo dice "Vinculado a tu cuenta de Google." si la cuenta entró con Google, o "Es el correo con el que entras." |
+
+**Avisos del pedido.** El correo siempre se envía: su casilla va marcada y no se puede quitar. WhatsApp es una preferencia de la cuenta (`User.notify_whatsapp`, apagada al inicio): el sitio no manda mensajes de WhatsApp; la preferencia le dice a la pastelería que puede escribirle a mano. El admin la muestra en el usuario y en el pedido, junto al teléfono del cliente, sin poder cambiarla. Marcar WhatsApp sin teléfono, o quitar el teléfono con WhatsApp marcado, es un error: "Para avisarte por WhatsApp, escribe tu teléfono en tus datos personales." La base de datos también lo rechaza.
+
+**Cambiar la contraseña.** Solo en una cuenta con contraseña; una cuenta que solo entra con Google no ve el formulario. Pide la contraseña actual y la nueva; la nueva sigue las reglas del registro (mínimo 8 caracteres, que no sea común, que no sea solo números y que no se parezca al correo ni al nombre). Una contraseña actual equivocada responde "Tu contraseña actual no coincide.", lo mismo que una cuenta sin contraseña, para no revelar cuál es cuál. Se aceptan 10 cambios o intentos por hora por cuenta y 30 por hora por conexión. Al cambiarla se cierran las sesiones abiertas en otros dispositivos y la sesión de quien la cambió sigue abierta.

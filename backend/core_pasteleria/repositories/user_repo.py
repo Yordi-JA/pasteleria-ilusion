@@ -23,6 +23,15 @@ class EmailTakenError(Exception):
     """El correo o la cuenta de Google ya tiene cuenta (la restricción de la base lo detectó)."""
 
 
+class WhatsAppWithoutPhoneError(Exception):
+    """La preferencia de WhatsApp quedaría sin teléfono (la restricción de la base lo detectó, D72)."""
+
+
+WHATSAPP_CONSTRAINT = "user_whatsapp_needs_phone"
+# Lo que el cliente cambia en "Datos y avisos" (D72); nada más se guarda por `update_profile`.
+PROFILE_FIELDS = ("full_name", "phone", "notify_whatsapp")
+
+
 def _users():
     return get_user_model().objects
 
@@ -86,6 +95,47 @@ def link_google(user, *, sub: str, full_name: str, remove_password: bool) -> Non
 
 def touch_last_login(user) -> None:
     update_last_login(None, user)
+
+
+def update_profile(user, changes: dict) -> None:
+    """Guarda en la cuenta el nombre, el teléfono o la preferencia de WhatsApp que traiga `changes` (D72).
+
+    Solo escribe esas columnas. Si otra petición dejó la cuenta sin teléfono al mismo tiempo, la restricción
+    `user_whatsapp_needs_phone` lo detecta y lanza `WhatsAppWithoutPhoneError`; la cuenta en memoria vuelve a lo que
+    dice la base.
+    """
+    fields = [field for field in PROFILE_FIELDS if field in changes]
+    if not fields:
+        return
+    for field in fields:
+        setattr(user, field, changes[field])
+    try:
+        with transaction.atomic():
+            user.save(update_fields=fields)
+    except IntegrityError as error:
+        user.refresh_from_db(fields=list(PROFILE_FIELDS))
+        if _constraint_name(error) == WHATSAPP_CONSTRAINT:
+            raise WhatsAppWithoutPhoneError from error
+        raise
+
+
+def change_password(user, *, current_password: str, new_password: str) -> bool:
+    """Pone la contraseña nueva y cierra todas las sesiones de la cuenta, en una sola transacción (D72).
+
+    Bloquea la fila de la cuenta (`select_for_update`) y vuelve a revisar la contraseña actual con lo que dice la base:
+    si otra petición la cambió mientras tanto, no cambia nada y devuelve `False`. Los access de antes dejan de valer
+    solos (llevan la huella de la contraseña, `CHECK_REVOKE_TOKEN`); los refresh van a la lista negra. La instancia de
+    quien llama toma el hash nuevo solo si todo se guardó. La sesión que sigue abierta la emite quien llama.
+    """
+    with transaction.atomic():
+        locked = _users().select_for_update().get(pk=user.pk)
+        if not locked.check_password(current_password):
+            return False
+        locked.set_password(new_password)
+        locked.save(update_fields=["password"])
+        _revoke_all_sessions(locked)
+    user.password = locked.password
+    return True
 
 
 def _revoke_all_sessions(user) -> None:

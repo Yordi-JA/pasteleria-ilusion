@@ -19,6 +19,7 @@ def audit_operation(
     *,
     expected_errors: tuple[type[BaseException], ...] = (),
     describe: Callable[[object], dict] | None = None,
+    context: Callable[..., dict] | None = None,
 ):
     """Mide en milisegundos y registra en el logger `core_pasteleria.audit`.
 
@@ -29,23 +30,27 @@ def audit_operation(
     clase, sin mensaje ni traza (la traza la deja `django.request` si llega a 500).
     Con `describe`, al terminar bien se agregan al registro los campos que
     devuelve a partir del resultado (ids y códigos, no datos personales).
+    Con `context`, los campos que devuelve a partir de los argumentos de la
+    llamada (por ejemplo, el id de la cuenta) van en todos los registros: el
+    éxito, el rechazo y la falla. Solo ids, nunca un correo ni un nombre.
     """
     if func is None:
-        return functools.partial(audit_operation, expected_errors=expected_errors, describe=describe)
+        return functools.partial(audit_operation, expected_errors=expected_errors, describe=describe, context=context)
     operation = f"{func.__module__}.{func.__qualname__}"
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         started = time.perf_counter()
+        known = context(*args, **kwargs) if context else {}
         try:
             result = func(*args, **kwargs)
         except expected_errors as error:
-            _log(logging.INFO, operation, started, f"rejected:{type(error).__name__}")
+            _log(logging.INFO, operation, started, f"rejected:{type(error).__name__}", known)
             raise
         except Exception as error:
-            _log(logging.ERROR, operation, started, type(error).__name__)
+            _log(logging.ERROR, operation, started, type(error).__name__, known)
             raise
-        _log(logging.INFO, operation, started, "ok", describe(result) if describe else {})
+        _log(logging.INFO, operation, started, "ok", {**known, **(describe(result) if describe else {})})
         return result
 
     return wrapper

@@ -118,3 +118,17 @@ class OrderCancelUserThrottle(CustomerImageUserThrottle):
     """Cancelar un pedido desde la cuenta, por cuenta (`orders_cancel_user`, 20 por hora, D70)."""
 
     scope = "orders_cancel_user"
+
+
+class PasswordChangeUserThrottle(CustomerImageUserThrottle):
+    """Cambiar la contraseña, por cuenta (`password_change_user`, 10 por hora, D72): quien tenga un access robado no
+    puede probar contraseñas actuales sin fin."""
+
+    scope = "password_change_user"
+
+
+class PasswordChangeIPThrottle(CustomerImageIPThrottle):
+    """Cambiar la contraseña, por IP (`password_change_ip`, 30 por hora, D72), como el inicio de sesión: varias cuentas
+    desde una conexión no suman cupo."""
+
+    scope = "password_change_ip"

@@ -110,6 +110,13 @@ class RegistrationError(DomainValidationError):
         self.codes = codes
 
 
+class PasswordChangeError(RegistrationError):
+    """Errores por campo del cambio de contraseña (D72): `wrong_password` y los códigos de los validadores."""
+
+
+WRONG_CURRENT_PASSWORD = "Tu contraseña actual no coincide."
+
+
 @dataclass(frozen=True)
 class Session:
     user: "User"
@@ -263,6 +270,45 @@ def login_with_google(credential: str, *, users=user_repo, verify=None) -> Sessi
     users.link_google(user, sub=identity.sub, full_name=identity.name, remove_password=had_password)
     users.touch_last_login(user)
     return start_session(user, password_removed=had_password)
+
+
+def _user_context(user, *args, **kwargs) -> dict:
+    """Solo el id de la cuenta para la auditoría: ni el correo ni las contraseñas."""
+    return {"user_id": user.pk}
+
+
+def _wrong_current_password() -> PasswordChangeError:
+    return PasswordChangeError({"current_password": [WRONG_CURRENT_PASSWORD]}, {"current_password": ["wrong_password"]})
+
+
+@audit_operation(expected_errors=(PasswordChangeError,), context=_user_context)
+def change_password(user, *, current_password: str, new_password: str, users=user_repo) -> Session:
+    """Cambia la contraseña desde "Datos y avisos" y deja abierta solo la sesión de quien la cambió (D72).
+
+    La contraseña nueva sigue las reglas del registro (`AUTH_PASSWORD_VALIDATORS`, con el correo y el nombre de la
+    cuenta). Una cuenta sin contraseña usable (solo de Google) o del personal responde lo mismo que una contraseña
+    actual equivocada y tarda lo mismo (un hash de relleno): la API no dice si hay contraseña, y nunca revisa la de
+    una cuenta del personal, que entra por el admin. Al cambiarla se cierran todas las sesiones de la cuenta y se
+    abre una nueva para quien la cambió.
+    """
+    errors: dict[str, list[str]] = {}
+    codes: dict[str, list[str]] = {}
+    if _is_staff(user) or not user.has_usable_password():
+        make_password(current_password)
+        matches = False
+    else:
+        matches = user.check_password(current_password)
+    if not matches:
+        errors["current_password"], codes["current_password"] = [WRONG_CURRENT_PASSWORD], ["wrong_password"]
+    password_messages, password_codes = _password_errors(new_password, email=user.email, full_name=user.full_name)
+    if password_messages:
+        errors["new_password"], codes["new_password"] = password_messages, password_codes
+    if errors:
+        raise PasswordChangeError(errors, codes)
+    # El repositorio la revisa otra vez bajo el candado de la cuenta: otra petición pudo cambiarla mientras tanto.
+    if not users.change_password(user, current_password=current_password, new_password=new_password):
+        raise _wrong_current_password()
+    return start_session(user)
 
 
 class _UncheckedBlacklistRefresh(RefreshToken):

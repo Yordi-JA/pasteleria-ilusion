@@ -683,3 +683,27 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - El mockup dibuja un pastel de línea que `LineDrawing` no tiene. No inventé trazos: la tarjeta de diseño usa el icono `Cake` de Phosphor (Regular, `mermelada`) y la de referencia, el toldo. Queda en `pendientes.md`.
 - Pruebas primero, en rojo (5 de 5 con la vista vacía): `e2e/order-start.spec.ts`. Con la vista, pasan junto con `routes.spec.ts` y `site-menu.spec.ts`.
 - Revisión: los días de anticipación de "Diseña tu pastel" salen de `StoreSettings` (`useOrderStart`, `LeadDays`, con esqueleto y marcador de pendiente), no del texto; se quitó la guirnalda duplicada de la vista, porque `SiteLayout` ya la pinta. Dos pruebas nuevas (3 días y pendiente), en rojo antes del cambio.
+
+### Domingo 15 de noviembre: "Datos y avisos" en la cuenta (D72)
+
+- `/cuenta/datos` era una vista vacía. Ahora sigue `CuentaDatos` (capturas 013 y 014): "Datos personales" (nombre, teléfono y el correo de solo lectura con "Vinculado a tu cuenta de Google." o "Es el correo con el que entras."), "Avisos del pedido" (el correo siempre, con su casilla fija, y WhatsApp como preferencia) y "Guardar cambios". Al guardar, el saludo "Hola, [Nombre]" toma el nombre nuevo.
+- Backend: `User.notify_whatsapp` con la restricción `user_whatsapp_needs_phone` (migración `0042_user_notify_whatsapp`), `GET` y `PATCH /api/v1/account/` (JWT; un campo de solo lectura o desconocido es un 400 por campo) y `POST /api/v1/auth/password/` (JWT y CSRF, las reglas del registro, throttles por cuenta y por IP). Una contraseña actual equivocada y una cuenta solo de Google responden igual. Al cambiarla se cierran las demás sesiones y la actual sigue con un par nuevo. El admin muestra la preferencia en el usuario y en el pedido, junto al teléfono del cliente, en solo lectura.
+- "Cambiar contraseña" se abre en la misma vista y solo aparece en cuentas con contraseña. La captura 013 lo muestra en una cuenta de Google y lo enlaza a "Recuperar": gana la decisión del usuario.
+- Pruebas primero, vistas en rojo antes del cambio: `backend/tests/test_account_api.py` (44 de 45 en rojo con 404 y el campo que faltaba; ahora 45 de 45) y `frontend/e2e/account-details.spec.ts` (18 de 19 en rojo; ahora 19 de 19). La suite del backend con `-n auto` da 1925 de 1925. `npm run typecheck`, `npm run lint` y `npm run build` limpios; `account-details`, `routes` y `access` dan 78 de 78. Decisión D72.
+
+### Domingo 15 de noviembre: revisión única de "Datos y avisos" (D72)
+
+- Mayores: mientras se guarda, el nombre y el teléfono quedan de solo lectura y la casilla de WhatsApp desactivada (lo que se escribía se perdía y la pantalla decía "Tus cambios se guardaron."). Dos pruebas nuevas cubren la rama concurrente de `user_repo.update_profile` (la restricción `user_whatsapp_needs_phone` vuelta error en `notify_whatsapp`), en los dos sentidos.
+- Menores:
+    - La auditoría registra solo `user_id` en el éxito, el rechazo y la falla de `update_account` y `change_password`, con el parámetro nuevo `context` de `@audit_operation`.
+    - `user_repo.change_password` bloquea la cuenta, vuelve a revisar la contraseña actual bajo el candado y solo pasa el hash nuevo a la instancia si todo se guardó.
+    - `PATCH account/` reporta las llaves de solo lectura aunque falle otro campo.
+    - El nombre guardado se descarta si la sesión cambió mientras el `PATCH` estaba en vuelo.
+    - Un rechazo sin errores por campo pide "Inténtalo de nuevo en un momento." en lugar de "Revisa tu conexión".
+    - La casilla del correo se dibuja como el mockup y su explicación queda para lectores de pantalla.
+    - Una ref frena el doble envío.
+    - Las cifras del límite dicen "10 cambios o intentos por hora".
+- Pruebas primero:
+    - Backend: 7 nuevas. 5 en rojo antes del cambio; las 2 de la rama concurrente pasaron desde el inicio porque cubren lo que ya existía. `test_account_api.py` da 52 de 52 y la suite con `-n auto`, 1932 de 1932.
+    - Frontend: 5 E2E nuevas. 4 en rojo; la del doble clic pasó desde el inicio. `account-details.spec.ts` da 24 de 24 y, con `routes`, `access`, `session-model`, `account-orders` y `stand-loans`, 113 de 113. `npm run typecheck`, `npm run lint` y `npm run build` limpios.
+- Lo que no se implementó quedó en `docs/pendientes.md`, "/cuenta/datos (D72)".
