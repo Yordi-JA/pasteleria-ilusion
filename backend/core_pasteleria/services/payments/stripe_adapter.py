@@ -1,7 +1,8 @@
 """Adapter de Stripe: es el único módulo que importa el SDK `stripe` (D68).
 
-El servidor crea un PaymentIntent en MXN (en centavos) solo con tarjeta, con el id del pedido en `metadata` y una llave
-de idempotencia; el navegador lo confirma con Stripe Elements y los datos de la tarjeta nunca pasan por aquí. El
+El servidor crea un PaymentIntent en MXN (en centavos) con métodos automáticos y sin redirecciones (el Dashboard decide
+cuáles; el Card Element no los necesita), con el id del pedido en `metadata` y una llave de idempotencia; el navegador
+lo confirma con Stripe Elements y los datos de la tarjeta nunca pasan por aquí. El
 webhook se verifica con `stripe.Webhook.construct_event` sobre el cuerpo crudo y `Stripe-Signature` (tolerancia de
 300 s del SDK). Usa un `StripeClient` propio, no `stripe.api_key`: nada de estado global. Cuando el pedido se cancela,
 `cancel` cancela el PaymentIntent para que ya no se pueda confirmar (`StripeCheckoutObserver`).
@@ -17,6 +18,9 @@ from .results import CENT, ChargeRequest, PaymentNotice, PaymentResult, WebhookR
 
 TIMEOUT_SECONDS = 10
 MAX_NETWORK_RETRIES = 1
+# Stripe ya no acepta `payment_method_types`: los métodos salen del Dashboard. Sin redirecciones, para que solo queden
+# los que el Card Element confirma con `confirmCardPayment` sin `return_url`.
+AUTOMATIC_PAYMENT_METHODS = {"enabled": True, "allow_redirects": "never"}
 EVENT_OUTCOMES = {
     "payment_intent.succeeded": PaymentStatus.SUCCEEDED,
     "payment_intent.payment_failed": PaymentStatus.FAILED,
@@ -90,7 +94,7 @@ class StripeAdapter:
         params = {
             "amount": to_cents(amount),
             "currency": request.currency.lower(),
-            "payment_method_types": ["card"],
+            "automatic_payment_methods": AUTOMATIC_PAYMENT_METHODS,
             "metadata": {"order_id": str(request.order_id)},
             "description": request.description,
         }

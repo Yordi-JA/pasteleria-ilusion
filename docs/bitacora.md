@@ -656,3 +656,14 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - "Mis pedidos" muestra las solicitudes canceladas en "Solicitudes anteriores" (decisión del usuario); las aceptadas siguen como pedido.
 - Pruebas primero, vistas en rojo antes del cambio. Los menores que quedan están en `docs/pendientes.md`, "Revisión de la tanda 3".
 
+
+### Domingo 15 de noviembre: pago con tarjeta de Stripe en 502 (D68)
+
+- En Heroku, pagar con tarjeta respondía 502 `gateway_error`: Stripe rechazaba `payment_method_types` ("no longer supported"). `StripeAdapter.create_checkout` manda ahora `automatic_payment_methods` con `enabled: True` y `allow_redirects: "never"`, y se actualizó el docstring del módulo.
+- Prueba primero: `test_stripe_charges_the_advance_plus_the_stand_deposit_in_cents` revisa que se mande `automatic_payment_methods` y no `payment_method_types`; falló con el código anterior y pasa con el cambio.
+
+### Domingo 15 de noviembre: logos oficiales de Mercado Pago y Stripe en el pago (D68)
+
+- `assets/logos/mercado-pago.svg` (kit oficial de logos de Mercado Pago 2025, digital RGB a color, horizontal) y `assets/logos/stripe.svg` (Stripe logo kit, wordmark Blurple), copiados sin modificar.
+- `/pedido/pago`: el logo de Mercado Pago va dentro de su botón, con `alt=""` porque el texto del botón ya lo nombra; "Procesado por" muestra el logo de Stripe con `alt="Stripe"`. Se importan como imagen para no cambiarles el color (libro de marca, "Inicio de sesión y pagos").
+- Pruebas: una E2E nueva en `checkout-payment.spec.ts`, en rojo antes del cambio; `checkout-payment` y `checkout-reserved` dan 38 de 38. `npm run typecheck`, `npm run lint` y `npm run build` limpios. Cierra el punto 12 de "Pagos (D68)" en `pendientes.md`.
