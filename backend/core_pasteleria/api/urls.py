@@ -27,6 +27,8 @@ urlpatterns = [
     path("cake-designs/price/", views.CakeDesignPriceView.as_view(), name="cake-design-price"),
     # Datos del negocio para el pie y la franja superior: pública y de solo lectura.
     path("store/info/", views.StoreInfoView.as_view(), name="store-info"),
+    # Bases en préstamo (`/bases`): las bases de la pastelería y las condiciones del préstamo; pública y de solo lectura.
+    path("stands/", views.StandInfoView.as_view(), name="stands"),
     # Catálogo, portada, vitrina y rebanadas de hoy: públicas y de solo lectura.
     path("products/", views.ProductListView.as_view(), name="product-list"),
     path("products/<slug:slug>/", views.ProductDetailView.as_view(), name="product-detail"),

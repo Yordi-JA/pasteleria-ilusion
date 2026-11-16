@@ -331,7 +331,9 @@ def base_deposit(kg: int) -> int:
     return 250 + 50 * -(-(kg - 25) // 5)   # más de 25 kg, aprobado
 ```
 
-PENDIENTE: qué pasa si la base regresa dañada.
+PENDIENTE: qué pasa si la base regresa dañada. Vive en `PolicySettings.damaged_stand_policy`; vacío, la página "Bases en préstamo" (`/bases`) muestra el marcador de pendiente.
+
+La página `/bases` muestra las bases físicas de la pastelería (origen "Pastelería", activas), con su depósito, de menos a más kilos, y un último renglón con lo que se cobra arriba de la más grande hasta el máximo en línea ("Más de 25 kg (hasta 50 kg)", "Depósito de $300 a $500"): esas filas "Aprobada" no son una base física, pero se cobran, y la página no las calla. No muestra los rangos "Aprobada" intermedios, que cubre la siguiente base de la pastelería. "Pedidos que llevan base: desde [n] kg" es el mismo umbral con que se cobra el depósito: el "desde" más chico de la tabla de bases, activas o no, de cualquier origen; sin ninguna base activa, la página no lo dice (D75).
 
 ---
 

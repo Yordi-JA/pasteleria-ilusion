@@ -592,6 +592,15 @@ def test_stand_sizes_are_ordered_and_can_include_inactive_ones():
     assert next(s for s in everything if s.max_kg == 12).is_active is False
 
 
+def test_stand_sizes_saved_out_of_order_come_by_kilos():
+    """`/bases` confía en este orden (D75): dos tamaños guardados al revés salen de menos a más kilos."""
+    CakeStand.objects.create(min_kg=56, max_kg=60, deposit=Decimal("600.00"), origin="bakery")
+    CakeStand.objects.create(min_kg=51, max_kg=55, deposit=Decimal("550.00"), origin="bakery")
+    kilos = [s.max_kg for s in settings_repo.list_stand_sizes()]
+    assert kilos[-2:] == [55, 60]
+    assert kilos == sorted(kilos)
+
+
 def test_delivery_bands_are_ordered_by_distance():
     assert [(b.max_km, b.fee) for b in settings_repo.list_delivery_bands()] == [
         (Decimal("3.0"), Decimal("50.00")),

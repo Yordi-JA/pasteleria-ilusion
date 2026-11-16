@@ -3,6 +3,7 @@ import { mockCakeDesignOptions } from './support/cake-design.ts'
 import { mockCatalog } from './support/catalog.ts'
 import { durazno, mockProductDetails, mockProducts } from './support/products.ts'
 import { signedIn } from './support/auth.ts'
+import { mockStands } from './support/stands.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 
 /**
@@ -46,6 +47,8 @@ test.beforeEach(async ({ page }) => {
   await mockProductDetails(page, [durazno])
   // La vitrina y las rebanadas también (D60).
   await mockCatalog(page)
+  // Y las bases en préstamo.
+  await mockStands(page)
 })
 
 for (const { path, heading, title = heading, account = false } of routes) {

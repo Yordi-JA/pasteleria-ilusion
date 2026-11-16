@@ -555,6 +555,44 @@ class StoreInfoSerializer(serializers.Serializer):
     custom_lead_days = serializers.IntegerField(help_text="Días de anticipación de un pedido.")
 
 
+# --- Bases en préstamo (`/bases`) ---
+
+
+class PublicStandSerializer(serializers.Serializer):
+    """Una base de la pastelería: sus kilos, su depósito y una nota opcional."""
+
+    min_kg = serializers.IntegerField(help_text="Desde estos kilos.")
+    max_kg = serializers.IntegerField(help_text="Hasta estos kilos; igual a `min_kg` en una base de un solo peso.")
+    deposit = money(help_text="Se cobra aparte del pedido y se devuelve al regresar la base.")
+    description = serializers.CharField(help_text="Nota de la base, como \"Madera forrada en aluminio\"; vacía si no lleva.")
+
+
+class DepositsBeyondSerializer(serializers.Serializer):
+    """Los depósitos por arriba de la base más grande de la pastelería, hasta el máximo en línea."""
+
+    from_kg = serializers.IntegerField(help_text="El kilo siguiente a la base más grande de la pastelería.")
+    to_kg = serializers.IntegerField(help_text="El máximo en línea efectivo.")
+    min_deposit = money(help_text="El depósito más chico de ese rango.")
+    max_deposit = money(help_text="El depósito más grande de ese rango.")
+
+
+class StandInfoSerializer(serializers.Serializer):
+    """Las bases de la pastelería y las condiciones del préstamo; `null` en lo que aún no se define."""
+
+    stands = PublicStandSerializer(many=True, help_text="Solo las de origen \"Pastelería\" y activas, por kilos.")
+    return_days = serializers.IntegerField(help_text="Días, desde la entrega, para regresar la base (`stand_return_days`).")
+    from_kg = serializers.IntegerField(
+        allow_null=True, help_text="Desde cuántos kilos un pedido lleva base. `null`: no hay ninguna base activa."
+    )
+    damaged_policy = serializers.CharField(
+        allow_null=True, help_text="Qué pasa si la base regresa dañada. `null`: PENDIENTE."
+    )
+    beyond = DepositsBeyondSerializer(
+        allow_null=True,
+        help_text="Lo que se cobra arriba de la base más grande de la pastelería. `null`: nada que pedir en línea ahí.",
+    )
+
+
 # --- Catálogo público (entrada y salida) ---
 
 # Tope deliberado del término de búsqueda, igual al largo del nombre. La búsqueda

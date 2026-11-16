@@ -221,7 +221,7 @@ Lo construido está en D69 ([`proyecto/decisiones.md`](proyecto/decisiones.md)),
 4. Probar que el QR se lea con un teléfono (va en el color `mermelada` sobre blanco, con corrección de errores M).
 5. Propuesto por el equipo, sin cifra del usuario: 30 verificaciones por minuto por IP (`note_verification`).
 6. La nota no incrusta fuentes: un carácter fuera de Windows-1252 del mensaje sale como "?". Si la pastelería quiere la tipografía de la marca, hay que conseguir sus `ttf` (no se convirtieron los `woff2`).
-7. Qué pasa si la base regresa dañada sigue PENDIENTE (regla 7): hoy la devolución siempre reembolsa el depósito completo.
+7. Qué pasa si la base regresa dañada sigue PENDIENTE (regla 7): hoy la devolución siempre reembolsa el depósito completo. `/bases` lo muestra como "[Condiciones por confirmar]" mientras `PolicySettings.damaged_stand_policy` esté vacío (D75); cuando la pastelería lo escriba en el admin, la página muestra su texto.
 8. `CustomerNotificationObserver` no avisa la devolución de la base; solo los cambios de estado.
 9. Producción: la migración `0038_stand_loans`, `reportlab` y dar el permiso `register_stand_return` al personal que recibe bases.
 10. "Volver a pedir" de los pedidos anteriores (mockup `Cuenta`) no está: armar el carrito desde un pedido pide decidir qué pasa con los precios de hoy, la vitrina del día y los diseños con imagen. Por ahora cada pedido anterior lleva "Ver pedido".
@@ -230,7 +230,7 @@ Lo construido está en D69 ([`proyecto/decisiones.md`](proyecto/decisiones.md)),
 13. El encabezado de la cuenta pone el avatar arriba del saludo; el mockup lo pone a la izquierda en escritorio. Es de D62 y no se cambió aquí.
 14. "Mis pedidos" separa en curso y anteriores solo con las páginas ya cargadas: un pedido en curso muy viejo (más de 20 pedidos después) aparece al pedir "Ver más pedidos".
 10. Frontend de `/cuenta/bases`: el submenú de la cuenta (Mis pedidos, Bases en préstamo, Datos y avisos) y el botón del menú móvil que muestra el mockup no están en la pantalla; llegan con el trabajo de "Mis pedidos".
-11. `/cuenta/bases`: el mockup dice "Regrésala hasta 15 días después de la entrega". Los días salen de `PolicySettings.stand_return_days` y la API no los manda, así que el texto dice "antes de la fecha límite de tu pedido". Si se quiere la cifra, la API tiene que darla. "Cómo devolver una base" y "Ver las condiciones del préstamo" llevan a `/bases`, que sigue vacía (BasesInfo).
+11. `/cuenta/bases`: el mockup dice "Regrésala hasta 15 días después de la entrega", y el texto dice "antes de la fecha límite de tu pedido" porque `GET stand-loans/` no manda los días. Desde D75, `GET stands/` sí los da (`return_days`, de `PolicySettings.stand_return_days`), así que se puede poner la cifra si se quiere. "Cómo devolver una base" y "Ver las condiciones del préstamo" llevan a `/bases`, que ya muestra las bases y las condiciones (D75).
 12. `/nota/:token`: se quitó del mockup "¿Trabajas en la pastelería? Inicia sesión para registrar la devolución", porque la devolución se registra en el admin (D64) y la página no lleva botón (D69). Falta decidir si se deja un enlace a `/admin/`.
 
 ## Referencia, correo y cancelación (D70)
