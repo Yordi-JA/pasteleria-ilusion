@@ -28,14 +28,14 @@ const NOT_FOUND = 'No encontramos este producto'
 type Ready = NonNullable<ProductDetailView['view']>
 
 /**
- * Encabezado sobre `fresa` (Ficha.dc.html): la foto a la izquierda, que se apoya en las conchas y las cruza, y a la
+ * Encabezado sobre `fresa` (Ficha.dc.html): la foto a la izquierda, que se apoya en la guirnalda y la cruza, y a la
  * derecha las migas, el tipo, el nombre (`h1`), la descripción y los precios. En móvil el texto va primero.
  */
 function Hero({ view }: { view: Ready }) {
   return (
     <section aria-labelledby="ficha-titulo" className="bg-fresa">
       <div className={`${column} grid grid-cols-2 items-end gap-12 pt-10 max-[960px]:grid-cols-1 max-[960px]:gap-6`}>
-        {/* La foto baja 21 px sobre las conchas (las cruza) y queda encima de ellas. */}
+        {/* La foto baja 21 px sobre la guirnalda (la cruza) y queda encima de ella. */}
         <div className="relative z-[2] -mb-[21px] max-[960px]:order-1">
           <ProductPhoto photo={view.photo} shape="tiers3" onFresa className="mx-auto w-full max-w-[460px]" />
           <div aria-hidden="true" className="mx-auto -mt-3 h-4 w-[62%] rounded-[50%] bg-mermelada/[.16] blur-[12px]" />
@@ -240,7 +240,7 @@ function DetailSkeleton() {
           </div>
         </div>
       </div>
-      <Duya type="concha" color="fresa" />
+      <Duya color="fresa" />
       <div className={`${column} grid grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] gap-7 py-10 max-[960px]:grid-cols-1`}>
         <Card large className="flex flex-col gap-3">
           <Skeleton className="h-4 w-1/3" />
@@ -291,7 +291,7 @@ function ProductError({ onRetry }: { onRetry: () => void }) {
           </h1>
         </div>
       </div>
-      <Duya type="concha" color="fresa" />
+      <Duya color="fresa" />
       <div className={`${column} py-12`}>
         <LoadErrorNotice
           title="No se pudo cargar este producto"
@@ -316,7 +316,7 @@ function ProductDetailContent({ slug }: { slug: string }) {
       {view && (
         <>
           <Hero view={view} />
-          <Duya type="concha" color="fresa" />
+          <Duya color="fresa" />
           <Body detail={detail} view={view} />
         </>
       )}

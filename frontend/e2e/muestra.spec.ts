@@ -185,11 +185,11 @@ for (const width of [1440, 390]) {
   })
 }
 
-test('duya: the three types, decorative, 21px in the flow and no negative margins', async ({ page }) => {
+test('duya: one shape, the guirnalda, decorative, 21px in the flow and no negative margins', async ({ page }) => {
   const section = page.getByRole('region', { name: 'Borde de duya' })
-  for (const type of ['concha', 'perlas', 'guirnalda']) {
-    const border = section.locator(`.duya[data-tipo="${type}"]`)
-    await expect(border).toHaveCount(1)
+  const borders = section.locator('.duya')
+  await expect(borders).toHaveCount(3)
+  for (const border of await borders.all()) {
     await expect(border).toHaveAttribute('aria-hidden', 'true')
     await expect(border).toHaveCSS('height', '21px')
     await expect(border).toHaveCSS('margin-top', '0px')

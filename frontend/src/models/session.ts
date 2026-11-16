@@ -357,6 +357,61 @@ function currentUser(): SessionUser {
   return state.user
 }
 
+/** La generación de la sesión: cambia cada vez que se cierra aquí. Quien espera una respuesta la guarda antes de pedir. */
+export function sessionGeneration(): number {
+  return generation
+}
+
+/**
+ * La cuenta cambió sus datos en "Datos y avisos" (D72): la sesión publica el nombre y el teléfono nuevos, así el saludo
+ * del encabezado cambia sin pedir otra vez la sesión. `startedAt` es la generación de cuando se mandó el cambio: si la
+ * sesión se cerró (o se abrió otra cuenta) mientras tanto, el cambio no se aplica. Sin sesión no hace nada. El correo no
+ * cambia.
+ */
+export function updateSessionUser(changes: Partial<Omit<SessionUser, 'email'>>, startedAt: number) {
+  if (state.status !== 'authenticated' || generation !== startedAt) return
+  setState({ status: 'authenticated', user: { ...state.user, ...changes } })
+}
+
+/**
+ * Cambia la contraseña (`POST auth/password/`, D72): con el access y con CSRF, porque la respuesta pone la cookie del
+ * refresh. El backend cierra todas las sesiones de la cuenta y responde una nueva, que se aplica aquí como al entrar:
+ * esta pestaña sigue y las otras del navegador renuevan con la cookie nueva al primer 401. Va bajo el candado de la
+ * renovación, para que otra pestaña no rote la cookie vieja mientras tanto. Un 401 renueva una vez y reintenta; un
+ * segundo 401 cierra la sesión. Los errores por campo llegan en `AuthRequestError.fields` (`current_password`,
+ * `new_password`).
+ */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<SessionUser> {
+  const startedAt = generation
+  const body = { current_password: currentPassword, new_password: newPassword }
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const token = await freshAccess()
+    if (token === 'transient') throw new AuthRequestError(0, 'network')
+    if (!token) break
+    let data: unknown
+    try {
+      data = await withRefreshLock(async () =>
+        send('POST', ['auth', 'password'], body, { Authorization: `Bearer ${token}`, 'X-CSRFToken': await csrfToken() }),
+      )
+    } catch (error) {
+      if (!(error instanceof AuthRequestError && error.status === 401)) throw error
+      if (attempt === 1) break
+      // Solo se olvida el access que falló: otra petición pudo traer uno nuevo mientras tanto.
+      if (access?.token === token) access = null
+      continue
+    }
+    if (generation !== startedAt) {
+      // La persona salió mientras llegaba: la cookie nueva también se cierra.
+      await sendWithCsrf(['auth', 'logout']).catch(() => undefined)
+      throw new AuthRequestError(401, 'session_expired')
+    }
+    applySession(data)
+    return currentUser()
+  }
+  signOutLocally()
+  throw new AuthRequestError(401, 'session_expired')
+}
+
 /** El access vigente, renovado antes si está por vencer; `null` sin sesión; `'transient'` si la renovación no pudo hacerse. */
 async function freshAccess(): Promise<string | null | 'transient'> {
   if (access && access.expiresAt - Date.now() > RENEW_MARGIN_MS) return access.token
@@ -368,7 +423,8 @@ async function freshAccess(): Promise<string | null | 'transient'> {
 
 /** Lo que acepta `requestWithSession`. `query` admite listas (`?kind=order&kind=design`). */
 export type SessionRequest = {
-  method?: 'GET' | 'POST'
+  /** `PATCH` cambia los datos de la cuenta (D72). */
+  method?: 'GET' | 'POST' | 'PATCH'
   query?: Record<string, string | string[]>
   /** El cuerpo JSON de un `POST`. */
   json?: unknown

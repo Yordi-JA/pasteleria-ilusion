@@ -44,8 +44,8 @@ function CatalogCake({ testId, onColor = false, actions }: { testId: string; onC
 
 /**
  * Encabezado sobre `fresa` (Catalogo.dc.html): migas, `h1`, la línea que explica que cualquier sabor se pide en seco
- * o envinado al personalizarlo (libro de marca, "Catálogo y vitrina"), "Realizar pedido" y el pastel apoyado en las
- * conchas.
+ * o envinado al personalizarlo (libro de marca, "Catálogo y vitrina"), "Realizar pedido" y el pastel apoyado en la
+ * guirnalda.
  */
 function CatalogHeader({ leadDays }: { leadDays: CatalogView['leadDays'] }) {
   const actions = useRef<HTMLDivElement>(null)
@@ -258,9 +258,9 @@ function Results({ catalog, focusSearch }: { catalog: CatalogView; focusSearch: 
         )}
         {showCakes && <CakesSection catalog={catalog} />}
       </div>
-      <Duya type="perlas" color="nata" below="mermelada" />
+      <Duya color="nata" below="mermelada" />
       <DesignBand />
-      <Duya type="perlas" color="mermelada" below="nata" />
+      <Duya color="mermelada" below="nata" />
       {showDesserts ? (
         <div aria-busy={updating || undefined} className={`motion-safe:transition-opacity ${updating ? 'opacity-60' : ''}`}>
           <DessertsSection catalog={catalog} />
@@ -282,7 +282,7 @@ export default function Catalog() {
   return (
     <>
       <CatalogHeader leadDays={catalog.leadDays} />
-      <Duya type="concha" color="fresa" below="betun" />
+      <Duya color="fresa" below="betun" />
       <FilterBar catalog={catalog} searchInput={searchInput} />
       {/* Anuncia cuántos resultados hay al terminar cada búsqueda o filtro; siempre montada para que se lea. */}
       <p role="status" data-testid="resultados-catalogo" className="sr-only">

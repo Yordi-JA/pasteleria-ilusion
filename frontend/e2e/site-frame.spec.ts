@@ -226,10 +226,23 @@ test.describe('footer', () => {
     await expect(foot).not.toContainText(/proyecto|escuela|escolar|materia|profesor/i)
   })
 
+  test('the guirnalda hangs in fresa right under the page header, and shows the garland shape', async ({ page }) => {
+    await mockStoreInfo(page)
+    await page.goto('/catalogo')
+    const garland = page.locator('main > .duya').first()
+    await expect(garland).toHaveClass(/colors\.fresa/)
+    await expect(garland).toHaveAttribute('aria-hidden', 'true')
+    const mask = await garland.evaluate((el) => {
+      const before = el.ownerDocument.defaultView!.getComputedStyle(el, '::before')
+      return before.maskImage || before.webkitMaskImage
+    })
+    expect(mask).toContain("width='96'")
+  })
+
   test('a guirnalda in nata hangs right before the footer, without negative margins', async ({ page }) => {
     await mockStoreInfo(page)
     await page.goto('/catalogo')
-    const garland = page.locator('.duya[data-tipo="guirnalda"]')
+    const garland = page.locator('.duya:has(+ footer)')
     await expect(garland).toHaveCount(1)
     await expect(garland).toHaveAttribute('aria-hidden', 'true')
     await expect(garland).toHaveCSS('margin-top', '0px')

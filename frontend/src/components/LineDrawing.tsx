@@ -1,11 +1,19 @@
-/** Los dibujos de línea de `assets/motivos/` que usan la vitrina y las rebanadas (libro de marca, "Dibujos de línea"). */
-export type LineDrawingName = 'toldo' | 'rebanada'
+/** Los dibujos de línea de `assets/motivos/` que usan la vitrina, las rebanadas y las bases (libro de marca, "Dibujos de línea"). */
+export type LineDrawingName = 'toldo' | 'rebanada' | 'base'
 
 const paths: Record<LineDrawingName, string[]> = {
   // `dibujo-toldo.svg`: el toldo de la fachada.
   toldo: ['M10 12h44v4H10zM10 16v16M54 16v16M21 16v16M32 16v16M43 16v16', 'M10 32q5.5 6 11 0t11 0 11 0 11 0', 'M14 40v16M50 40v16M12 56h40M28 56V44h8v12'],
   // `dibujo-rebanada.svg`: una rebanada con su vela.
   rebanada: ['M8 30l40-12 8 8z', 'M8 30v18l48-4V26M8 39l48-4', 'M50 12q2-4 5-5'],
+  // `dibujo-base.svg`: el pastel sobre la base de pie. El rectángulo y las dos elipses del SVG van como trazos.
+  base: [
+    'M22 16h20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H22a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z',
+    'M20 18q3 3 6 0t6 0 6 0 6 0',
+    'M10 31a22 4 0 1 0 44 0a22 4 0 1 0-44 0',
+    'M29 35l-2 15h10l-2-15',
+    'M22 52a10 3 0 1 0 20 0a10 3 0 1 0-20 0',
+  ],
 }
 
 type LineDrawingProps = {

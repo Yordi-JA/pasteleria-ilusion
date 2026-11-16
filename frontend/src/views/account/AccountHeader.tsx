@@ -4,7 +4,7 @@ import { firstName, useSession, useSignOut } from '../../viewmodels/useSession.t
 import AccountNav from './AccountNav.tsx'
 
 /**
- * El encabezado de las vistas de la cuenta (Cuenta.dc.html): "Hola, Ana" y el correo y, bajo las conchas, el submenú
+ * El encabezado de las vistas de la cuenta (Cuenta.dc.html): "Hola, Ana" y el correo y, bajo la guirnalda, el submenú
  * de la cuenta con "Cerrar sesión" (D69: pestañas en escritorio, menú "Tu cuenta" en móvil). Solo se monta dentro de
  * `RequireSession`, así que siempre hay cuenta.
  */

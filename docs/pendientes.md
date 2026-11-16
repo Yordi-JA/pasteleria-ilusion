@@ -221,7 +221,7 @@ Lo construido está en D69 ([`proyecto/decisiones.md`](proyecto/decisiones.md)),
 4. Probar que el QR se lea con un teléfono (va en el color `mermelada` sobre blanco, con corrección de errores M).
 5. Propuesto por el equipo, sin cifra del usuario: 30 verificaciones por minuto por IP (`note_verification`).
 6. La nota no incrusta fuentes: un carácter fuera de Windows-1252 del mensaje sale como "?". Si la pastelería quiere la tipografía de la marca, hay que conseguir sus `ttf` (no se convirtieron los `woff2`).
-7. Qué pasa si la base regresa dañada sigue PENDIENTE (regla 7): hoy la devolución siempre reembolsa el depósito completo.
+7. Qué pasa si la base regresa dañada sigue PENDIENTE (regla 7): hoy la devolución siempre reembolsa el depósito completo. `/bases` lo muestra como "[Condiciones por confirmar]" mientras `PolicySettings.damaged_stand_policy` esté vacío (D75); cuando la pastelería lo escriba en el admin, la página muestra su texto.
 8. `CustomerNotificationObserver` no avisa la devolución de la base; solo los cambios de estado.
 9. Producción: la migración `0038_stand_loans`, `reportlab` y dar el permiso `register_stand_return` al personal que recibe bases.
 10. "Volver a pedir" de los pedidos anteriores (mockup `Cuenta`) no está: armar el carrito desde un pedido pide decidir qué pasa con los precios de hoy, la vitrina del día y los diseños con imagen. Por ahora cada pedido anterior lleva "Ver pedido".
@@ -230,7 +230,7 @@ Lo construido está en D69 ([`proyecto/decisiones.md`](proyecto/decisiones.md)),
 13. El encabezado de la cuenta pone el avatar arriba del saludo; el mockup lo pone a la izquierda en escritorio. Es de D62 y no se cambió aquí.
 14. "Mis pedidos" separa en curso y anteriores solo con las páginas ya cargadas: un pedido en curso muy viejo (más de 20 pedidos después) aparece al pedir "Ver más pedidos".
 10. Frontend de `/cuenta/bases`: el submenú de la cuenta (Mis pedidos, Bases en préstamo, Datos y avisos) y el botón del menú móvil que muestra el mockup no están en la pantalla; llegan con el trabajo de "Mis pedidos".
-11. `/cuenta/bases`: el mockup dice "Regrésala hasta 15 días después de la entrega". Los días salen de `PolicySettings.stand_return_days` y la API no los manda, así que el texto dice "antes de la fecha límite de tu pedido". Si se quiere la cifra, la API tiene que darla. "Cómo devolver una base" y "Ver las condiciones del préstamo" llevan a `/bases`, que sigue vacía (BasesInfo).
+11. `/cuenta/bases`: el mockup dice "Regrésala hasta 15 días después de la entrega", y el texto dice "antes de la fecha límite de tu pedido" porque `GET stand-loans/` no manda los días. Desde D75, `GET stands/` sí los da (`return_days`, de `PolicySettings.stand_return_days`), así que se puede poner la cifra si se quiere. "Cómo devolver una base" y "Ver las condiciones del préstamo" llevan a `/bases`, que ya muestra las bases y las condiciones (D75).
 12. `/nota/:token`: se quitó del mockup "¿Trabajas en la pastelería? Inicia sesión para registrar la devolución", porque la devolución se registra en el admin (D64) y la página no lleva botón (D69). Falta decidir si se deja un enlace a `/admin/`.
 
 ## Referencia, correo y cancelación (D70)
@@ -287,3 +287,15 @@ Menores de la revisión única de la tanda 3 (D70) que no se arreglaron:
 ## `/pedido`: dibujo de la tarjeta "Diseña tu pastel"
 
 1. El mockup `PedidoElegir` usa un pastel de línea de dos pisos con vela que no está en `assets/motivos/` ni en `LineDrawing`. Mientras tanto la tarjeta lleva el icono `Cake` de Phosphor (Regular, `mermelada`). Falta que se dibuje `dibujo-pastel.svg` en el estilo de los motivos y se agregue a `LineDrawing`.
+
+## `/cuenta/datos` (D72)
+
+Menores de la revisión única de "Datos y avisos" que no se implementaron:
+
+1. Mandar un correo al dueño de la cuenta cuando cambian su contraseña o su teléfono, para que note un cambio que no hizo (CWE-778, registro insuficiente de eventos de seguridad).
+2. Sin `navigator.locks` (el sitio abierto por `http://<IP>`), otra pestaña puede rotar la cookie vieja mientras se cambia la contraseña y cerrar la sesión: avisar "Vuelve a entrar con tu contraseña nueva" en ese caso.
+3. Contar en django-axes los fallos de la contraseña actual de `POST auth/password/`; hoy solo los limita el throttle por cuenta y por IP.
+4. Pruebas de `changePassword` (`models/session.ts`) para el 401 que renueva y reintenta, el segundo 401 que cierra la sesión y "la persona salió mientras llegaba" (cierra la cookie nueva).
+5. Un `StrictBooleanField` para `notify_whatsapp`: el `BooleanField` de DRF acepta `"true"`, `1` o `"sí"`.
+6. Una base común para los errores por campo con código, en lugar de `PasswordChangeError(RegistrationError)`.
+7. Avisar a las otras pestañas del nombre nuevo (`BroadcastChannel`); hoy lo toman al renovar la sesión o al recargar.

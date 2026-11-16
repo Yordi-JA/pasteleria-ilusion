@@ -22,7 +22,7 @@ type IllustratedHeaderProps = {
 
 /**
  * Encabezado sobre `fresa` de la vitrina y las rebanadas: migas, `h1`, su frase y el dibujo de línea a la derecha al
- * 30%, detrás del contenido (libro de marca, "Dibujos de línea"); en móvil el dibujo no va. Cierra con las conchas.
+ * 30%, detrás del contenido (libro de marca, "Dibujos de línea"); en móvil el dibujo no va. Cierra con la guirnalda.
  */
 export default function IllustratedHeader({ title, titleId, drawing, headingRef, children, crumbs }: IllustratedHeaderProps) {
   return (
@@ -41,7 +41,7 @@ export default function IllustratedHeader({ title, titleId, drawing, headingRef,
           </div>
         </div>
       </section>
-      <Duya type="concha" color="fresa" />
+      <Duya color="fresa" />
     </>
   )
 }

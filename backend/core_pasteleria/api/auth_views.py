@@ -18,6 +18,7 @@ from rest_framework_simplejwt.settings import api_settings as jwt_settings
 from config.security import lockout_response
 
 from ..services import auth_service, google_identity
+from .account_serializers import PasswordChangeRequestSerializer
 from .auth_serializers import (
     AuthErrorSerializer,
     GoogleLoginRequestSerializer,
@@ -26,7 +27,7 @@ from .auth_serializers import (
     RegisterRequestSerializer,
     SessionSerializer,
 )
-from .throttles import SecurityScopedRateThrottle
+from .throttles import PasswordChangeIPThrottle, PasswordChangeUserThrottle, SecurityScopedRateThrottle
 
 TAG = "Acceso"
 # Cookie legible por el sitio que solo dice "hay sesión" (ver `_set_refresh_cookie`).
@@ -281,6 +282,63 @@ class RefreshView(AuthView):
             if not error.keep_cookie:
                 _delete_refresh_cookie(response)
             return response
+        return _session_response(session)
+
+
+class PasswordChangeView(APIView):
+    """Cambiar la contraseña desde "Datos y avisos" (D72).
+
+    A diferencia de las demás vistas del acceso, exige sesión (JWT): es de la cuenta que inició sesión. Vive bajo
+    `auth/` porque pone la cookie del refresh (que solo existe en esa ruta) y, como toda vista que la pone, exige CSRF.
+    """
+
+    throttle_classes = [PasswordChangeUserThrottle, PasswordChangeIPThrottle]
+
+    @extend_schema(
+        operation_id="auth_password_change",
+        summary="Cambiar mi contraseña",
+        description=(
+            "Exige sesión (JWT) y CSRF. Revisa la contraseña actual y que la nueva cumpla las reglas del registro. Al "
+            "cambiarla se cierran todas las sesiones de la cuenta (los access de antes dejan de valer y los refresh "
+            "van a la lista negra) y se abre una nueva para quien la cambió: el access en el cuerpo y el refresh en la "
+            "cookie. Una cuenta sin contraseña (solo de Google) responde lo mismo que una contraseña actual "
+            "equivocada. Limitado por cuenta (`password_change_user`) y por IP (`password_change_ip`)."
+        ),
+        request=PasswordChangeRequestSerializer,
+        responses={
+            200: SessionSerializer,
+            400: OpenApiResponse(
+                description="Errores por campo y sus códigos (`wrong_password` y los de las reglas de la contraseña).",
+                examples=[
+                    OpenApiExample(
+                        "Contraseña actual equivocada",
+                        value={
+                            "current_password": [auth_service.WRONG_CURRENT_PASSWORD],
+                            "codes": {"current_password": ["wrong_password"]},
+                        },
+                    )
+                ],
+            ),
+            401: OpenApiResponse(description="Sin sesión o con un access que ya no vale."),
+            403: CSRF_RESPONSE,
+            429: THROTTLED,
+        },
+        tags=[TAG],
+    )
+    def post(self, request):
+        _enforce_csrf(request)
+        serializer = PasswordChangeRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            codes = {field: [detail.code for detail in details] for field, details in serializer.errors.items()}
+            return Response({**serializer.errors, "codes": codes}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            session = auth_service.change_password(
+                request.user,
+                current_password=serializer.validated_data["current_password"],
+                new_password=serializer.validated_data["new_password"],
+            )
+        except auth_service.PasswordChangeError as error:
+            return Response({**error.errors, "codes": error.codes}, status=status.HTTP_400_BAD_REQUEST)
         return _session_response(session)
 
 

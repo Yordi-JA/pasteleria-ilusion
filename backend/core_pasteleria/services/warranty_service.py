@@ -9,7 +9,7 @@ from decimal import Decimal
 
 from django.utils import timezone
 
-from ..models import StandLoanStatus
+from ..models import StandLoanStatus, StandOrigin
 from ..repositories import settings_repo, stand_loan_repo
 from ..repositories.records import CakeDesignSettingsRecord, StandSizeRecord
 from .audit import audit_operation
@@ -38,6 +38,14 @@ class StandDeposit:
     return_days: int
 
 
+def _stand_from_kg(stands: list[StandSizeRecord]) -> int | None:
+    """Desde cuántos kilos un pedido lleva base: el `min_kg` más chico de toda la tabla, activas o no.
+
+    `None` sin ningún tamaño de base. Lo comparten el depósito y las condiciones de `/bases`, así los dos dicen lo mismo.
+    """
+    return min((stand.min_kg for stand in stands), default=None)
+
+
 def get_stand_deposit(kg: int, settings=settings_repo) -> StandDeposit:
     """Depósito de la base para `kg` kilos (regla 7).
 
@@ -53,9 +61,10 @@ def get_stand_deposit(kg: int, settings=settings_repo) -> StandDeposit:
         raise ValueError("Los kilos deben ser un número entero.")
     return_days = settings.get_policy_settings().stand_return_days
     stands = settings.list_stand_sizes(active_only=False)
+    from_kg = _stand_from_kg(stands)
     # Kilos de 0 o negativos también quedan "por debajo": el precio los
     # rechaza con su propio mensaje, y aquí no se inventa un error más.
-    if stands and kg < min(stand.min_kg for stand in stands):
+    if from_kg is not None and kg < from_kg:
         return StandDeposit(stand=None, deposit=NO_DEPOSIT, return_days=return_days)
     stand = next((s for s in stands if s.is_active and s.max_kg >= kg), None)
     if stand is None:
@@ -83,6 +92,76 @@ def effective_cake_design_limits(settings=settings_repo) -> CakeDesignSettingsRe
     """
     limits = settings.get_cake_design_settings()
     return replace(limits, max_online_kg=min(limits.max_online_kg, largest_stand_kg(settings)))
+
+
+# --- Condiciones del préstamo para `/bases` ---
+
+
+@dataclass(frozen=True)
+class DepositsBeyond:
+    """Los depósitos que se cobran por arriba de la base más grande de la pastelería, hasta el máximo en línea.
+
+    Son filas "Aprobada" (de 26 a 50 kg en la semilla): no son una base física, pero un pastel de esos kilos paga su
+    depósito, así que `/bases` los dice en un renglón aparte para no callar lo que se cobra.
+    """
+
+    from_kg: int
+    to_kg: int
+    min_deposit: Decimal
+    max_deposit: Decimal
+
+
+@dataclass(frozen=True)
+class StandLoanTerms:
+    """Lo que muestra "Bases en préstamo" (`/bases`, regla 7), tal como está en el admin."""
+
+    # Las bases reales de la pastelería (origen "Pastelería", activas), de menos a más kilos, en el orden del
+    # repositorio. Los rangos "Aprobada" intermedios no son una base física: los cubre la siguiente base más grande.
+    stands: tuple[StandSizeRecord, ...]
+    # Días para devolver la base y recuperar el depósito (`PolicySettings.stand_return_days`).
+    return_days: int
+    # Desde cuántos kilos un pedido lleva base: el mismo umbral del depósito, o `None` si no hay ninguna base activa.
+    from_kg: int | None
+    # Qué pasa si la base regresa dañada (`PolicySettings.damaged_stand_policy`); `None` es PENDIENTE.
+    damaged_policy: str | None
+    # Lo que se cobra arriba de la base más grande de la pastelería; `None` si no hay nada que pedir en línea ahí.
+    beyond: DepositsBeyond | None
+
+
+def _deposits_beyond(bakery: list[StandSizeRecord], active: list[StandSizeRecord], max_online_kg: int):
+    """Las filas activas que empiezan arriba de la base más grande de la pastelería y se alcanzan en línea.
+
+    Empieza en el kilo siguiente a esa base (un hueco antes de la primera fila lo cubre esa fila, la siguiente más
+    grande) y llega al máximo en línea efectivo. Sin bases de la pastelería no hay de dónde medir: `None`.
+    """
+    if not bakery:
+        return None
+    from_kg = max(stand.max_kg for stand in bakery) + 1
+    reachable = [stand for stand in active if from_kg <= stand.min_kg <= max_online_kg]
+    if not reachable:
+        return None
+    deposits = [stand.deposit for stand in reachable]
+    return DepositsBeyond(from_kg=from_kg, to_kg=max_online_kg, min_deposit=min(deposits), max_deposit=max(deposits))
+
+
+def get_loan_terms(settings=settings_repo) -> StandLoanTerms:
+    """Las bases de la pastelería con su depósito y las condiciones del préstamo, vigentes en el admin.
+
+    El orden de las bases es el del repositorio (de menos a más kilos). "Desde" es el umbral de `get_stand_deposit`
+    (activas o no, de cualquier origen); sin ninguna base activa no se presta ninguna, y sale `None`.
+    """
+    policy = settings.get_policy_settings()
+    all_stands = settings.list_stand_sizes(active_only=False)
+    active = [stand for stand in all_stands if stand.is_active]
+    bakery = [stand for stand in active if stand.origin == StandOrigin.BAKERY]
+    max_online_kg = effective_cake_design_limits(settings).max_online_kg
+    return StandLoanTerms(
+        stands=tuple(bakery),
+        return_days=policy.stand_return_days,
+        from_kg=_stand_from_kg(all_stands) if active else None,
+        damaged_policy=policy.damaged_stand_policy.strip() or None,
+        beyond=_deposits_beyond(bakery, active, max_online_kg),
+    )
 
 
 # --- Préstamo y devolución (D69) ---

@@ -218,13 +218,13 @@ export default function ComponentSample() {
         <section aria-labelledby="m-duya" className="flex flex-col gap-4">
           <h2 id="m-duya" className="font-display text-titulo-2">Borde de duya</h2>
           <div className="overflow-hidden rounded-md border border-relieve">
-            <div className="bg-fresa px-6 py-8 font-display text-titulo-3">Conchas, bajo el encabezado</div>
-            <Duya type="concha" color="fresa" below="betun" />
+            <div className="bg-fresa px-6 py-8 font-display text-titulo-3">Bajo el encabezado</div>
+            <Duya color="fresa" below="betun" />
             <div className="bg-betun px-6 pb-8 pt-10">Contenido sobre betún</div>
-            <div className="bg-mermelada px-6 py-8 font-display text-titulo-3 text-sobre-color">Perlas, en un cambio fuerte de color</div>
-            <Duya type="perlas" color="mermelada" below="nata" />
-            <div className="bg-nata px-6 pb-8 pt-10 font-display text-titulo-3">Guirnalda, siempre antes del pie</div>
-            <Duya type="guirnalda" color="nata" below="mermelada" />
+            <div className="bg-mermelada px-6 py-8 font-display text-titulo-3 text-sobre-color">En un cambio fuerte de color</div>
+            <Duya color="mermelada" below="nata" />
+            <div className="bg-nata px-6 pb-8 pt-10 font-display text-titulo-3">Antes del pie</div>
+            <Duya color="nata" below="mermelada" />
             <div className="bg-mermelada px-6 pb-8 pt-12 text-sobre-color">Pie</div>
           </div>
         </section>

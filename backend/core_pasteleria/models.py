@@ -59,6 +59,10 @@ class UserManager(BaseUserManager):
         return self._create(email, password, **extra_fields)
 
 
+# Lo dicen el modelo y la API de la cuenta (D72) con las mismas palabras.
+WHATSAPP_NEEDS_PHONE = "Para avisarte por WhatsApp, escribe tu teléfono en tus datos personales."
+
+
 class User(AbstractBaseUser, PermissionsMixin):
     """Cuenta del cliente (Google o correo y contraseña) y del personal.
 
@@ -82,6 +86,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Identificador estable de la cuenta de Google (`sub` del ID token). El correo de
     # Google puede cambiar; `sub`, no. Vacío (null) si nunca entró con Google.
     google_sub = models.CharField("cuenta de Google", max_length=255, null=True, blank=True, unique=True, editable=False)
+    # Preferencia de "Datos y avisos" (D72): el sitio no manda WhatsApp; la pastelería escribe a mano al teléfono de
+    # la cuenta. Sin teléfono no se puede marcar (restricción `user_whatsapp_needs_phone`).
+    notify_whatsapp = models.BooleanField(
+        "avisos por WhatsApp",
+        default=False,
+        help_text="El cliente pidió que también le avisen por WhatsApp, al teléfono de su cuenta.",
+    )
 
     objects = UserManager()
 
@@ -100,6 +111,10 @@ class User(AbstractBaseUser, PermissionsMixin):
                 condition=Q(phone="") | Q(phone__regex=r"^[0-9]{10}$"),
                 name="user_phone_ten_digits",
             ),
+            models.CheckConstraint(
+                condition=Q(notify_whatsapp=False) | ~Q(phone=""),
+                name="user_whatsapp_needs_phone",
+            ),
         ]
 
     def __str__(self):
@@ -110,6 +125,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         # Antes de validate_unique, para que el admin detecte duplicados que
         # solo difieren en mayúsculas.
         self.email = type(self).objects.normalize_email(self.email)
+        if self.notify_whatsapp and not self.phone:
+            raise ValidationError({"notify_whatsapp": WHATSAPP_NEEDS_PHONE})
 
     def save(self, *args, **kwargs):
         self.email = type(self).objects.normalize_email(self.email)

@@ -442,6 +442,12 @@ REST_FRAMEWORK = {
         "references_accept_user": "20/hour",
         # Cancelar un pedido desde la cuenta (D70), por cuenta.
         "orders_cancel_user": "20/hour",
+        # Cambiar la contraseña desde "Datos y avisos" (D72), en la caché `security`:
+        # por cuenta, para que un access robado no sirva para probar la contraseña
+        # actual sin fin, y por IP, como el inicio de sesión. Holgadas para una
+        # persona que se equivoca.
+        "password_change_user": "10/hour",
+        "password_change_ip": "30/hour",
     },
     # Saltos de proxy delante de la app (en Heroku, 1). Con 0 se ignora
     # X-Forwarded-For y se usa la dirección de la conexión: si no, un cliente

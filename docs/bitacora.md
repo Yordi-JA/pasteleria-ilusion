@@ -683,3 +683,45 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - El mockup dibuja un pastel de línea que `LineDrawing` no tiene. No inventé trazos: la tarjeta de diseño usa el icono `Cake` de Phosphor (Regular, `mermelada`) y la de referencia, el toldo. Queda en `pendientes.md`.
 - Pruebas primero, en rojo (5 de 5 con la vista vacía): `e2e/order-start.spec.ts`. Con la vista, pasan junto con `routes.spec.ts` y `site-menu.spec.ts`.
 - Revisión: los días de anticipación de "Diseña tu pastel" salen de `StoreSettings` (`useOrderStart`, `LeadDays`, con esqueleto y marcador de pendiente), no del texto; se quitó la guirnalda duplicada de la vista, porque `SiteLayout` ya la pinta. Dos pruebas nuevas (3 días y pendiente), en rojo antes del cambio.
+
+### Domingo 15 de noviembre: "Datos y avisos" en la cuenta (D72)
+
+- `/cuenta/datos` era una vista vacía. Ahora sigue `CuentaDatos` (capturas 013 y 014): "Datos personales" (nombre, teléfono y el correo de solo lectura con "Vinculado a tu cuenta de Google." o "Es el correo con el que entras."), "Avisos del pedido" (el correo siempre, con su casilla fija, y WhatsApp como preferencia) y "Guardar cambios". Al guardar, el saludo "Hola, [Nombre]" toma el nombre nuevo.
+- Backend: `User.notify_whatsapp` con la restricción `user_whatsapp_needs_phone` (migración `0042_user_notify_whatsapp`), `GET` y `PATCH /api/v1/account/` (JWT; un campo de solo lectura o desconocido es un 400 por campo) y `POST /api/v1/auth/password/` (JWT y CSRF, las reglas del registro, throttles por cuenta y por IP). Una contraseña actual equivocada y una cuenta solo de Google responden igual. Al cambiarla se cierran las demás sesiones y la actual sigue con un par nuevo. El admin muestra la preferencia en el usuario y en el pedido, junto al teléfono del cliente, en solo lectura.
+- "Cambiar contraseña" se abre en la misma vista y solo aparece en cuentas con contraseña. La captura 013 lo muestra en una cuenta de Google y lo enlaza a "Recuperar": gana la decisión del usuario.
+- Pruebas primero, vistas en rojo antes del cambio: `backend/tests/test_account_api.py` (44 de 45 en rojo con 404 y el campo que faltaba; ahora 45 de 45) y `frontend/e2e/account-details.spec.ts` (18 de 19 en rojo; ahora 19 de 19). La suite del backend con `-n auto` da 1925 de 1925. `npm run typecheck`, `npm run lint` y `npm run build` limpios; `account-details`, `routes` y `access` dan 78 de 78. Decisión D72.
+
+### Domingo 15 de noviembre: revisión única de "Datos y avisos" (D72)
+
+- Mayores: mientras se guarda, el nombre y el teléfono quedan de solo lectura y la casilla de WhatsApp desactivada (lo que se escribía se perdía y la pantalla decía "Tus cambios se guardaron."). Dos pruebas nuevas cubren la rama concurrente de `user_repo.update_profile` (la restricción `user_whatsapp_needs_phone` vuelta error en `notify_whatsapp`), en los dos sentidos.
+- Menores:
+    - La auditoría registra solo `user_id` en el éxito, el rechazo y la falla de `update_account` y `change_password`, con el parámetro nuevo `context` de `@audit_operation`.
+    - `user_repo.change_password` bloquea la cuenta, vuelve a revisar la contraseña actual bajo el candado y solo pasa el hash nuevo a la instancia si todo se guardó.
+    - `PATCH account/` reporta las llaves de solo lectura aunque falle otro campo.
+    - El nombre guardado se descarta si la sesión cambió mientras el `PATCH` estaba en vuelo.
+    - Un rechazo sin errores por campo pide "Inténtalo de nuevo en un momento." en lugar de "Revisa tu conexión".
+    - La casilla del correo se dibuja como el mockup y su explicación queda para lectores de pantalla.
+    - Una ref frena el doble envío.
+    - Las cifras del límite dicen "10 cambios o intentos por hora".
+- Pruebas primero:
+    - Backend: 7 nuevas. 5 en rojo antes del cambio; las 2 de la rama concurrente pasaron desde el inicio porque cubren lo que ya existía. `test_account_api.py` da 52 de 52 y la suite con `-n auto`, 1932 de 1932.
+    - Frontend: 5 E2E nuevas. 4 en rojo; la del doble clic pasó desde el inicio. `account-details.spec.ts` da 24 de 24 y, con `routes`, `access`, `session-model`, `account-orders` y `stand-loans`, 113 de 113. `npm run typecheck`, `npm run lint` y `npm run build` limpios.
+- Lo que no se implementó quedó en `docs/pendientes.md`, "/cuenta/datos (D72)".
+
+### Domingo 15 de noviembre: una sola guirnalda en todos los bordes (D73)
+
+- Por petición del usuario, los bordes de duya de las transiciones de color (conchas bajo el encabezado y perlas en la portada y el catálogo) pasan a ser la guirnalda del final de la página. `Duya` ya no tiene `type`, `index.css` conserva solo la guirnalda y se quitó `data-tipo`. El toldo no cambió.
+- `design/referencia/duya.css`, el libro de marca ("La duya") y `frontend/AGENTS.md` dicen ahora una sola forma. Decisión D73.
+- Las pruebas de `home`, `access`, `site-frame` y `muestra` ya no usan `data-tipo`; nueva en `site-frame.spec.ts`: la guirnalda `fresa` bajo el encabezado.
+
+### Domingo 15 de noviembre: la rebanada del hueco de foto
+
+- La silueta `slice` de `ProductPhoto` (hueco de "Foto de la rebanada" en `/rebanadas` y en la portada) pasó de dos polígonos a una rebanada en perspectiva, plana y solo con `betun`, `fresa`, `fresa-claro`, `harina` y `relieve`: lado curvo en `relieve`, corte de frente en cuatro franjas (`data-capa`: cobertura `betun`, pan `fresa`, relleno `harina`, pan `fresa`), cara superior en `fresa-claro` y festones y copete de `betun`, sin fruta. Misma `viewBox` 200 x 120; el texto (14) va debajo del dibujo, en `mermelada-suave`. Prueba reforzada en `e2e/slices.spec.ts` (cuatro capas en orden y texto debajo). Decisión D74.
+
+### Lunes 16 de noviembre: `/bases`, "Bases en préstamo" (D75)
+
+- `/bases` era una vista vacía. `src/views/BasesInfo.tsx` sigue `BasesInfo` (capturas 044 y 045): migas, título, la frase con el plazo, el dibujo de la base a la derecha (se agregó `base` a `LineDrawing`, desde `assets/motivos/dibujo-base.svg`), "Cómo funciona" en tres pasos, "Depósito según los kilos", "Condiciones del préstamo" y "¿Tu pedido necesita base?" con "Realizar pedido" a `/pedido`. Sin 3D. Esqueleto mientras carga y error con "Volver a intentar".
+- Nada de la página está fijo en el código (regla 2): `GET /api/v1/stands/` (nuevo, público, de solo lectura, con el cupo `anon` y sin caché) da las bases de origen "Pastelería" activas, de menos a más kilos, con su depósito y su nota, `return_days` (`PolicySettings.stand_return_days`), `from_kg` (el umbral del depósito de `warranty_service`) y `damaged_policy` (`PolicySettings.damaged_stand_policy`, `null` mientras esté vacío). La vista lo pide con `models/stands.ts` y `viewmodels/useBasesInfo.ts`.
+- "Si regresa dañada" sigue PENDIENTE: la página muestra "[Condiciones por confirmar]" con el marcador del sitio hasta que la pastelería escriba la política en el admin.
+- Pruebas primero, en rojo: `backend/tests/test_stand_info.py` (22 de 22 en rojo) y `frontend/e2e/bases-info.spec.ts` (15 de 15 en rojo con la vista vacía). Con el cambio pasan, junto con la suite del backend y `routes.spec.ts` y `site-frame.spec.ts` (salvo una de `site-frame` que también falla sin este cambio). Decisión D75.
+- Revisión única: la tabla callaba los depósitos de 26 a 50 kg ($300 a $500), que se cobran porque el máximo en línea es 50 kg. `GET stands/` suma `beyond` (desde el kilo siguiente a la base más grande de la pastelería hasta el máximo en línea efectivo, con el depósito más chico y el más grande) y la página lo pinta como último renglón: "Más de 25 kg (hasta 50 kg)", "Depósito de $300 a $500". Sin bases de la pastelería, la tarjeta dice "Por ahora no tenemos bases para préstamo. Escríbenos por WhatsApp."; sin ninguna base activa, `from_kg` es `null`. Un plazo de 0 días muestra "[días por confirmar]" en lugar del error, el plazo se acepta hasta 32767 y un `min_kg` de 0 se muestra. El servicio ya no reordena las bases: el orden lo da el repositorio, y una prueba nueva lo comprueba con dos bases guardadas al revés (falla si se quita el `order_by`). Pruebas primero: 13 del backend y 10 E2E en rojo.

@@ -46,6 +46,7 @@ from .serializers import (
     ProductDetailSerializer,
     ShowcaseQuerySerializer,
     ShowcaseSerializer,
+    StandInfoSerializer,
     StandLoanSerializer,
     StoreInfoSerializer,
     TodayStockSerializer,
@@ -235,6 +236,44 @@ class StoreInfoView(PublicReadOnlyView):
     )
     def get(self, request):
         return Response(StoreInfoSerializer(store_info_service.get_store_info()).data)
+
+
+STANDS_EXAMPLE = {
+    "stands": [
+        {"min_kg": 4, "max_kg": 5, "deposit": "70.00", "description": ""},
+        {"min_kg": 20, "max_kg": 25, "deposit": "250.00", "description": "Madera forrada en aluminio"},
+    ],
+    "return_days": 15,
+    "from_kg": 4,
+    "damaged_policy": None,
+    "beyond": {"from_kg": 26, "to_kg": 50, "min_deposit": "300.00", "max_deposit": "500.00"},
+}
+
+
+class StandInfoView(PublicReadOnlyView):
+    # Sin alcance propio: la página se pide una vez por visita y cuenta en el cupo `anon` por IP.
+
+    @extend_schema(
+        operation_id="stands",
+        summary="Bases en préstamo",
+        description=(
+            "Las bases de la pastelería (origen \"Pastelería\", activas) con sus kilos y su depósito, de menos a más "
+            "kilos, y las condiciones del préstamo: `return_days` (días desde la entrega para regresarla), `from_kg` "
+            "(desde cuántos kilos un pedido lleva base) y `damaged_policy` (qué pasa si regresa dañada, `null` mientras "
+            "sea PENDIENTE). Los rangos \"Aprobada\" intermedios no salen: los cubre la siguiente base más grande. "
+            "`beyond` resume lo que se cobra arriba de la base más grande de la pastelería, hasta el máximo en línea "
+            "(`null` si no hay nada que pedir ahí). Los cambios del admin se ven en la siguiente petición."
+        ),
+        responses={
+            200: OpenApiResponse(
+                response=StandInfoSerializer,
+                examples=[OpenApiExample("Dos bases, con la base dañada pendiente (valores ilustrativos)", value=STANDS_EXAMPLE)],
+            ),
+        },
+        tags=["Bases"],
+    )
+    def get(self, request):
+        return Response(StandInfoSerializer(warranty_service.get_loan_terms()).data)
 
 
 # --- Catálogo público ---

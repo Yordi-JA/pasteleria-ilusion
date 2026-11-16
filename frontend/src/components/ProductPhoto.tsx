@@ -66,9 +66,30 @@ function Silhouette({ shape, label, onFresa = false }: { shape: PhotoShape; labe
   }
   return (
     <svg viewBox="0 0 200 120" aria-hidden="true" className="block h-auto w-full">
-      <path d="M24 84 L150 34 L178 56 L178 98 L24 112 Z" className="fill-relieve" />
-      <path d="M24 84 L150 34 L178 56 Z" className="fill-harina" />
-      <text x="104" y="96" textAnchor="middle" fontSize="12" className={textClass}>
+      {/* Una rebanada en perspectiva: la punta a la izquierda, el lado curvo a la derecha y el corte de frente, con
+          sus capas (cobertura, pan, relleno, pan). El texto va debajo, sobre el campo de la tarjeta. */}
+      <g strokeWidth="1.5" strokeLinejoin="round" className="stroke-relieve">
+        <path d="M170 46 L188 30 V68 L170 84 Z" className="fill-relieve" />
+        <path d="M22 62 L170 46 L170 52 L22 68 Z" data-capa="cobertura" className="fill-betun" />
+        <path d="M22 68 L170 52 L170 63 L22 79 Z" data-capa="pan" className="fill-fresa" />
+        <path d="M22 79 L170 63 L170 69 L22 85 Z" data-capa="relleno" className="fill-harina" />
+        <path d="M22 85 L170 69 L170 84 L22 100 Z" data-capa="pan" className="fill-fresa" />
+        <path d="M22 62 L188 30 Q180 44 170 46 Z" className="fill-fresa-claro" />
+      </g>
+      <g strokeWidth="1.5" strokeLinecap="round" className="stroke-harina">
+        <path d="M170 52 L188 36 M170 63 L188 47 M170 69 L188 53" fill="none" />
+      </g>
+      <g strokeWidth="1.5" className="fill-betun stroke-relieve">
+        <circle cx="173" cy="45" r="3.5" />
+        <circle cx="179" cy="40" r="3.5" />
+        <circle cx="184" cy="34" r="3.5" />
+      </g>
+      <g strokeWidth="1.5" className="fill-betun stroke-relieve">
+        <circle cx="136" cy="44" r="4.5" />
+        <circle cx="146" cy="42" r="4" />
+        <circle cx="140" cy="39" r="4" />
+      </g>
+      <text x="100" y="116" textAnchor="middle" fontSize="14" className={textClass}>
         {label}
       </text>
     </svg>

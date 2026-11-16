@@ -14,7 +14,7 @@ function AccountSkeleton() {
           <Skeleton tone="fresa" className="h-5 w-56 max-w-full" />
         </div>
       </div>
-      <Duya type="concha" color="fresa" />
+      <Duya color="fresa" />
     </>
   )
 }

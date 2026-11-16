@@ -9,7 +9,7 @@ type PageHeaderProps = {
   before?: ReactNode
 }
 
-/** Encabezado de página: campo `fresa` con el h1 (cada página abre con fresa) y conchas de duya donde empieza el contenido. */
+/** Encabezado de página: campo `fresa` con el h1 (cada página abre con fresa) y la guirnalda de duya donde empieza el contenido. */
 export default function PageHeader({ title, children, before }: PageHeaderProps) {
   return (
     <>
@@ -20,7 +20,7 @@ export default function PageHeader({ title, children, before }: PageHeaderProps)
           {children}
         </div>
       </div>
-      <Duya type="concha" color="fresa" />
+      <Duya color="fresa" />
     </>
   )
 }
