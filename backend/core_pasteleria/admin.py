@@ -38,6 +38,7 @@ from .models import (
     Order,
     OrderItem,
     OrderStatus,
+    Payment,
     SalesChannel,
     ShowcaseInventory,
     PolicySettings,
@@ -52,6 +53,7 @@ from .models import (
 from .services.catalog_service import HOME_FEATURED_LIMIT
 from .services.errors import DomainValidationError
 from .services.orders import order_status, quote_service
+from .services.payments import payment_service
 
 
 class CustomUserCreationForm(AdminUserCreationForm):
@@ -800,13 +802,47 @@ class OrderItemInline(admin.TabularInline):
         return self._summary(item, show_images=True)
 
 
+def payment_lines(order: Order) -> str:
+    """Los intentos de pago del pedido en renglones de solo lectura (D68): los cambia solo `payment_service`."""
+    payments = order.payments.order_by("created_at", "pk")
+    if not payments:
+        return "Sin intentos de pago."
+    return format_html_join(
+        mark_safe("<br>"),
+        "{}: {}, ${} {}{}",
+        (
+            (
+                payment.get_method_display(),
+                payment.get_status_display(),
+                payment.amount,
+                payment.currency,
+                format_html(" ({})", payment.get_refund_reason_display()) if payment.refund_reason else "",
+            )
+            for payment in payments
+        ),
+    )
+
+
 # Marca en la petición que un servicio rechazó el cambio: así no se registra ni se anuncia como guardado.
 ORDER_CHANGE_REFUSED = "_order_change_refused"
 ONE_CHANGE_AT_A_TIME_MESSAGE = "Pon el precio o cambia el estado, no las dos cosas a la vez."
 
 
-def _change_order_status(request, obj, form):
+def _register_cash_payment(request, obj, form):
+    # Pasar a `received` desde el admin es registrar el cobro en efectivo (D64, D68).
+    payment_service.register_cash_payment(obj.pk, actor=request.user)
+
+
+def _change_status_only(request, obj, form):
     order_status.change_status(obj.pk, form.initial["status"], obj.status, actor_id=request.user.pk)
+
+
+# El servicio de cada estado de destino; los demás solo cambian el estado.
+STATUS_EDITS = {OrderStatus.RECEIVED: _register_cash_payment}
+
+
+def _change_order_status(request, obj, form):
+    STATUS_EDITS.get(obj.status, _change_status_only)(request, obj, form)
 
 
 def _price_order_quote(request, obj, form):
@@ -822,14 +858,14 @@ class OrderAdmin(admin.ModelAdmin):
     # Registro básico: lista y detalle, sin filtros, acciones ni formularios propios (sin vistas nuevas para el
     # personal, D63 y D64). El personal registra el cobro en efectivo, avanza o cancela el pedido cambiando el estado
     # aquí, solo hacia los estados que permite `order_status`, y pone el precio de una decoración por cotizar mientras
-    # el pedido la espera. El Observer (tanda 2) reaccionará a esos cambios.
+    # el pedido la espera. El Observer del pedido (D68) reacciona a esos cambios.
     list_display = ("__str__", "customer", "status", "delivery_slot", "subtotal", "pay_today", "created_at")
     list_select_related = ("customer", "delivery_slot")
     # Sin la llave de idempotencia ni el token de la nota: no le sirven al personal y el token abre la nota.
     fields = (
         "customer", "status", "status_changed_at", "fulfillment", "delivery_slot", "pickup_name", "pickup_phone",
         "quoted_decoration_price", "subtotal", "stand_deposit", "delivery_fee", "advance_percent", "advance", "pay_today",
-        "pay_on_delivery", "payment_due_at", "created_at",
+        "pay_on_delivery", "payment_due_at", "created_at", "payments_summary",
     )
     inlines = [OrderItemInline]
 
@@ -855,11 +891,18 @@ class OrderAdmin(admin.ModelAdmin):
     def quote_expiry_notice(self, obj):
         return quote_expiry_notice()
 
+    @admin.display(description="pagos")
+    def payments_summary(self, obj):
+        return payment_lines(obj)
+
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
         if obj is not None and "status" in form.base_fields:
             # Solo el estado actual y los siguientes que se permiten: lo demás ni se ofrece ni se acepta.
             allowed = (obj.status, *order_status.next_statuses(obj.status))
+            if not request.user.has_perm(payment_service.CASH_PERMISSION):
+                # Sin el permiso, el cobro en efectivo ni se ofrece (el servicio también lo revisa).
+                allowed = tuple(value for value in allowed if value != OrderStatus.RECEIVED or value == obj.status)
             form.base_fields["status"].choices = [(value, OrderStatus(value).label) for value in allowed]
         return form
 
@@ -891,3 +934,27 @@ class OrderAdmin(admin.ModelAdmin):
         if getattr(request, ORDER_CHANGE_REFUSED, False):
             return redirect(request.path)
         return super().response_change(request, obj)
+
+
+@admin.register(Payment)
+class PaymentAdmin(admin.ModelAdmin):
+    # Registro básico en solo lectura (D64, D68): el personal ve qué cobros llegaron y cuáles hay que reembolsar desde
+    # el panel de la pasarela (`refund_required`). Nada se agrega, cambia ni borra aquí; el efectivo se registra
+    # cambiando el estado del pedido.
+    list_display = ("__str__", "order", "method", "status", "refund_reason", "amount", "created_at")
+    list_filter = ("status", "method")
+    list_select_related = ("order",)
+    fields = (
+        "order", "method", "status", "refund_reason", "amount", "currency", "checkout_id", "provider_payment_id",
+        "recorded_by", "created_at", "updated_at",
+    )
+    readonly_fields = fields
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

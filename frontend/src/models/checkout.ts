@@ -115,6 +115,7 @@ export function resetPurchase() {
   store(null)
   uploads.clear()
   placed = null
+  forgetPaymentKeys()
 }
 
 /** El pedido ya existe: el intento se olvida y el pedido se guarda en memoria para el pago. */
@@ -126,4 +127,69 @@ export function finishPurchase(order: PlacedOrder) {
 /** El último pedido creado en esta pestaña, para el pago; `null` tras recargar. */
 export function getPlacedOrder(): PlacedOrder | null {
   return placed
+}
+
+// --- Llaves del pago (D68) ---
+
+const PAYMENT_STORAGE_KEY = 'ilusion.payment.v1'
+
+/** Los métodos de pago del contrato de D68. */
+export type PaymentMethod = 'mercadopago' | 'stripe' | 'cash'
+
+type PaymentKeys = { orderId: number; keys: Partial<Record<PaymentMethod, string>> }
+
+let paymentKeys: PaymentKeys | null = null
+
+function readPaymentKeys(): PaymentKeys | null {
+  try {
+    const raw: unknown = JSON.parse(window.sessionStorage.getItem(PAYMENT_STORAGE_KEY) ?? 'null')
+    if (typeof raw !== 'object' || raw === null) return null
+    const { orderId, keys } = raw as Record<string, unknown>
+    if (typeof orderId !== 'number' || !Number.isSafeInteger(orderId) || typeof keys !== 'object' || keys === null) return null
+    const valid: PaymentKeys['keys'] = {}
+    for (const method of ['mercadopago', 'stripe', 'cash'] as const) {
+      const key = (keys as Record<string, unknown>)[method]
+      if (typeof key === 'string' && KEY_PATTERN.test(key)) valid[method] = key
+    }
+    return { orderId, keys: valid }
+  } catch {
+    return null
+  }
+}
+
+function storePaymentKeys(value: PaymentKeys | null) {
+  try {
+    if (value) window.sessionStorage.setItem(PAYMENT_STORAGE_KEY, JSON.stringify(value))
+    else window.sessionStorage.removeItem(PAYMENT_STORAGE_KEY)
+  } catch {
+    // Sin almacenamiento, las llaves viven en memoria durante la visita.
+  }
+}
+
+/**
+ * La llave de idempotencia del pago de un pedido con un método: una por intento y por método. Con el mismo método, un
+ * doble clic, una falla de red, una recarga o volver de Mercado Pago mandan la misma llave y el servidor responde el
+ * mismo intento (el mismo PaymentIntent o la misma preferencia) sin abrir otro cobro. Otro método lleva su propia llave:
+ * la misma con otro método es un conflicto (409). Solo se guarda el pedido de ahora; otro pedido empieza de cero. En
+ * `sessionStorage` van el id del pedido y llaves al azar, nada de la cuenta.
+ */
+export function paymentKey(orderId: number, method: PaymentMethod): string {
+  paymentKeys ??= readPaymentKeys()
+  if (paymentKeys?.orderId !== orderId) paymentKeys = { orderId, keys: {} }
+  const key = (paymentKeys.keys[method] ??= crypto.randomUUID())
+  storePaymentKeys(paymentKeys)
+  return key
+}
+
+/** Olvida la llave de un método (el servidor dijo que ya se usó con otro): el siguiente intento lleva una nueva. */
+export function forgetPaymentKey(orderId: number, method: PaymentMethod) {
+  paymentKeys ??= readPaymentKeys()
+  if (paymentKeys?.orderId !== orderId) return
+  delete paymentKeys.keys[method]
+  storePaymentKeys(paymentKeys)
+}
+
+function forgetPaymentKeys() {
+  paymentKeys = null
+  storePaymentKeys(null)
 }

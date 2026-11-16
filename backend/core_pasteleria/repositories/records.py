@@ -432,3 +432,51 @@ class QuotePrice:
     payment_due_at: datetime
     status: str
     status_changed_at: datetime
+
+
+# --- Pagos (D68) ---
+
+
+@dataclass(frozen=True)
+class PaymentRecord:
+    """Un intento de cobro de un pedido, como lo guardó el servidor."""
+
+    id: int
+    order_id: int
+    method: str
+    status: str
+    refund_reason: str
+    amount: Decimal
+    currency: str
+    idempotency_key: str
+    checkout_id: str
+    provider_payment_id: str
+    redirect_url: str
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(frozen=True)
+class NewPayment:
+    """Lo que se guarda al iniciar un cobro o al registrar uno confirmado."""
+
+    order_id: int
+    method: str
+    status: str
+    amount: Decimal
+    currency: str
+    idempotency_key: str = ""
+    checkout_id: str = ""
+    provider_payment_id: str = ""
+    redirect_url: str = ""
+    refund_reason: str = ""
+    recorded_by_id: int | None = None
+
+
+@dataclass(frozen=True)
+class PaymentTerms:
+    """Lo que hace falta de un pedido para aplicarle un pago: su estado y lo que paga hoy."""
+
+    order_id: int
+    status: str
+    pay_today: Decimal | None

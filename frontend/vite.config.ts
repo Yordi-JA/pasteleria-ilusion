@@ -8,7 +8,8 @@ export default defineConfig({
   build: { sourcemap: false },
   // three y react-three-fiber solo se importan desde el chunk diferido de la escena 3D (D48). Sin esto, Vite los
   // descubre al pedir ese chunk, los vuelve a empaquetar y recarga la página en desarrollo.
-  optimizeDeps: { include: ['three', '@react-three/fiber'] },
+  // Lo mismo con Stripe (D68): solo lo importa el chunk diferido de la tarjeta en `/pedido/pago`.
+  optimizeDeps: { include: ['three', '@react-three/fiber', '@stripe/stripe-js/pure', '@stripe/react-stripe-js'] },
   server: {
     // IPv4 explícito: en esta máquina el loopback IPv6 (::1) no responde.
     host: '127.0.0.1',

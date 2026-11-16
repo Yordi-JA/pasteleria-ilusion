@@ -408,6 +408,8 @@ Ejemplo: pedido $1,000 + base $150 + envío $80 → hoy $730 (500 + 150 + 80); e
 - **Al hacer un pedido** se cancelan antes, con su reintegro, los apartados vencidos del mismo cliente: sus piezas vuelven a la vitrina antes de que aparte otras (revisión de la ronda 2 de D63). Esas piezas siguen contando para su tope de vitrina durante la pausa de la sección 1.
 - **Efectivo**: el pedido queda **apartado**; el cliente debe llevar `pay_today` a la pastelería **el mismo día** (antes de las 22:30). **Si no lo lleva, el pedido se cancela.** Al elegir efectivo, el plazo se extiende al cierre del día, sin pasar del inicio del lapso (tanda 2).
 - Los botones de pago muestran el monto exacto: "Pagar $X con tarjeta", "Pagar $X con Mercado Pago".
+- **Registrar el efectivo:** lo hace el personal con el permiso de cobro en efectivo, cambiando el estado del pedido a "Recibido" en el admin (D64, D68).
+- **Pago que llega tarde:** un pago en línea aprobado para un pedido ya cancelado, ya pagado o sin lugar en su horario, o con otro monto o moneda, no revive el pedido. Queda marcado para reembolso y el personal lo devuelve desde el panel de la pasarela (D68). Un apartado vencido que todavía no se cancela sí se recibe si su lapso tiene lugar, como el efectivo.
 - PENDIENTE: política de cambios y cancelaciones.
 
 ---

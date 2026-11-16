@@ -150,7 +150,7 @@ test('creating the order sends the choices with an Idempotency-Key, empties the 
   await chooseMonday(page)
   await page.getByRole('textbox', { name: 'Teléfono' }).fill('55-9876-5432')
   await continueButton(page).click()
-  await expect(page).toHaveURL(/\/pedido\/pago$/)
+  await expect(page).toHaveURL(/\/pedido\/pago\?pedido=57$/)
   expect(orders).toHaveLength(1)
   const request = orders[0]
   expect(request.headers()['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/)
@@ -203,7 +203,7 @@ test('a lost connection keeps the same key for the retry, and a double click sen
   expect(orders).toHaveLength(1)
   expect((await storedCart(page)).items).toHaveLength(1)
   await continueButton(page).click()
-  await expect(page).toHaveURL(/\/pedido\/pago$/)
+  await expect(page).toHaveURL(/\/pedido\/pago\?pedido=57$/)
   expect(orders).toHaveLength(2)
   expect(orders[1].headers()['idempotency-key']).toBe(orders[0].headers()['idempotency-key'])
 })

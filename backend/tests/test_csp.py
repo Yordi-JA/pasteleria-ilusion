@@ -15,15 +15,22 @@ def built_index(settings, tmp_path):
     settings.FRONTEND_DIST = tmp_path
 
 
-def test_the_site_policy_allows_only_our_origin_and_google_identity_services():
+def test_the_site_policy_allows_only_our_origin_google_identity_services_and_stripe_js():
     policy = directives(SITE_POLICY)
     assert policy["default-src"] == ["'self'"]
-    assert policy["script-src"] == ["'self'", "https://accounts.google.com/gsi/client"]
+    # Stripe.js (D68, pago con tarjeta): su script, sus iframes (los campos y la verificación 3D Secure de
+    # `hooks.stripe.com`) y su API. Es la lista de Stripe para Stripe.js, sin Google Maps (no se usa el Address Element).
+    assert policy["script-src"] == ["'self'", "https://accounts.google.com/gsi/client", "https://js.stripe.com", "https://*.js.stripe.com"]
     assert policy["style-src"] == ["'self'", "https://accounts.google.com/gsi/style"]
-    assert policy["frame-src"] == ["https://accounts.google.com/gsi/"]
+    assert policy["frame-src"] == [
+        "https://accounts.google.com/gsi/",
+        "https://js.stripe.com",
+        "https://*.js.stripe.com",
+        "https://hooks.stripe.com",
+    ]
     # La vista previa usa imágenes locales (`blob:`) y la duya, SVG en `data:`.
     assert policy["img-src"] == ["'self'", "data:", "blob:"]
-    assert policy["connect-src"] == ["'self'", "blob:", "https://accounts.google.com/gsi/"]
+    assert policy["connect-src"] == ["'self'", "blob:", "https://accounts.google.com/gsi/", "https://api.stripe.com"]
     assert policy["object-src"] == ["'none'"]
     assert policy["base-uri"] == ["'none'"]
     assert policy["frame-ancestors"] == ["'none'"]

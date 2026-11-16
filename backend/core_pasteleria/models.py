@@ -2309,3 +2309,123 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.get_kind_display()}: {self.product_name or 'diseño'} × {self.quantity}"
+
+
+# --- Pagos (D68) ---
+#
+# Un pago es un intento de cobro de lo que el pedido paga hoy (`Order.pay_today`, regla 10): el cliente lo inicia con
+# un método (`POST orders/<id>/payment/`) y la pasarela lo confirma por un webhook verificado; el efectivo lo registra
+# el personal en el admin. Las restricciones únicas hacen imposible el doble registro: una llave de idempotencia por
+# pedido, un id de la pasarela por método y, por pedido, un solo pago que cuenta (`succeeded`).
+
+
+class PaymentMethod(models.TextChoices):
+    """Cómo paga el cliente (regla 10). Es la llave de `PAYMENT_GATEWAY_REGISTRY`."""
+
+    MERCADOPAGO = "mercadopago", "Mercado Pago"
+    STRIPE = "stripe", "Tarjeta (Stripe)"
+    CASH = "cash", "Efectivo en la pastelería"
+
+
+class PaymentStatus(models.TextChoices):
+    """En qué va el intento de pago. `succeeded` y `refund_required` ya no cambian."""
+
+    PENDING = "pending", "Esperando el pago"
+    SUCCEEDED = "succeeded", "Pagado"
+    FAILED = "failed", "Rechazado"
+    REFUND_REQUIRED = "refund_required", "Cobrado sin pedido vigente: reembolsar"
+
+
+class PaymentRefundReason(models.TextChoices):
+    """Por qué un cobro aprobado no se aplicó al pedido y el personal debe reembolsarlo desde la pasarela."""
+
+    ORDER_NOT_PAYABLE = "order_not_payable", "El pedido ya estaba cancelado, pagado o sin lugar en su horario"
+    AMOUNT_MISMATCH = "amount_mismatch", "El monto no coincide con lo que se paga hoy"
+    CURRENCY_MISMATCH = "currency_mismatch", "La moneda no es MXN"
+
+
+class Payment(models.Model):
+    """Un intento de cobro de un pedido. Los montos y el estado los fija el servidor, nunca el cliente.
+
+    `checkout_id` es lo que el servidor creó en la pasarela (la preferencia de Mercado Pago o el PaymentIntent de
+    Stripe); `provider_payment_id`, el pago que la pasarela confirmó (en Stripe es el mismo PaymentIntent). El
+    `client_secret` de Stripe no se guarda: se vuelve a pedir a Stripe en un reintento.
+    """
+
+    order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="payments", verbose_name="pedido")
+    method = models.CharField("método", max_length=12, choices=PaymentMethod.choices)
+    status = models.CharField("estado", max_length=16, choices=PaymentStatus.choices)
+    refund_reason = models.CharField(
+        "por qué reembolsar", max_length=20, choices=PaymentRefundReason.choices, blank=True
+    )
+    amount = _money("monto", help_text="Lo que se pidió cobrar; al confirmarse, lo que la pasarela cobró.")
+    currency = models.CharField("moneda", max_length=3, default="MXN")
+    idempotency_key = models.CharField("llave de idempotencia", max_length=64, blank=True)
+    checkout_id = models.CharField("id del cobro en la pasarela", max_length=100, blank=True)
+    provider_payment_id = models.CharField("id del pago en la pasarela", max_length=100, blank=True)
+    redirect_url = models.URLField("enlace de pago", max_length=500, blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="registró el cobro",
+    )
+    created_at = models.DateTimeField("creado", auto_now_add=True)
+    updated_at = models.DateTimeField("actualizado", auto_now=True)
+
+    class Meta:
+        verbose_name = "pago"
+        verbose_name_plural = "pagos"
+        ordering = ["-created_at", "-pk"]
+        permissions = [("register_cash_payment", "Puede registrar el cobro en efectivo de un pedido")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["order", "idempotency_key"],
+                condition=~Q(idempotency_key=""),
+                name="payment_unique_idempotency_key",
+                violation_error_message="Ya existe un pago de este pedido con esa llave.",
+            ),
+            models.UniqueConstraint(
+                fields=["method", "checkout_id"],
+                condition=~Q(checkout_id=""),
+                name="payment_unique_checkout",
+                violation_error_message="Ese cobro de la pasarela ya está registrado.",
+            ),
+            models.UniqueConstraint(
+                fields=["method", "provider_payment_id"],
+                condition=~Q(provider_payment_id=""),
+                name="payment_unique_provider_payment",
+                violation_error_message="Ese pago de la pasarela ya está registrado.",
+            ),
+            models.UniqueConstraint(
+                fields=["order"],
+                condition=Q(status="succeeded"),
+                name="payment_one_success_per_order",
+                violation_error_message="Este pedido ya tiene un pago registrado.",
+            ),
+            models.CheckConstraint(
+                condition=Q(method__in=PaymentMethod.values),
+                name="payment_method_known",
+                violation_error_message="Ese método de pago no existe.",
+            ),
+            models.CheckConstraint(
+                condition=Q(status__in=PaymentStatus.values),
+                name="payment_status_known",
+                violation_error_message="Ese estado del pago no existe.",
+            ),
+            models.CheckConstraint(
+                condition=Q(refund_reason="") | Q(refund_reason__in=PaymentRefundReason.values),
+                name="payment_refund_reason_known",
+                violation_error_message="Ese motivo de reembolso no existe.",
+            ),
+            models.CheckConstraint(
+                condition=Q(amount__gte=0),
+                name="payment_amount_non_negative",
+                violation_error_message="El monto no puede ser negativo.",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Pago {self.pk} del pedido {self.order_id}"

@@ -2,7 +2,7 @@
 from django.urls import path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from . import auth_views, views
+from . import auth_views, payment_views, views
 
 urlpatterns = [
     # Acceso de clientes (D62): la cookie del refresh vive solo bajo `auth/`.
@@ -34,6 +34,14 @@ urlpatterns = [
     path("delivery-slots/", views.DeliverySlotListView.as_view(), name="delivery-slots"),
     path("orders/", views.OrderListCreateView.as_view(), name="order-list"),
     path("orders/<int:order_id>/", views.OrderDetailView.as_view(), name="order-detail"),
+    # Pagos (D68): iniciar y consultar con JWT; los webhooks, sin sesión ni CSRF (la firma es la autenticación).
+    path("orders/<int:order_id>/payment/", payment_views.OrderPaymentView.as_view(), name="order-payment"),
+    path(
+        "payments/webhooks/mercadopago/",
+        payment_views.MercadoPagoWebhookView.as_view(),
+        name="payment-webhook-mercadopago",
+    ),
+    path("payments/webhooks/stripe/", payment_views.StripeWebhookView.as_view(), name="payment-webhook-stripe"),
     path("customer-images/", views.CustomerImageUploadView.as_view(), name="customer-image-upload"),
     path("customer-images/<uuid:image_id>/", views.CustomerImageView.as_view(), name="customer-image"),
 ]
