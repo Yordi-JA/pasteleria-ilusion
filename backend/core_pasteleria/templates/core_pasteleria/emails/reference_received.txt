@@ -1,11 +1,10 @@
 {% extends "core_pasteleria/emails/base.txt" %}
-{% block content %}Recibimos tu solicitud #{{ number }}.
-
-Ya tenemos tus fotos de referencia. En máximo 1 hora te mandamos la cotización por correo y también la ves en tu cuenta.
-
+{% block heading %}Recibimos tu solicitud #{{ number }}{% endblock %}
+{% block intro %}Ya tenemos tus fotos de referencia para el {{ event_day }}.{% endblock %}
+{% block details %}
 Fecha del evento: {{ event_day }}
 Personas: {{ request.people }}{% if occasion %}
 Ocasión: {{ occasion }}{% endif %}
-
-No se cobra nada hasta que aceptes la cotización.{% endblock %}
+{% endblock %}
+{% block next %}En máximo 1 hora te mandamos la cotización por correo, y también la ves en tu cuenta. No se cobra nada hasta que la aceptes.{% endblock %}
 {% block button %}Ver mi solicitud{% endblock %}

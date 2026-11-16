@@ -2,7 +2,8 @@ import symbol from '../../../assets/logos/ilusion-simbolo.svg'
 import Breadcrumb from '../components/Breadcrumb.tsx'
 import ButtonLink from '../components/ButtonLink.tsx'
 import Card from '../components/Card.tsx'
-import { focusRing } from '../components/focus.ts'
+import DirectionsLink from '../components/DirectionsLink.tsx'
+import { focusRing, inlineLink } from '../components/focus.ts'
 import LoadErrorNotice from '../components/LoadErrorNotice.tsx'
 import Notice from '../components/Notice.tsx'
 import PageHeader from '../components/PageHeader.tsx'
@@ -140,6 +141,9 @@ export default function OrderDetail() {
                   <p className="text-cuerpo text-mermelada-suave">
                     {store.status === 'loading' ? <Skeleton inline className="h-4 w-56 align-middle" /> : (store.address ?? <Pending what="Dirección" />)}
                   </p>
+                )}
+                {view.pickup && store.directionsUrl && (
+                  <DirectionsLink url={store.directionsUrl} className={`${inlineLink} inline-flex min-h-11 items-center self-start font-semibold`} />
                 )}
               </div>
               <div className="flex flex-col gap-1 border-t border-relieve pt-4">

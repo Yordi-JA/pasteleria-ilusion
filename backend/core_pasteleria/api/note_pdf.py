@@ -232,7 +232,7 @@ def _totals(page: _Page, note: OrderNote) -> None:
         page.y -= 18
     if order.paid_with and order.paid_at:
         paid_on = _short_date(_local(order.paid_at).date())
-        page.text(label_x, f"Pagado con {PaymentMethod(order.paid_with).label.lower()} el {paid_on}.", size=8)
+        page.text(label_x, f"Pagado con {PaymentMethod(order.paid_with).label} el {paid_on}.", size=8)
         page.y -= 14
     page.y -= 10
 

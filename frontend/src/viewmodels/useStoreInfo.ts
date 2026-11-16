@@ -10,13 +10,27 @@ import type { StoreInfo } from '../models/storeInfo.ts'
 export type StoreDetails = {
   status: 'loading' | 'ready' | 'unavailable'
   address: string | null
+  /** "Cómo llegar": la búsqueda pública de Google Maps con la dirección (D71); sin dirección, `null`. */
+  directionsUrl: string | null
   hours: { opensAt: string; closesAt: string } | null
   whatsapp: { display: string; url: string } | null
   leadDays: number | null
 }
 
+// La búsqueda pública de Google Maps: abre la app o el sitio con la dirección, sin llave ni API (D71).
+const MAPS_SEARCH_URL = 'https://www.google.com/maps/search/?api=1&query='
+
 // Un número de WhatsApp internacional (E.164) tiene de 8 a 15 dígitos.
 const WHATSAPP_DIGITS = /^\d{8,15}$/
+
+/**
+ * El número como se lee en el sitio y en los correos: "55 9094 9101" (los 10 dígitos nacionales en grupos 2-4-4, sin la
+ * lada 52). Si no es de México (no son 12 dígitos con 52), "+" y los dígitos. El enlace `wa.me` usa siempre los dígitos.
+ */
+export function whatsappDisplay(digits: string): string {
+  const national = /^52(\d{10})$/.exec(digits)?.[1]
+  return national ? `${national.slice(0, 2)} ${national.slice(2, 6)} ${national.slice(6)}` : `+${digits}`
+}
 
 /** Tras una falla, navegar o volver a la pestaña reintenta como mucho una vez por minuto: el endpoint tiene su propio cupo por IP. */
 const RETRY_AFTER_MS = 60_000
@@ -28,11 +42,13 @@ function toStoreDetails(info: StoreInfo | null, status: StoreDetails['status']):
   const digits = info?.whatsapp
   const opensAt = info?.opensAt
   const closesAt = info?.closesAt
+  const address = info?.address ?? null
   return {
     status,
-    address: info?.address ?? null,
+    address,
+    directionsUrl: address ? `${MAPS_SEARCH_URL}${encodeURIComponent(address)}` : null,
     hours: opensAt && closesAt ? { opensAt, closesAt } : null,
-    whatsapp: digits && WHATSAPP_DIGITS.test(digits) ? { display: `+${digits}`, url: `https://wa.me/${digits}` } : null,
+    whatsapp: digits && WHATSAPP_DIGITS.test(digits) ? { display: whatsappDisplay(digits), url: `https://wa.me/${digits}` } : null,
     leadDays: info?.customLeadDays ?? null,
   }
 }
@@ -114,5 +130,5 @@ const STORE_STATUSES = new Set<unknown>(['loading', 'ready', 'unavailable'])
 function isStoreDetails(value: unknown): value is StoreDetails {
   if (typeof value !== 'object' || value === null) return false
   const details = value as Record<string, unknown>
-  return STORE_STATUSES.has(details.status) && ['address', 'hours', 'whatsapp', 'leadDays'].every((key) => key in details)
+  return STORE_STATUSES.has(details.status) && ['address', 'directionsUrl', 'hours', 'whatsapp', 'leadDays'].every((key) => key in details)
 }

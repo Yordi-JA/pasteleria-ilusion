@@ -3,7 +3,9 @@ import symbol from '../../../../assets/logos/ilusion-simbolo.svg'
 import Card from '../../components/Card.tsx'
 import ChoiceOption from '../../components/ChoiceOption.tsx'
 import { inlineLink } from '../../components/focus.ts'
+import DirectionsLink from '../../components/DirectionsLink.tsx'
 import Pending from '../../components/Pending.tsx'
+import Skeleton from '../../components/Skeleton.tsx'
 import TextField from '../../components/TextField.tsx'
 import type { CartLineView, CartSummaryView } from '../../viewmodels/cartLines.ts'
 import { productsLabel } from '../../viewmodels/cartLines.ts'
@@ -24,6 +26,7 @@ export function Fulfillment({ store }: { store: StoreDetails }) {
         <fieldset className="flex flex-col gap-3">
           <legend className="sr-only">Forma de entrega</legend>
           <ChoiceOption name="entrega" value="pickup" label="Recoger en la pastelería" description="Sin costo." checked onChange={() => {}} />
+          <PickupAddress store={store} />
           <ChoiceOption name="entrega" value="delivery" label="Entrega a domicilio" disabled disabledReason="Por ahora la coordinamos por WhatsApp." />
         </fieldset>
         <p className="mt-2 text-nota text-mermelada-suave">
@@ -40,6 +43,19 @@ export function Fulfillment({ store }: { store: StoreDetails }) {
         </p>
       </Card>
     </section>
+  )
+}
+
+/** Dónde se recoge: la dirección con "Cómo llegar" (D71), o su marcador sin enlace si falta (regla 1). */
+function PickupAddress({ store }: { store: StoreDetails }) {
+  if (store.status === 'loading') return <Skeleton className="h-4 w-64 max-w-full" />
+  return (
+    <p className="-mt-1 flex flex-wrap items-center gap-x-3 text-nota text-mermelada-suave">
+      <span>Recoges en {store.address ?? <Pending what="Dirección" />}</span>
+      {store.directionsUrl && (
+        <DirectionsLink url={store.directionsUrl} className={`${inlineLink} inline-flex min-h-11 items-center font-semibold text-mermelada`} />
+      )}
+    </p>
   )
 }
 

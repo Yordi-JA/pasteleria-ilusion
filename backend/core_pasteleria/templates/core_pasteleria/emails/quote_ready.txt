@@ -1,11 +1,14 @@
 {% extends "core_pasteleria/emails/base.txt" %}
-{% block content %}Tu cotización #{{ number }} está lista.
-
-Ya revisamos tu referencia para el {{ event_day }}.
-Pastel según tu referencia: {{ price }}{% if request.quote_note %}
-Nota de la pastelería: {{ request.quote_note }}{% endif %}
-
-{{ validity }}
-
-Si te gusta, entra a tu cuenta, elige la hora y quién recoge y paga el anticipo. Si quieres un cambio, escríbenos por WhatsApp.{% endblock %}
+{% block heading %}Tu cotización #{{ number }} está lista{% endblock %}
+{% block intro %}Revisamos tu referencia y ya tiene precio.{% endblock %}
+{% block details %}
+Pastel según tu referencia: {{ price }}
+Fecha del evento: {{ event_day }}
+Válida hasta: {{ valid_until }}
+{% endblock %}
+{% block extra %}{% if request.quote_note %}
+Nota de la pastelería:
+{{ request.quote_note }}
+{% endif %}{% endblock %}
+{% block next %}Si te gusta, entra a tu cuenta, elige la hora y quién recoge y paga el anticipo. Si quieres un cambio, escríbenos por WhatsApp.{% endblock %}
 {% block button %}Ver mi cotización{% endblock %}

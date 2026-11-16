@@ -1,5 +1,6 @@
 """Correos al cliente (D70): uno por evento, después del commit, de mejor esfuerzo y sin datos personales en el log."""
 import logging
+import re
 import smtplib
 
 import pytest
@@ -82,7 +83,7 @@ def test_payment_received_and_ready_are_sent_once_each(order, staff_user, django
         f"Tu pedido #{order.pk} está listo",
     ]
     assert f"https://pasteleriailusion.me/cuenta/pedidos/{order.pk}" in mail.outbox[1].body
-    assert "Av. Siempre Viva 1" in mail.outbox[1].body and "+525512345678" in mail.outbox[1].body
+    assert "Av. Siempre Viva 1" in mail.outbox[1].body and "55 1234 5678" in mail.outbox[1].body
 
 
 PHISHING_NAME = "Tu pago fue rechazado, entra a sitio-falso.example"
@@ -145,6 +146,97 @@ def test_without_email_host_nothing_is_sent(order, staff_user, settings, caplog,
             move(order, ("awaiting_payment", "received"), actor=staff_user)
     assert mail.outbox == []
     assert any("falta EMAIL_HOST" in record.getMessage() for record in caplog.records if record.name == NOTIFICATIONS)
+
+
+# --- Diseño y datos de la pastelería (D71) ---
+
+# Una dirección de prueba, no la de la pastelería: los datos reales viven en el admin (regla 2).
+STORE_ADDRESS = "Calle Ficticia 12, Coyoacán, 04369 Ciudad de México"
+MAPS_URL = (
+    "https://www.google.com/maps/search/?api=1&query="
+    "Calle%20Ficticia%2012%2C%20Coyoac%C3%A1n%2C%2004369%20Ciudad%20de%20M%C3%A9xico"
+)
+LOGO_URL = "https://pasteleriailusion.me/correo/ilusion-logo.png"
+
+
+def all_four_emails(api, quoter, staff_user, callbacks):
+    """Los cuatro correos en orden: solicitud recibida, cotización lista, pago recibido y pedido listo."""
+    with callbacks(execute=True):
+        data = submitted(api)
+        quote(data["id"], quoter, price="1800.00")
+        response = post(api, body(design_line()))
+        assert response.status_code == 201, response.json()
+        order = Order.objects.get(pk=response.json()["id"])
+        move(
+            order,
+            ("awaiting_payment", "received"),
+            ("received", "in_preparation"),
+            ("in_preparation", "ready_for_delivery"),
+            actor=staff_user,
+        )
+    assert len(mail.outbox) == 4
+    order.refresh_from_db()
+    links = [
+        (f"https://pasteleriailusion.me/cuenta/cotizaciones/{data['id']}", "Ver mi solicitud"),
+        (f"https://pasteleriailusion.me/cuenta/cotizaciones/{data['id']}", "Ver mi cotización"),
+        (f"https://pasteleriailusion.me/cuenta/pedidos/{order.pk}", "Ver mi pedido"),
+        (f"https://pasteleriailusion.me/cuenta/pedidos/{order.pk}", "Ver mi pedido"),
+    ]
+    return [(message, message.alternatives[0][0], *link) for message, link in zip(mail.outbox, links)], order
+
+
+def test_every_email_is_real_email_html_with_the_logo_button_and_store_links(
+    api, quoter, staff_user, django_capture_on_commit_callbacks
+):
+    StoreSettings.objects.update(address=STORE_ADDRESS, whatsapp="525512345678")
+    emails, _ = all_four_emails(api, quoter, staff_user, django_capture_on_commit_callbacks)
+    for message, html, url, button in emails:
+        subject = message.subject
+        assert '<html lang="es"' in html and 'role="presentation"' in html and "<script" not in html, subject
+        # El preheader: el resumen oculto que muestra la bandeja junto al asunto.
+        assert 'data-preheader' in html and "display:none" in html, subject
+        # El logo en PNG con URL absoluta (Gmail no muestra SVG), con su texto y tamaño fijo.
+        logo = re.search(rf'<img[^>]*src="{re.escape(LOGO_URL)}"[^>]*>', html)
+        assert logo, subject
+        assert 'alt="Pastelería Ilusión"' in logo[0] and 'width="160"' in logo[0] and 'height="70"' in logo[0], subject
+        # El botón principal lleva el enlace absoluto.
+        assert re.search(rf'<a href="{re.escape(url)}"[^>]*>\s*{button}\s*</a>', html), subject
+        assert f"{button}:\n{url}" in message.body, subject
+        # El pie: dirección, "Cómo llegar" con la dirección codificada y el WhatsApp.
+        for text in (STORE_ADDRESS, "Cómo llegar", "55 1234 5678"):
+            assert text in html and text in message.body, (subject, text)
+        assert f'href="{MAPS_URL.replace("&", "&amp;")}"' in html and MAPS_URL in message.body, subject
+        assert 'href="https://wa.me/525512345678"' in html and "https://wa.me/525512345678" in message.body, subject
+        assert 'rel="noopener noreferrer"' in html, subject
+
+
+def test_without_store_data_the_emails_show_the_markers_and_no_store_links(
+    api, quoter, staff_user, django_capture_on_commit_callbacks
+):
+    StoreSettings.objects.update(address="", whatsapp="")
+    emails, _ = all_four_emails(api, quoter, staff_user, django_capture_on_commit_callbacks)
+    for message, html, _, _ in emails:
+        for content in (html, message.body):
+            assert "[Dirección por confirmar]" in content and "[WhatsApp por confirmar]" in content, message.subject
+            assert "Cómo llegar" not in content and "google.com/maps" not in content, message.subject
+            assert "wa.me" not in content, message.subject
+
+
+def test_each_email_card_names_the_status_and_its_key_data(api, quoter, staff_user, django_capture_on_commit_callbacks):
+    emails, order = all_four_emails(api, quoter, staff_user, django_capture_on_commit_callbacks)
+    (received, _, _, _), (quoted, _, _, _), (paid, _, _, _), (ready, _, _, _) = emails
+    pay_today = f"${order.pay_today:,.2f}"
+    rest = f"${order.pay_on_delivery:,.2f}"
+    expected = {
+        received: ("En revisión", "Fecha del evento"),
+        quoted: ("Cotización lista", "Pastel según tu referencia", "$1,800.00", "Válida hasta", "[Vigencia por confirmar]"),
+        paid: ("Recibido", "Recoges", "Pagaste", pay_today, "Resto, el día de la entrega", rest, "Qué sigue"),
+        ready: ("Listo para entregar", "Recoges", "Resto, el día de la entrega", rest, "Qué sigue"),
+    }
+    for message, texts in expected.items():
+        html = message.alternatives[0][0]
+        for text in texts:
+            assert text in html and text in message.body, (message.subject, text)
 
 
 # --- Configuración ---

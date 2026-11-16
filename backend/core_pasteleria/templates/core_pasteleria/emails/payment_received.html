@@ -1,10 +1,13 @@
 {% extends "core_pasteleria/emails/base.html" %}
 {% block title %}Recibimos tu pago del pedido #{{ number }}{% endblock %}
-{% block heading %}Recibimos tu pago del pedido #{{ number }}{% endblock %}
-{% block content %}
-<p style="margin:0 0 16px 0;">Tu pedido quedó confirmado. Ya puedes descargar tu nota desde tu cuenta.</p>
-<p style="margin:0 0 4px 0;"><strong>Pagaste:</strong> {{ pay_today }}</p>
-<p style="margin:0 0 4px 0;"><strong>Falta pagar al recoger:</strong> {{ pay_on_delivery }}</p>
-<p style="margin:0 0 4px 0;"><strong>Recoges:</strong> {{ pickup_day }}, de {{ order.slot_starts_at|time:"H:i" }} a {{ order.slot_ends_at|time:"H:i" }}</p>
+{% block preheader %}Pagaste {{ pay_today }}. Recoges el {{ pickup_day }}.{% endblock %}
+{% block heading %}Recibimos tu pago{% endblock %}
+{% block intro %}Tu pedido quedó confirmado.{% endblock %}
+{% block details %}
+{% include "core_pasteleria/emails/_detail.html" with label="Recoges" value=pickup %}
+{% include "core_pasteleria/emails/_detail.html" with label="Pagaste" value=pay_today money=True strong=True %}
+{% if stand_deposit %}{% include "core_pasteleria/emails/_detail.html" with label="Incluye el depósito de la base" value=stand_deposit money=True %}{% endif %}
+{% include "core_pasteleria/emails/_detail.html" with label="Resto, el día de la entrega" value=pay_on_delivery money=True %}
 {% endblock %}
+{% block next %}Te escribimos cuando tu pedido esté listo para recoger. Tu nota ya está en tu cuenta: la descargas desde el detalle del pedido.{% endblock %}
 {% block button %}Ver mi pedido{% endblock %}

@@ -49,7 +49,7 @@ test('opening the menu: content of capture 020, focus inside and the page does n
   await expect(dialog.getByRole('link', { name: 'Realizar pedido' })).toHaveAttribute('href', '/pedido')
   await expect(dialog.getByRole('link', { name: 'Iniciar sesión o crear cuenta' })).toHaveAttribute('href', '/entrar')
   await expect(dialog).toContainText('Pedidos con 2 días de anticipación')
-  await expect(dialog.getByRole('link', { name: /Escribir por WhatsApp \+520000000000/ })).toHaveAttribute(
+  await expect(dialog.getByRole('link', { name: /Escribir por WhatsApp 00 0000 0000/ })).toHaveAttribute(
     'href',
     'https://wa.me/520000000000',
   )
@@ -135,7 +135,7 @@ test.describe('between 601 and 767px', () => {
   test('the links move into the menu instead of wrapping, and the strip keeps WhatsApp', async ({ page }) => {
     await expect(page.getByRole('banner').getByRole('navigation', { name: 'Principal' })).toBeHidden()
     await expect(menuButton(page)).toBeVisible()
-    await expect(page.getByTestId('franja')).toContainText('WhatsApp +520000000000')
+    await expect(page.getByTestId('franja')).toContainText('WhatsApp 00 0000 0000')
     await expect(page.getByTestId('franja').getByText(/WhatsApp/)).toBeVisible()
   })
 

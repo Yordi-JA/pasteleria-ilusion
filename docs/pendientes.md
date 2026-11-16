@@ -261,6 +261,15 @@ Lo construido está en D70 ([`proyecto/decisiones.md`](proyecto/decisiones.md)),
 22. El correo "Tu cotización está lista" dice el precio, no el depósito de la base ni lo que se paga hoy.
 23. Al cancelar un pedido pagado desde `in_preparation` o `ready_for_delivery`, la vitrina y el pan vuelven al inventario como antes de pagar (`InventoryObserver`), aunque la pastelería ya haya empezado el pastel. No hay correo de esa cancelación.
 
+## Correos y "Cómo llegar" (D71)
+
+1. Mejora futura: un mapa embebido junto a la dirección. Pide abrir `frame-src` a Google en la CSP del sitio (D62), carga cookies de terceros (el aviso de privacidad tendría que decirlo) y no está en el mockup. Hoy "Cómo llegar" abre Google Maps en otra pestaña.
+2. Los correos se revisaron rendidos en Chromium a 600 y 375 px, no en Gmail, Outlook ni Apple Mail reales. Falta mandarlos a una cuenta de cada uno (Brevo ya envía, D70) y revisar el modo oscuro de Gmail y de Apple Mail, que puede invertir los colores aunque el correo pida `color-scheme: light`.
+3. Las fuentes de la marca no cargan en la mayoría de los clientes: los títulos caen a Georgia y el texto a Segoe UI, Helvetica o Arial.
+4. El logo del correo se lee de `SITE_URL/correo/ilusion-logo.png`: hasta desplegar esta rama, los correos de Heroku lo muestran roto (con su `alt`). Si cambia `assets/logos/ilusion-logo.svg`, hay que volver a rendir el PNG.
+5. La nota en PDF muestra la dirección, pero no "Cómo llegar": un enlace en un documento para imprimir no sirve, y el QR ya apunta a la verificación.
+6. El formato "55 1234 5678" del WhatsApp en los correos es solo para números de México (52 y 10 dígitos); el sitio sigue mostrando "+52...", como antes.
+
 ## Revisión de la tanda 3
 
 Menores de la revisión única de la tanda 3 (D70) que no se arreglaron:

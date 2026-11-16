@@ -331,8 +331,9 @@ class StoreSettings(SingletonSettings):
         blank=True,
         validators=[validate_address_characters],
         help_text=(
-            "PENDIENTE: la pastelería aún no la define. Déjala vacía; no pongas un "
-            "valor supuesto. Se muestra en el pie del sitio."
+            "La dirección de la pastelería en una sola línea: calle y número, colonia, "
+            "alcaldía, código postal y ciudad. Con ella, el sitio y los correos muestran "
+            "el enlace \"Cómo llegar\" a Google Maps. Vacía, se muestra como pendiente."
         ),
     )
     whatsapp = models.CharField(
@@ -341,8 +342,8 @@ class StoreSettings(SingletonSettings):
         blank=True,
         validators=[whatsapp_validator],
         help_text=(
-            "PENDIENTE: la pastelería aún no lo define. Déjalo vacío; no pongas un "
-            "valor supuesto. Escribe solo dígitos, con la lada del país y sin + ni "
+            "El número de WhatsApp de la pastelería. Vacío, se muestra como pendiente. "
+            "Escribe solo dígitos, con la lada del país y sin + ni "
             f"espacios ni guiones, de {WHATSAPP_MIN_DIGITS} a {WHATSAPP_MAX_DIGITS} "
             "dígitos. En México: 52 y los 10 dígitos del número."
         ),

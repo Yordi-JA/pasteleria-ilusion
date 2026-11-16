@@ -2,13 +2,17 @@ import { Navigate } from 'react-router'
 import ButtonLink from '../components/ButtonLink.tsx'
 import Card from '../components/Card.tsx'
 import CheckoutPageHeader from '../components/CheckoutPageHeader.tsx'
+import DirectionsLink from '../components/DirectionsLink.tsx'
+import { inlineLink } from '../components/focus.ts'
 import LoadErrorNotice from '../components/LoadErrorNotice.tsx'
+import Pending from '../components/Pending.tsx'
 import ProgressPearls from '../components/ProgressPearls.tsx'
 import Skeleton, { LoadingRegion } from '../components/Skeleton.tsx'
 import TextLink from '../components/TextLink.tsx'
 import { PEARL_STEPS } from '../viewmodels/orderView.ts'
 import { useOrderConfirmation } from '../viewmodels/useOrderConfirmation.ts'
 import { usePageTitle } from '../viewmodels/usePageTitle.ts'
+import { useStoreDetails } from '../viewmodels/useStoreInfo.ts'
 import NoteDownloadButton from './orders/NoteDownloadButton.tsx'
 import OrderTimeline from './orders/OrderTimeline.tsx'
 import PaidSummary from './orders/PaidSummary.tsx'
@@ -42,6 +46,7 @@ export default function OrderConfirmation() {
   usePageTitle(TITLE)
   const confirmation = useOrderConfirmation()
   const { load, view, orderId, note } = confirmation
+  const store = useStoreDetails()
   if (confirmation.redirect) return <Navigate to={confirmation.redirect} replace />
 
   let body
@@ -77,6 +82,17 @@ export default function OrderConfirmation() {
                 Cómo va tu pedido
               </h3>
               <OrderTimeline steps={view.steps} labelledBy="confirmacion-avance" />
+              {view.pickup && store.status !== 'loading' && (
+                <p className="text-cuerpo text-mermelada-suave">
+                  Recoges en Pastelería Ilusión, {store.address ?? <Pending what="Dirección" />}.
+                  {store.directionsUrl && (
+                    <>
+                      {' '}
+                      <DirectionsLink url={store.directionsUrl} className={`${inlineLink} font-semibold`} />
+                    </>
+                  )}
+                </p>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
               <ButtonLink to={`/cuenta/pedidos/${orderId}`}>Ver mi pedido</ButtonLink>

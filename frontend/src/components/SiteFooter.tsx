@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
 import symbol from '../../../assets/logos/ilusion-simbolo.svg'
 import type { StoreDetails } from '../viewmodels/useStoreInfo.ts'
+import DirectionsLink from './DirectionsLink.tsx'
 import { focusRingOnColor } from './focus.ts'
 import { FOOTER_LINKS } from './navigation.ts'
 import Pending from './Pending.tsx'
@@ -61,6 +62,9 @@ export default function SiteFooter({ store, compact = false }: SiteFooterProps) 
             <p className="text-sobre-color-suave">
               {loading ? <StoreSkeleton width="w-56" on="mermelada" /> : (store.address ?? <Pending what="Dirección" />)}
             </p>
+            {store.directionsUrl && (
+              <DirectionsLink url={store.directionsUrl} className={`${link} font-semibold underline underline-offset-4`} />
+            )}
             <p className="text-sobre-color-suave">
               {loading ? (
                 <StoreSkeleton width="w-52" on="mermelada" />

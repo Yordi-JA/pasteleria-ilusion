@@ -1,9 +1,11 @@
 {% extends "core_pasteleria/emails/base.txt" %}
-{% block content %}Recibimos tu pago del pedido #{{ number }}.
-
-Tu pedido quedó confirmado. Ya puedes descargar tu nota desde tu cuenta.
-
-Pagaste: {{ pay_today }}
-Falta pagar al recoger: {{ pay_on_delivery }}
-Recoges: {{ pickup_day }}, de {{ order.slot_starts_at|time:"H:i" }} a {{ order.slot_ends_at|time:"H:i" }}{% endblock %}
+{% block heading %}Recibimos tu pago del pedido #{{ number }}{% endblock %}
+{% block intro %}Tu pedido quedó confirmado.{% endblock %}
+{% block details %}
+Recoges: {{ pickup }}
+Pagaste: {{ pay_today }}{% if stand_deposit %}
+Incluye el depósito de la base: {{ stand_deposit }}{% endif %}
+Resto, el día de la entrega: {{ pay_on_delivery }}
+{% endblock %}
+{% block next %}Te escribimos cuando tu pedido esté listo para recoger. Tu nota ya está en tu cuenta: la descargas desde el detalle del pedido.{% endblock %}
 {% block button %}Ver mi pedido{% endblock %}

@@ -1,12 +1,24 @@
-{% autoescape off %}Hola.
+{% autoescape off %}{% block heading %}{% endblock %}
 
-{% block content %}{% endblock %}
+Hola.
 
-{% block button %}{% endblock %}: {{ url }}
+{% block intro %}{% endblock %}
 
+{{ card }}
+Estado: {{ status }}
+{% block details %}{% endblock %}{% block extra %}{% endblock %}
+Qué sigue
+{% block next %}{% endblock %}
+
+{% block button %}{% endblock %}:
+{{ url }}
+
+--
 Pastelería Ilusión
 Pide un deseo. Del pastel nos encargamos.
-{{ address }}
+
+{{ address }}{% if directions_url %}
+Cómo llegar: {{ directions_url }}{% endif %}
 Todos los días, de {{ opens_at|time:"H:i" }} a {{ closes_at|time:"H:i" }}
-WhatsApp {{ whatsapp }}
+WhatsApp: {{ whatsapp }}{% if whatsapp_url %} ({{ whatsapp_url }}){% endif %}
 {% endautoescape %}
