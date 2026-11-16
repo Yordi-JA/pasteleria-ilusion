@@ -676,3 +676,10 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - La nota en PDF dice "Pagado con Mercado Pago" o "Pagado con Tarjeta (Stripe)". Los `help_text` de la dirección y el WhatsApp ya no dicen PENDIENTE (migración `0041_store_contact_help_text`). `reglas-de-negocio.md` §13 y §14 marcan la dirección y el WhatsApp como resueltos, sin escribirlos en el código.
 - Pruebas primero, vistas en rojo: tres de correos y dos de la nota en el backend, y `e2e/store-directions.spec.ts` (tres) en el frontend. Decisión D71.
 - El sitio lee el WhatsApp como "55 9094 9101" (`whatsappDisplay`, un solo formato para el pie, la franja, la entrega, la cotización y el pago con reembolso) y la confirmación del pedido muestra la dirección con "Cómo llegar" al recoger en la pastelería. Cuatro pruebas nuevas en `e2e/store-directions.spec.ts`.
+
+### Domingo 15 de noviembre: `/pedido` con las dos formas de encargar
+
+- `/pedido` era una vista vacía y desde el menú no se llegaba a "Diseña tu pastel" ni al envío de la foto de referencia. `src/views/OrderStart.tsx` sigue ahora `PedidoElegir` (capturas 054 y 055): migas, título, "Elige cómo quieres encargar tu pastel." y dos tarjetas (regiones con su `h2`) con enlaces reales a `/pedido/disena` y `/pedido/referencia`, en dos columnas y apiladas desde 960 px. Sin pastel 3D.
+- El mockup dibuja un pastel de línea que `LineDrawing` no tiene. No inventé trazos: la tarjeta de diseño usa el icono `Cake` de Phosphor (Regular, `mermelada`) y la de referencia, el toldo. Queda en `pendientes.md`.
+- Pruebas primero, en rojo (5 de 5 con la vista vacía): `e2e/order-start.spec.ts`. Con la vista, pasan junto con `routes.spec.ts` y `site-menu.spec.ts`.
+- Revisión: los días de anticipación de "Diseña tu pastel" salen de `StoreSettings` (`useOrderStart`, `LeadDays`, con esqueleto y marcador de pendiente), no del texto; se quitó la guirnalda duplicada de la vista, porque `SiteLayout` ya la pinta. Dos pruebas nuevas (3 días y pendiente), en rojo antes del cambio.

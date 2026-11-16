@@ -283,3 +283,7 @@ Menores de la revisión única de la tanda 3 (D70) que no se arreglaron:
 7. `paid_at` sale de `updated_at`.
 8. Enviar y aceptar referencia no limitan por IP.
 9. El PDF solo gasta el throttle general `user`.
+
+## `/pedido`: dibujo de la tarjeta "Diseña tu pastel"
+
+1. El mockup `PedidoElegir` usa un pastel de línea de dos pisos con vela que no está en `assets/motivos/` ni en `LineDrawing`. Mientras tanto la tarjeta lleva el icono `Cake` de Phosphor (Regular, `mermelada`). Falta que se dibuje `dibujo-pastel.svg` en el estilo de los motivos y se agregue a `LineDrawing`.
