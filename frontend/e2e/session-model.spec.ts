@@ -46,7 +46,8 @@ test('account requests carry the access as Bearer and renew once on a 401', asyn
     const fresh = route.request().headers().authorization === 'Bearer access-2'
     await route.fulfill({ status: fresh ? 200 : 401, contentType: 'application/json', body: JSON.stringify(fresh ? [{ id: 1 }] : { detail: 'x' }) })
   })
-  await page.goto('/cuenta')
+  // `/cuenta` pide sus pedidos al cargar (D69): aquí hace falta una vista de la cuenta que no pida `orders/`.
+  await page.goto('/cuenta/datos')
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Hola, Ana')
 
   const result = await page.evaluate(async (url) => {
@@ -150,7 +151,8 @@ test('an account request with an expired access and a throttled renewal fails wi
     orderRequests += 1
     await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
   })
-  await page.goto('/cuenta')
+  // `/cuenta` pide sus pedidos al cargar (D69): aquí hace falta una vista de la cuenta que no pida `orders/`.
+  await page.goto('/cuenta/datos')
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Hola, Ana')
 
   for (const status of [429, 503]) {
@@ -170,7 +172,7 @@ test('an account request with an expired access and a throttled renewal fails wi
     // Un error que no es 401, sin llegar a pedir el recurso, y la sesión sigue abierta.
     expect(outcome).toBe(503)
     expect(orderRequests).toBe(0)
-    await expect(page).toHaveURL(/\/cuenta$/)
+    await expect(page).toHaveURL(/\/cuenta\/datos$/)
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Hola, Ana')
   }
 })

@@ -508,6 +508,19 @@ def calculate_price(
 
 
 @audit_operation(expected_errors=(DomainValidationError,))
+def check_size_and_flavor(choice: CakeDesignChoice, cake_options=cake_option_repo, settings=settings_repo) -> None:
+    """Revisa los kilos, el tipo, el pan y el relleno de `choice` con las mismas reglas que el precio (3.1 y 4.7),
+    sin calcularlo. Lo usa el envío de referencia (D70): la pastelería pone el precio, pero el sabor que pide el cliente
+    tiene que poder hacerse. Lanza `CakeDesignError` con todos los errores por campo.
+    """
+    limits = effective_cake_design_limits(settings)
+    failures: list[DomainValidationError] = []
+    attempt(failures, _check_kg, choice.kg, limits)
+    attempt(failures, _cake_price_per_kg, choice, cake_options)
+    raise_all(failures, CakeDesignError)
+
+
+@audit_operation(expected_errors=(DomainValidationError,))
 def estimate_price(
     choice: CakeDesignChoice, cake_options=cake_option_repo, settings=settings_repo
 ) -> PriceBreakdown:

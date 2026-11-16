@@ -1,0 +1,9 @@
+{% extends "core_pasteleria/emails/base.txt" %}
+{% block content %}Tu pedido #{{ number }} está listo.
+
+Ya puedes pasar por él a la pastelería.
+
+Recoges: {{ pickup_day }}, de {{ order.slot_starts_at|time:"H:i" }} a {{ order.slot_ends_at|time:"H:i" }}
+Falta pagar al recoger: {{ pay_on_delivery }}
+Dónde: {{ address }}{% endblock %}
+{% block button %}Ver mi pedido{% endblock %}

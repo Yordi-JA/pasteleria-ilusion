@@ -10,7 +10,9 @@ from tests.test_orders_api import bakery_clock  # noqa: F401 - fija la hora de l
 pytestmark = pytest.mark.django_db
 
 # Medido el 14 de noviembre de 2026: 85 consultas antes de la ronda 1 de correcciones y 36 después.
-MAX_QUERIES = 40
+# D69 (15 de noviembre de 2026) suma 2 fijas por respuesta, no por diseño: el pago que pagó el pedido y los días para
+# devolver la base (42 medidas).
+MAX_QUERIES = 44
 
 
 def test_an_order_with_three_designs_reads_each_option_table_once(customer_user):

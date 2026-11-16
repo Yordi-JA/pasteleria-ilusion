@@ -13,7 +13,7 @@ from collections.abc import Iterable
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from ..models import Order, Payment
+from ..models import Order, Payment, PaymentStatus
 from .records import NewPayment, PaymentRecord, PaymentTerms
 
 
@@ -45,6 +45,12 @@ def _record(payment: Payment) -> PaymentRecord:
 
 def find_by_key(order_id: int, key: str) -> PaymentRecord | None:
     payment = Payment.objects.filter(order_id=order_id, idempotency_key=key).first()
+    return _record(payment) if payment else None
+
+
+def succeeded_for_order(order_id: int) -> PaymentRecord | None:
+    """El pago que pagó el pedido (uno solo por pedido, D68); `None` si no se pagó."""
+    payment = Payment.objects.filter(order_id=order_id, status=PaymentStatus.SUCCEEDED).first()
     return _record(payment) if payment else None
 
 

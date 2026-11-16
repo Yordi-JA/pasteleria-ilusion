@@ -58,7 +58,8 @@ def test_a_file_that_is_not_an_image_is_a_400(api):
 
 
 def test_an_unknown_purpose_is_a_400(api):
-    assert upload(api, purpose="reference").status_code == 400
+    # `reference` es un uso desde D70 (envío de referencia).
+    assert upload(api, purpose="logo").status_code == 400
 
 
 def test_a_body_declared_larger_than_the_admin_limit_is_a_413_without_reading_it(api):

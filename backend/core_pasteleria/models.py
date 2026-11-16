@@ -588,6 +588,26 @@ class PolicySettings(SingletonSettings):
         "cliente durante estas horas: así una cuenta no la mantiene apartada dejando vencer pedido tras pedido. Una "
         "cancelación del personal no cuenta.",
     )
+    # Envío de referencia (D70): la vigencia de la cotización sigue PENDIENTE de la pastelería (regla 9).
+    reference_quote_valid_hours = models.PositiveSmallIntegerField(
+        "horas de vigencia de una cotización por referencia",
+        null=True,
+        blank=True,
+        help_text=(
+            "Vacío es PENDIENTE: la cotización de un envío de referencia no vence. Con un valor, el cliente puede "
+            "aceptarla hasta estas horas después de que la pastelería le pone precio."
+        ),
+    )
+    # Cancelación por el cliente (D70, lo decidió el usuario el 15 de noviembre de 2026).
+    customer_cancel_retention_percent = models.PositiveSmallIntegerField(
+        "porcentaje que se retiene al cancelar un pedido pagado",
+        default=50,
+        db_default=50,
+        help_text=(
+            "Si el cliente cancela un pedido ya pagado, la pastelería retiene este porcentaje del total del pedido (sin "
+            "el depósito de la base) y devuelve lo demás que se pagó. Sin pagar, cancelar no cuesta nada."
+        ),
+    )
 
     class Meta(SingletonSettings.Meta):
         verbose_name = "políticas"
@@ -624,6 +644,16 @@ class PolicySettings(SingletonSettings):
                 condition=Q(expired_showcase_cooldown_hours__gt=0),
                 name="policysettings_showcase_cooldown_positive",
                 violation_error_message="Las horas que cuenta la vitrina vencida deben ser más de 0.",
+            ),
+            models.CheckConstraint(
+                condition=Q(reference_quote_valid_hours__isnull=True) | Q(reference_quote_valid_hours__gt=0),
+                name="policysettings_reference_quote_valid_positive",
+                violation_error_message="Las horas de vigencia de una cotización deben ser más de 0, o vacías (PENDIENTE).",
+            ),
+            models.CheckConstraint(
+                condition=Q(customer_cancel_retention_percent__lte=100),
+                name="policysettings_cancel_retention_range",
+                violation_error_message="El porcentaje que se retiene va de 0% a 100%.",
             ),
         ]
 
@@ -1943,6 +1973,8 @@ class CancellationReason(models.TextChoices):
 
     EXPIRED = "expired", "Venció sin pagarse"
     STAFF = "staff", "Lo canceló el personal"
+    # D70: el cliente lo canceló desde su cuenta.
+    CUSTOMER = "customer", "Lo canceló el cliente"
 
 
 class Fulfillment(models.TextChoices):
@@ -1958,6 +1990,8 @@ class OrderLineKind(models.TextChoices):
     ORDER = "order", "Encargo"
     SHOWCASE = "showcase", "Vitrina de hoy"
     DESIGN = "design", "Diseña tu pastel"
+    # D70: el precio que cotizó la pastelería para un envío de referencia; nace al aceptar la cotización.
+    REFERENCE = "reference", "Pedido con foto de referencia"
 
 
 class Occasion(models.TextChoices):
@@ -1979,6 +2013,8 @@ class CustomerImagePurpose(models.TextChoices):
 
     DECORATION = "decoration", "Otra decoración"
     WAFER = "wafer", "Oblea"
+    # D70: las fotos de un envío de referencia (regla 9).
+    REFERENCE = "reference", "Foto de referencia"
 
 
 # Lo único que se guarda: la imagen ya vuelta a codificar por el servidor.
@@ -2007,6 +2043,15 @@ class CustomerImage(models.Model):
     size_bytes = models.PositiveIntegerField("tamaño (bytes)")
     original_name = models.CharField("nombre original", max_length=120, blank=True)
     created_at = models.DateTimeField("subida", auto_now_add=True)
+    # D70: el envío de referencia que la lleva; vacío mientras no está en uno.
+    reference_request = models.ForeignKey(
+        "ReferenceRequest",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="images",
+        verbose_name="envío de referencia",
+    )
 
     class Meta:
         verbose_name = "imagen de cliente"
@@ -2301,9 +2346,17 @@ class OrderItem(models.Model):
                     & Q(offering__isnull=False)
                     & Q(design__isnull=True)
                     & Q(quantity__gte=1)
+                )
+                | (
+                    Q(kind=OrderLineKind.REFERENCE)
+                    & Q(offering__isnull=True)
+                    & Q(design__isnull=True)
+                    & Q(quantity=1)
                 ),
                 name="orderitem_offering_or_design",
-                violation_error_message="Una línea es una presentación del catálogo o un diseño, no ambas.",
+                violation_error_message=(
+                    "Una línea es una presentación del catálogo, un diseño o una cotización aceptada, no varias."
+                ),
             ),
         ]
 
@@ -2342,6 +2395,8 @@ class PaymentRefundReason(models.TextChoices):
     ORDER_NOT_PAYABLE = "order_not_payable", "El pedido ya estaba cancelado, pagado o sin lugar en su horario"
     AMOUNT_MISMATCH = "amount_mismatch", "El monto no coincide con lo que se paga hoy"
     CURRENCY_MISMATCH = "currency_mismatch", "La moneda no es MXN"
+    # D70: el cliente canceló un pedido pagado; se devuelve lo pagado menos lo que retiene la pastelería.
+    CUSTOMER_CANCELLED = "customer_cancelled", "El cliente canceló: devolver lo pagado menos lo retenido"
 
 
 class Payment(models.Model):
@@ -2429,3 +2484,241 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"Pago {self.pk} del pedido {self.order_id}"
+
+
+# --- Bases prestadas (D69) ---
+#
+# Un préstamo por cada diseño del pedido que lleva base con depósito (regla 7). Lo crea `StandLoanObserver` al entrar el
+# pedido en `delivered` (regla 12: fecha límite = entrega + `PolicySettings.stand_return_days`) y lo cierra el evento
+# "base devuelta", que emite solo `warranty_service.register_stand_return` cuando el personal con permiso registra la
+# devolución en el admin (D64). Nadie escribe el estado a mano.
+
+
+class StandLoanStatus(models.TextChoices):
+    """Seguimiento de la base (reglas de negocio, sección 12), con su etiqueta en español."""
+
+    ON_LOAN = "on_loan", "Prestada"
+    RETURNED = "returned", "Devuelta"
+
+
+class StandLoan(models.Model):
+    """Una base prestada con su depósito retenido, su fecha límite y, al volver, quién la recibió."""
+
+    order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="stand_loans", verbose_name="pedido")
+    # Un préstamo es de un diseño o del pastel de un envío de referencia aceptado (D70), nunca de los dos.
+    design = models.OneToOneField(
+        CakeDesign,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="stand_loan",
+        verbose_name="diseño del pastel",
+    )
+    reference_request = models.OneToOneField(
+        "ReferenceRequest",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="stand_loan",
+        verbose_name="envío de referencia",
+    )
+    stand = models.ForeignKey(CakeStand, on_delete=models.PROTECT, related_name="+", verbose_name="tamaño de base")
+    deposit = _money("depósito retenido")
+    status = models.CharField("estado", max_length=10, choices=StandLoanStatus.choices)
+    delivered_on = models.DateField("entregada el")
+    due_date = models.DateField("devolver antes del")
+    returned_at = models.DateTimeField("devuelta el", null=True, blank=True)
+    returned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="recibió la base",
+    )
+    deposit_refunded = models.BooleanField("depósito reembolsado", default=False)
+    created_at = models.DateTimeField("creado", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "base prestada"
+        verbose_name_plural = "bases prestadas"
+        ordering = ["status", "due_date", "pk"]
+        permissions = [("register_stand_return", "Puede registrar la devolución de una base")]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(status__in=StandLoanStatus.values),
+                name="standloan_status_known",
+                violation_error_message="Ese estado de la base no existe.",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(status=StandLoanStatus.ON_LOAN)
+                    & Q(returned_at__isnull=True)
+                    & Q(returned_by__isnull=True)
+                    & Q(deposit_refunded=False)
+                )
+                | (Q(status=StandLoanStatus.RETURNED) & Q(returned_at__isnull=False) & Q(deposit_refunded=True)),
+                name="standloan_return_consistent",
+                violation_error_message="Una base devuelta lleva su fecha y el depósito reembolsado; una prestada, no.",
+            ),
+            models.CheckConstraint(
+                condition=Q(due_date__gte=F("delivered_on")),
+                name="standloan_due_after_delivery",
+                violation_error_message="La fecha límite no puede ser antes de la entrega.",
+            ),
+            models.CheckConstraint(
+                condition=Q(deposit__gt=0),
+                name="standloan_deposit_positive",
+                violation_error_message="Solo se presta una base con depósito.",
+            ),
+            models.CheckConstraint(
+                condition=(Q(design__isnull=False) & Q(reference_request__isnull=True))
+                | (Q(design__isnull=True) & Q(reference_request__isnull=False)),
+                name="standloan_one_cake",
+                violation_error_message="Una base prestada es de un diseño o de un envío de referencia, no de los dos.",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Base del pedido {self.order_id}"
+
+
+# --- Envío de referencia (D70) ---
+#
+# El cliente manda hasta `UploadSettings.max_reference_images` fotos con lo que quiere (regla 9) y no paga nada. El
+# personal con `core_pasteleria.set_reference_quote` le pone precio y nota en el admin (D64), y la solicitud pasa de
+# `in_review` a `quote_ready`. Al aceptarla, el servidor crea un pedido normal en `awaiting_payment` con una línea del
+# precio cotizado (`OrderLineKind.REFERENCE`) y la solicitud queda `accepted`, ligada a ese pedido.
+
+
+class ReferenceRequestStatus(models.TextChoices):
+    """Estados del envío de referencia (reglas de negocio, secciones 9 y 12), con su etiqueta en español."""
+
+    IN_REVIEW = "in_review", "En revisión"
+    QUOTE_READY = "quote_ready", "Cotización lista"
+    ACCEPTED = "accepted", "Aceptada"
+    CANCELLED = "cancelled", "Cancelada"
+
+
+REFERENCE_TEXT_MAX_LENGTH = 1000
+
+
+class ReferenceRequest(models.Model):
+    """Una solicitud de cotización con fotos de referencia. Precio, nota y estado los fija el servidor o el personal."""
+
+    customer = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="reference_requests", verbose_name="cliente"
+    )
+    status = models.CharField("estado", max_length=12, choices=ReferenceRequestStatus.choices)
+    status_changed_at = models.DateTimeField("último cambio de estado")
+    description = models.TextField("qué tomar de la foto", max_length=REFERENCE_TEXT_MAX_LENGTH)
+    occasion = models.CharField("ocasión", max_length=20, choices=Occasion.choices, blank=True)
+    people = models.PositiveSmallIntegerField("personas")
+    # El sabor y la base (D70, decisión del usuario del 15 de noviembre de 2026): las opciones de los pasos 2 a 4 de
+    # "Diseña tu pastel", revisadas con sus reglas (4.7), y la base que toca a los kilos de las personas (3.1 y 7).
+    # Vacíos solo en las solicitudes de antes de la `0040`.
+    cake_type = models.CharField("tipo de pastel", max_length=20, choices=CakeType.choices, blank=True)
+    bread = models.ForeignKey(
+        Bread, on_delete=models.PROTECT, null=True, blank=True, related_name="+", verbose_name="pan"
+    )
+    filling_base = models.ForeignKey(
+        FillingBase, on_delete=models.PROTECT, null=True, blank=True, related_name="+", verbose_name="base de relleno"
+    )
+    first_flavor = models.ForeignKey(
+        FillingFlavor, on_delete=models.PROTECT, null=True, blank=True, related_name="+", verbose_name="sabor"
+    )
+    second_flavor = models.ForeignKey(
+        FillingFlavor, on_delete=models.PROTECT, null=True, blank=True, related_name="+", verbose_name="segundo sabor"
+    )
+    kg = models.PositiveSmallIntegerField("kilos", null=True, blank=True, help_text="Salen de las personas (regla 3.1).")
+    stand = models.ForeignKey(
+        CakeStand, on_delete=models.PROTECT, null=True, blank=True, related_name="+", verbose_name="base"
+    )
+    stand_deposit = _money(
+        "depósito de la base",
+        default=Decimal("0.00"),
+        db_default=Decimal("0.00"),
+        help_text="Se paga completo al aceptar, aparte del precio cotizado (regla 10).",
+    )
+    event_date = models.DateField("fecha del evento")
+    budget = _money("presupuesto aproximado", null=True, blank=True)
+    quoted_price = _money(
+        "precio cotizado",
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0.01"))],
+        help_text=(
+            "El precio del pastel según la referencia. Al guardarlo, la solicitud pasa a «Cotización lista» y el "
+            "cliente recibe un correo."
+        ),
+    )
+    quote_note = models.TextField(
+        "nota de la pastelería", max_length=REFERENCE_TEXT_MAX_LENGTH, blank=True, help_text="La ve el cliente."
+    )
+    quoted_at = models.DateTimeField("cotizada el", null=True, blank=True)
+    quoted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="cotizó",
+    )
+    order = models.OneToOneField(
+        Order,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="reference_request",
+        verbose_name="pedido",
+    )
+    idempotency_key = models.CharField("llave de idempotencia", max_length=64)
+    created_at = models.DateTimeField("enviada", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "envío de referencia"
+        verbose_name_plural = "envíos de referencia"
+        ordering = ["-created_at", "-pk"]
+        permissions = [("set_reference_quote", "Puede poner el precio de un envío de referencia")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["customer", "idempotency_key"],
+                name="referencerequest_unique_idempotency_key",
+                violation_error_message="Ya existe una solicitud con esa llave.",
+            ),
+            models.CheckConstraint(
+                condition=Q(status__in=ReferenceRequestStatus.values),
+                name="referencerequest_status_known",
+                violation_error_message="Ese estado de la solicitud no existe.",
+            ),
+            models.CheckConstraint(
+                condition=Q(people__gt=0),
+                name="referencerequest_people_positive",
+                violation_error_message="Las personas deben ser más de 0.",
+            ),
+            models.CheckConstraint(
+                condition=Q(budget__isnull=True) | Q(budget__gte=0),
+                name="referencerequest_budget_non_negative",
+                violation_error_message="El presupuesto no puede ser negativo.",
+            ),
+            models.CheckConstraint(
+                condition=(Q(status=ReferenceRequestStatus.IN_REVIEW) & Q(quoted_price__isnull=True))
+                | (
+                    Q(status__in=[ReferenceRequestStatus.QUOTE_READY, ReferenceRequestStatus.ACCEPTED])
+                    & Q(quoted_price__gt=0)
+                    & Q(quoted_at__isnull=False)
+                )
+                | Q(status=ReferenceRequestStatus.CANCELLED),
+                name="referencerequest_quote_consistent",
+                violation_error_message="Una cotización lista o aceptada lleva su precio y su fecha; una en revisión, no.",
+            ),
+            models.CheckConstraint(
+                condition=(Q(status=ReferenceRequestStatus.ACCEPTED) & Q(order__isnull=False))
+                | (~Q(status=ReferenceRequestStatus.ACCEPTED) & Q(order__isnull=True)),
+                name="referencerequest_accepted_has_order",
+                violation_error_message="Solo una solicitud aceptada tiene pedido, y siempre lo tiene.",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Solicitud {self.pk}"

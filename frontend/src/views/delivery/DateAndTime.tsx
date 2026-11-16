@@ -14,6 +14,9 @@ import type { useDeliveryCalendar } from '../../viewmodels/useDeliveryCalendar.t
 
 type Calendar = ReturnType<typeof useDeliveryCalendar>
 
+/** Lo que necesita "Horario": también lo da `useDaySlots`, el día fijo de una cotización (D70). */
+export type SlotChoices = Pick<Calendar, 'selectedDate' | 'periods' | 'period' | 'slot' | 'selectPeriod'>
+
 const WEEKDAYS = [
   ['L', 'lunes'],
   ['M', 'martes'],
@@ -217,7 +220,7 @@ export default function DateAndTime({ calendar, onChooseDay, onChooseSlot, error
 }
 
 /** "Horario": mañana, tarde y noche como tarjetas con radio, y las horas del periodo elegido como chips. */
-function SlotPicker({ calendar, onChooseSlot }: { calendar: Calendar; onChooseSlot: (startsAt: string) => void }) {
+export function SlotPicker({ calendar, onChooseSlot }: { calendar: SlotChoices; onChooseSlot: (startsAt: string) => void }) {
   if (!calendar.selectedDate) {
     return (
       <div className="flex flex-col gap-2">

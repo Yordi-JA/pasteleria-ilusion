@@ -1,0 +1,9 @@
+{% extends "core_pasteleria/emails/base.txt" %}
+{% block content %}Recibimos tu pago del pedido #{{ number }}.
+
+Tu pedido quedó confirmado. Ya puedes descargar tu nota desde tu cuenta.
+
+Pagaste: {{ pay_today }}
+Falta pagar al recoger: {{ pay_on_delivery }}
+Recoges: {{ pickup_day }}, de {{ order.slot_starts_at|time:"H:i" }} a {{ order.slot_ends_at|time:"H:i" }}{% endblock %}
+{% block button %}Ver mi pedido{% endblock %}

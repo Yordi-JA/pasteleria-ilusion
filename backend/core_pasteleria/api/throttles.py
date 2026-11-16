@@ -93,3 +93,28 @@ class PaymentStartUserThrottle(CustomerImageUserThrottle):
     Consultar el estado del pago usa el cupo general `user`."""
 
     scope = "payments_user"
+
+
+class NoteVerificationThrottle(SecurityScopedRateThrottle):
+    """La verificación pública de la nota (`note_verification`, D69), por IP: el token no se adivina, pero el cupo
+    frena a quien pruebe tokens en masa."""
+
+
+class ReferenceCreateUserThrottle(CustomerImageUserThrottle):
+    """Enviar una referencia, por cuenta (`references_create_user`, 10 por hora, D70): cada una guarda fotos y le pide
+    trabajo a la pastelería. Un reintento con la misma llave usa `orders_retry_user`."""
+
+    scope = "references_create_user"
+
+
+class ReferenceAcceptUserThrottle(CustomerImageUserThrottle):
+    """Aceptar una cotización, por cuenta (`references_accept_user`, 20 por hora, D70): crea el pedido y aparta el
+    lapso."""
+
+    scope = "references_accept_user"
+
+
+class OrderCancelUserThrottle(CustomerImageUserThrottle):
+    """Cancelar un pedido desde la cuenta, por cuenta (`orders_cancel_user`, 20 por hora, D70)."""
+
+    scope = "orders_cancel_user"

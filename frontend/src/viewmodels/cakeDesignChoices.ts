@@ -1,6 +1,7 @@
 import type { BreadOption, CakeDesignOptions } from '../models/cakeDesign.ts'
 import type { CakeDesignDraft } from '../models/cakeDesignDraft.ts'
 import { formatPrice } from '../models/money.ts'
+import { choosableFlavors } from './cakeDesignSteps.ts'
 import type { DesignDerived } from './cakeDesignSteps.ts'
 
 /**
@@ -163,4 +164,42 @@ export function fillingChoices(draft: CakeDesignDraft, design: DesignDerived, op
           ? `${joinOr(notCombinable)} no se combina.`
           : null,
   }
+}
+
+// --- Cambios del borrador al elegir (pasos 4 y, en el envío de referencia, también ahí) ---
+
+type FillingDraft = Pick<CakeDesignDraft, 'cakeType' | 'fillingBase' | 'flavorCount' | 'flavors'>
+
+function baseIn<T extends FillingDraft>(draft: T, options: CakeDesignOptions) {
+  return options.fillingBases.find((option) => option.slug === draft.fillingBase) ?? null
+}
+
+/** Elegir la base del relleno: conserva los sabores que la base nueva ofrece y, si no admite dos, deja uno. */
+export function withFillingBase<T extends FillingDraft>(draft: T, options: CakeDesignOptions, slug: string): T {
+  const base = options.fillingBases.find((option) => option.slug === slug)
+  if (!base) return draft
+  const offered = draft.flavors.filter((flavor) => base.flavors.some((option) => option.slug === flavor))
+  const flavorCount = base.maxFlavors >= 2 ? draft.flavorCount : 1
+  return { ...draft, fillingBase: slug, flavorCount, flavors: offered.slice(0, flavorCount) }
+}
+
+/** "Un sabor" o "Dos sabores". Regla 4.7: con un sabor que no se combina, "Dos sabores" no aplica y el sabor se queda. */
+export function withFlavorCount<T extends FillingDraft>(draft: T, options: CakeDesignOptions, flavorCount: 1 | 2): T {
+  const chosen = baseIn(draft, options)?.flavors.filter((flavor) => draft.flavors.includes(flavor.slug)) ?? []
+  if (flavorCount === 2 && chosen.some((flavor) => !flavor.isCombinable)) return draft
+  return { ...draft, flavorCount, flavors: flavorCount === 2 ? draft.flavors : draft.flavors.slice(0, 1) }
+}
+
+/**
+ * Elegir un sabor: con uno, lo reemplaza; con dos, lo agrega o lo quita (hasta dos). Antes descarta lo que ya no se
+ * puede elegir (un sabor de otra base, retirado o que el tipo no admite), para que nada guardado bloquee la lista.
+ */
+export function withFlavor<T extends FillingDraft>(draft: T, options: CakeDesignOptions, slug: string): T {
+  const base = baseIn(draft, options)
+  const allowed = new Set(choosableFlavors(base, draft.cakeType).map((flavor) => flavor.slug))
+  if (!allowed.has(slug)) return draft
+  const kept = draft.flavors.filter((flavor) => allowed.has(flavor))
+  const two = draft.flavorCount === 2 && (base?.maxFlavors ?? 1) >= 2
+  if (!two) return { ...draft, flavors: [slug] }
+  return { ...draft, flavors: kept.includes(slug) ? kept.filter((flavor) => flavor !== slug) : [...kept, slug].slice(0, 2) }
 }

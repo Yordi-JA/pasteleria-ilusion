@@ -25,7 +25,7 @@ Los diagramas son imágenes SVG hechas en Excalidraw con la paleta Fresa y merme
 Notas del diagrama:
 
 - El efectivo en la pastelería no usa un servicio externo: deja el pedido apartado.
-- El personal registra "Base devuelta" desde la página de verificación de la nota (`/nota/:token`) con sesión iniciada ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 11).
+- El personal registra "Base devuelta" en el admin, cambiando el estado de la base prestada (D64 y D69). La página de verificación de la nota (`/nota/:token`) solo verifica ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 11).
 - La API de distancias sigue sin elegir. Las reglas sugieren una API de rutas como Google Distance Matrix ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 8).
 - El proveedor de correo tampoco está definido.
 
@@ -117,16 +117,17 @@ El registro admite `mercadopago`, `stripe` y `cash` (efectivo). Agregar una pasa
 
 ### Observer de eventos del pedido
 
-`OrderSubject` notifica eventos, no solo estados. Hay dos: "estado cambiado" y "base devuelta". Los estados del pedido siguen siendo los de las reglas, sección 12 (D13).
+`OrderSubject` notifica eventos, no solo estados: "estado cambiado" y "base devuelta" y, del envío de referencia (D70), "referencia recibida" y "cotización lista". Los estados del pedido siguen siendo los de las reglas, sección 12 (D13).
 
 ![Observer de eventos del pedido. Los eventos estado cambiado y base devuelta llegan a OrderSubject, que avisa a cada OrderObserver suscrito. CustomerNotificationObserver, InventoryObserver y StandLoanObserver implementan la interfaz.](diagramas/observer-pedido.svg)
 
 | Observador | Responsabilidad |
 | --- | --- |
-| `CustomerNotificationObserver` | Registra o envía el aviso de cada cambio de estado y de la confirmación de agenda |
+| `CustomerNotificationObserver` | Registra el aviso de cada cambio de estado y de la confirmación de agenda |
+| `CustomerEmailObserver` | Manda al cliente, después del commit y como mejor esfuerzo, "Recibimos tu pago" (`received`), "Tu pedido está listo" (`ready_for_delivery`), "Recibimos tu solicitud" (referencia recibida) y "Tu cotización está lista" (cotización lista). Arma y envía con `services/email_service.py`; una falla del SMTP deja un WARNING y no deshace nada. Va aparte del registro para no juntar en una clase las plantillas y las fallas del correo (D70) |
 | `StripeCheckoutObserver` | Al entrar el pedido en `cancelled`, cancela en Stripe sus PaymentIntent abiertos después del commit, como mejor esfuerzo: si Stripe falla, deja un WARNING y el pedido sigue cancelado (D68) |
 | `InventoryObserver` | Descuenta las existencias de vitrina cuando el pedido entra en `awaiting_payment` o `received` (lo que ocurra primero) y las reintegra al entrar en `cancelled`. Así no se vende dos veces una pieza apartada en efectivo. Los pedidos personalizados no descuentan vitrina (D14). Desde D68 el observador hace el reintegro; el descuento lo hace la creación del pedido, que nace `awaiting_payment`, porque decide si el pedido puede existir |
-| `StandLoanObserver` | Al entrar el pedido en `delivered`, crea la base `on_loan` con fecha límite igual a la entrega más 15 días y retiene el depósito. Con el evento "base devuelta", que emite `warranty_service` cuando el personal la registra en `/nota/:token`, marca la base `returned` y el depósito como reembolsado |
+| `StandLoanObserver` | Al entrar el pedido en `delivered`, crea un `StandLoan` `on_loan` por cada diseño con base y depósito, con fecha límite igual al día de la entrega más `PolicySettings.stand_return_days` (15 hoy), y retiene el depósito. Con el evento "base devuelta" (`StandReturned`), que emite solo `warranty_service.register_stand_return` cuando el personal la registra en el admin, marca la base `returned` y el depósito como reembolsado (D64 y D69). `OrderObserver.update` reparte cada evento por su tipo a `status_changed` o `stand_returned` |
 
 ## Estados del pedido y de la base
 
@@ -197,9 +198,8 @@ Estas son las entidades del dominio. Las del catálogo, el inventario y la confi
 | `Order` y `OrderItem` | Pedidos, sus partidas, pagos y estados | Secciones 10 y 12 | Implementada (D63; los pagos, en la tanda 2) |
 | `Payment` | Cada intento de cobro de un pedido (Mercado Pago, Stripe o efectivo), con su estado y los ids de la pasarela | Sección 10 | Implementada (D68) |
 | `CakeDesign` | Configuración guardada de "Diseña tu pastel" y su precio | Secciones 3 a 6 | Implementada (D63) |
-| `ReferenceRequest` | Envío de referencia (hasta 3 imágenes) y su seguimiento (`in_review`, `quote_ready`) | Sección 9 | Prevista |
-| `Quote` | Cotización que la pastelería fija a un envío de referencia | Sección 9 | Prevista |
-| `StandLoan` | Préstamo de una base con depósito, fecha límite y devolución | Secciones 7 y 11 | Prevista |
+| `ReferenceRequest` | Envío de referencia (hasta 3 imágenes) con su cotización (precio, nota, cuándo y quién) y su seguimiento (`in_review`, `quote_ready`, `accepted` con el pedido que nació, `cancelled`) | Sección 9 | Implementada (D70; la cotización vive en la misma entidad, sin `Quote` aparte) |
+| `StandLoan` | Préstamo de una base con depósito, fecha límite y devolución: pedido, diseño, tamaño de base, depósito retenido, estado (`on_loan`, `returned`), día de entrega, fecha límite, cuándo y quién la recibió y depósito reembolsado | Secciones 7, 11 y 12 | Implementada (D69) |
 | `DeliverySlot` | Lapsos de 30 min con máximo 3 pedidos activos | Sección 1 | Implementada (D63) |
 | `CustomerImage` | Imágenes de los clientes (oblea, "Otra decoración"; después, el envío de referencia), guardadas en PostgreSQL | Secciones 6 y 9 | Implementada (D63) |
 
@@ -207,7 +207,7 @@ Las secciones son las de [`../reglas-de-negocio.md`](../reglas-de-negocio.md). L
 
 Los repositorios `product_repo`, `cake_option_repo` y `settings_repo` devuelven `dataclass` inmutables (`repositories/records.py`) y tienen su par en memoria (`repositories/memory.py`) para probar servicios sin PostgreSQL.
 
-La palabra "cotización" nombra solo el envío de referencia (`Quote`). El diseño de "Diseña tu pastel" es `CakeDesign` (D29).
+La palabra "cotización" nombra solo el envío de referencia (`ReferenceRequest`). El diseño de "Diseña tu pastel" es `CakeDesign` (D29).
 
 ## Ver también
 

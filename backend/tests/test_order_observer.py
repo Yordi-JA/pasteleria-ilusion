@@ -17,6 +17,8 @@ from core_pasteleria.services.orders.order_observer import (
     OrderObserver,
     OrderSubject,
     StatusChanged,
+    StandLoanObserver,
+    CustomerEmailObserver,
     StripeCheckoutObserver,
 )
 from tests.test_orders_api import NOW, TODAY, body, design_line, offering, post
@@ -62,10 +64,12 @@ def test_the_subject_notifies_every_subscriber_in_order():
     assert first.events == [event] and second.events == [event]
 
 
-def test_the_default_subject_has_the_inventory_notification_and_stripe_observers():
+def test_the_default_subject_has_the_inventory_notification_stripe_stand_loan_and_email_observers():
     subject = order_observer.build_order_subject()
     kinds = [type(observer) for observer in subject._observers]
-    assert kinds == [InventoryObserver, CustomerNotificationObserver, StripeCheckoutObserver]
+    assert kinds == [
+        InventoryObserver, CustomerNotificationObserver, StripeCheckoutObserver, StandLoanObserver, CustomerEmailObserver
+    ]
 
 
 def test_a_status_change_notifies_the_event_with_who_and_both_states(api, staff_user):

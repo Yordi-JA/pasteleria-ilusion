@@ -6,8 +6,11 @@
 import { parseIsoDate } from './dates.ts'
 import { getJsonWithSession } from './session.ts'
 
-/** El tipo de cada línea del carrito, como lo nombra la API (`OrderLineKind`). */
-export type LineKind = 'order' | 'showcase' | 'design'
+/**
+ * El tipo de cada línea del carrito, como lo nombra la API (`OrderLineKind`). `reference` es el precio de una
+ * cotización aceptada (D70): solo se pide para el día del evento.
+ */
+export type LineKind = 'order' | 'showcase' | 'design' | 'reference'
 
 /** `too_soon`: ya pasó o no alcanza la anticipación. `full`: "Lleno". */
 export type SlotReason = 'too_soon' | 'full'
