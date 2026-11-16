@@ -1,6 +1,6 @@
 import { useId, useRef } from 'react'
 import type { ReactNode, RefObject } from 'react'
-import HeroCake from '../../components/HeroCake.tsx'
+import HeroCake, { StaticCakeBox } from '../../components/HeroCake.tsx'
 import { useClosingField } from '../../viewmodels/useClosingField.ts'
 import { useHeroCake } from '../../viewmodels/useHeroCake.ts'
 
@@ -27,9 +27,20 @@ function AccessCake({ card }: { card: RefObject<HTMLDivElement | null> }) {
  * El armado de `/entrar` y `/registro` (Login.dc.html, Registro.dc.html): todo sobre `fresa`. En escritorio, a la
  * izquierda el lema, lo que ofrece la cuenta (`aside`) y el pastel abajo; a la derecha, la tarjeta. Hasta 960 px, una
  * columna: lema, tarjeta y el pastel debajo; `aside` no se muestra. Un solo pastel cambia de lugar con la cuadrícula,
- * para no abrir dos escenas 3D.
+ * para no abrir dos escenas 3D. `/recuperar` y `/verificar` (D76) usan el mismo armado con `cake="static"`: el pastel
+ * fijo, porque el 3D solo va en las vistas que enumera el libro de marca.
  */
-export default function AccessLayout({ slogan, aside, children }: { slogan: string; aside?: ReactNode; children: ReactNode }) {
+export default function AccessLayout({
+  slogan,
+  aside,
+  cake = 'scene',
+  children,
+}: {
+  slogan: string
+  aside?: ReactNode
+  cake?: 'scene' | 'static'
+  children: ReactNode
+}) {
   useClosingField('fresa')
   const card = useRef<HTMLDivElement>(null)
   return (
@@ -47,7 +58,7 @@ export default function AccessLayout({ slogan, aside, children }: { slogan: stri
         </p>
         {aside && <div className="[grid-area:cuenta] max-[960px]:hidden">{aside}</div>}
         <div className="w-full max-w-[400px] self-end [grid-area:pastel] max-[960px]:mx-auto max-[960px]:max-w-[320px]">
-          <AccessCake card={card} />
+          {cake === 'scene' ? <AccessCake card={card} /> : <StaticCakeBox testId="pastel-acceso-fijo" />}
         </div>
         <div ref={card} className="[grid-area:tarjeta]">
           {children}

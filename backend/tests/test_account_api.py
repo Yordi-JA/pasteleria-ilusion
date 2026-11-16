@@ -9,6 +9,7 @@ from datetime import timedelta
 import pytest
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
@@ -48,7 +49,8 @@ def auth_settings(settings, monkeypatch):
 
 @pytest.fixture
 def customer(db):
-    return User.objects.create_user("carla@correo.test", PASSWORD, full_name="Carla Ruiz")
+    # Con el correo confirmado (D76): una cuenta sin confirmar no entra con su contraseña.
+    return User.objects.create_user("carla@correo.test", PASSWORD, full_name="Carla Ruiz", email_verified_at=timezone.now())
 
 
 @pytest.fixture
@@ -392,7 +394,9 @@ def test_changing_the_password_is_throttled_per_account(customer, monkeypatch):
 @pytest.mark.django_db
 def test_changing_the_password_is_throttled_per_ip_across_accounts(customer, monkeypatch):
     monkeypatch.setattr(PasswordChangeIPThrottle, "THROTTLE_RATES", {"password_change_ip": "2/hour"})
-    other = User.objects.create_user("otra@correo.test", PASSWORD, full_name="Otra Persona")
+    other = User.objects.create_user(
+        "otra@correo.test", PASSWORD, full_name="Otra Persona", email_verified_at=timezone.now()
+    )
     assert change_password(signed_in(customer), current="no-es-la-mia-123").status_code == 400
     assert change_password(signed_in(other), current="no-es-la-mia-123").status_code == 400
     assert change_password(signed_in(other)).status_code == 429

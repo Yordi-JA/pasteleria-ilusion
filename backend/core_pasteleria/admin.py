@@ -101,7 +101,8 @@ class CustomUserAdmin(UserAdmin):
                 ),
             },
         ),
-        ("Fechas importantes", {"fields": ("last_login",)}),
+        # `email_verified_at` (D76) lo pone el enlace del correo o Google; aquí solo se ve.
+        ("Fechas importantes", {"fields": ("last_login", "email_verified_at")}),
     )
     add_fieldsets = (
         (
@@ -132,7 +133,7 @@ class CustomUserAdmin(UserAdmin):
         return users.filter(is_staff=False, is_superuser=False)
 
     def get_readonly_fields(self, request, obj=None):
-        readonly = (*super().get_readonly_fields(request, obj), *self.customer_fields)
+        readonly = (*super().get_readonly_fields(request, obj), *self.customer_fields, "email_verified_at")
         if request.user.is_superuser:
             return readonly
         # El correo identifica la cuenta y sirve para recuperarla: solo un

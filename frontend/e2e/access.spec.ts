@@ -50,8 +50,8 @@ test.describe('/entrar', () => {
     const main = page.locator('main')
     await expect(main.getByRole('link', { name: 'Términos y condiciones' })).toHaveAttribute('href', '/legal#terminos')
     await expect(main.getByRole('link', { name: 'Aviso de privacidad' })).toHaveAttribute('href', '/legal#privacidad')
-    // Recuperar la contraseña todavía no existe (D61): no se ofrece un enlace a una página vacía.
-    await expect(page.getByText(/Olvidaste tu contraseña/)).toHaveCount(0)
+    // Recuperar la contraseña existe desde D76: el enlace del mockup vuelve.
+    await expect(page.getByRole('link', { name: '¿Olvidaste tu contraseña?' })).toHaveAttribute('href', '/recuperar')
     await expect(page.getByTestId('pastel-acceso')).toBeVisible()
     // La página termina en fresa: la guirnalda cuelga de ese campo.
     await expect(page.locator('.duya:has(+ footer)')).toHaveClass(/colors\.fresa/)
@@ -194,6 +194,8 @@ test.describe('/registro', () => {
     await expect(email).toBeFocused()
     await expect(page.getByText('Ya hay una cuenta con este correo.')).toBeVisible()
     await expect(page.getByRole('link', { name: 'Inicia sesión' }).first()).toHaveAttribute('href', '/entrar?volver=%2Fcarrito')
+    // Como RegistroError.dc.html: "Inicia sesión o recupera tu contraseña" (D76).
+    await expect(page.getByRole('link', { name: 'recupera tu contraseña' })).toHaveAttribute('href', '/recuperar')
   })
 
   test('server password rules come back under the password', async ({ page }) => {
@@ -206,12 +208,14 @@ test.describe('/registro', () => {
     await expect(page.getByLabel('Contraseña', { exact: true })).toBeFocused()
   })
 
-  test('creating the account sends the form and opens the session', async ({ page }) => {
+  test('creating the account sends the form and asks to confirm the email, without a session', async ({ page }) => {
     const calls = await mockAuth(page)
     await page.goto('/registro')
     await fillRegister(page)
-    await expect(page).toHaveURL(/\/cuenta$/)
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Hola, Ana')
+    // Desde D76 la cuenta nace sin confirmar: no se abre la sesión, se pide abrir el enlace del correo.
+    await expect(page).toHaveURL(/\/verificar$/)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Revisa tu correo')
+    await expect(page.getByRole('link', { name: 'Cuenta', exact: true })).toBeVisible()
     expect(calls.register[0].postDataJSON()).toEqual({
       full_name: 'Ana López García',
       email: 'ana@correo.test',

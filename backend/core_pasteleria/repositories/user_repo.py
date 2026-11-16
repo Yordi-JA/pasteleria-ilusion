@@ -5,11 +5,13 @@ Django (`authenticate`, permisos) y a SimpleJWT (`RefreshToken.for_user`), que
 trabajan con el modelo de usuario. La API nunca las serializa tal cual: pasan por
 `SessionUserSerializer`.
 """
+from collections.abc import Callable
 from datetime import datetime
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import update_last_login
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
 # Restricciones cuyo choque quiere decir "ese correo (o esa cuenta de Google) ya tiene
@@ -60,14 +62,18 @@ def _constraint_name(error: IntegrityError) -> str | None:
 def create_customer(*, email: str, password: str | None, full_name: str, phone: str = "", google_sub: str | None = None):
     """Crea un cliente (nunca personal). Sin contraseña queda sin contraseña usable.
 
+    Con Google nace con el correo confirmado (Google ya lo verificó); con correo y contraseña, sin confirmar (D76).
     Si otra petición creó el mismo correo o la misma cuenta de Google al mismo tiempo,
     la restricción de la base lo detecta y lanza `EmailTakenError`. Cualquier otro
     choque (por ejemplo, un teléfono que no son 10 dígitos) se relanza tal cual: no es
     "ya hay una cuenta".
     """
+    verified_at = timezone.now() if google_sub else None
     try:
         with transaction.atomic():
-            return _users().create_user(email, password, full_name=full_name, phone=phone, google_sub=google_sub)
+            return _users().create_user(
+                email, password, full_name=full_name, phone=phone, google_sub=google_sub, email_verified_at=verified_at
+            )
     except IntegrityError as error:
         if _constraint_name(error) in ACCOUNT_TAKEN_CONSTRAINTS:
             raise EmailTakenError from error
@@ -82,6 +88,10 @@ def link_google(user, *, sub: str, full_name: str, remove_password: bool) -> Non
     """
     user.google_sub = sub
     fields = ["google_sub"]
+    # Google ya verificó el correo: una cuenta sin confirmar queda confirmada (D76).
+    if user.email_verified_at is None:
+        user.email_verified_at = timezone.now()
+        fields.append("email_verified_at")
     if not user.full_name and full_name:
         user.full_name = full_name
         fields.append("full_name")
@@ -135,6 +145,46 @@ def change_password(user, *, current_password: str, new_password: str) -> bool:
         locked.save(update_fields=["password"])
         _revoke_all_sessions(locked)
     user.password = locked.password
+    return True
+
+
+def confirm_email(user, *, still_valid: Callable[[object], bool]) -> bool:
+    """Marca el correo como confirmado si el enlace sigue valiendo para la cuenta tal como está en la base (D76).
+
+    Bloquea la fila (`select_for_update`) y le pasa a `still_valid` la cuenta bloqueada: dos peticiones con el mismo
+    enlace se ordenan y solo la primera confirma; la segunda ve la cuenta ya confirmada y el enlace ya no vale. La
+    instancia de quien llama toma la fecha solo si se guardó.
+    """
+    with transaction.atomic():
+        locked = _users().select_for_update().filter(pk=user.pk).first()
+        if locked is None or not still_valid(locked):
+            return False
+        locked.email_verified_at = timezone.now()
+        locked.save(update_fields=["email_verified_at"])
+    user.email_verified_at = locked.email_verified_at
+    return True
+
+
+def reset_password(user, *, still_valid: Callable[[object], bool], new_password: str) -> bool:
+    """Pone la contraseña del enlace de recuperación, confirma el correo y cierra todas las sesiones (D76).
+
+    Como `change_password` (D72): bloquea la fila y vuelve a revisar el enlace con la cuenta bloqueada (el token firma
+    el hash de la contraseña, así un enlace usado deja de valer), y la contraseña, la confirmación y la lista negra de
+    todos los refresh van en una transacción. La instancia de quien llama toma el hash nuevo solo si todo se guardó.
+    """
+    with transaction.atomic():
+        locked = _users().select_for_update().filter(pk=user.pk).first()
+        if locked is None or not still_valid(locked):
+            return False
+        locked.set_password(new_password)
+        fields = ["password"]
+        if locked.email_verified_at is None:
+            locked.email_verified_at = timezone.now()
+            fields.append("email_verified_at")
+        locked.save(update_fields=fields)
+        _revoke_all_sessions(locked)
+    user.password = locked.password
+    user.email_verified_at = locked.email_verified_at
     return True
 
 

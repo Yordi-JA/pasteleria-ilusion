@@ -9,6 +9,7 @@ import pytest
 from axes.models import AccessAttempt
 from django.contrib.auth import get_user_model
 from django.test import Client
+from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
@@ -62,7 +63,10 @@ def register_payload(**overrides):
 
 @pytest.fixture
 def customer(db):
-    return User.objects.create_user("cliente@correo.test", PASSWORD, full_name="Carla Ruiz")
+    """Un cliente con el correo confirmado (D76): una cuenta sin confirmar no entra con su contraseña."""
+    return User.objects.create_user(
+        "cliente@correo.test", PASSWORD, full_name="Carla Ruiz", email_verified_at=timezone.now()
+    )
 
 
 # --- CSRF ---
@@ -88,26 +92,28 @@ def test_every_cookie_endpoint_requires_csrf(url):
 
 
 @pytest.mark.django_db
-def test_register_creates_the_account_and_starts_the_session():
+def test_register_creates_the_account_without_starting_a_session():
+    """Desde D76 la cuenta nace sin confirmar: el registro no abre sesión ni pone la cookie del refresh."""
     client = csrf_client()
     response = client.post(REGISTER_URL, register_payload(email=" Ana@Correo.TEST "), format="json")
 
     assert response.status_code == 201
     body = response.json()
-    assert body["user"] == {"email": "ana@correo.test", "full_name": "Ana López García", "phone": "5512345678"}
-    assert body["access_expires_in"] == 600
-    assert AccessToken(body["access"])["user_id"] == str(User.objects.get(email="ana@correo.test").pk)
+    assert body == {"email": "ana@correo.test", "expires_in_hours": 24}
+    assert "access" not in body
     user = User.objects.get(email="ana@correo.test")
     assert user.check_password(PASSWORD)
+    assert user.full_name == "Ana López García" and user.phone == "5512345678"
     assert not user.is_staff
-    assert client.cookies[COOKIE].value
+    assert user.email_verified_at is None
+    assert COOKIE not in client.cookies
 
 
 @pytest.mark.django_db
-def test_the_refresh_cookie_is_httponly_lax_and_limited_to_the_auth_path(settings):
+def test_the_refresh_cookie_is_httponly_lax_and_limited_to_the_auth_path(settings, customer):
     settings.REFRESH_COOKIE_SECURE = True
     client = csrf_client()
-    client.post(REGISTER_URL, register_payload(), format="json")
+    client.post(LOGIN_URL, {"email": customer.email, "password": PASSWORD}, format="json")
     cookie = client.cookies[COOKIE]
     assert cookie["httponly"] is True
     assert cookie["samesite"] == "Lax"
@@ -120,7 +126,7 @@ def test_the_refresh_cookie_is_httponly_lax_and_limited_to_the_auth_path(setting
 def test_the_phone_is_optional():
     response = csrf_client().post(REGISTER_URL, register_payload(phone=""), format="json")
     assert response.status_code == 201
-    assert response.json()["user"]["phone"] is None
+    assert User.objects.get(email="ana@correo.test").phone == ""
 
 
 @pytest.mark.django_db

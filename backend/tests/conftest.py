@@ -16,6 +16,9 @@ def _test_environment(settings):
     settings.SECURE_SSL_REDIRECT = False
     # Hash rápido: el real (PBKDF2) vuelve lentas las pruebas.
     settings.PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+    # Los correos de la cuenta (D76) salen en un hilo aparte en producción; aquí, en línea, para leer `mail.outbox`
+    # en cuanto termina la petición. `test_password_reset.py` prueba el hilo.
+    settings.EMAIL_SEND_IN_BACKGROUND = False
     # En producción la caché es de base de datos (se prueba aparte); aquí, en
     # memoria, para no exigir la tabla ni acceso a la base en cada prueba. Los
     # contadores del throttling no deben filtrarse entre pruebas.
@@ -78,6 +81,7 @@ OPTIONAL_VARS = [
     "EMAIL_USE_TLS",
     "DEFAULT_FROM_EMAIL",
     "EMAIL_TIMEOUT",
+    "ACCOUNT_EMAILS_DAILY_LIMIT",
 ]
 
 

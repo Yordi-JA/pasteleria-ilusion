@@ -5,6 +5,7 @@ import Notice from '../components/Notice.tsx'
 import PasswordField from '../components/PasswordField.tsx'
 import TextField from '../components/TextField.tsx'
 import { useAccessReturn } from '../viewmodels/useAccessReturn.ts'
+import { useGoToVerification } from '../viewmodels/useEmailVerification.ts'
 import { useGoogleSignIn } from '../viewmodels/useGoogleSignIn.ts'
 import { usePageTitle } from '../viewmodels/usePageTitle.ts'
 import { PASSWORD_HELP, useRegister } from '../viewmodels/useRegister.ts'
@@ -52,17 +53,19 @@ function Benefits() {
 
 /**
  * `/registro` (Registro.dc.html y RegistroError.dc.html): nombre, correo, teléfono opcional, contraseña y la
- * aceptación de los términos. Un correo que ya tiene cuenta lo dice con el enlace para entrar (D61). Crear la cuenta
- * abre la sesión y vuelve a `?volver=` sin tocar el carrito.
+ * aceptación de los términos. Un correo que ya tiene cuenta lo dice con los enlaces para entrar y para recuperar la
+ * contraseña (D61, D76). Crear la cuenta no abre sesión (D76): lleva a `/verificar`, que dice a qué correo fue el
+ * enlace para confirmarla. Google sí abre la sesión y vuelve a `?volver=` sin tocar el carrito.
  */
 export default function Register() {
   usePageTitle(TITLE)
   const session = useSession()
   const access = useAccessReturn()
+  const goToVerification = useGoToVerification()
   const {
     refs: { fullName: fullNameRef, email: emailRef, phone: phoneRef, password: passwordRef, acceptsTerms: termsRef },
     ...form
-  } = useRegister(access.goToReturn)
+  } = useRegister(goToVerification)
   const google = useGoogleSignIn('signup', access.goToReturn)
 
   if (session.status === 'authenticated' && !google.linked && !form.submitting && !google.submitting) {
@@ -74,6 +77,10 @@ export default function Register() {
       {form.email.error}{' '}
       <Link to={access.loginLink} className={inlineLink}>
         Inicia sesión
+      </Link>{' '}
+      o{' '}
+      <Link to="/recuperar" className={inlineLink}>
+        recupera tu contraseña
       </Link>
       .
     </>

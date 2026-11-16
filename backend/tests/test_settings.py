@@ -367,9 +367,10 @@ def test_security_throttles_get_their_own_database_cache(load_settings):
 
 def test_security_throttle_rates_are_stricter_than_the_public_ones(load_settings):
     rates = load_settings().REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
-    # Holgadas para una exposición con público en la misma red (ronda 1 de D62).
+    # Holgadas para una exposición con público en la misma red (ronda 1 de D62); el registro bajó a 10 por hora con
+    # D76, porque cada registro manda un correo y la cuota diaria del proveedor es corta.
     assert rates["login"] == "60/hour"
-    assert rates["register"] == "30/hour"
+    assert rates["register"] == "10/hour"
     assert rates["session"] == "120/min"
 
 

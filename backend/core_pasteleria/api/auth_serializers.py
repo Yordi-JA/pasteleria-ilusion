@@ -3,6 +3,7 @@ import re
 
 from rest_framework import serializers
 
+from ..services.account_tokens import MAX_TOKEN_LENGTH
 from ..services.text_rules import has_forbidden_name_characters
 
 # Correo y contraseña razonables: un tope evita que Argon2 trabaje con textos enormes.
@@ -105,3 +106,64 @@ class GoogleSessionSerializer(SessionSerializer):
 class AuthErrorSerializer(serializers.Serializer):
     detail = serializers.CharField()
     code = serializers.CharField()
+
+
+# --- Enlaces por correo (D76) ---
+
+EMAIL_ERRORS = {
+    "invalid": "Escribe un correo válido, por ejemplo nombre@correo.com.",
+    "blank": "Escribe tu correo.",
+    "required": "Escribe tu correo.",
+}
+
+
+class RegistrationSerializer(serializers.Serializer):
+    """Lo que `/verificar` dice después de registrarse: a qué correo fue el enlace y en cuántas horas vence."""
+
+    email = serializers.EmailField()
+    expires_in_hours = serializers.IntegerField(help_text="Horas que vale el enlace para confirmar la cuenta.")
+
+
+class EmailRequestSerializer(serializers.Serializer):
+    """Pedir un enlace: reenviar la confirmación o recuperar la contraseña."""
+
+    email = serializers.EmailField(max_length=MAX_EMAIL_LENGTH, error_messages=EMAIL_ERRORS)
+
+
+class LinkSentSerializer(serializers.Serializer):
+    """La misma respuesta exista o no la cuenta."""
+
+    detail = serializers.CharField()
+    expires_in_hours = serializers.IntegerField(help_text="Horas que vale el enlace, si llegó.")
+
+
+class EmailVerifiedSerializer(serializers.Serializer):
+    """Confirmar la cuenta no abre sesión: solo dice que quedó confirmada."""
+
+    email_verified = serializers.BooleanField()
+
+
+class LinkTokenField(StrictCharField):
+    def __init__(self, **kwargs):
+        super().__init__(
+            max_length=MAX_TOKEN_LENGTH,
+            error_messages={"blank": "Falta el enlace.", "required": "Falta el enlace.", "max_length": "El enlace no es válido."},
+            **kwargs,
+        )
+
+
+class VerifyEmailRequestSerializer(serializers.Serializer):
+    token = LinkTokenField()
+
+
+class PasswordResetConfirmRequestSerializer(serializers.Serializer):
+    token = LinkTokenField()
+    new_password = StrictCharField(
+        max_length=MAX_PASSWORD_LENGTH,
+        trim_whitespace=False,
+        error_messages={
+            "blank": "Escribe la contraseña nueva.",
+            "required": "Escribe la contraseña nueva.",
+            "max_length": "Usa 128 caracteres o menos.",
+        },
+    )

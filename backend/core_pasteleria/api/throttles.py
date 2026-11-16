@@ -10,7 +10,12 @@ cliente no estrena contador con cada dirección.
   vista, por eso son dos clases por cada uno.
 - Calendario de la entrega (D66): por usuario, aparte del cupo general `user`.
 - Iniciar un pago (D68): por usuario; los webhooks de pago, por IP con `SecurityScopedRateThrottle`.
+- Pedir un enlace por correo (D76: reenviar la confirmación, recuperar la contraseña): por el correo que se escribe y,
+  aparte, por IP. Abrir un enlace: por IP, con `SecurityScopedRateThrottle`.
 """
+import hashlib
+
+from django.contrib.auth import get_user_model
 from django.core.cache import caches
 from django.utils.connection import ConnectionProxy
 from rest_framework.throttling import ScopedRateThrottle, SimpleRateThrottle
@@ -132,3 +137,46 @@ class PasswordChangeIPThrottle(CustomerImageIPThrottle):
     desde una conexión no suman cupo."""
 
     scope = "password_change_ip"
+
+
+class RequestedEmailThrottle(SimpleRateThrottle):
+    """Por el correo que trae el cuerpo (`email`), exista o no la cuenta: así el 429 no dice nada de ella (D76).
+
+    El correo se normaliza como al guardarlo (mayúsculas y espacios no estrenan contador) y va en la llave como un
+    SHA-256, para que la tabla de la caché no guarde correos. Sin un correo de texto no cuenta: el serializador
+    responde el error de formato.
+    """
+
+    rate = None
+    cache = SECURITY_CACHE
+
+    def get_cache_key(self, request, view):
+        email = request.data.get("email") if hasattr(request.data, "get") else None
+        if not isinstance(email, str) or not email.strip():
+            return None
+        normalized = get_user_model().objects.normalize_email(email)
+        return self.cache_format % {"scope": self.scope, "ident": hashlib.sha256(normalized.encode()).hexdigest()}
+
+
+class VerificationResendEmailThrottle(RequestedEmailThrottle):
+    """Reenviar la confirmación, por correo (`verify_resend_email`, 5 por hora): nadie llena el buzón de otra persona."""
+
+    scope = "verify_resend_email"
+
+
+class VerificationResendIPThrottle(CustomerImageIPThrottle):
+    """Reenviar la confirmación, por IP (`verify_resend_ip`, 30 por hora): muchos correos desde una conexión."""
+
+    scope = "verify_resend_ip"
+
+
+class PasswordResetEmailThrottle(RequestedEmailThrottle):
+    """Pedir el enlace de recuperación, por correo (`password_reset_email`, 5 por hora)."""
+
+    scope = "password_reset_email"
+
+
+class PasswordResetIPThrottle(CustomerImageIPThrottle):
+    """Pedir el enlace de recuperación, por IP (`password_reset_ip`, 30 por hora)."""
+
+    scope = "password_reset_ip"

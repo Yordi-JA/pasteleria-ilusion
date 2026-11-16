@@ -59,7 +59,8 @@ def staff(db):
 
 @pytest.fixture
 def customer(db):
-    return User.objects.create_user("cliente@correo.test", PASSWORD)
+    # Con el correo confirmado (D76): una cuenta sin confirmar no entra con su contraseña.
+    return User.objects.create_user("cliente@correo.test", PASSWORD, email_verified_at=timezone.now())
 
 
 # --- 1. La API no verifica la contraseña del personal y cuenta el intento como fallo ---

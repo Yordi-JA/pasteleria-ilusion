@@ -299,3 +299,18 @@ Menores de la revisión única de "Datos y avisos" que no se implementaron:
 5. Un `StrictBooleanField` para `notify_whatsapp`: el `BooleanField` de DRF acepta `"true"`, `1` o `"sí"`.
 6. Una base común para los errores por campo con código, en lugar de `PasswordChangeError(RegistrationError)`.
 7. Avisar a las otras pestañas del nombre nuevo (`BroadcastChannel`); hoy lo toman al renovar la sesión o al recargar.
+
+## Confirmar el correo y recuperar la contraseña (D76)
+
+Lo construido está en D76 ([`proyecto/decisiones.md`](proyecto/decisiones.md)), en la rama `feat/verificar-recuperar`, sin desplegar. Quedan estos puntos:
+
+1. Purgar las cuentas que nunca se confirmaron. Hoy se quedan para siempre y apartan su correo: quien es dueño del correo entra con "Recupera tu contraseña" (que confirma la cuenta) o con Google. Falta decidir un plazo y un comando de gestión.
+2. Cambiar el correo de la cuenta con verificación. El correo sigue de solo lectura en `/cuenta/datos` (D72); el superusuario puede cambiarlo en el admin y la cuenta sigue confirmada.
+3. Una cuenta que un superusuario da de alta en el admin nace sin confirmar y no entra al sitio hasta que pide "Recupera tu contraseña".
+4. Producción necesita `EMAIL_HOST`: sin él, `EMAIL_ENABLED` se apaga y ninguna cuenta nueva con contraseña se puede confirmar. Revisar en Heroku antes del despliegue, junto con la migración `0043`.
+5. El hilo del correo es `daemon`: si el dyno se reinicia justo después de responder, el correo se pierde (la persona puede pedir otro). Una cola lo resolvería si hiciera falta.
+6. Un enlace para confirmar que se reenvió no invalida el anterior: los dos valen hasta que uno confirma la cuenta o pasan 24 horas.
+7. `?volver=` no sobrevive al registro: después de confirmar, la persona entra por `/entrar` y llega a "Mis pedidos", no a la ruta de la que venía (por ejemplo, `/carrito`). Conservarlo pide guardarlo en el enlace del correo o en el navegador; no es trivial y no entró en la revisión.
+8. `access.spec.ts:125` ("after logging in it returns to ?volver=") falló 3 de 3 con el código de `main` y 2 de 3 en esta rama, sola, el 16 de noviembre de 2026 (`ERR_ABORTED` al navegar a `/entrar?volver=%2Fentrar`). Ya estaba en la lista de inestables; falta revisarla.
+9. Costo aceptado del tope diario de correos de la cuenta (revisión de D76): durante un ataque sostenido que llegue a `ACCOUNT_EMAILS_DAILY_LIMIT` (150), un cliente legítimo puede no recibir su enlace para confirmar o recuperar hasta el día siguiente. El WARNING `core_pasteleria.emails` lo deja ver en `heroku logs`. Si pasa, se sube el tope por variable de entorno (sin pasar la cuota del proveedor) o se cambia a un plan con más cuota.
+10. El contador del tope usa `incr` de la caché de base de datos, que no es atómico: con peticiones simultáneas puede pasarse por unas cuantas.

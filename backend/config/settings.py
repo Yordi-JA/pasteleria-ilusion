@@ -399,9 +399,11 @@ REST_FRAMEWORK = {
         # pueden revisar con "Ya hay una cuenta con este correo." (D61).
         # `session`: CSRF, renovación y salida, que cada pestaña pide al cargar.
         # Holgadas para una exposición con público en la misma red (una sola IP):
-        # 60 inicios de sesión y 30 registros por hora (ronda 1 de D62).
+        # 60 inicios de sesión por hora (ronda 1 de D62). El registro bajó de 30 a
+        # 10 por hora con D76: cada registro manda un correo y la cuota diaria del
+        # proveedor es corta (ver `ACCOUNT_EMAILS_DAILY_LIMIT`).
         "login": "60/hour",
-        "register": "30/hour",
+        "register": "10/hour",
         "session": "120/min",
         # Subida de imágenes de clientes (oblea, "Otra decoración"): por cuenta y,
         # aparte, por IP, para que varias cuentas desde una conexión no sumen cupo,
@@ -448,6 +450,20 @@ REST_FRAMEWORK = {
         # persona que se equivoca.
         "password_change_user": "10/hour",
         "password_change_ip": "30/hour",
+        # Confirmación del correo y recuperación de la contraseña (D76), en la caché
+        # `security`. Pedir un enlace (reenviar la confirmación o recuperar) cuenta por
+        # correo, para que nadie llene el buzón de otra persona, y por IP, para que
+        # una conexión no reparta correos rotando direcciones (10 por hora, como el
+        # registro; por correo, 5, menos que por IP). Encima de los dos va el tope
+        # diario de todos los correos de la cuenta (`ACCOUNT_EMAILS_DAILY_LIMIT`).
+        # Abrir un enlace cuenta por IP: el token no se adivina, el cupo frena a
+        # quien pruebe en masa.
+        "verify_resend_email": "5/hour",
+        "verify_resend_ip": "10/hour",
+        "email_verify": "60/hour",
+        "password_reset_email": "5/hour",
+        "password_reset_ip": "10/hour",
+        "password_reset_confirm": "30/hour",
     },
     # Saltos de proxy delante de la app (en Heroku, 1). Con 0 se ignora
     # X-Forwarded-For y se usa la dirección de la conexión: si no, un cliente
@@ -563,6 +579,26 @@ if EMAIL_HOST and not DEBUG and not CANONICAL_HOST:
 # El dominio de los enlaces de los correos, nunca el de la petición: el canónico
 # (D40) o, sin él, el frontend de desarrollo.
 SITE_URL = f"https://{CANONICAL_HOST}" if CANONICAL_HOST else "http://127.0.0.1:5173"
+# Los correos de la cuenta (confirmar el correo y recuperar la contraseña, D76) se
+# arman y se envían en un hilo aparte, después de responder: así la respuesta tarda
+# lo mismo exista o no la cuenta (el SMTP no la delata). Las pruebas lo apagan.
+EMAIL_SEND_IN_BACKGROUND = True
+# Tope diario de todos los correos de la cuenta juntos (confirmar, reenviar,
+# recuperar y "Entra con Google", D76), en la caché `security`. Rotar direcciones
+# (`victima+1@...`) no esquiva los throttles por correo; este tope protege la cuota
+# diaria del proveedor (Brevo gratuito: unos 300), que comparten los correos del
+# pedido y del pago. Al llegar al tope no sale nada y queda un WARNING.
+ACCOUNT_EMAILS_DAILY_LIMIT = env_int("ACCOUNT_EMAILS_DAILY_LIMIT", default=150)
+if ACCOUNT_EMAILS_DAILY_LIMIT < 1:
+    raise ImproperlyConfigured("ACCOUNT_EMAILS_DAILY_LIMIT debe ser al menos 1.")
+
+# --- Enlaces de la cuenta (D76) ---
+
+# Cuánto vale cada enlace, en segundos; los dos son de un solo uso. Los fijó el
+# usuario el 16 de noviembre de 2026. Cada generador de tokens lee el suyo:
+# confirmar el correo no depende del plazo de la recuperación.
+EMAIL_VERIFICATION_TIMEOUT = 24 * 60 * 60
+PASSWORD_RESET_TIMEOUT = 60 * 60
 
 # --- drf-spectacular ---
 

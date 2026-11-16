@@ -2,7 +2,8 @@
 
 Una sesión es un par de JWT: el access (10 min) va en el cuerpo de la respuesta y el
 refresh (7 días) en una cookie que pone la vista. Este módulo decide quién entra; la
-vista solo traduce a HTTP.
+vista solo traduce a HTTP. Los enlaces por correo (confirmar la cuenta y recuperar la
+contraseña, D76) viven en `account_link_service`.
 """
 from dataclasses import dataclass
 from datetime import timedelta
@@ -102,6 +103,14 @@ class InactiveAccount(AuthError):
     message = "Esta cuenta está desactivada. Escríbenos por WhatsApp."
 
 
+class EmailUnverified(AuthError):
+    """La contraseña es correcta, pero la cuenta no confirmó su correo (D76). Solo lo sabe quien tiene la contraseña."""
+
+    status = 403
+    code = "email_unverified"
+    message = "Confirma tu correo para entrar. Te enviamos un enlace al crear tu cuenta."
+
+
 class RegistrationError(DomainValidationError):
     """Errores por campo del registro, con su código (`email_taken`, `password_too_short`...)."""
 
@@ -154,8 +163,10 @@ def _password_errors(password: str, *, email: str, full_name: str) -> tuple[list
 
 
 @audit_operation(expected_errors=(RegistrationError,))
-def register_customer(*, full_name: str, email: str, phone: str, password: str, users=user_repo) -> Session:
-    """Crea la cuenta de un cliente con correo y contraseña y abre su sesión.
+def register_customer(*, full_name: str, email: str, phone: str, password: str, users=user_repo) -> "User":
+    """Crea la cuenta de un cliente con correo y contraseña, sin confirmar y sin abrir sesión (D76).
+
+    El correo con el enlace para confirmarla lo manda `account_link_service.register`, que llama a esta.
 
     Revisa el correo y la contraseña juntos, para devolver los dos errores a la vez.
     Decirle a alguien que el correo ya tiene cuenta lo pidió el usuario (D61); el
@@ -174,7 +185,7 @@ def register_customer(*, full_name: str, email: str, phone: str, password: str, 
         user = users.create_customer(email=email, password=password, full_name=full_name, phone=phone)
     except users.EmailTakenError as error:
         raise RegistrationError({"email": [EMAIL_TAKEN]}, {"email": ["email_taken"]}) from error
-    return start_session(user)
+    return user
 
 
 @audit_operation(expected_errors=(AuthError,))
@@ -183,6 +194,9 @@ def login_with_password(request, *, email: str, password: str, users=user_repo) 
 
     axes cuenta el fallo y, si con él se llega al límite, marca la petición
     (`axes_locked_out`); su middleware cambia entonces la respuesta por el 429.
+
+    Una cuenta sin confirmar (D76) con la contraseña correcta recibe `EmailUnverified` y no abre sesión; con una
+    contraseña equivocada responde igual que cualquier otra, para no decir qué cuentas existen ni su estado.
     """
     existing = users.get_by_email(email)
     if existing is not None and _is_staff(existing):
@@ -192,6 +206,8 @@ def login_with_password(request, *, email: str, password: str, users=user_repo) 
         if getattr(request, "axes_locked_out", False):
             raise LockedOut
         raise InvalidCredentials
+    if user.email_verified_at is None:
+        raise EmailUnverified
     users.touch_last_login(user)
     return start_session(user)
 
@@ -233,6 +249,7 @@ def login_with_google(credential: str, *, users=user_repo, verify=None) -> Sessi
        correo (Gmail o Workspace) y la cuenta no es del personal. La contraseña, que
        nadie verificó, deja de servir y se cierran sus sesiones: así quien registró
        antes ese correo con contraseña (cuenta pre-secuestrada) no conserva el acceso.
+       Si la cuenta no había confirmado su correo, queda confirmada (D76): Google ya lo verificó.
     """
     verify = verify or google_identity.verify_credential
     identity = verify(credential, client_id=settings.GOOGLE_CLIENT_ID)

@@ -314,16 +314,63 @@ export async function login(email: string, password: string): Promise<SessionUse
 
 export type RegistrationInput = { fullName: string; email: string; phone: string; password: string; acceptsTerms: boolean }
 
-export async function register(input: RegistrationInput): Promise<SessionUser> {
-  applySession(
-    await sendWithCsrf(['auth', 'register'], {
-      full_name: input.fullName,
-      email: input.email,
-      phone: input.phone,
-      password: input.password,
-      accepts_terms: input.acceptsTerms,
-    }),
-  )
+/** Un enlace que salió por correo (D76): a qué correo y cuántas horas vale. Las horas las dice el backend. */
+export type LinkSent = { email: string; expiresInHours: number }
+
+function hoursOf(raw: Raw): number {
+  const hours = raw.expires_in_hours
+  if (typeof hours !== 'number' || !Number.isInteger(hours) || hours < 1) throw new TypeError('El enlace no trae su plazo.')
+  return hours
+}
+
+/**
+ * Crea la cuenta (D62). Desde D76 nace sin confirmar: no abre sesión, y el backend manda el correo con el enlace para
+ * confirmarla. Devuelve a qué correo fue y cuántas horas vale el enlace, para `/verificar`.
+ */
+export async function register(input: RegistrationInput): Promise<LinkSent> {
+  const data = await sendWithCsrf(['auth', 'register'], {
+    full_name: input.fullName,
+    email: input.email,
+    phone: input.phone,
+    password: input.password,
+    accepts_terms: input.acceptsTerms,
+  })
+  const raw = data !== null && typeof data === 'object' ? (data as Raw) : {}
+  if (typeof raw.email !== 'string') throw new TypeError('El registro no trae el correo.')
+  return { email: raw.email, expiresInHours: hoursOf(raw) }
+}
+
+/**
+ * Abre el enlace para confirmar la cuenta (`POST auth/verify/`, D76). Solo confirma el correo: no abre sesión ni toca
+ * la que ya tenga el navegador (un enlace ajeno no debe dejar a nadie dentro de otra cuenta). Después se entra con la
+ * contraseña.
+ */
+export async function verifyEmail(token: string): Promise<void> {
+  await sendWithCsrf(['auth', 'verify'], { token })
+}
+
+/**
+ * Pide otro enlace para confirmar la cuenta (`POST auth/verify/resend/`). El backend responde lo mismo exista o no la
+ * cuenta: devuelve solo cuántas horas vale el enlace, si llegó.
+ */
+export async function resendVerification(email: string): Promise<number> {
+  const data = await sendWithCsrf(['auth', 'verify', 'resend'], { email })
+  return hoursOf(data !== null && typeof data === 'object' ? (data as Raw) : {})
+}
+
+/** Pide el enlace para recuperar la contraseña (`POST auth/password/reset/`). Responde lo mismo exista o no la cuenta. */
+export async function requestPasswordReset(email: string): Promise<number> {
+  const data = await sendWithCsrf(['auth', 'password', 'reset'], { email })
+  return hoursOf(data !== null && typeof data === 'object' ? (data as Raw) : {})
+}
+
+/**
+ * Crea la contraseña nueva con el enlace del correo (`POST auth/password/reset/confirm/`). El backend cierra todas las
+ * sesiones de la cuenta y abre una nueva, que se aplica aquí como al entrar. Los errores de la contraseña llegan en
+ * `AuthRequestError.fields.new_password`; un enlace que ya no sirve, con el código `invalid_link`.
+ */
+export async function confirmPasswordReset(token: string, newPassword: string): Promise<SessionUser> {
+  applySession(await sendWithCsrf(['auth', 'password', 'reset', 'confirm'], { token, new_password: newPassword }))
   broadcast('login')
   return currentUser()
 }
