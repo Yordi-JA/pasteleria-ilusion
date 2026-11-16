@@ -1321,6 +1321,15 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 - **Alternativas descartadas:** mantener las conchas bajo el encabezado y cambiar solo las perlas (el usuario pidió una sola forma en todo el sitio); un prop `type` con un solo valor (código muerto).
 - **Impacto:** todas las vistas con encabezado o con cambios de color (`PageHeader`, `IllustratedHeader`, `CheckoutPageHeader`, `RequireSession`, `ProductDetail`, `Home`, `Catalog`, `/muestra`). Las pruebas dejaron de usar `data-tipo` (`home`, `access`, `site-frame` y `muestra`); `e2e/site-frame.spec.ts` agrega una que comprueba la guirnalda bajo el encabezado.
 
+### D74. La rebanada del hueco de foto, dibujada en perspectiva
+
+- **Fecha:** 15 de noviembre de 2026.
+- **Decisión:** El usuario pidió dibujar mejor la rebanada de "Rebanadas de hoy". La silueta `slice` de `ProductPhoto` deja de ser la cuña de dos polígonos del mockup (`Rebanadas.dc.html`, línea 121, y `Main.dc.html`, línea 214) y pasa a ser una rebanada en perspectiva con la cobertura, el pan, el relleno y el pan a la vista, y un festón de betún en el lado curvo.
+    - Solo usa `betun`, `fresa`, `fresa-claro`, `harina` y `relieve`, más `mermelada-suave` en el texto. No lleva fruta ni colores de estado: el hueco es igual para todos los sabores, y `frambuesa` y `exito` tienen usos propios en el libro de marca.
+    - Conserva la `viewBox` 200 x 120, la proporción `aspect-[200/120]`, el `aria-hidden` del SVG, el `role="img"` del hueco y el texto "Foto de la rebanada", ahora debajo del dibujo.
+- **Alternativas descartadas:** una ilustración con degradados o realista (rompe el estilo plano de las otras siluetas); una fresa de adorno (sugiere un sabor).
+- **Impacto:** `frontend/src/components/ProductPhoto.tsx`, la regla del hueco en `docs/libro-de-marca.md` y una prueba en `frontend/e2e/slices.spec.ts`.
+
 ## Decisiones abiertas
 
 | Tema | Detalle | Se resuelve |

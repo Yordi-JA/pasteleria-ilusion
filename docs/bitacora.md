@@ -713,3 +713,7 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Por petición del usuario, los bordes de duya de las transiciones de color (conchas bajo el encabezado y perlas en la portada y el catálogo) pasan a ser la guirnalda del final de la página. `Duya` ya no tiene `type`, `index.css` conserva solo la guirnalda y se quitó `data-tipo`. El toldo no cambió.
 - `design/referencia/duya.css`, el libro de marca ("La duya") y `frontend/AGENTS.md` dicen ahora una sola forma. Decisión D73.
 - Las pruebas de `home`, `access`, `site-frame` y `muestra` ya no usan `data-tipo`; nueva en `site-frame.spec.ts`: la guirnalda `fresa` bajo el encabezado.
+
+### Domingo 15 de noviembre: la rebanada del hueco de foto
+
+- La silueta `slice` de `ProductPhoto` (hueco de "Foto de la rebanada" en `/rebanadas` y en la portada) pasó de dos polígonos a una rebanada en perspectiva, plana y solo con `betun`, `fresa`, `fresa-claro`, `harina` y `relieve`: lado curvo en `relieve`, corte de frente en cuatro franjas (`data-capa`: cobertura `betun`, pan `fresa`, relleno `harina`, pan `fresa`), cara superior en `fresa-claro` y festones y copete de `betun`, sin fruta. Misma `viewBox` 200 x 120; el texto (14) va debajo del dibujo, en `mermelada-suave`. Prueba reforzada en `e2e/slices.spec.ts` (cuatro capas en orden y texto debajo). Decisión D74.

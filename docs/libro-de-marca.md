@@ -109,7 +109,8 @@ Seis dibujos propios, cada uno tomado de algo real de la pastelería: la vela de
 - Los pasteles son PNG recortados con fondo transparente: solo el pastel, sin mesa ni fondo. Son los protagonistas de cada página y se muestran grandes, sin marco.
 - En las tarjetas del catálogo, el pastel se apoya sobre la tarjeta `betun` y puede sobresalir de su borde superior.
 - Cómo tomarlas, recortarlas y nombrarlas está en la sección "Fotografía de producto".
-- Mientras falte una foto, marca el hueco con una silueta de pastel en `fresa-claro` o `relieve` y el texto "Foto del pastel" en `nota`. No uses fotos de banco ni imágenes generadas como si fueran sus pasteles.
+- Mientras falte una foto, marca el hueco con una silueta de pastel en `fresa`, `fresa-claro`, `harina` o `relieve` (con `betun` en los festones) y el texto "Foto del pastel" en `nota`.
+  La rebanada es una cuña en perspectiva con sus capas (cobertura, pan, relleno, pan) en `betun`, `fresa`, `fresa-claro`, `harina` y `relieve`, sin fruta ni colores de estado; el texto va debajo del dibujo. No uses fotos de banco ni imágenes generadas como si fueran sus pasteles.
 
 ## Catálogo y vitrina
 

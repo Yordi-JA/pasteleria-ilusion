@@ -47,6 +47,22 @@ test.describe('rebanadas at 1440px', () => {
     expect(Math.round(wholeBox.y)).toBe(Math.round(cardBox.y))
   })
 
+  test('without a photo, the card shows the drawn slice with its layers and "Foto de la rebanada"', async ({ page }) => {
+    await openSlices(page)
+    const photo = card(page, 'Tres leches de durazno').getByRole('img', { name: /Foto de la rebanada/ })
+    await expect(photo).toBeVisible()
+    await expect(photo.locator('svg')).toHaveAttribute('aria-hidden', 'true')
+    await expect(photo.locator('svg')).toContainText('Foto de la rebanada')
+    const layers = photo.locator('svg [data-capa]')
+    await expect(layers).toHaveCount(4)
+    expect(await layers.evaluateAll((els) => els.map((el) => el.getAttribute('data-capa')))).toEqual(['cobertura', 'pan', 'relleno', 'pan'])
+    const svgBox = (await photo.locator('svg').boundingBox())!
+    const textBox = (await photo.locator('svg text').boundingBox())!
+    const layerBoxes = await layers.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().bottom))
+    expect(textBox.y).toBeGreaterThanOrEqual(Math.max(...layerBoxes))
+    expect(textBox.y + textBox.height).toBeLessThanOrEqual(svgBox.y + svgBox.height + 1)
+  })
+
   test('with several flavors: the grid of the mockup, the sold-out one last and disabled', async ({ page }) => {
     await openSlices(page, [todayStock(sliceItems)])
     await expect(names(page)).toHaveText(['Tres leches de durazno', 'Tres leches con flan y cajeta', 'Posible', 'Imposible'])
