@@ -1310,6 +1310,17 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 - **Alternativas descartadas:** ignorar los campos de solo lectura (DRF lo hace por omisión, pero un cliente no sabría que el correo no cambió); conservar las demás sesiones al cambiar la contraseña (quien cambia la contraseña porque alguien más la conoce seguiría expuesto) o cerrarlas todas, incluida la actual (obliga a entrar otra vez justo después de demostrar quién es); una preferencia de WhatsApp sin teléfono que se ignora en silencio (la pastelería vería "Sí" sin a quién escribir); contar los fallos de la contraseña actual en django-axes (bloquearía el inicio de sesión por un formulario que ya exige sesión; el throttle por cuenta basta).
 - **Impacto:** migración `0042`, `services/account_service.py`, `auth_service.change_password`, `api/account_views.py`, `api/account_serializers.py`, `auth_views.PasswordChangeView`, dos throttles y dos tasas en `DEFAULT_THROTTLE_RATES`, el admin del usuario y del pedido. Pruebas en `backend/tests/test_account_api.py` y `frontend/e2e/account-details.spec.ts` (con `e2e/support/account.ts`).
 
+### D73. Una sola forma de borde de duya: la guirnalda
+
+- **Fecha:** 15 de noviembre de 2026.
+- **Decisión:** El mockup dibuja tres bordes de duya: conchas bajo el encabezado, perlas en los cambios fuertes de color y guirnalda antes del pie. El usuario decidió unificarlos: la guirnalda (ondas con perlas, la del final de la página) marca todo cambio de color entre secciones.
+    - `Duya` ya no recibe `type`; recibe `color` (el campo de arriba) y `below` (el de abajo), como antes. Se quitaron de `frontend/src/index.css` las formas de `concha` y `perlas` y el atributo `data-tipo`; `design/referencia/duya.css` y el libro de marca ("La duya") reflejan la forma única. La guirnalda antes del pie se ve igual que antes.
+    - El toldo de rayas de arriba no cambia: es el toldo de la tienda, no una transición entre secciones.
+    - La caja de la guirnalda mide 41 px contra 31 px de la concha, pero la parte visible baja casi lo mismo, unos 4 a 5 px sobre el campo de abajo; el espacio que ocupa en el flujo sigue siendo 21 px. En la portada y el catálogo, donde antes iban perlas que no pasaban de los 21 px, ahora el borde baja unos 4 px sobre el campo de abajo.
+    - El color de la forma sale de `--c` (el campo de arriba) y el brillo de la perla es `betun` al 55%, ambos tokens; no hay colores sueltos.
+- **Alternativas descartadas:** mantener las conchas bajo el encabezado y cambiar solo las perlas (el usuario pidió una sola forma en todo el sitio); un prop `type` con un solo valor (código muerto).
+- **Impacto:** todas las vistas con encabezado o con cambios de color (`PageHeader`, `IllustratedHeader`, `CheckoutPageHeader`, `RequireSession`, `ProductDetail`, `Home`, `Catalog`, `/muestra`). Las pruebas dejaron de usar `data-tipo` (`home`, `access`, `site-frame` y `muestra`); `e2e/site-frame.spec.ts` agrega una que comprueba la guirnalda bajo el encabezado.
+
 ## Decisiones abiertas
 
 | Tema | Detalle | Se resuelve |

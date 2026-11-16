@@ -39,7 +39,7 @@ const MERMELADA = 'rgb(94, 25, 33)'
 
 /**
  * Los pisos de `<main>` en orden, de sus hijos directos: `field:<campo>` para cada campo de color y
- * `duya:<tipo>:<color del que cuelga>:<fondo del campo de abajo que pinta>` para cada borde. Una sola secuencia
+ * `duya:<color del que cuelga>:<fondo del campo de abajo que pinta>` para cada borde. Una sola secuencia
  * revisa a la vez el orden, que no haya dos campos oscuros juntos y que cada borde sea del campo de arriba.
  */
 const floors = (page: Page) =>
@@ -47,7 +47,7 @@ const floors = (page: Page) =>
     els.map((el) => {
       const style = el.ownerDocument.defaultView!.getComputedStyle(el)
       if (el.classList.contains('duya')) {
-        return `duya:${el.getAttribute('data-tipo')}:${style.getPropertyValue('--c').trim()}:${style.backgroundColor}`
+        return `duya:${style.getPropertyValue('--c').trim()}:${style.backgroundColor}`
       }
       return `field:${el.getAttribute('data-campo')}`
     }),
@@ -87,16 +87,16 @@ test.describe('portada with data', () => {
     await expect(slices(page).locator('img[src*="ilusion-simbolo"]')).toHaveCount(1)
   })
 
-  test('color floors: fresa, nata, mermelada, nata, with a concha and two perlas of the field above', async ({ page }) => {
+  test('color floors: fresa, nata, mermelada, nata, with a guirnalda of the field above on each change', async ({ page }) => {
     await openHome(page)
     await expect(showcase(page)).toBeVisible()
     expect(await floors(page)).toEqual([
       'field:fresa',
-      `duya:concha:#f9c1c1:${NATA}`,
+      `duya:#f9c1c1:${NATA}`,
       'field:nata',
-      `duya:perlas:#fff4f4:${MERMELADA}`,
+      `duya:#fff4f4:${MERMELADA}`,
       'field:mermelada',
-      `duya:perlas:#5e1921:${NATA}`,
+      `duya:#5e1921:${NATA}`,
       'field:nata',
     ])
     // La guirnalda del marco cuelga de nata: el último campo de la portada es nata.
@@ -321,11 +321,11 @@ test.describe('adding to the order', () => {
 test.describe('hidden sections and states', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
-  test('nothing loaded in the vitrina today hides it with its perlas, and nata meets nata without a border', async ({ page }) => {
+  test('nothing loaded in the vitrina today hides it with its guirnaldas, and nata meets nata without a border', async ({ page }) => {
     await openHome(page, { showcase: [todayStock([])] })
     await expect(slices(page).getByRole('article').first()).toBeVisible()
     await expect(showcase(page)).toHaveCount(0)
-    expect(await floors(page)).toEqual(['field:fresa', `duya:concha:#f9c1c1:${NATA}`, 'field:nata', 'field:nata'])
+    expect(await floors(page)).toEqual(['field:fresa', `duya:#f9c1c1:${NATA}`, 'field:nata', 'field:nata'])
   })
 
   test('no slices today hides the section, and a nata field keeps the vitrina away from the footer', async ({ page }) => {
@@ -335,24 +335,24 @@ test.describe('hidden sections and states', () => {
     // El último `field:nata` es el campo de cierre: la guirnalda del marco cuelga de él.
     expect(await floors(page)).toEqual([
       'field:fresa',
-      `duya:concha:#f9c1c1:${NATA}`,
+      `duya:#f9c1c1:${NATA}`,
       'field:nata',
-      `duya:perlas:#fff4f4:${MERMELADA}`,
+      `duya:#fff4f4:${MERMELADA}`,
       'field:mermelada',
-      `duya:perlas:#5e1921:${NATA}`,
+      `duya:#5e1921:${NATA}`,
       'field:nata',
     ])
   })
 
-  test('no featured products hides Pasteles de la casa and the concha falls on the vitrina', async ({ page }) => {
+  test('no featured products hides Pasteles de la casa and the guirnalda falls on the vitrina', async ({ page }) => {
     await openHome(page, { featured: [ok([])] })
     await expect(showcase(page).getByRole('listitem').first()).toBeVisible()
     await expect(featured(page)).toHaveCount(0)
     expect(await floors(page)).toEqual([
       'field:fresa',
-      `duya:concha:#f9c1c1:${MERMELADA}`,
+      `duya:#f9c1c1:${MERMELADA}`,
       'field:mermelada',
-      `duya:perlas:#5e1921:${NATA}`,
+      `duya:#5e1921:${NATA}`,
       'field:nata',
     ])
   })
@@ -360,7 +360,7 @@ test.describe('hidden sections and states', () => {
   test('with nothing at all the hero closes on nata', async ({ page }) => {
     await openHome(page, { featured: [ok([])], showcase: [todayStock([])], slices: [todayStock([])] })
     await expect(page.locator('main [aria-busy="true"]')).toHaveCount(0)
-    expect(await floors(page)).toEqual(['field:fresa', `duya:concha:#f9c1c1:${NATA}`, 'field:nata'])
+    expect(await floors(page)).toEqual(['field:fresa', `duya:#f9c1c1:${NATA}`, 'field:nata'])
   })
 
   test('everything sold out in the vitrina shows the sold-out copy with its two exits', async ({ page }) => {

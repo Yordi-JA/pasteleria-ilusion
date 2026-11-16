@@ -75,7 +75,7 @@ export default function SiteLayout() {
               {/* Las vistas que necesitan los datos del negocio los leen con `useStoreDetails`, sin otra petición. */}
               <Outlet context={store} />
             </main>
-            <Duya type="guirnalda" color={closingField} below="mermelada" />
+            <Duya color={closingField} below="mermelada" />
             <SiteFooter store={store} compact={checkout} />
           </div>
           <CartPearls pearls={pearls} onArrive={arrive} />

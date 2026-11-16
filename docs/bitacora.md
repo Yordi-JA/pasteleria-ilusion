@@ -707,3 +707,9 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
     - Backend: 7 nuevas. 5 en rojo antes del cambio; las 2 de la rama concurrente pasaron desde el inicio porque cubren lo que ya existía. `test_account_api.py` da 52 de 52 y la suite con `-n auto`, 1932 de 1932.
     - Frontend: 5 E2E nuevas. 4 en rojo; la del doble clic pasó desde el inicio. `account-details.spec.ts` da 24 de 24 y, con `routes`, `access`, `session-model`, `account-orders` y `stand-loans`, 113 de 113. `npm run typecheck`, `npm run lint` y `npm run build` limpios.
 - Lo que no se implementó quedó en `docs/pendientes.md`, "/cuenta/datos (D72)".
+
+### Domingo 15 de noviembre: una sola guirnalda en todos los bordes (D73)
+
+- Por petición del usuario, los bordes de duya de las transiciones de color (conchas bajo el encabezado y perlas en la portada y el catálogo) pasan a ser la guirnalda del final de la página. `Duya` ya no tiene `type`, `index.css` conserva solo la guirnalda y se quitó `data-tipo`. El toldo no cambió.
+- `design/referencia/duya.css`, el libro de marca ("La duya") y `frontend/AGENTS.md` dicen ahora una sola forma. Decisión D73.
+- Las pruebas de `home`, `access`, `site-frame` y `muestra` ya no usan `data-tipo`; nueva en `site-frame.spec.ts`: la guirnalda `fresa` bajo el encabezado.

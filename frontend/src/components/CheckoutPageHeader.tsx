@@ -18,7 +18,7 @@ type CheckoutPageHeaderProps = {
 }
 
 /**
- * Encabezado de la compra sobre `fresa` (mockup de Carrito y Entrega): los pasos, el `h1` y su frase, con las conchas de
+ * Encabezado de la compra sobre `fresa` (mockup de Carrito y Entrega): los pasos, el `h1` y su frase, con la guirnalda de
  * duya donde empieza el contenido. El dibujo va al 30%, detrás del contenido y fuera en móvil.
  */
 export default function CheckoutPageHeader({ title, step, drawing = false, children }: CheckoutPageHeaderProps) {
@@ -38,7 +38,7 @@ export default function CheckoutPageHeader({ title, step, drawing = false, child
           </div>
         </div>
       </div>
-      <Duya type="concha" color="fresa" />
+      <Duya color="fresa" />
     </>
   )
 }

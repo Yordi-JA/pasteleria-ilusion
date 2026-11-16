@@ -54,7 +54,7 @@ test.describe('/entrar', () => {
     await expect(page.getByText(/Olvidaste tu contraseña/)).toHaveCount(0)
     await expect(page.getByTestId('pastel-acceso')).toBeVisible()
     // La página termina en fresa: la guirnalda cuelga de ese campo.
-    await expect(page.locator('.duya[data-tipo="guirnalda"]')).toHaveClass(/colors\.fresa/)
+    await expect(page.locator('.duya:has(+ footer)')).toHaveClass(/colors\.fresa/)
     // Un visitante sin sesión no gasta una petición de renovación.
     expect(calls.refresh).toHaveLength(0)
   })

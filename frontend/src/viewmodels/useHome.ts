@@ -148,7 +148,7 @@ export function useSlicesSection() {
 
 /**
  * Las tres secciones de datos de la portada, cada una con su carga, su reintento y su aviso, y los campos de color
- * que dependen de cuáles aparecen. `afterHero` es el campo del que cuelgan los 21 px de la concha del hero.
+ * que dependen de cuáles aparecen. `afterHero` es el campo del que cuelgan los 21 px de la guirnalda del hero.
  * `closingField` dice si la página necesita un campo `nata` antes de la guirnalda: la guirnalda cuelga de `nata`
  * y el pie es `mermelada`, así que la vitrina (o el hero solo) nunca queda pegada al pie (dos campos oscuros
  * seguidos).
