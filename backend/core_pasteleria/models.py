@@ -93,6 +93,15 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=False,
         help_text="El cliente pidió que también le avisen por WhatsApp, al teléfono de su cuenta.",
     )
+    # Confirmación del correo (D76): vacío mientras la cuenta de correo y contraseña no abre el enlace que le llegó.
+    # Sin confirmar no entra con su contraseña. Las de Google nacen confirmadas; las de antes de D76, también.
+    email_verified_at = models.DateTimeField(
+        "correo confirmado",
+        null=True,
+        blank=True,
+        editable=False,
+        help_text="Cuándo confirmó su correo con el enlace que le enviamos, o al entrar con Google.",
+    )
 
     objects = UserManager()
 

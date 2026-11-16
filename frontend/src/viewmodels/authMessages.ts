@@ -22,6 +22,9 @@ const NOTICES: Record<string, (error: AuthRequestError) => AuthNotice> = {
   google_disabled: () => ({ title: 'Por ahora no se puede entrar con Google.', detail: 'Entra con tu correo.' }),
   google_unavailable: () => ({ title: 'No pudimos conectar con Google.', detail: 'Inténtalo de nuevo en un momento o entra con tu correo.' }),
   google_invalid: () => ({ title: 'No pudimos entrar con Google.', detail: 'Inténtalo de nuevo o entra con tu correo.' }),
+  // Los enlaces por correo (D76).
+  email_unverified: () => ({ title: 'Confirma tu correo.', detail: 'Te enviamos un enlace al crear tu cuenta. Ábrelo para entrar o pide otro.' }),
+  invalid_link: () => ({ title: 'Este enlace ya no sirve.', detail: 'Venció, ya se usó o está incompleto. Pide otro con tu correo.' }),
 }
 
 /** El aviso de un error del acceso; uno desconocido (un 403 de CSRF, un 500) pide recargar. */

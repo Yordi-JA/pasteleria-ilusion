@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import type { FormEvent, RefObject } from 'react'
 import { AuthRequestError, PASSWORD_MIN_LENGTH, register } from '../models/session.ts'
+import type { LinkSent } from '../models/session.ts'
 import { authNotice } from './authMessages.ts'
 import type { AuthNotice } from './authMessages.ts'
 
@@ -39,9 +40,10 @@ export function validateRegistration(values: { fullName: string; email: string; 
 
 /**
  * El formulario de `/registro` (Registro.dc.html y RegistroError.dc.html). "Ya hay una cuenta con este correo." llega
- * con el código `email_taken` y la vista le agrega el enlace para entrar (D61).
+ * con el código `email_taken` y la vista le agrega los enlaces para entrar y para recuperar la contraseña (D61, D76).
+ * Crear la cuenta no abre sesión (D76): `onSuccess` recibe a qué correo fue el enlace para confirmarla.
  */
-export function useRegister(onSuccess: () => void) {
+export function useRegister(onSuccess: (sent: LinkSent) => void) {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -78,8 +80,7 @@ export function useRegister(onSuccess: () => void) {
     show({})
     setSubmitting(true)
     try {
-      await register({ fullName: fullName.trim(), email: email.trim(), phone, password, acceptsTerms })
-      onSuccess()
+      onSuccess(await register({ fullName: fullName.trim(), email: email.trim(), phone, password, acceptsTerms }))
     } catch (error) {
       const rejection = error instanceof AuthRequestError ? error : new AuthRequestError(0, 'network')
       const fromServer: Partial<Record<RegisterField, string>> = {}

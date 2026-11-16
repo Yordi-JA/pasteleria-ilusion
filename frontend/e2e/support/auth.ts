@@ -1,6 +1,9 @@
 import type { Page, Request, Route } from '@playwright/test'
 
-/** Simulación de la API de acceso (D62) sin Django: CSRF, renovación, entrada, registro, Google y salida. */
+/**
+ * Simulación de la API de acceso (D62) sin Django: CSRF, renovación, entrada, registro, Google y salida; y los enlaces
+ * por correo (D76): confirmar la cuenta, reenviarla y recuperar la contraseña.
+ */
 
 export const CSRF_TOKEN = 'token-csrf-de-prueba'
 
@@ -20,15 +23,39 @@ const CLEAR_HINT = 'ilusion_session=; Path=/; Max-Age=0; SameSite=Lax'
 export const opened = (body: object = sessionBody(), status = 200): Reply => ({ status, body, headers: { 'Set-Cookie': HINT } })
 export const rejected = (status: number, body: object, headers: Record<string, string> = {}): Reply => ({ status, body, headers })
 
+/** El registro (D76): crea la cuenta sin confirmar, no abre sesión y dice a qué correo fue el enlace. */
+export const registered = (email = ana.email, hours = 24): Reply => ({ status: 201, body: { email, expires_in_hours: hours } })
+
+export const RESEND_ANSWER = 'Si tu cuenta está pendiente de confirmar, te enviamos otro enlace.'
+export const RESET_ANSWER = 'Si hay una cuenta con ese correo, te enviamos un enlace para crear una contraseña nueva.'
+export const INVALID_LINK = { detail: 'Este enlace ya no sirve: venció, ya se usó o está incompleto.', code: 'invalid_link' }
+
 export type AuthMock = {
   refresh?: Handler
   login?: Handler
   register?: Handler
   google?: Handler
+  verify?: Handler
+  verifyResend?: Handler
+  passwordReset?: Handler
+  passwordResetConfirm?: Handler
 }
 
+type Endpoint = 'csrf' | 'refresh' | 'login' | 'register' | 'google' | 'logout' | 'verify' | 'verifyResend' | 'passwordReset' | 'passwordResetConfirm'
+
 /** Lo que llegó a cada endpoint, para revisar cuerpos y encabezados. */
-export type AuthCalls = Record<'csrf' | 'refresh' | 'login' | 'register' | 'google' | 'logout', Request[]>
+export type AuthCalls = Record<Endpoint, Request[]>
+
+/**
+ * Sin `handler`, la respuesta de cada endpoint de los enlaces (D76): confirmar la cuenta no abre sesión ni pone cookies;
+ * crear la contraseña nueva abre la sesión de Ana.
+ */
+const LINK_ENDPOINTS: { name: 'verify' | 'verifyResend' | 'passwordReset' | 'passwordResetConfirm'; path: string; reply: () => Reply }[] = [
+  { name: 'verify', path: 'verify/', reply: () => ({ status: 200, body: { email_verified: true } }) },
+  { name: 'verifyResend', path: 'verify/resend/', reply: () => ({ status: 200, body: { detail: RESEND_ANSWER, expires_in_hours: 24 } }) },
+  { name: 'passwordReset', path: 'password/reset/', reply: () => ({ status: 200, body: { detail: RESET_ANSWER, expires_in_hours: 1 } }) },
+  { name: 'passwordResetConfirm', path: 'password/reset/confirm/', reply: () => opened() },
+]
 
 async function fulfill(route: Route, { status, body, headers = {} }: Reply) {
   await route.fulfill({
@@ -40,11 +67,23 @@ async function fulfill(route: Route, { status, body, headers = {} }: Reply) {
 }
 
 /**
- * Responde los endpoints de `/api/v1/auth/`. Sin `refresh`, no hay sesión (401). Sin `login`, `register` o `google`,
- * responden la sesión de Ana. La cookie `csrftoken` se pone al pedir `auth/csrf/`, como Django.
+ * Responde los endpoints de `/api/v1/auth/`. Sin `refresh`, no hay sesión (401). Sin `login` o `google`, responden la
+ * sesión de Ana; sin `register`, la cuenta creada sin confirmar (D76). Sin los de los enlaces, sus respuestas de siempre.
+ * La cookie `csrftoken` se pone al pedir `auth/csrf/`, como Django.
  */
 export async function mockAuth(page: Page, mock: AuthMock = {}): Promise<AuthCalls> {
-  const calls: AuthCalls = { csrf: [], refresh: [], login: [], register: [], google: [], logout: [] }
+  const calls: AuthCalls = {
+    csrf: [],
+    refresh: [],
+    login: [],
+    register: [],
+    google: [],
+    logout: [],
+    verify: [],
+    verifyResend: [],
+    passwordReset: [],
+    passwordResetConfirm: [],
+  }
   await page.route('**/api/v1/auth/csrf/', async (route) => {
     calls.csrf.push(route.request())
     await route.fulfill({ status: 204, headers: { 'Set-Cookie': `csrftoken=${CSRF_TOKEN}; Path=/; SameSite=Lax` } })
@@ -57,7 +96,13 @@ export async function mockAuth(page: Page, mock: AuthMock = {}): Promise<AuthCal
   for (const name of ['login', 'register', 'google'] as const) {
     await page.route(`**/api/v1/auth/${name}/`, async (route) => {
       calls[name].push(route.request())
-      await fulfill(route, mock[name]?.(route.request()) ?? opened(sessionBody(), name === 'register' ? 201 : 200))
+      await fulfill(route, mock[name]?.(route.request()) ?? (name === 'register' ? registered() : opened()))
+    })
+  }
+  for (const { name, path, reply } of LINK_ENDPOINTS) {
+    await page.route(`**/api/v1/auth/${path}`, async (route) => {
+      calls[name].push(route.request())
+      await fulfill(route, mock[name]?.(route.request()) ?? reply())
     })
   }
   await page.route('**/api/v1/auth/logout/', async (route) => {

@@ -46,6 +46,18 @@ const BOX_HEIGHT = {
 } as const
 
 /**
+ * El pastel fijo en la caja de la escena chica, sin 3D: para las vistas de acceso que el libro de marca no enumera en
+ * "Presencia de marca" (recuperar y verificar, D76), con el mismo lugar y tamaño que el pastel de `/entrar`.
+ */
+export function StaticCakeBox({ testId }: { testId: string }) {
+  return (
+    <div className={`relative ${BOX_HEIGHT.compact}`}>
+      <StaticCake testId={testId} />
+    </div>
+  )
+}
+
+/**
  * Lugar del pastel de tres pisos: en la portada, con la altura de la escena del mockup (600 px, 460 px hasta 960 px de
  * ancho y 380 px en móvil); en el catálogo, la de la escena chica (`size="compact"`, D59). La caja no cambia de tamaño: adentro, el pastel fijo cede su lugar a la escena 3D
  * (`src/three/CakeScene.tsx`, D48) en cuanto dibuja su primer cuadro. La escena entra en 250 ms (opacidad y escala

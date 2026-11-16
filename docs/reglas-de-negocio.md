@@ -504,3 +504,36 @@ Lo decidió el usuario el 15 de noviembre de 2026 (D72). Vive en `/cuenta/datos`
 **Avisos del pedido.** El correo siempre se envía: su casilla va marcada y no se puede quitar. WhatsApp es una preferencia de la cuenta (`User.notify_whatsapp`, apagada al inicio): el sitio no manda mensajes de WhatsApp; la preferencia le dice a la pastelería que puede escribirle a mano. El admin la muestra en el usuario y en el pedido, junto al teléfono del cliente, sin poder cambiarla. Marcar WhatsApp sin teléfono, o quitar el teléfono con WhatsApp marcado, es un error: "Para avisarte por WhatsApp, escribe tu teléfono en tus datos personales." La base de datos también lo rechaza.
 
 **Cambiar la contraseña.** Solo en una cuenta con contraseña; una cuenta que solo entra con Google no ve el formulario. Pide la contraseña actual y la nueva; la nueva sigue las reglas del registro (mínimo 8 caracteres, que no sea común, que no sea solo números y que no se parezca al correo ni al nombre). Una contraseña actual equivocada responde "Tu contraseña actual no coincide.", lo mismo que una cuenta sin contraseña, para no revelar cuál es cuál. Se aceptan 10 cambios o intentos por hora por cuenta y 30 por hora por conexión. Al cambiarla se cierran las sesiones abiertas en otros dispositivos y la sesión de quien la cambió sigue abierta.
+
+---
+
+## 16. Confirmar el correo y recuperar la contraseña
+
+Lo decidió el usuario el 16 de noviembre de 2026 (D76). Viven en `/verificar` ("Revisa tu correo") y `/recuperar` ("Recupera tu contraseña").
+
+**Confirmar el correo al registrarse.** Crear la cuenta con correo y contraseña no abre sesión. La cuenta nace sin confirmar y le llega el correo "Confirma tu cuenta" con un enlace. `/verificar` dice a qué correo se mandó y en cuántas horas vence ("Vence en 24 horas"); si se abre sin ese dato, dice "a tu correo".
+
+| Regla | Valor |
+|---|---|
+| Vigencia del enlace para confirmar | 24 horas, un solo uso |
+| Vigencia del enlace para recuperar la contraseña | 1 hora, un solo uso |
+| Espera entre dos reenvíos en la pantalla | 60 segundos ("Podrás pedir otro en 0:59") |
+| Pedir un enlace (reenviar o recuperar) | 5 por hora por correo y 10 por hora por conexión |
+| Crear una cuenta | 10 por hora por conexión |
+| Correos de la cuenta (confirmar, reenviar, recuperar y "Entra con Google") | 150 al día entre todos (configurable); al llegar, no sale ninguno ese día y la respuesta es la misma |
+| Abrir un enlace para confirmar | 60 por hora por conexión |
+| Crear la contraseña con el enlace | 30 intentos por hora por conexión |
+
+- Al abrir el enlace, la cuenta queda confirmada y la persona llega a `/entrar` con "Tu cuenta quedó confirmada. Entra con tu contraseña." El enlace no abre sesión ni cambia la que ya esté abierta en ese navegador: así un enlace ajeno no deja a nadie dentro de otra cuenta. Un enlace vencido, ya usado o incompleto dice "Este enlace ya no sirve" y deja pedir otro.
+- Una cuenta sin confirmar no entra con su contraseña. Con la contraseña correcta, `/entrar` dice "Confirma tu correo." y ofrece "Reenviar enlace"; con una contraseña equivocada responde lo mismo de siempre ("El correo o la contraseña no coinciden."), para no revelar qué cuentas existen ni su estado.
+- Reenviar el enlace responde siempre lo mismo, exista o no la cuenta y esté o no confirmada. Solo una cuenta de cliente activa y sin confirmar recibe otro.
+- Entrar con Google confirma la cuenta: las que se crean con Google nacen confirmadas, y una cuenta de contraseña sin confirmar que Google liga (D62) queda confirmada.
+- Las cuentas que existían antes del 16 de noviembre de 2026 quedaron confirmadas.
+- El correo con el que se entra sigue sin cambiarse desde `/cuenta/datos` (sección 15). "¿Escribiste mal tu correo? Cámbialo" lleva a crear la cuenta otra vez, en `/registro`.
+
+**Recuperar la contraseña.** `/recuperar` pide el correo y, al enviar, dice siempre lo mismo: "Si hay una cuenta con ese correo, te enviamos un enlace para crear una contraseña nueva."
+
+- Una cuenta de cliente activa con contraseña recibe el enlace "Recupera tu contraseña".
+- Una cuenta que solo entra con Google recibe un correo que le dice que use "Continuar con Google".
+- Las cuentas del personal y los correos sin cuenta no reciben nada. El personal recupera su acceso desde el admin.
+- Con el enlace, la persona escribe la contraseña nueva, con las reglas del registro (sección 15). Al guardarla, la cuenta queda confirmada, se cierran todas las sesiones abiertas y se abre una nueva en ese navegador.

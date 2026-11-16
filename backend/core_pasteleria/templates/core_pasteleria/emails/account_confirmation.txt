@@ -1,0 +1,5 @@
+{% extends "core_pasteleria/emails/base.txt" %}
+{% block heading %}Confirma tu cuenta{% endblock %}
+{% block intro %}Alguien creó una cuenta en Pastelería Ilusión con este correo. Si fuiste tú, confírmala con el enlace de abajo.{% endblock %}
+{% block next %}Abre el enlace en las próximas {{ expires }}; sirve una sola vez. Después entras con tu correo y tu contraseña. Si no creaste esta cuenta, ignora este correo: sin confirmar nadie puede usarla.{% endblock %}
+{% block button %}Confirmar mi cuenta{% endblock %}

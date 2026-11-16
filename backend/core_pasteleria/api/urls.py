@@ -14,6 +14,16 @@ urlpatterns = [
     path("auth/logout/", auth_views.LogoutView.as_view(), name="auth-logout"),
     # "Datos y avisos" (D72): la cuenta con JWT; la contraseña va bajo `auth/` porque pone la cookie del refresh.
     path("auth/password/", auth_views.PasswordChangeView.as_view(), name="auth-password"),
+    # Enlaces por correo (D76): confirmar la cuenta y recuperar la contraseña. Crear la contraseña nueva pone la cookie
+    # del refresh, que solo existe bajo `auth/`.
+    path("auth/verify/", auth_views.VerifyEmailView.as_view(), name="auth-verify"),
+    path("auth/verify/resend/", auth_views.VerificationResendView.as_view(), name="auth-verify-resend"),
+    path("auth/password/reset/", auth_views.PasswordResetView.as_view(), name="auth-password-reset"),
+    path(
+        "auth/password/reset/confirm/",
+        auth_views.PasswordResetConfirmView.as_view(),
+        name="auth-password-reset-confirm",
+    ),
     path("account/", account_views.AccountView.as_view(), name="account"),
     # Contrato OpenAPI y Swagger UI: solo para personal (SPECTACULAR_SETTINGS).
     path("schema/", SpectacularAPIView.as_view(), name="schema"),

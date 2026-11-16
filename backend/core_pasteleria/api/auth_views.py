@@ -1,4 +1,5 @@
-"""Vistas del acceso de clientes (D62): registro, inicio de sesión, Google, renovación y salida.
+"""Vistas del acceso de clientes (D62): registro, inicio de sesión, Google, renovación y salida; y los enlaces por
+correo (D76): confirmar la cuenta, reenviar la confirmación y recuperar la contraseña.
 
 El access token va en el cuerpo; el refresh, en la cookie HttpOnly `REFRESH_COOKIE_NAME`,
 limitada a `/api/v1/auth/`. Toda vista que pone o lee esa cookie exige CSRF de forma
@@ -17,17 +18,31 @@ from rest_framework_simplejwt.settings import api_settings as jwt_settings
 
 from config.security import lockout_response
 
-from ..services import auth_service, google_identity
+from ..services import account_link_service, auth_service, google_identity
 from .account_serializers import PasswordChangeRequestSerializer
 from .auth_serializers import (
     AuthErrorSerializer,
+    EmailRequestSerializer,
+    EmailVerifiedSerializer,
     GoogleLoginRequestSerializer,
     GoogleSessionSerializer,
+    LinkSentSerializer,
     LoginRequestSerializer,
+    PasswordResetConfirmRequestSerializer,
     RegisterRequestSerializer,
+    RegistrationSerializer,
     SessionSerializer,
+    VerifyEmailRequestSerializer,
 )
-from .throttles import PasswordChangeIPThrottle, PasswordChangeUserThrottle, SecurityScopedRateThrottle
+from .throttles import (
+    PasswordChangeIPThrottle,
+    PasswordChangeUserThrottle,
+    PasswordResetEmailThrottle,
+    PasswordResetIPThrottle,
+    SecurityScopedRateThrottle,
+    VerificationResendEmailThrottle,
+    VerificationResendIPThrottle,
+)
 
 TAG = "Acceso"
 # Cookie legible por el sitio que solo dice "hay sesión" (ver `_set_refresh_cookie`).
@@ -104,6 +119,12 @@ def _auth_error(error) -> Response:
     return Response({"detail": error.message, "code": error.code}, status=error.status)
 
 
+def _field_errors(serializer) -> Response:
+    """Los errores de formato por campo, con sus códigos en `codes`, como los del registro (D62)."""
+    codes = {field: [detail.code for detail in details] for field, details in serializer.errors.items()}
+    return Response({**serializer.errors, "codes": codes}, status=status.HTTP_400_BAD_REQUEST)
+
+
 class AuthView(APIView):
     """Base del acceso: sin autenticación (un access vencido no da 401), contadores por IP."""
 
@@ -137,13 +158,14 @@ class RegisterView(AuthView):
         operation_id="auth_register",
         summary="Crear cuenta con correo",
         description=(
-            "Crea la cuenta de un cliente y abre su sesión: el access en el cuerpo y el refresh en la "
-            "cookie HttpOnly. Los errores van por campo, en español, con su código en `codes` "
-            "(`email_taken` cuando el correo ya tiene cuenta). Limitado por IP (`register`)."
+            "Crea la cuenta de un cliente sin confirmar y le manda el correo \"Confirma tu cuenta\" con el enlace a "
+            "`/verificar#<token>` (D76). No abre sesión ni pone cookies: responde el correo y las horas que vale el "
+            "enlace. Los errores van por campo, en español, con su código en `codes` (`email_taken` cuando el correo "
+            "ya tiene cuenta). Limitado por IP (`register`)."
         ),
         request=RegisterRequestSerializer,
         responses={
-            201: SessionSerializer,
+            201: RegistrationSerializer,
             400: OpenApiResponse(
                 description="Errores por campo y sus códigos.",
                 examples=[
@@ -166,16 +188,15 @@ class RegisterView(AuthView):
         _enforce_csrf(request)
         serializer = RegisterRequestSerializer(data=request.data)
         if not serializer.is_valid():
-            codes = {field: [detail.code for detail in details] for field, details in serializer.errors.items()}
-            return Response({**serializer.errors, "codes": codes}, status=status.HTTP_400_BAD_REQUEST)
+            return _field_errors(serializer)
         data = serializer.validated_data
         try:
-            session = auth_service.register_customer(
+            registration = account_link_service.register(
                 full_name=data["full_name"], email=data["email"], phone=data["phone"], password=data["password"]
             )
         except auth_service.RegistrationError as error:
             return Response({**error.errors, "codes": error.codes}, status=status.HTTP_400_BAD_REQUEST)
-        return _new_session_response(request, session, status_code=status.HTTP_201_CREATED)
+        return Response(RegistrationSerializer(registration).data, status=status.HTTP_201_CREATED)
 
 
 class LoginView(AuthView):
@@ -194,7 +215,11 @@ class LoginView(AuthView):
         responses={
             200: SessionSerializer,
             401: _error("invalid_credentials", "Correo o contraseña equivocados.", auth_service.InvalidCredentials.message),
-            403: CSRF_RESPONSE,
+            403: _error(
+                "email_unverified",
+                "La contraseña es correcta pero la cuenta no confirmó su correo (D76); o falta el CSRF.",
+                auth_service.EmailUnverified.message,
+            ),
             429: _error("locked_out", "Bloqueado por intentos fallidos, o límite de la IP.", "Demasiados intentos fallidos. Intenta de nuevo más tarde."),
         },
         tags=[TAG],
@@ -329,8 +354,7 @@ class PasswordChangeView(APIView):
         _enforce_csrf(request)
         serializer = PasswordChangeRequestSerializer(data=request.data)
         if not serializer.is_valid():
-            codes = {field: [detail.code for detail in details] for field, details in serializer.errors.items()}
-            return Response({**serializer.errors, "codes": codes}, status=status.HTTP_400_BAD_REQUEST)
+            return _field_errors(serializer)
         try:
             session = auth_service.change_password(
                 request.user,
@@ -340,6 +364,161 @@ class PasswordChangeView(APIView):
         except auth_service.PasswordChangeError as error:
             return Response({**error.errors, "codes": error.codes}, status=status.HTTP_400_BAD_REQUEST)
         return _session_response(session)
+
+
+INVALID_LINK = _error("invalid_link", "El enlace venció, ya se usó o está incompleto.", account_link_service.InvalidLink.message)
+RESEND_ANSWER = "Si tu cuenta está pendiente de confirmar, te enviamos otro enlace."
+RESET_ANSWER = "Si hay una cuenta con ese correo, te enviamos un enlace para crear una contraseña nueva."
+
+
+class VerifyEmailView(AuthView):
+    throttle_scope = "email_verify"
+
+    @extend_schema(
+        operation_id="auth_verify",
+        summary="Confirmar la cuenta con el enlace del correo",
+        description=(
+            "Recibe el token del enlace `/verificar#<token>` (el sitio lo lee del fragmento y lo quita de la URL) y "
+            "confirma la cuenta. No abre sesión ni toca la cookie del refresh que ya traiga el navegador: después se "
+            "entra con la contraseña. El enlace vence en 24 horas y sirve una vez; vencido, usado, incompleto o de una "
+            "cuenta que no puede usarlo responde 400 `invalid_link`. Limitado por IP (`email_verify`)."
+        ),
+        request=VerifyEmailRequestSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=EmailVerifiedSerializer,
+                examples=[OpenApiExample("Confirmada", value={"email_verified": True})],
+            ),
+            400: INVALID_LINK,
+            403: CSRF_RESPONSE,
+            429: THROTTLED,
+        },
+        tags=[TAG],
+    )
+    def post(self, request):
+        _enforce_csrf(request)
+        serializer = VerifyEmailRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return _field_errors(serializer)
+        try:
+            account_link_service.verify_email(serializer.validated_data["token"])
+        except account_link_service.InvalidLink as error:
+            return _auth_error(error)
+        return Response(EmailVerifiedSerializer({"email_verified": True}).data)
+
+
+class VerificationResendView(AuthView):
+    throttle_classes = [VerificationResendEmailThrottle, VerificationResendIPThrottle]
+
+    @extend_schema(
+        operation_id="auth_verify_resend",
+        summary="Reenviar el enlace para confirmar la cuenta",
+        description=(
+            "Responde siempre lo mismo, exista o no la cuenta y esté o no confirmada. Solo una cuenta de cliente "
+            "activa sin confirmar recibe otro enlace. El correo sale fuera de la petición. Limitado por correo "
+            "(`verify_resend_email`) y por IP (`verify_resend_ip`)."
+        ),
+        request=EmailRequestSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=LinkSentSerializer,
+                examples=[OpenApiExample("Siempre igual", value={"detail": RESEND_ANSWER, "expires_in_hours": 24})],
+            ),
+            400: OpenApiResponse(description="El correo no tiene forma de correo."),
+            403: CSRF_RESPONSE,
+            429: THROTTLED,
+        },
+        tags=[TAG],
+    )
+    def post(self, request):
+        _enforce_csrf(request)
+        serializer = EmailRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return _field_errors(serializer)
+        account_link_service.resend_confirmation(serializer.validated_data["email"])
+        return Response({"detail": RESEND_ANSWER, "expires_in_hours": account_link_service.confirmation_hours()})
+
+
+class PasswordResetView(AuthView):
+    throttle_classes = [PasswordResetEmailThrottle, PasswordResetIPThrottle]
+
+    @extend_schema(
+        operation_id="auth_password_reset",
+        summary="Pedir el enlace para recuperar la contraseña",
+        description=(
+            "Responde siempre lo mismo. Un cliente activo con contraseña recibe un enlace a `/recuperar#<token>` que "
+            "vence en 1 hora y sirve una vez; uno que solo entra con Google, un correo que le dice que use \"Continuar "
+            "con Google\"; el personal y los correos sin cuenta, nada. El correo sale fuera de la petición, para que "
+            "la respuesta tarde lo mismo. Limitado por correo (`password_reset_email`) y por IP (`password_reset_ip`)."
+        ),
+        request=EmailRequestSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=LinkSentSerializer,
+                examples=[OpenApiExample("Siempre igual", value={"detail": RESET_ANSWER, "expires_in_hours": 1})],
+            ),
+            400: OpenApiResponse(description="El correo no tiene forma de correo."),
+            403: CSRF_RESPONSE,
+            429: THROTTLED,
+        },
+        tags=[TAG],
+    )
+    def post(self, request):
+        _enforce_csrf(request)
+        serializer = EmailRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return _field_errors(serializer)
+        account_link_service.request_password_reset(serializer.validated_data["email"])
+        return Response({"detail": RESET_ANSWER, "expires_in_hours": account_link_service.reset_hours()})
+
+
+class PasswordResetConfirmView(AuthView):
+    throttle_scope = "password_reset_confirm"
+
+    @extend_schema(
+        operation_id="auth_password_reset_confirm",
+        summary="Crear la contraseña nueva con el enlace del correo",
+        description=(
+            "Recibe el token del enlace `/recuperar#<token>` y la contraseña nueva, que sigue las reglas del registro. "
+            "Guarda la contraseña, confirma el correo, cierra todas las sesiones de la cuenta y abre una nueva: el "
+            "access en el cuerpo y el refresh en la cookie. Un error de la contraseña no gasta el enlace. Limitado por "
+            "IP (`password_reset_confirm`)."
+        ),
+        request=PasswordResetConfirmRequestSerializer,
+        responses={
+            200: SessionSerializer,
+            400: OpenApiResponse(
+                description="`invalid_link`, o errores por campo de la contraseña nueva con sus códigos.",
+                examples=[
+                    OpenApiExample("Enlace", value={"detail": account_link_service.InvalidLink.message, "code": "invalid_link"}),
+                    OpenApiExample(
+                        "Contraseña corta",
+                        value={
+                            "new_password": ["Te faltan caracteres: el mínimo es 8."],
+                            "codes": {"new_password": ["password_too_short"]},
+                        },
+                    ),
+                ],
+            ),
+            403: CSRF_RESPONSE,
+            429: THROTTLED,
+        },
+        tags=[TAG],
+    )
+    def post(self, request):
+        _enforce_csrf(request)
+        serializer = PasswordResetConfirmRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return _field_errors(serializer)
+        try:
+            session = account_link_service.reset_password(
+                serializer.validated_data["token"], new_password=serializer.validated_data["new_password"]
+            )
+        except account_link_service.InvalidLink as error:
+            return _auth_error(error)
+        except account_link_service.PasswordResetError as error:
+            return Response({**error.errors, "codes": error.codes}, status=status.HTTP_400_BAD_REQUEST)
+        return _new_session_response(request, session)
 
 
 class LogoutView(AuthView):

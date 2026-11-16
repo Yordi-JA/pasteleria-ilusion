@@ -16,18 +16,27 @@ desde un webhook que no viene del navegador del cliente. El logo es un PNG del s
 Gmail no muestra SVG. La dirección y el WhatsApp salen de `StoreSettings`: con la dirección va "Cómo llegar" (Google Maps,
 sin llave) y con el WhatsApp su enlace `wa.me`; si faltan, su marcador y ningún enlace.
 
-Ningún texto libre del cliente (nombre de la cuenta, descripción, quien recoge) llega a un correo: el correo del registro
-con contraseña no se verifica, y quien registre el de otra persona haría que la pastelería le mande a la víctima un
-correo legítimo con su texto. El saludo es fijo. La nota de la pastelería sí puede ir: la escribe el personal.
+Ningún texto libre del cliente (nombre de la cuenta, descripción, quien recoge) llega a un correo: quien registre el
+correo de otra persona haría que la pastelería le mande a la víctima un correo legítimo con su texto (el de "Confirma tu
+cuenta" sale antes de confirmar nada). El saludo es fijo. La nota de la pastelería sí puede ir: la escribe el personal.
+
+Los correos de la cuenta (D76) son tres: "Confirma tu cuenta", "Recupera tu contraseña" y, para una cuenta que solo
+entra con Google, "Entra con Google". Llevan un enlace con un token, que nunca va a un registro. Se programan para
+después del commit y, con `EMAIL_SEND_IN_BACKGROUND`, se arman y se envían en un hilo aparte: la petición responde sin
+esperar al SMTP, así pedir un enlace tarda lo mismo exista o no la cuenta. Sus registros llevan el id de la cuenta.
+Todos comparten un tope diario (`ACCOUNT_EMAILS_DAILY_LIMIT`): al llegar a él no sale ninguno y queda un WARNING.
 """
 import logging
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from django.conf import settings as django_settings
+from django.core.cache import caches
 from django.core.mail import EmailMultiAlternatives
+from django.db import connections, transaction
 from django.template.loader import render_to_string
 from django.utils import timezone
 
@@ -76,6 +85,28 @@ PAYMENT_RECEIVED = EmailKind(
 ORDER_READY = EmailKind(
     "order_ready", "Tu pedido #{number} está listo", "Pedido #{number}", OrderStatus.READY_FOR_DELIVERY.label
 )
+
+
+@dataclass(frozen=True)
+class AccountEmailKind:
+    """Un correo de la cuenta (D76): sus plantillas, su asunto, el título de su tarjeta y su estado.
+
+    El estado puede llevar `{expires}`, el plazo del enlace en palabras ("24 horas", "1 hora").
+    """
+
+    template: str
+    subject: str
+    card: str
+    status: str
+
+
+ACCOUNT_CONFIRMATION = AccountEmailKind(
+    "account_confirmation", "Confirma tu cuenta", "Enlace para confirmar tu cuenta", "Vence en {expires}"
+)
+PASSWORD_RESET = AccountEmailKind(
+    "password_reset", "Recupera tu contraseña", "Enlace para crear tu contraseña", "Vence en {expires}"
+)
+GOOGLE_SIGN_IN = AccountEmailKind("google_sign_in", "Entra con Google", "Tu cuenta", "Entra con Google")
 
 
 @dataclass(frozen=True)
@@ -213,6 +244,111 @@ def _send(kind: EmailKind, what: str, subject_id: int, build: Callable[[], Email
         subject_id,
         extra={"email_kind": kind.template, "subject_id": subject_id},
     )
+    return True
+
+
+def hours_text(hours: int) -> str:
+    """El plazo como lo dice el sitio: "1 hora", "24 horas"."""
+    return "1 hora" if hours == 1 else f"{hours} horas"
+
+
+# Dos días de vida: la llave de ayer vence sola sin borrarla a mano.
+DAILY_COUNTER_TIMEOUT = 2 * 24 * 60 * 60
+
+
+def _within_daily_cap(kind: AccountEmailKind, user_id: int) -> bool:
+    """Cuenta el correo en el tope del día (Ciudad de México); `False` si ya se llegó y no debe salir.
+
+    La llave es la misma para todos (`account_emails:<fecha>`) en la caché `security`. `incr` de la caché de base de
+    datos no es atómico: con peticiones simultáneas el tope puede pasarse por unas cuantas, que caben en la holgura
+    entre el tope (150) y la cuota del proveedor (unos 300).
+    """
+    cache = caches["security"]
+    key = f"account_emails:{timezone.localdate().isoformat()}"
+    cache.add(key, 0, timeout=DAILY_COUNTER_TIMEOUT)
+    try:
+        sent_today = cache.incr(key)
+    except ValueError:
+        # La entrada venció entre `add` e `incr`: empieza otra.
+        cache.set(key, 1, timeout=DAILY_COUNTER_TIMEOUT)
+        sent_today = 1
+    if sent_today <= django_settings.ACCOUNT_EMAILS_DAILY_LIMIT:
+        return True
+    logger.warning(
+        "Correo %s de la cuenta %s sin enviar: se llegó al tope diario de correos de la cuenta",
+        kind.template,
+        user_id,
+        extra={"email_kind": kind.template, "subject_id": user_id},
+    )
+    return False
+
+
+def send_account_email(
+    kind: AccountEmailKind, *, user_id: int, to: str, url: str, hours: int | None = None, settings=settings_repo
+) -> None:
+    """Programa un correo de la cuenta para después del commit; con `EMAIL_SEND_IN_BACKGROUND`, en un hilo aparte.
+
+    No devuelve si salió: quien pide un enlace recibe la misma respuesta pase lo que pase con el correo, también al
+    llegar al tope diario.
+    """
+    if not _within_daily_cap(kind, user_id):
+        return
+
+    def task():
+        _deliver_account_email(kind, user_id=user_id, to=to, url=url, hours=hours, settings=settings)
+
+    transaction.on_commit(lambda: _dispatch(task))
+
+
+def _dispatch(task: Callable[[], object]) -> None:
+    if not django_settings.EMAIL_SEND_IN_BACKGROUND:
+        task()
+        return
+
+    def run():
+        try:
+            task()
+        finally:
+            # El hilo abrió su propia conexión a la base (los datos del negocio para el pie): se cierra al terminar.
+            connections.close_all()
+
+    # `daemon`: un proceso que se apaga no espera al SMTP. El correo es de mejor esfuerzo, como los del pedido (D70).
+    threading.Thread(target=run, name="correo-de-la-cuenta", daemon=True).start()
+
+
+def _deliver_account_email(kind: AccountEmailKind, *, user_id: int, to: str, url: str, hours: int | None, settings) -> bool:
+    """Arma y envía el correo; `True` si salió. Mejor esfuerzo: un error queda en un WARNING con el id de la cuenta."""
+    log_extra = {"email_kind": kind.template, "subject_id": user_id}
+    if not django_settings.EMAIL_ENABLED:
+        logger.info("Correo %s de la cuenta %s sin enviar: falta EMAIL_HOST", kind.template, user_id, extra=log_extra)
+        return False
+    try:
+        expires = hours_text(hours) if hours else ""
+        context = {
+            **_store_context(settings),
+            "url": url,
+            "expires": expires,
+            "card": kind.card,
+            "status": kind.status.format(expires=expires),
+        }
+        message = EmailMultiAlternatives(
+            subject=kind.subject,
+            body=render_to_string(f"{TEMPLATE_DIR}/{kind.template}.txt", context),
+            to=[to],
+        )
+        message.attach_alternative(render_to_string(f"{TEMPLATE_DIR}/{kind.template}.html", context), "text/html")
+        message.send()
+    except Exception as error:
+        # Nunca el mensaje del error: podría citar el correo o el enlace.
+        logger.warning(
+            "No se pudo enviar el correo %s de la cuenta %s: %s",
+            kind.template,
+            user_id,
+            type(error).__name__,
+            extra=log_extra,
+        )
+        return False
+    logger.info("Correo %s de la cuenta %s enviado", kind.template, user_id, extra=log_extra)
     return True
 
 
