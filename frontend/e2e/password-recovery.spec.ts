@@ -15,7 +15,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test.describe('/recuperar', () => {
-  test('shows the mockup card: slogan, email, button, the Google note and the way back', async ({ page }) => {
+  test('shows the mockup card: slogan, email, button and the way back, without the Google note', async ({ page }) => {
     await mockAuth(page)
     await page.goto('/recuperar')
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Recupera tu contraseña')
@@ -23,7 +23,8 @@ test.describe('/recuperar', () => {
     await expect(page.getByText('Escribe el correo con el que te registraste y te enviamos un enlace para crear una nueva.')).toBeVisible()
     await expect(page.getByLabel('Correo electrónico')).toHaveAttribute('autocomplete', 'email')
     await expect(page.getByRole('button', { name: 'Enviar enlace' })).toBeVisible()
-    await expect(page.getByText(/Si entras con Google no necesitas contraseña: usa/)).toContainText('Continuar con Google')
+    // El correo de recuperación ya le dice a una cuenta de Google que entre con Google: la tarjeta no lo repite (tanda 1).
+    await expect(page.getByText(/Si entras con Google/)).toHaveCount(0)
     await expect(page.getByRole('link', { name: 'Volver a iniciar sesión' })).toHaveAttribute('href', '/entrar')
     await expect(page.getByTestId('pastel-acceso-fijo')).toBeVisible()
     await expect(page.getByTestId('pastel-acceso')).toHaveCount(0)

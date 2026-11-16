@@ -152,10 +152,17 @@ export function productsLabel(count: number): string {
   return `Productos (${count})`
 }
 
-/** Lo que se paga hoy, en una frase, sin cifras que dependan de la configuración (el porcentaje lo da el servidor). */
+/**
+ * Lo que se paga hoy, en una frase, sin cifras que dependan de la configuración (el porcentaje lo da el servidor). El anticipo
+ * solo es de los encargos (diseños, encargos del catálogo y referencias); lo de la vitrina de hoy se paga completo (regla 10).
+ * Lo decide el `fulfillment` de las líneas, no la vista: solo vitrina, solo encargos o los dos.
+ */
 export function paymentNote(summary: CartSummaryView): string {
   if (summary.onlyShowcase) return 'Hoy pagas todo: lo de la vitrina de hoy se paga completo.'
+  if (summary.hasShowcase) {
+    const base = summary.deposit ? ', el depósito de la base' : ''
+    return `Hoy pagas el anticipo de los encargos${base} y lo de la vitrina completo.`
+  }
   const base = summary.deposit ? ' y el depósito de la base' : ''
-  const showcase = summary.hasShowcase ? ' Lo de la vitrina de hoy se paga completo.' : ''
-  return `Hoy pagas un anticipo del pedido${base}; el resto, al entregar.${showcase}`
+  return `Hoy pagas un anticipo del pedido${base}; el resto, al entregar.`
 }

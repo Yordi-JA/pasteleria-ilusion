@@ -45,15 +45,17 @@ export function joinOr(names: string[]) {
   return names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} o ${names[names.length - 1]}`
 }
 
+/**
+ * Los tipos de pastel con su descripción ("Pan sin baño"). Sin "No se combina con Choco-pingüino" (tanda 1): lo explica el pan
+ * desactivado del paso 3, con su motivo.
+ */
 export function cakeTypeChoices(draft: CakeDesignDraft, options: CakeDesignOptions): Choice[] {
-  return options.cakeTypes.map((type) => {
-    const clashes = clashingBreads(type.value, options.breads).map((bread) => bread.name)
-    const base = CAKE_TYPE_DESCRIPTIONS[type.value]
-    const clash = clashes.length ? `No se combina con ${joinOr(clashes)}.` : ''
-    // Como el mockup: "Pan sin baño", o con el aviso, "Pan bañado en almíbar con vino. No se combina con Choco-pingüino."
-    const description = base && clash ? `${base}. ${clash}` : base || clash || undefined
-    return { value: type.value, label: type.label, description, checked: draft.cakeType === type.value }
-  })
+  return options.cakeTypes.map((type) => ({
+    value: type.value,
+    label: type.label,
+    description: CAKE_TYPE_DESCRIPTIONS[type.value],
+    checked: draft.cakeType === type.value,
+  }))
 }
 
 export type BreadGroups = {

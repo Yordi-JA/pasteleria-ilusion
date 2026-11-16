@@ -51,7 +51,24 @@ test('a catalog order and a designed cake, with the base deposit apart from the 
   await expect(resume).toContainText('Depósito de la base, se devuelve')
   await expect(resume).toContainText('$200')
   await expect(resume).toContainText('Hoy pagas un anticipo del pedido y el depósito de la base; el resto, al entregar.')
+  // La entrega todavía no se elige: el resumen no dice nada de ella (tanda 1).
+  await expect(resume).not.toContainText('Entrega')
+  await expect(resume).not.toContainText('Se elige en el siguiente paso')
   await expect(resume.getByRole('link', { name: 'Continuar a entrega' })).toHaveAttribute('href', '/pedido/entrega')
+})
+
+test('only showcase or slices: the summary says it is paid in full today, with no advance', async ({ page }) => {
+  await seedCart(page, [cajetaSlice])
+  await page.goto('/carrito')
+  await expect(summary(page)).toContainText('Hoy pagas todo: lo de la vitrina de hoy se paga completo.')
+  await expect(summary(page)).not.toContainText('anticipo')
+})
+
+test('only orders without a base: the advance today and the rest on delivery', async ({ page }) => {
+  await seedCart(page, [durazno])
+  await page.goto('/carrito')
+  await expect(summary(page)).toContainText('Hoy pagas un anticipo del pedido; el resto, al entregar.')
+  await expect(summary(page)).not.toContainText('vitrina')
 })
 
 test('quantities change the line and the estimate, and removing a line keeps the focus', async ({ page }) => {
@@ -61,7 +78,8 @@ test('quantities change the line and the estimate, and removing a line keeps the
   await expect(slice).toContainText('En vitrina hoy')
   await expect(slice).toContainText('$70')
   await expect(slice).toContainText('$35 la rebanada')
-  await expect(summary(page)).toContainText('Hoy pagas un anticipo del pedido; el resto, al entregar. Lo de la vitrina de hoy se paga completo.')
+  // Encargo y vitrina juntos: el anticipo es solo de los encargos (regla 10).
+  await expect(summary(page)).toContainText('Hoy pagas el anticipo de los encargos y lo de la vitrina completo.')
   await slice.getByRole('button', { name: 'Agregar uno de Rebanada de tres leches de cajeta' }).click()
   await expect(slice).toContainText('$105')
   await expect(summary(page)).toContainText('Productos (4)')

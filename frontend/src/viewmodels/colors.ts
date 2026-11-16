@@ -1,5 +1,5 @@
 import type { CoverageColorOption } from '../models/cakeDesign.ts'
-import { displayHex, normalizeHex } from '../models/color.ts'
+import { normalizeHex } from '../models/color.ts'
 import { hexToLab } from './decorationTones.ts'
 
 /**
@@ -90,8 +90,11 @@ export function nearestColorName(hex: string, references: readonly CoverageColor
   return best && best.distance <= MAX_NAME_DISTANCE ? best.name : null
 }
 
-/** "#A1B2C3" o, si hay un nombre parecido, "#A1B2C3, parecido a rosa". */
-export function colorPhrase(hex: string, references: readonly CoverageColorOption[]): string {
+/**
+ * "parecido a rosa", o `null` si ningún color de la lista se parece. Nunca el código (tanda 1): el color se ve en su muestra
+ * redonda y el código solo viaja guardado.
+ */
+export function colorPhrase(hex: string, references: readonly CoverageColorOption[]): string | null {
   const name = nearestColorName(hex, references)
-  return name ? `${displayHex(hex)}, parecido a ${name.charAt(0).toLowerCase()}${name.slice(1)}` : displayHex(hex)
+  return name ? `parecido a ${name.charAt(0).toLowerCase()}${name.slice(1)}` : null
 }

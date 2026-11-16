@@ -93,7 +93,8 @@ export function decorationGroups(draft: CakeDesignDraft, options: CakeDesignOpti
     const choice: Choice = {
       value: option.slug,
       label: option.name,
-      description: option.description || undefined,
+      // Las chispas no llevan descripción (tanda 1): el nombre ya dice de cuáles son.
+      description: groupOf(option.slug) === 'sprinkles' ? undefined : option.description || undefined,
       trailing: option.available ? trailing(option) : undefined,
       checked: draft.decoration === option.slug,
       disabledReason: option.available ? undefined : (option.unavailableReason ?? 'No disponible'),
@@ -197,7 +198,7 @@ export function decorationSummary(draft: CakeDesignDraft, design: DesignDerived,
   if (decoration.requiresQuote) return { value: draft.decorationImageName ? `${decoration.name}, ${draft.decorationImageName}` : decoration.name, note: 'Por cotizar' }
   if (!hasColor(decoration)) return { value: decoration.name }
   const picked = pickedColor(draft)
-  return { value: `${decoration.name}, color ${picked ? colorPhrase(picked, options.coverageColors) : 'automático'}` }
+  return { value: `${decoration.name}, color ${picked ? (colorPhrase(picked, options.coverageColors) ?? 'elegido') : 'automático'}` }
 }
 
 /** Las muestras del color de la decoración: el color elegido o, en automático, los dos tonos que salen de la cobertura. Sin color, ninguna. */

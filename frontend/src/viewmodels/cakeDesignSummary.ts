@@ -94,7 +94,7 @@ export function summaryRows(draft: CakeDesignDraft, design: DesignDerived, curre
     })
   }
   if (shown(5) && design.coverage) {
-    rows.push({ step: 5, label: DESIGN_STEPS[4].title, value: `Crema pastelera, ${colorPhrase(design.coverage, options.coverageColors)}`, canChange: true, swatches: [design.coverage] })
+    rows.push({ step: 5, label: DESIGN_STEPS[4].title, value: ['Crema pastelera', colorPhrase(design.coverage, options.coverageColors)].filter(Boolean).join(', '), canChange: true, swatches: [design.coverage] })
   }
   const decoration = shown(DECORATION_STEP) ? decorationSummary(draft, design, options) : null
   if (decoration) {
@@ -133,7 +133,6 @@ export function sizeStepView(draft: CakeDesignDraft, design: DesignDerived, opti
       : 'Calculando los kilos…',
     /** Los kilos son de otras personas mientras llega la respuesta nueva. */
     kgStale: !size?.current,
-    kgNote: `Calculamos 1 kg por cada ${options.limits.peoplePerKg} personas y redondeamos.`,
     minimum:
       size?.belowMinimum
         ? {
@@ -235,7 +234,13 @@ export function designerView({ draft, design, options, current, price, plan, tie
       const number = index + 1
       const status = stepStatus(number, current, design, draft)
       // Se puede volver a un paso ya alcanzado; los siguientes y el relleno incluido no se tocan.
-      return { number, ...step, status, reachable: number !== current && status !== 'included' && number <= reachableUpTo }
+      const reachable = number !== current && status !== 'included' && number <= reachableUpTo
+      // El porqué del relleno incluido va en el mensaje flotante del candado, no en una tarjeta del paso 5 (tanda 1).
+      const tip =
+        status === 'included' && design.bread?.includedFilling
+          ? `Tu pan ${design.bread.name} ya trae su relleno de ${lowerFirst(design.bread.includedFilling)}, así que este paso se salta.`
+          : undefined
+      return { number, ...step, status, reachable, tip }
     }),
     summary: summaryRows(draft, design, current, options),
     conflict:
@@ -254,8 +259,6 @@ export function designerView({ draft, design, options, current, price, plan, tie
       decorations: decorationGroups(draft, options),
       decorationColor: decorationColorView(draft, design),
       decorationQuote: Boolean(design.decoration?.requiresQuote),
-      includedFilling:
-        design.fillingIncluded && design.bread ? { bread: design.bread.name, filling: lowerFirst(design.bread.includedFilling) } : null,
     },
     continueLabel: continueLabel(current, design),
     continueShort:

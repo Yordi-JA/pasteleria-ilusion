@@ -127,9 +127,14 @@ export async function signedIn(page: Page, user: object = ana): Promise<AuthCall
  * Google Identity Services simulado: fija el client ID de las pruebas y sirve una librería falsa cuyo botón entrega
  * `credential` al pulsarlo. Con `fail`, la librería no carga.
  */
-export async function mockGoogleIdentity(page: Page, { credential = 'credential-de-google', fail = false } = {}) {
+export async function mockGoogleIdentity(page: Page, { credential = 'credential-de-google', fail = false, styleDelayMs = 0 } = {}) {
   await page.addInitScript(() => Reflect.set(globalThis, '__googleClientId', '1234-prueba.apps.googleusercontent.com'))
   const loads: Request[] = []
+  // La hoja de estilos del botón: el sitio la espera antes de dibujarlo, para que no se vea el logo sin tamaño (tanda 1).
+  await page.route('https://accounts.google.com/gsi/style', async (route) => {
+    if (styleDelayMs) await new Promise((resolve) => setTimeout(resolve, styleDelayMs))
+    await route.fulfill({ contentType: 'text/css', body: '.gsi-prueba svg { width: 18px; height: 18px; }' }).catch(() => {})
+  })
   await page.route('https://accounts.google.com/gsi/client', async (route) => {
     loads.push(route.request())
     if (fail) {
@@ -145,6 +150,12 @@ export async function mockGoogleIdentity(page: Page, { credential = 'credential-
             initialize(config) { callback = config.callback; window.__gisConfig = config },
             renderButton(parent, options) {
               window.__gisOptions = options
+              // Como el de Google: el logo es un SVG sin tamaño propio, que solo su hoja de estilos achica.
+              const logo = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+              logo.setAttribute('viewBox', '0 0 48 48')
+              logo.setAttribute('data-logo-google', '')
+              parent.classList.add('gsi-prueba')
+              parent.append(logo)
               const button = document.createElement('button')
               button.type = 'button'
               button.textContent = options.text === 'signup_with' ? 'Registrarse con Google' : 'Continuar con Google'

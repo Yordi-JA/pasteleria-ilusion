@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { cakeDesignOptions, mockCakeDesignOptions, mockCakeDesignPrice, withoutColorNames } from './support/cake-design.ts'
-import { colorPicker, pickColor } from './support/color-picker.ts'
+import { colorPicker, pickColor, swatchColor } from './support/color-picker.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 
 /**
@@ -51,27 +51,24 @@ async function open(page: Page, step: number, draft: object, options: object = c
 
 const card = (page: Page) => page.getByTestId('tarjeta-paso')
 const picker = (page: Page) => colorPicker(card(page))
-const code = (page: Page) => picker(page).getByTestId('codigo-de-color')
+const swatch = (page: Page) => swatchColor(card(page))
 const bar = (page: Page, name: 'Tono' | 'Intensidad' | 'Claridad') => picker(page).getByRole('slider', { name })
-const field = (page: Page) => picker(page).getByLabel('Código del color')
 const draftOf = (page: Page) => page.evaluate(() => JSON.parse(sessionStorage.getItem('ilusion.cakeDesign.v1') ?? '{}'))
 const proceed = (page: Page, name = 'Continuar') => card(page).getByRole('button', { name, exact: true }).click()
 
 // --- Los módulos puros (en el navegador, como las otras pruebas de modelos) ---
 
-test('a color is exactly #rrggbb: no short form, no alpha, no names, and the typed field accepts the short form only when it is done', async ({ page }) => {
+test('a color is exactly #rrggbb: no short form, no alpha, no names', async ({ page }) => {
   await page.goto('/legal')
   const result = await page.evaluate(async (urls) => {
-    const { normalizeHex, parseTypedHex } = await import(urls.color)
+    const { normalizeHex } = await import(urls.color)
     return {
       normalized: ['#A1B2C3', '#a1b2c3'].map(normalizeHex),
       rejected: ['A1B2C3', '#abc', '#a1b2c3ff', '#12345', '#a1b2c3\n', ' #a1b2c3', 'red', '', null, 12].map(normalizeHex),
-      typed: ([['a1b2c3', false], ['#A1B2C3', false], ['  #a1b2c3 ', false], ['#abc', false], ['#abc', true], ['abc', true], ['#abcd', true], ['#12345g', true]] as [string, boolean][]).map(([text, short]) => parseTypedHex(text, short)),
     }
   }, MODELS)
   expect(result.normalized).toEqual(['#a1b2c3', '#a1b2c3'])
   expect(result.rejected.every((value) => value === null)).toBe(true)
-  expect(result.typed).toEqual(['#a1b2c3', '#a1b2c3', '#a1b2c3', null, '#aabbcc', '#aabbcc', null, null])
 })
 
 test('tone, intensity and lightness convert to a color and back without losing it, including black, white and the greys', async ({ page }) => {
@@ -154,16 +151,16 @@ test('"parecido a" is the closest color of the list by perception, not by RGB di
   )
   expect(result.exact.every(Boolean)).toBe(true)
   expect(result.samples).toEqual(['Verde', 'Turquesa', null, 'Blanco', 'Rojo'])
-  // Los grises oscuros o medios no se parecen a ningún color de la lista: solo muestra y código, sin nombre.
-  expect(result.gray).toEqual([['#000000', null, '#000000'], ['#333333', null, '#333333'], ['#808080', null, '#808080'], ['#666666', null, '#666666']])
+  // Los grises oscuros o medios no se parecen a ningún color de la lista: solo la muestra, sin nombre ni código (tanda 1).
+  expect(result.gray).toEqual([['#000000', null, null], ['#333333', null, null], ['#808080', null, null], ['#666666', null, null]])
   // Los colores vivos razonables conservan nombre, y un gris casi blanco sigue siendo "Blanco".
   expect(result.vivid).toEqual(['Rojo', 'Verde', 'Azul fuerte', 'Azul fuerte', 'Naranja'])
   expect(result.nearWhite).toEqual(['Blanco', 'Blanco'])
   // Por RGB saldría Café: la distancia perceptual da Verde, que es lo que se ve.
   expect(result.rgbWouldSay).toBe('Café')
-  expect(result.phrase).toBe('#4DC707, parecido a verde')
+  expect(result.phrase).toBe('parecido a verde')
   expect(result.emptyList).toBeNull()
-  expect(result.emptyPhrase).toBe('#4DC707')
+  expect(result.emptyPhrase).toBeNull()
 })
 
 test('an old draft with a list slug becomes its color code; a slug that is gone is dropped', async ({ page }) => {
@@ -202,11 +199,12 @@ test('step 5 starts on the first color of the list, shows it large, and "Continu
   await expect(picker(page)).toBeVisible()
   await expect(picker(page).locator('legend')).toHaveText('Elige el color de la cobertura')
   // El primero de la lista activa de la pastelería (Amarillo), no uno inventado.
-  await expect(code(page)).toHaveText(cakeDesignOptions.coverage_colors[0].preview_color.toUpperCase())
-  await expect(field(page)).toHaveValue(cakeDesignOptions.coverage_colors[0].preview_color.toUpperCase())
+  await expect(swatch(page)).toHaveAttribute('data-color', cakeDesignOptions.coverage_colors[0].preview_color.toLowerCase())
+  // El código no se escribe en pantalla: a la persona solo le importa el color (tanda 1).
+  await expect(picker(page)).not.toContainText('#')
   await expect(picker(page).getByTestId('muestra-de-color')).toHaveCSS('background-color', 'rgb(250, 228, 150)')
-  const swatch = await picker(page).getByTestId('muestra-de-color').boundingBox()
-  expect(swatch!.width).toBeGreaterThanOrEqual(64)
+  const swatchBox = await picker(page).getByTestId('muestra-de-color').boundingBox()
+  expect(swatchBox!.width).toBeGreaterThanOrEqual(64)
   await proceed(page)
   await expect(page.locator('#paso-titulo')).toHaveText('6. Decoración')
   expect((await draftOf(page)).coverageColor).toBe('#fae496')
@@ -222,7 +220,9 @@ test('every control of the picker has a real label, a role and a value that is a
     await expect(slider).toHaveAttribute('aria-valuetext', name === 'Tono' ? /^\d+°$/ : /^\d+ %$/)
     await expect(slider).toHaveAttribute('tabindex', '0')
   }
-  await expect(picker(page).getByLabel('Código del color')).toBeVisible()
+  // Sin campo para escribir el código (tanda 1).
+  await expect(picker(page).getByLabel('Código del color')).toHaveCount(0)
+  await expect(picker(page).getByRole('textbox')).toHaveCount(0)
   // Sin <input type="color"> del sistema.
   await expect(card(page).locator('input[type=color]')).toHaveCount(0)
 })
@@ -257,49 +257,32 @@ test('the keyboard moves each bar: arrows by 1, Shift by 10, Page Up and Down by
   await expect(hue).toHaveAttribute('aria-valuenow', '10')
   await page.keyboard.press('PageDown')
   await expect(hue).toHaveAttribute('aria-valuenow', '0')
-  // Tab llega a la siguiente barra y a la última, y de ahí al campo del código.
+  // Tab llega a la siguiente barra y a la última, y de ahí sale del selector.
   await page.keyboard.press('Tab')
   await expect(bar(page, 'Intensidad')).toBeFocused()
   await page.keyboard.press('Tab')
   await expect(bar(page, 'Claridad')).toBeFocused()
   await page.keyboard.press('Tab')
-  await expect(field(page)).toBeFocused()
+  expect(await picker(page).evaluate((el) => el.contains(document.activeElement))).toBe(false)
   // La claridad en el negro y en el blanco, y el color sigue siendo el que se ve.
   await bar(page, 'Claridad').focus()
   await page.keyboard.press('Home')
-  await expect(code(page)).toHaveText('#000000')
+  await expect(swatch(page)).toHaveAttribute('data-color', '#000000')
   await page.keyboard.press('End')
-  await expect(code(page)).toHaveText('#FFFFFF')
+  await expect(swatch(page)).toHaveAttribute('data-color', '#ffffff')
   // Cada paso cambia el color de la vista previa y del borrador.
   await page.keyboard.press('Shift+ArrowLeft')
   await expect.poll(async () => (await draftOf(page)).coverageColor).toMatch(/^#[0-9a-f]{6}$/)
   expect((await draftOf(page)).coverageColor).not.toBe('#ffffff')
 })
 
-test('typing a gray after a vivid color shows and saves that gray, not a saturated one', async ({ page }) => {
-  await open(page, 5, DRAFT_TO_STEP_5)
-  for (const gray of ['#808080', '#333333', '#fefefe']) {
-    await field(page).fill('#ff0000')
-    await expect(code(page)).toHaveText('#FF0000')
-    await field(page).fill(gray)
-    await expect(code(page)).toHaveText(gray.toUpperCase())
-    await expect(picker(page).getByTestId('muestra-de-color')).toHaveCSS('background-color', `rgb(${[1, 3, 5].map((i) => parseInt(gray.slice(i, i + 2), 16)).join(', ')})`)
-    await expect(bar(page, 'Intensidad')).toHaveAttribute('aria-valuenow', '0')
-    expect((await draftOf(page)).coverageColor).toBe(gray)
-  }
-})
-
-test('the tone keeps its value when the lightness goes to black, and the bars follow a typed code', async ({ page }) => {
+test('the tone keeps its value when the lightness goes to black', async ({ page }) => {
   await open(page, 5, { ...DRAFT_TO_STEP_5, coverageColor: '#12ab9f' })
   const hueBefore = await bar(page, 'Tono').getAttribute('aria-valuenow')
   await bar(page, 'Claridad').focus()
   await page.keyboard.press('Home')
-  await expect(code(page)).toHaveText('#000000')
+  await expect(swatch(page)).toHaveAttribute('data-color', '#000000')
   await expect(bar(page, 'Tono')).toHaveAttribute('aria-valuenow', hueBefore!)
-  await field(page).fill('#ff0000')
-  await expect(bar(page, 'Tono')).toHaveAttribute('aria-valuenow', '0')
-  await expect(bar(page, 'Intensidad')).toHaveAttribute('aria-valuenow', '100')
-  await expect(bar(page, 'Claridad')).toHaveAttribute('aria-valuenow', '50')
 })
 
 test('dragging or clicking a bar sets its value from where the pointer is', async ({ page }) => {
@@ -323,80 +306,32 @@ test('dragging or clicking a bar sets its value from where the pointer is', asyn
   await expect(hue).toHaveAttribute('aria-valuenow', '0')
 })
 
-test('the code field takes a valid code, with or without #, in any case; the short form is taken when you leave the field', async ({ page }) => {
-  await open(page, 5, DRAFT_TO_STEP_5)
-  await field(page).fill('a1b2c3')
-  await expect(code(page)).toHaveText('#A1B2C3')
-  // Lo que se teclea no se reescribe mientras se escribe (mayúsculas, "#"): el cursor no salta al final.
-  await expect(field(page)).toHaveValue('a1b2c3')
-  await expect.poll(async () => (await draftOf(page)).coverageColor).toBe('#a1b2c3')
-  await field(page).fill('#12AB9F')
-  await expect(code(page)).toHaveText('#12AB9F')
-  expect((await draftOf(page)).coverageColor).toBe('#12ab9f')
-  await field(page).blur()
-  await expect(field(page)).toHaveValue('#12AB9F')
-  // Escribiendo la forma corta no se adelanta: "#abc" espera a #abcdef.
-  await field(page).fill('')
-  await field(page).pressSequentially('#abc')
-  await expect(code(page)).toHaveText('#12AB9F')
-  await field(page).pressSequentially('def')
-  await expect(code(page)).toHaveText('#ABCDEF')
-  // La forma corta completa se toma al salir del campo.
-  await field(page).fill('#fa0')
-  await expect(code(page)).toHaveText('#ABCDEF')
-  await field(page).blur()
-  await expect(code(page)).toHaveText('#FFAA00')
-  await expect(field(page)).toHaveValue('#FFAA00')
-  expect((await draftOf(page)).coverageColor).toBe('#ffaa00')
-})
-
-test('an invalid code says what to type, keeps the color it had and marks the field as invalid', async ({ page }) => {
-  await open(page, 5, DRAFT_TO_STEP_5)
-  await field(page).fill('#12AB9F')
-  await expect(code(page)).toHaveText('#12AB9F')
-  for (const bad of ['#12AB9', 'rojo', '#12AB9G', '#12AB9F00', '']) {
-    await field(page).fill(bad)
-    await field(page).blur()
-    const message = picker(page).getByText('Escribe el código con 6 dígitos (del 0 al 9 y de la A a la F), por ejemplo #A1B2C3.')
-    await expect(message, bad).toBeVisible()
-    await expect(field(page)).toHaveAttribute('aria-invalid', 'true')
-    await expect(field(page)).toHaveAccessibleDescription(/Escribe el código con 6 dígitos/)
-    await expect(code(page)).toHaveText('#12AB9F')
-    expect((await draftOf(page)).coverageColor).toBe('#12ab9f')
-  }
-  // Al corregirlo, el error se va.
-  await field(page).fill('#00FF00')
-  await expect(field(page)).not.toHaveAttribute('aria-invalid', 'true')
-  await expect(code(page)).toHaveText('#00FF00')
-  // Enter también lo revisa.
-  await field(page).fill('#00FF')
-  await field(page).press('Enter')
-  await expect(field(page)).toHaveAttribute('aria-invalid', 'true')
-  await expect(page.locator('#paso-titulo')).toHaveText('5. Cobertura')
-})
-
 test('with an empty list of names the picker starts neutral and "Continuar" asks to choose a color first; no "parecido a" is shown', async ({ page }) => {
   const options = withoutColorNames()
   await open(page, 5, DRAFT_TO_STEP_5, options)
-  await expect(code(page)).toHaveText('#FFFFFF')
+  await expect(swatch(page)).toHaveAttribute('data-color', '#ffffff')
   await proceed(page)
   await expect(card(page).getByText('Elige el color de la cobertura.')).toBeVisible()
   await expect(page.locator('#paso-titulo')).toHaveText('5. Cobertura')
   expect((await draftOf(page)).coverageColor).toBeNull()
-  // Pasar por el campo sin escribir no elige el blanco de arranque.
-  await field(page).focus()
-  await field(page).blur()
+  // Pasar por las barras sin moverlas no elige el blanco de arranque.
+  await bar(page, 'Tono').focus()
+  await bar(page, 'Claridad').focus()
+  await bar(page, 'Claridad').blur()
   expect((await draftOf(page)).coverageColor).toBeNull()
   await pickColor(card(page), '#12ab9f')
   await proceed(page)
   await expect(page.locator('#paso-titulo')).toHaveText('6. Decoración')
-  await expect(page.getByText('Crema pastelera, #12AB9F', { exact: true }).filter({ visible: true })).toBeVisible()
+  // Sin nombre parecido, "Tu pastel" dice la cobertura con su muestra, sin el código.
+  await expect(page.getByText('Crema pastelera', { exact: true }).filter({ visible: true })).toBeVisible()
+  await expect(page.getByText(/#[0-9A-F]{6}/i).filter({ visible: true })).toHaveCount(0)
   await expect(page.getByText(/parecido a/)).toHaveCount(0)
 })
 
 test('with an empty list, exactly #FFFFFF can be chosen even though the picker starts on it', async ({ page }) => {
   await open(page, 5, DRAFT_TO_STEP_5, withoutColorNames())
-  await field(page).fill('#ffffff')
+  await bar(page, 'Claridad').focus()
+  await page.keyboard.press('End')
   await expect.poll(async () => (await draftOf(page)).coverageColor).toBe('#ffffff')
   await proceed(page)
   await expect(page.locator('#paso-titulo')).toHaveText('6. Decoración')
@@ -404,48 +339,51 @@ test('with an empty list, exactly #FFFFFF can be chosen even though the picker s
 
 // --- Los tres usos y el "parecido a" ---
 
-test('the three uses share the picker; the review shows swatch, code and "parecido a", and the cart line carries the codes and the phrase in its details (there is no cart screen that lists designs yet)', async ({ page }) => {
+test('the three uses share the picker; the review shows swatch and "parecido a" without the code, and the cart line keeps the codes but its details say only the phrase', async ({ page }) => {
   await open(page, 5, DRAFT_TO_STEP_5)
   // 5. Cobertura.
-  await pickColor(card(page), '#d44c49')
+  const coverage = await pickColor(card(page), '#d44c49')
   await proceed(page)
   // 6. Decoración: rosas con un color propio.
   await card(page).getByRole('radio', { name: 'Rosas' }).check()
   await card(page).getByRole('radio', { name: 'Elegir un color' }).check()
   await expect(picker(page).locator('legend')).toHaveText('Elige el color de la decoración')
-  await pickColor(card(page), '#4dc707')
+  const decoration = await pickColor(card(page), '#4dc707')
   await proceed(page)
   // 7. Mensaje: color propio.
   await card(page).getByLabel('Agregar un mensaje').check()
   await card(page).getByLabel('Tu mensaje').fill('Feliz cumple')
   await card(page).getByRole('radio', { name: /^Elegir un color/ }).check()
   await expect(picker(page).locator('legend')).toHaveText('Elige el color del texto')
-  await pickColor(card(page), '#12ab9f')
+  const ink = await pickColor(card(page), '#12ab9f')
   await proceed(page)
   // 8. Revisión.
   await expect(page.locator('#paso-titulo')).toHaveText('8. Revisión')
   const breakdown = page.getByTestId('desglose')
-  await expect(breakdown).toContainText('Color #D44C49, parecido a rojo')
-  await expect(breakdown).toContainText('Color #4DC707, parecido a verde')
-  await expect(breakdown).toContainText('Color #12AB9F, parecido a turquesa')
+  await expect(breakdown).toContainText('Color parecido a rojo')
+  await expect(breakdown).toContainText('Color parecido a verde')
+  await expect(breakdown).toContainText('Color parecido a turquesa')
+  await expect(breakdown).not.toContainText('#')
   const rowColors = await breakdown.evaluate((el) => {
     const swatches = [...el.querySelectorAll<HTMLElement>('li span[aria-hidden=true] > span')].map((swatch) => swatch.style.backgroundColor)
     return swatches
   })
-  expect(rowColors).toEqual(expect.arrayContaining(['rgb(212, 76, 73)', 'rgb(77, 199, 7)', 'rgb(18, 171, 159)']))
+  const rgb = (hex: string) => `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`
+  expect(rowColors).toEqual(expect.arrayContaining([rgb(coverage), rgb(decoration), rgb(ink)]))
   // El precio no cambia por un color libre: sin decoración extra, solo las rosas ($120) y la base.
   await proceed(page, 'Agregar al pedido')
   await expect(page.getByTestId('aviso-carrito')).toContainText('Agregado al pedido')
   const cart = await page.evaluate(() => JSON.parse(localStorage.getItem('ilusion.cart.v1') ?? 'null'))
   const [line] = cart.items
-  expect(line.design).toMatchObject({ coverageColor: '#d44c49', decorationColor: '#4dc707', message: { color: { mode: 'custom', value: '#12ab9f' } } })
+  expect(line.design).toMatchObject({ coverageColor: coverage, decorationColor: decoration, message: { color: { mode: 'custom', value: ink } } })
   expect(line.details).toEqual(
     expect.arrayContaining([
-      'Cobertura: Crema pastelera, #D44C49, parecido a rojo',
-      expect.stringContaining('Rosas, color #4DC707, parecido a verde'),
-      expect.stringContaining('Mensaje: Feliz cumple, color #12AB9F, parecido a turquesa'),
+      'Cobertura: Crema pastelera, parecido a rojo',
+      expect.stringContaining('Rosas, color parecido a verde'),
+      expect.stringContaining('Mensaje: Feliz cumple, color parecido a turquesa'),
     ]),
   )
+  expect(JSON.stringify(line.details)).not.toMatch(/#[0-9a-f]{6}/i)
 })
 
 test('a free color costs nothing extra: the price request carries no color and the total is the same for any color', async ({ page }) => {
@@ -462,15 +400,15 @@ test('a free color costs nothing extra: the price request carries no color and t
 
 // --- Borradores y carritos viejos ---
 
-test('an old draft with list slugs opens with the matching codes in the review and is saved migrated', async ({ page }) => {
+test('an old draft with list slugs opens with the matching names in the review and is saved migrated', async ({ page }) => {
   await open(page, 8, {
     ...DRAFT_TO_STEP_8, coverageColor: 'rojo', decoration: 'flores', decorationColor: 'azulfuerte',
     messageEnabled: true, message: { text: 'Hola', color: { mode: 'list', value: 'lila' } },
   })
   const breakdown = page.getByTestId('desglose')
-  await expect(breakdown).toContainText('Color #D44C48, parecido a rojo')
-  await expect(breakdown).toContainText('Color #4A70BA, parecido a azul fuerte')
-  await expect(breakdown).toContainText('Color #CCBAE4, parecido a lila')
+  await expect(breakdown).toContainText('Color parecido a rojo')
+  await expect(breakdown).toContainText('Color parecido a azul fuerte')
+  await expect(breakdown).toContainText('Color parecido a lila')
   await expect.poll(async () => (await draftOf(page)).coverageColor).toBe('#d44c48')
   const draft = await draftOf(page)
   expect(draft).toMatchObject({ decorationColor: '#4a70ba', message: { color: { mode: 'custom', value: '#ccbae4' } } })
@@ -581,8 +519,6 @@ test.describe('on a phone', () => {
       expect(box.x).toBeGreaterThanOrEqual(0)
       expect(box.x + box.width).toBeLessThanOrEqual(390)
     }
-    const input = (await field(page).boundingBox())!
-    expect(input.height).toBeGreaterThanOrEqual(44)
     const box = (await hue.boundingBox())!
     await page.touchscreen.tap(box.x + box.width * 0.75, box.y + box.height / 2)
     const value = Number(await hue.getAttribute('aria-valuenow'))
@@ -651,5 +587,5 @@ test('the picker has no animation or transition, so it already respects prefers-
   expect(motion.every((entry) => entry.name === 'none' && /^0s(, 0s)*$/.test(entry.transition))).toBe(true)
   await bar(page, 'Tono').focus()
   await page.keyboard.press('ArrowRight')
-  await expect(code(page)).not.toHaveText(cakeDesignOptions.coverage_colors[0].preview_color.toUpperCase())
+  await expect(swatch(page)).not.toHaveAttribute('data-color', cakeDesignOptions.coverage_colors[0].preview_color.toLowerCase())
 })

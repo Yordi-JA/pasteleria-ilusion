@@ -7,22 +7,22 @@ import { mockProducts } from './support/products.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 
 /**
- * El pastel 3D del catálogo (D59, libro de marca "Presencia de marca"): el de la portada (D48) en el encabezado y en
- * "¿No encuentras el pastel que imaginas?", en la escena chica y sin separar los pisos con el scroll. La escena
- * expone en desarrollo `data-angle`, `data-separation`, `data-frames` y `data-running`.
+ * El pastel 3D del catálogo (D59, libro de marca "Presencia de marca"): el de la portada (D48) en el encabezado, en la
+ * escena chica y sin separar los pisos con el scroll. La banda "¿No encuentras el pastel que imaginas?" y su segundo
+ * pastel se quitaron en la tanda 1 (D77). La escena expone en desarrollo `data-angle`, `data-separation`, `data-frames`
+ * y `data-running`.
  */
 
 test.use({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 })
 
 const NAME = 'Pastel de tres pisos'
 const KEYS_HINT = 'Usa las flechas izquierda y derecha para girarlo.'
-const BOXES = ['pastel-catalogo', 'pastel-imaginas'] as const
-type Box = (typeof BOXES)[number]
+type Box = 'pastel-catalogo'
 
 const box = (page: Page, id: Box) => page.getByTestId(id)
 const scene = (page: Page, id: Box) => box(page, id).getByRole('img', { name: NAME, exact: true })
 const num = async (page: Page, id: Box, attr: string) => Number(await scene(page, id).getAttribute(attr))
-const band = (page: Page) => page.getByRole('region', { name: '¿No encuentras el pastel que imaginas?' })
+const desserts = (page: Page) => page.getByRole('region', { name: 'Postres y gelatinas', exact: true })
 
 async function openCatalog(page: Page) {
   await mockStoreInfo(page)
@@ -36,21 +36,15 @@ async function waitReady(page: Page, id: Box) {
   await expect.poll(() => num(page, id, 'data-frames')).toBeGreaterThan(0)
 }
 
-async function scrollToBand(page: Page) {
-  await band(page).scrollIntoViewIfNeeded()
-}
 
-test('both cakes are the 3D scene in the small box, focusable, with their name and the arrows hint', async ({ page }) => {
+test('the cake is the 3D scene in the small box, focusable, with its name and the arrows hint; there is only one', async ({ page }) => {
   await openCatalog(page)
   await waitReady(page, 'pastel-catalogo')
-  await scrollToBand(page)
-  await waitReady(page, 'pastel-imaginas')
-  for (const id of BOXES) {
-    expect((await box(page, id).boundingBox())!.height).toBe(420)
-    await expect(scene(page, id)).toHaveAttribute('tabindex', '0')
-    await expect(scene(page, id)).toHaveAccessibleDescription(new RegExp(KEYS_HINT))
-    await expect(page.getByTestId(`${id}-fijo`)).toBeHidden()
-  }
+  expect((await box(page, 'pastel-catalogo').boundingBox())!.height).toBe(420)
+  await expect(scene(page, 'pastel-catalogo')).toHaveAttribute('tabindex', '0')
+  await expect(scene(page, 'pastel-catalogo')).toHaveAccessibleDescription(new RegExp(KEYS_HINT))
+  await expect(page.getByTestId('pastel-catalogo-fijo')).toBeHidden()
+  await expect(page.getByRole('img', { name: NAME, exact: true })).toHaveCount(1)
 })
 
 test('without separating tiers, the canvas does not stick out of its box (the portada lifts it 72 px)', async ({ page }) => {
@@ -67,20 +61,13 @@ test('the tiers never separate with the scroll (that is only on the portada)', a
   await page.mouse.wheel(0, 300)
   await page.waitForTimeout(400)
   expect(await num(page, 'pastel-catalogo', 'data-separation')).toBe(0)
-  await scrollToBand(page)
-  await waitReady(page, 'pastel-imaginas')
-  await page.mouse.wheel(0, 200)
-  await page.waitForTimeout(400)
-  expect(await num(page, 'pastel-imaginas', 'data-separation')).toBe(0)
 })
 
-test('each scene pauses when it leaves the screen', async ({ page }) => {
+test('the scene pauses when it leaves the screen', async ({ page }) => {
   await openCatalog(page)
   await waitReady(page, 'pastel-catalogo')
   await expect(scene(page, 'pastel-catalogo')).toHaveAttribute('data-running', 'true')
-  await scrollToBand(page)
-  await waitReady(page, 'pastel-imaginas')
-  await expect(scene(page, 'pastel-imaginas')).toHaveAttribute('data-running', 'true')
+  await desserts(page).scrollIntoViewIfNeeded()
   await expect(scene(page, 'pastel-catalogo')).toHaveAttribute('data-running', 'false')
   await page.waitForTimeout(150)
   const frames = await num(page, 'pastel-catalogo', 'data-frames')
@@ -88,23 +75,20 @@ test('each scene pauses when it leaves the screen', async ({ page }) => {
   expect(await num(page, 'pastel-catalogo', 'data-frames')).toBe(frames)
 })
 
-test('the arrows turn it, and on mermelada the focus ring is betun', async ({ page }) => {
+test('Tab reaches it after "Realizar pedido", with a visible ring, and the arrows turn it', async ({ page }) => {
   await openCatalog(page)
-  await scrollToBand(page)
-  await waitReady(page, 'pastel-imaginas')
-  await band(page).getByRole('link', { name: 'Realizar pedido' }).focus()
+  await waitReady(page, 'pastel-catalogo')
+  await page.getByRole('region', { name: 'Catálogo' }).getByRole('link', { name: 'Realizar pedido' }).focus()
   await page.keyboard.press('Tab')
-  await expect(scene(page, 'pastel-imaginas')).toBeFocused()
-  await expect(scene(page, 'pastel-imaginas')).toHaveCSS('outline-style', 'solid')
-  // `betun` (#fffbfb), no `mermelada`, que no se vería sobre el campo.
-  await expect(scene(page, 'pastel-imaginas')).toHaveCSS('outline-color', 'rgb(255, 251, 251)')
-  const before = await num(page, 'pastel-imaginas', 'data-angle')
+  await expect(scene(page, 'pastel-catalogo')).toBeFocused()
+  await expect(scene(page, 'pastel-catalogo')).toHaveCSS('outline-style', 'solid')
+  const before = await num(page, 'pastel-catalogo', 'data-angle')
   await page.keyboard.press('ArrowRight')
   await page.keyboard.press('ArrowRight')
-  await expect.poll(() => num(page, 'pastel-imaginas', 'data-angle')).toBeGreaterThanOrEqual(before + 29)
+  await expect.poll(() => num(page, 'pastel-catalogo', 'data-angle')).toBeGreaterThanOrEqual(before + 29)
 })
 
-test('if a scene with focus loses its context, focus moves to "Realizar pedido" of its section', async ({ page }) => {
+test('if the scene with focus loses its context, focus moves to "Realizar pedido"', async ({ page }) => {
   await openCatalog(page)
   await waitReady(page, 'pastel-catalogo')
   await scene(page, 'pastel-catalogo').focus()
@@ -117,7 +101,7 @@ test('if a scene with focus loses its context, focus moves to "Realizar pedido" 
   await expect(page.getByRole('region', { name: 'Catálogo' }).getByRole('link', { name: 'Realizar pedido' })).toBeFocused()
 })
 
-test('without WebGL both static cakes stay and the scene is never requested', async ({ page }) => {
+test('without WebGL the static cake stays and the scene is never requested', async ({ page }) => {
   await page.addInitScript(() => {
     const original = HTMLCanvasElement.prototype.getContext as (this: HTMLCanvasElement, ...args: unknown[]) => unknown
     const withoutWebGL = function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
@@ -131,10 +115,8 @@ test('without WebGL both static cakes stay and the scene is never requested', as
     if (request.url().includes('/src/three/')) sceneRequests.push(request.url())
   })
   await openCatalog(page)
-  for (const id of BOXES) {
-    await expect(box(page, id)).toHaveAttribute('data-state', 'fallback')
-    await expect(scene(page, id)).toHaveCount(0)
-  }
+  await expect(box(page, 'pastel-catalogo')).toHaveAttribute('data-state', 'fallback')
+  await expect(scene(page, 'pastel-catalogo')).toHaveCount(0)
   await expect(page.getByTestId('pastel-catalogo-fijo')).toBeVisible()
   expect(sceneRequests).toEqual([])
 })

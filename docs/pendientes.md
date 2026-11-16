@@ -300,6 +300,12 @@ Menores de la revisión única de "Datos y avisos" que no se implementaron:
 6. Una base común para los errores por campo con código, en lugar de `PasswordChangeError(RegistrationError)`.
 7. Avisar a las otras pestañas del nombre nuevo (`BroadcastChannel`); hoy lo toman al renovar la sesión o al recargar.
 
+## Tanda 1 de correcciones (D77)
+
+1. Las descripciones del catálogo ("Relleno de X y cobertura de crema pastelera.") son genéricas. La pastelería debe escribir las reales de cada pastel (regla 1: no se inventan); se cambian en el admin, sin despliegue.
+2. Fotos que faltan: Choco-pingüino, Red velvet, nuez, queso y zarzamora, flan y zarzamora, y tres leches de chocolate. Mientras tanto se ve el hueco "Foto del pastel pendiente". Las ocho `.webp` de esta tanda ya están en `frontend/public/fotos/`; `tres-leches-de-cajeta.jpg` se queda porque producción todavía apunta a ella.
+3. Pregunta para la pastelería, de la tanda 2 (personalizar el pastel mini): ¿cuánto cuestan las rosas en un mini? En los demás pasteles cuestan $120. Las rosas del mini son del mismo tamaño, pero caben menos que en un pastel normal. Mientras no se defina, el precio de las rosas en el mini queda pendiente.
+
 ## Confirmar el correo y recuperar la contraseña (D76)
 
 Lo construido está en D76 ([`proyecto/decisiones.md`](proyecto/decisiones.md)), en la rama `feat/verificar-recuperar`, sin desplegar. Quedan estos puntos:

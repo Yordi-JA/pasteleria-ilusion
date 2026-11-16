@@ -1,4 +1,3 @@
-import type { CakeDesignOptions } from '../models/cakeDesign.ts'
 import { CAKE_TYPE_LABELS, featuredOffering } from '../models/catalog.ts'
 import type { CardOffering, ProductCard, ProductCategory } from '../models/catalog.ts'
 import { formatPrice } from '../models/money.ts'
@@ -25,7 +24,7 @@ export type ProductCardView = {
   statuses: string[]
   /** El precio principal: "$350" o, si no es el completo, "Grande, $360". `null` sin presentaciones. */
   price: string | null
-  /** El segundo precio: "$35 la rebanada", "Individual, $35" o "Por pedido, $280 por kg". */
+  /** El segundo precio, de otra presentación que no es la rebanada: "Individual, $35". */
   secondaryPrice: string | null
 }
 
@@ -47,33 +46,24 @@ export function offeringPrice(offering: CardOffering): string {
 }
 
 /**
- * El segundo precio de una tarjeta: la rebanada si la hay; si no, la primera otra presentación. En un pastel, el
- * mini no cuenta: el catálogo lo anuncia aparte, en "Pastel mini" (mockup).
+ * El segundo precio de una tarjeta: la primera otra presentación (el flan individual junto al grande). La rebanada no
+ * va: solo se ofrece en la vitrina y en las rebanadas de hoy. En un pastel, el mini tampoco: el catálogo lo anuncia
+ * aparte, en "Pastel mini" (mockup). El precio por kilo de un encargo solo se ve al armar el pedido (tanda 1).
  */
 function secondaryOffering(card: Pick<ProductCard, 'category' | 'offerings'>, main: CardOffering | null): CardOffering | null {
-  const others = card.offerings.filter((offering) => offering !== main && !(card.category === 'cake' && offering.presentation === 'mini'))
-  return others.find((offering) => offering.presentation === 'slice') ?? others[0] ?? null
+  const others = card.offerings.filter(
+    (offering) => offering !== main && offering.presentation !== 'slice' && !(card.category === 'cake' && offering.presentation === 'mini'),
+  )
+  return others[0] ?? null
 }
 
-/**
- * El precio por kilo de un pan de precio completo (Red velvet: "Por pedido, $280 por kg"), de las opciones de
- * "Diseña tu pastel" (D45: `bread` de la tarjeta sirve para esto). `null` si no aplica o si las opciones no llegaron.
- */
-export function orderPricePerKg(card: Pick<ProductCard, 'bread' | 'cakeType'>, options: CakeDesignOptions | null): string | null {
-  if (!options || !card.bread || !card.cakeType) return null
-  const bread = options.breads.find((option) => option.slug === card.bread)
-  const perKg = bread?.pricingMode === 'full_price_per_kg' ? bread.pricePerKgFrom[card.cakeType] : undefined
-  const price = perKg ? formatPrice(perKg) : null
-  return price ? `Por pedido, ${price} por kg` : null
-}
-
-/** Los dos precios de una tarjeta o del encabezado de la ficha. */
-export function priceSummary(card: Pick<ProductCard, 'category' | 'offerings' | 'bread' | 'cakeType'>, options: CakeDesignOptions | null = null) {
+/** Los dos precios de una tarjeta del catálogo. */
+export function priceSummary(card: Pick<ProductCard, 'category' | 'offerings'>) {
   const main = featuredOffering(card)
   const second = secondaryOffering(card, main)
   return {
     price: main ? offeringPrice(main) : null,
-    secondaryPrice: second ? offeringPrice(second) : orderPricePerKg(card, options),
+    secondaryPrice: second ? offeringPrice(second) : null,
   }
 }
 
@@ -104,7 +94,7 @@ export function productHref(slug: string): string {
   return `/pasteles/${encodeURIComponent(slug)}`
 }
 
-export function toProductCardView(card: ProductCard, options: CakeDesignOptions | null = null): ProductCardView {
+export function toProductCardView(card: ProductCard): ProductCardView {
   return {
     key: card.slug,
     name: card.name,
@@ -114,7 +104,7 @@ export function toProductCardView(card: ProductCard, options: CakeDesignOptions 
     photo: photoView(card.photo, card.name, PHOTO_PLACEHOLDER[card.category]),
     kind: productKind(card),
     statuses: showcaseStatus(card),
-    ...priceSummary(card, options),
+    ...priceSummary(card),
   }
 }
 

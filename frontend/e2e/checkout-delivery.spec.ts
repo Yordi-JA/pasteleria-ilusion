@@ -62,7 +62,8 @@ test('the checkout frame, the calendar with full days and slots, and who picks u
   const banner = page.getByRole('banner')
   await expect(banner.getByRole('link', { name: 'Volver al carrito' })).toHaveAttribute('href', '/carrito')
   await expect(banner.getByRole('navigation', { name: 'Principal' })).toHaveCount(0)
-  await expect(page.getByTestId('franja')).toContainText('Pagos procesados por Stripe y Mercado Pago')
+  // "Pagos procesados por Stripe y Mercado Pago" va solo en el pago (tanda 1); la entrega deja el WhatsApp para dudas.
+  await expect(page.getByTestId('franja')).not.toContainText('Pagos procesados')
   await expect(page.getByTestId('franja').getByRole('link', { name: /WhatsApp 00 0000 0000/ })).toBeVisible()
   await expect(page.getByRole('contentinfo')).not.toContainText('Pide un deseo')
   const steps = page.getByRole('navigation', { name: 'Pasos de tu compra' })

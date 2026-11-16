@@ -4,25 +4,28 @@ import CartPearls from '../components/CartPearls.tsx'
 import Duya from '../components/Duya.tsx'
 import SiteFooter from '../components/SiteFooter.tsx'
 import SiteHeader, { CheckoutHeader } from '../components/SiteHeader.tsx'
-import TopStrip from '../components/TopStrip.tsx'
+import CheckoutStrip from '../components/CheckoutStrip.tsx'
 import LogoutUnconfirmedNotice from './account/LogoutUnconfirmedNotice.tsx'
 import { CartContext, useCartState } from '../viewmodels/useCart.ts'
 import { CartFlightContext, useCartFlightState } from '../viewmodels/useCartFlight.ts'
 import { ClosingFieldContext, useClosingFieldState } from '../viewmodels/useClosingField.ts'
 import { checkoutBack } from '../viewmodels/referenceView.ts'
 import { useRouteFocus } from '../viewmodels/useRouteFocus.ts'
-import { useRestoreSession, useSession, useSignOut, useSignOutAcknowledgement } from '../viewmodels/useSession.ts'
+import { useRestoreSession, useSession, useSignOut, useSignOutAcknowledgement, useSignOutEffect } from '../viewmodels/useSession.ts'
 import { useSiteMenu } from '../viewmodels/useSiteMenu.ts'
 import { useStoreInfo } from '../viewmodels/useStoreInfo.ts'
 
 /** La entrega y el pago llevan el marco de la compra (mockup de Entrega y Pago): franja, barra y pie propios. */
 const CHECKOUT_PATHS = new Set(['/pedido/entrega', '/pedido/pago'])
+/** Solo el pago dice quién procesa los pagos (tanda 1, D77). */
+const PAYMENT_PATH = '/pedido/pago'
 
 /**
- * Marco común de todas las rutas: franja, toldo, barra flotante, contenido, guirnalda y pie.
- * Pide los datos de la pastelería una sola vez y los pasa a la franja, el menú y el pie. Guarda el carrito y lo
+ * Marco común de todas las rutas: toldo, barra flotante, contenido, guirnalda y pie; la entrega y el pago llevan además la
+ * franja de la compra (la franja de los días y el WhatsApp del resto del sitio se quitó en D77: el WhatsApp está en el pie y
+ * los días, en las pantallas de pedido). Pide los datos de la pastelería una sola vez y los pasa a esa franja, el menú y el pie. Guarda el carrito y lo
  * comparte con las pantallas por `CartContext`; el vuelo de la perla al carrito va por `CartFlightContext`; al encabezado le pasa solo el contador (D46).
- * Recupera la sesión al cargar y le pasa al encabezado y al menú si hay cuenta (D62); la guirnalda cuelga del campo
+ * Recupera la sesión al cargar y le pasa al encabezado y al menú si hay cuenta (D62); al cerrarla, vacía el carrito (D77); la guirnalda cuelga del campo
  * con que termina la vista (`useClosingField`).
  */
 export default function SiteLayout() {
@@ -34,6 +37,8 @@ export default function SiteLayout() {
   useRouteFocus(main)
   useRestoreSession()
   useSignOutAcknowledgement()
+  // Cerrar sesión vacía el carrito (D77): lo que se eligió con la cuenta no queda para quien use el navegador después.
+  useSignOutEffect(cart.clear)
   const session = useSession()
   const signOut = useSignOut()
   const [closingField, setClosingField] = useClosingFieldState()
@@ -55,7 +60,7 @@ export default function SiteLayout() {
             >
               Saltar al contenido
             </a>
-            <TopStrip store={store} checkout={checkout} />
+            {checkout && <CheckoutStrip store={store} payments={location.pathname === PAYMENT_PATH} />}
             <div data-testid="toldo" className="toldo" aria-hidden="true" />
             {checkout ? (
               <CheckoutHeader back={checkoutBack(location.pathname, location.search)} />

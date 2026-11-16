@@ -227,7 +227,8 @@ Las opciones no disponibles **se muestran desactivadas con su motivo; nunca desa
 
 ## 5. Cobertura (paso 5)
 
-- Solo **crema pastelera**; lo que se elige es el **color**, y puede ser cualquier color. El cliente lo elige con un selector libre (tono, intensidad y claridad, o el código `#RRGGBB`). Elegir un color no cuesta extra (D57).
+- Solo **crema pastelera**; lo que se elige es el **color**, y puede ser cualquier color. El cliente lo elige con un selector libre (tono, intensidad y claridad). Elegir un color no cuesta extra (D57).
+- **El código del color no se muestra** (lo decidió el usuario el 16 de noviembre de 2026, tanda 1 de correcciones, D77): ni el cliente lo escribe ni la pastelería lo recibe. El cliente, la revisión, el carrito y el admin ven el círculo del color y su "parecido a" cuando hay un nombre parecido. El color se sigue guardando como `#rrggbb` y la API no cambia.
 - Al entrar al paso, la cobertura arranca en el primer color activo de la lista de nombres de referencia (abajo). Si esa lista está vacía, nada queda elegido hasta que el cliente elija un color.
 - Se recomienda **un solo color**. Para varios colores o diseños específicos → envío de referencia.
 
@@ -392,6 +393,10 @@ Estados: `in_review` (En revisión) → `quote_ready` (Cotización lista) → (c
 - Métodos: **Mercado Pago**, **tarjeta (Stripe)** y **efectivo en la pastelería**. Sandbox en desarrollo.
 - Se paga un **anticipo** del pedido y el resto el día de la entrega. El porcentaje es `PolicySettings.advance_percent`, configurable en el admin entre 1 y 100; hoy vale **50%**. Aplica también a pasteles de vitrina encargados. Los ejemplos de esta sección usan 50%.
 - **Lo de la vitrina de hoy se paga completo** (anticipo del 100%); el anticipo de `PolicySettings.advance_percent` es para los encargos y los diseños. Lo decidió el usuario el 14 de noviembre de 2026 (D63).
+- **Lo que dice el carrito y la entrega sobre el pago de hoy** (lo decidió el usuario el 16 de noviembre de 2026, tanda 1 de correcciones, D77). Lo decide el tipo de cada línea (encargo o vitrina de hoy), no la pantalla:
+    - Solo vitrina o rebanadas: "Hoy pagas todo: lo de la vitrina de hoy se paga completo." Sin anticipo.
+    - Solo encargos (diseños, encargos del catálogo y referencias): "Hoy pagas un anticipo del pedido; el resto, al entregar.", con "y el depósito de la base" si lleva base.
+    - Los dos: "Hoy pagas el anticipo de los encargos y lo de la vitrina completo.", con "el depósito de la base" si lleva base.
 - El **depósito de la base y el envío no entran en el anticipo**: se pagan completos, aparte, el mismo día del anticipo.
 
 ```python
@@ -502,6 +507,8 @@ Lo decidió el usuario el 15 de noviembre de 2026 (D72). Vive en `/cuenta/datos`
 | Correo | No se cambia. Debajo dice "Vinculado a tu cuenta de Google." si la cuenta entró con Google, o "Es el correo con el que entras." |
 
 **Avisos del pedido.** El correo siempre se envía: su casilla va marcada y no se puede quitar. WhatsApp es una preferencia de la cuenta (`User.notify_whatsapp`, apagada al inicio): el sitio no manda mensajes de WhatsApp; la preferencia le dice a la pastelería que puede escribirle a mano. El admin la muestra en el usuario y en el pedido, junto al teléfono del cliente, sin poder cambiarla. Marcar WhatsApp sin teléfono, o quitar el teléfono con WhatsApp marcado, es un error: "Para avisarte por WhatsApp, escribe tu teléfono en tus datos personales." La base de datos también lo rechaza.
+
+**Cerrar sesión vacía el carrito** (lo decidió el usuario el 16 de noviembre de 2026, tanda 1 de correcciones, D77). El carrito funciona sin sesión, como siempre; al pulsar "Cerrar sesión", aquí o en otra pestaña, se vacía, con las imágenes de los diseños guardadas en el navegador, y el contador del encabezado queda en vacío. Una sesión que vence sola no lo vacía.
 
 **Cambiar la contraseña.** Solo en una cuenta con contraseña; una cuenta que solo entra con Google no ve el formulario. Pide la contraseña actual y la nueva; la nueva sigue las reglas del registro (mínimo 8 caracteres, que no sea común, que no sea solo números y que no se parezca al correo ni al nombre). Una contraseña actual equivocada responde "Tu contraseña actual no coincide.", lo mismo que una cuenta sin contraseña, para no revelar cuál es cuál. Se aceptan 10 cambios o intentos por hora por cuenta y 30 por hora por conexión. Al cambiarla se cierran las sesiones abiertas en otros dispositivos y la sesión de quien la cambió sigue abierta.
 

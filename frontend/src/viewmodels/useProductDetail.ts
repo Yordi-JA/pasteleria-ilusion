@@ -7,7 +7,7 @@ import type { DetailOffering, ProductDetail } from '../models/catalog.ts'
 import { formatPrice } from '../models/money.ts'
 import { PRESENTATION_LABELS } from '../models/presentation.ts'
 import { designPrefillHref } from './cakeDesignPrefill.ts'
-import { priceSummary, productKind, showcaseStatus, toProductCardView } from './productCards.ts'
+import { productKind, showcaseStatus, toProductCardView } from './productCards.ts'
 import { PHOTO_PLACEHOLDER, photoView } from './productPhoto.ts'
 import { useAddToCart } from './useAddToCart.ts'
 import { useRemoteData } from './useRemoteData.ts'
@@ -139,7 +139,6 @@ export function useProductDetail(slug: string) {
     const maxQuantity = fulfillment === 'showcase' && offering?.stock ? offering.stock : MAX_LINE_QUANTITY
     // La cantidad que se ve, ajustada al tope: la usan el contador y el "c/u".
     const shown = Math.min(quantity, maxQuantity)
-    const summary = priceSummary(product, options)
     const minKg = optionsState.status === 'loading' ? undefined : (options?.limits.minCustomKg ?? null)
     return {
       name: product.name,
@@ -148,8 +147,6 @@ export function useProductDetail(slug: string) {
       /** Hoy es el rebanado: la ficha dice que hay rebanadas y que el completo se encarga. */
       slicedToday: product.slicedToday && product.salesChannel !== 'order_only',
       description: product.description || product.summary,
-      /** "$350 · $35 la rebanada". */
-      price: [summary.price, summary.secondaryPrice].filter(Boolean).join(' · '),
       photo: photoView(offering?.photo ?? product.photo, product.name, PHOTO_PLACEHOLDER[product.category]),
       presentations: offered.map<PresentationChoice>((o) => ({
         id: o.id,
@@ -177,7 +174,7 @@ export function useProductDetail(slug: string) {
               leadDays: store.status === 'loading' ? undefined : store.leadDays,
             }
           : null,
-      related: product.related.map((card) => toProductCardView(card, options)),
+      related: product.related.map((card) => toProductCardView(card)),
       offering,
       fulfillment,
     }

@@ -56,7 +56,6 @@ function Hero({ view }: { view: Ready }) {
             {view.name}
           </h1>
           {view.description && <p className="max-w-[520px] text-cuerpo text-mermelada-suave">{view.description}</p>}
-          {view.price && <p className="text-titulo-3 tabular-nums">{view.price}</p>}
         </div>
       </div>
     </section>

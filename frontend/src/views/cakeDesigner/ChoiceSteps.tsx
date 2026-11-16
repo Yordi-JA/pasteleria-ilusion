@@ -1,4 +1,4 @@
-import { Check, LockSimple } from '@phosphor-icons/react'
+import { Check } from '@phosphor-icons/react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import ChoiceOption from '../../components/ChoiceOption.tsx'
@@ -37,10 +37,15 @@ export function Options({ name, choices, onChoose, type = 'radio', columns = '' 
   )
 }
 
-export function Group({ legend, children, describedBy }: { legend: string; children: ReactNode; describedBy?: string }) {
+/**
+ * Un grupo de opciones con su leyenda. `hideLegend`: el título del paso ya lo dice a la vista, así que la leyenda queda solo
+ * para el lector de pantalla (tanda 1). `min-w-0`: un `fieldset` crece al ancho de su contenido más largo (un nombre de
+ * archivo) y se saldría de la tarjeta.
+ */
+export function Group({ legend, children, describedBy, hideLegend = false }: { legend: string; children: ReactNode; describedBy?: string; hideLegend?: boolean }) {
   return (
-    <fieldset className="flex flex-col gap-2.5" aria-describedby={describedBy}>
-      <legend className="float-left mb-2.5 text-etiqueta">{legend}</legend>
+    <fieldset className="flex min-w-0 flex-col gap-2.5" aria-describedby={describedBy}>
+      <legend className={hideLegend ? 'sr-only' : 'float-left mb-2.5 text-etiqueta'}>{legend}</legend>
       <div className="clear-both flex flex-col gap-2.5">{children}</div>
     </fieldset>
   )
@@ -54,16 +59,19 @@ export function CakeTypeStep({
   conflict,
   onChoose,
   describedBy,
+  legendHidden = false,
 }: {
   choices: Choice[]
   conflict: Conflict | null
   onChoose: (value: string) => void
   /** El id del error del campo, cuando el paso vive dentro de un formulario (el envío de referencia). */
   describedBy?: string
+  /** En "Diseña tu pastel" el título del paso ya lo dice: la leyenda queda solo para el lector de pantalla. */
+  legendHidden?: boolean
 }) {
   return (
     <>
-      <Group legend="Elige el tipo de pastel" describedBy={describedBy}>
+      <Group legend="Elige el tipo de pastel" describedBy={describedBy} hideLegend={legendHidden}>
         <Options name="tipo" choices={choices} onChoose={onChoose} />
       </Group>
       {conflict && (
@@ -79,10 +87,10 @@ export function CakeTypeStep({
 }
 
 /** Paso 3: el pan, con el grupo aparte de los que traen su relleno (regla 4.3). */
-export function BreadStep({ groups, onChoose, describedBy }: { groups: BreadGroups; onChoose: (value: string) => void; describedBy?: string }) {
+export function BreadStep({ groups, onChoose, describedBy, legendHidden = false }: { groups: BreadGroups; onChoose: (value: string) => void; describedBy?: string; legendHidden?: boolean }) {
   return (
     <>
-      <Group legend="Elige el pan" describedBy={describedBy}>
+      <Group legend="Elige el pan" describedBy={describedBy} hideLegend={legendHidden}>
         <p className="text-nota font-semibold">Para combinar con un relleno</p>
         <Options name="pan" choices={groups.withFilling} onChoose={onChoose} />
         {groups.fillingIncluded.length > 0 && (
@@ -104,13 +112,14 @@ type FillingStepProps = {
   onFlavor: (value: string) => void
   /** El id del error del relleno, cuando el paso vive dentro de un formulario (el envío de referencia). */
   describedBy?: string
+  legendHidden?: boolean
 }
 
 /** Paso 4: la base, uno o dos sabores y los sabores (reglas 4.4 y 4.7). */
-export function FillingStep({ view, onBase, onCount, onFlavor, describedBy }: FillingStepProps) {
+export function FillingStep({ view, onBase, onCount, onFlavor, describedBy, legendHidden = false }: FillingStepProps) {
   return (
     <>
-      <Group legend="Primero, la base del relleno" describedBy={describedBy}>
+      <Group legend="Primero, la base del relleno" describedBy={describedBy} hideLegend={legendHidden}>
         <Options name="base" choices={view.bases} onChoose={onBase} columns="grid-cols-3 max-[600px]:grid-cols-1" />
       </Group>
       {view.countChoice && (
@@ -184,36 +193,22 @@ export function ColorGrid({ legend, name, colors, onChoose }: { legend: string; 
 
 /**
  * Paso 5: crema pastelera y su color (regla 5). El color es libre, con el selector de color: arranca en el primero de la lista de
- * la pastelería. Con el relleno incluido, primero dice por qué se saltó el paso 4.
+ * la pastelería. Por qué se saltó el relleno lo dice el candado del paso 4 en la barra de pasos (tanda 1), no una tarjeta aquí.
  */
 export function CoverageStep({
   color,
-  includedFilling,
   onChoose,
 }: {
   /** El color de la cobertura (`#rrggbb`); `null` si la pastelería no tiene lista y todavía no se elige. */
   color: string | null
-  includedFilling: { bread: string; filling: string } | null
   onChoose: (value: string) => void
 }) {
   return (
     <>
-      {includedFilling && (
-        <p className="flex items-start gap-2.5 rounded-md bg-harina px-4 py-3 text-nota">
-          <LockSimple size={18} aria-hidden="true" className="mt-0.5 shrink-0" />
-          <span>
-            Tu pan <strong className="font-semibold">{includedFilling.bread}</strong> ya trae su relleno de{' '}
-            {includedFilling.filling}, así que seguimos con la cobertura.
-          </span>
-        </p>
-      )}
-      <div className="flex items-center justify-between gap-4 rounded-md bg-harina px-4 py-3">
-        <p className="flex flex-col">
-          <span className="text-nota text-mermelada-suave">Cobertura</span>
-          <span className="text-cuerpo font-semibold">Crema pastelera</span>
-        </p>
-        <p className="text-nota text-mermelada-suave">La única que manejamos</p>
-      </div>
+      <p className="flex flex-col">
+        <span className="text-nota text-mermelada-suave">Cobertura</span>
+        <span className="text-cuerpo font-semibold">Crema pastelera</span>
+      </p>
       <ColorPicker legend="Elige el color de la cobertura" value={color} onChange={onChoose} />
       <p className="text-nota">
         ¿Varios colores o un diseño específico?{' '}

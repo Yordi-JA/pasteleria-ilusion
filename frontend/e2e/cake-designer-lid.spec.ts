@@ -129,14 +129,14 @@ test('the text color has three modes: automatic black, combining tones and any c
   await expect(picker).toBeVisible()
   // Arranca en el tono más oscuro de la cobertura: el texto no cambia de color al cambiar de modo.
   expect(await ink()).toBe(deep)
-  await expect(picker.getByTestId('codigo-de-color')).toHaveText(deep!.toUpperCase())
-  await pickColor(card(page), '#d44c48')
-  expect(await ink()).toBe('#d44c48')
-  expect((await draftOf(page)).message.color).toEqual({ mode: 'custom', value: '#d44c48' })
+  await expect(picker.getByTestId('muestra-de-color')).toHaveAttribute('data-color', deep!)
+  const red = await pickColor(card(page), '#d44c48')
+  expect(await ink()).toBe(red)
+  expect((await draftOf(page)).message.color).toEqual({ mode: 'custom', value: red })
   // Cualquier color, no solo los de la lista de la pastelería.
-  await pickColor(card(page), '#12ab9f')
-  expect(await ink()).toBe('#12ab9f')
-  expect((await draftOf(page)).message.color).toEqual({ mode: 'custom', value: '#12ab9f' })
+  const teal = await pickColor(card(page), '#12ab9f')
+  expect(await ink()).toBe(teal)
+  expect((await draftOf(page)).message.color).toEqual({ mode: 'custom', value: teal })
   await card(page).getByRole('radio', { name: /^Automático/ }).check()
   expect(await ink()).toBe('#000000')
   expect((await draftOf(page)).message.color).toEqual({ mode: 'auto', value: null })
@@ -227,6 +227,24 @@ test('the message stays inside the lid: more size is capped at what fits', async
 })
 
 // --- Paso 7: la oblea ---
+
+for (const width of [1440, 390]) {
+  test(`a very long image name stays inside the step card at ${width} px, cut with an ellipsis`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await open(page, 7)
+    const name = `${'una-foto-con-un-nombre-larguisimo-de-la-fiesta-'.repeat(2)}.png`
+    await addWafer(page, name)
+    const step = (await card(page).boundingBox())!
+    const label = card(page).getByText(name, { exact: true })
+    const box = (await label.boundingBox())!
+    expect(box.x + box.width).toBeLessThanOrEqual(step.x + step.width)
+    await expect(label).toHaveCSS('text-overflow', 'ellipsis')
+    // "Quitar" sigue a la vista y la página no se desborda.
+    const remove = (await card(page).getByRole('button', { name: /^Quitar/ }).boundingBox())!
+    expect(remove.x + remove.width).toBeLessThanOrEqual(step.x + step.width)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
+  })
+}
 
 test('the wafer shows its price from the API and adds it to the total', async ({ page }) => {
   const prices = await open(page, 7)
@@ -514,7 +532,7 @@ test('the review shows the backend amounts: order, base apart, total, advance, p
   await expect(breakdown).toContainText('15 kg × $255 por kg')
   await expect(page.getByTestId('monto-cake')).toHaveText('$3,825')
   await expect(breakdown).toContainText('Cobertura de crema pastelera')
-  await expect(breakdown).toContainText('Color #CCBAE4, parecido a lila')
+  await expect(breakdown).toContainText('Color parecido a lila')
   await expect(page.getByTestId('monto-decoration')).toHaveText('+$120')
   await expect(page.getByTestId('monto-message')).toHaveText('Incluido')
   await expect(breakdown).toContainText('Base para 15 kg')
@@ -789,9 +807,8 @@ test('the message texture is redrawn at its own size: the ink shows in the 3D to
   await expect.poll(() => page.locator('[data-elevation]').first().getAttribute('data-elevation'), { timeout: 15000 }).toBe('78')
   await card(page).getByLabel('Agregar un mensaje').check()
   await card(page).getByRole('radio', { name: /^Elegir un color/ }).check()
-  await pickColor(card(page), '#d44c48')
+  const RED = await pickColor(card(page), '#d44c48')
   await card(page).getByLabel('Tu mensaje').fill('Feliz')
-  const RED = '#d44c48'
   // Tinta del color elegido, cerca del centro de la tapa (el mensaje está en el centro).
   await expect.poll(async () => (await inkStats(page, RED)).count, { timeout: 20000 }).toBeGreaterThan(30)
   const short = await inkStats(page, RED)
@@ -804,9 +821,8 @@ test('the message texture is redrawn at its own size: the ink shows in the 3D to
   const long = await inkStats(page, RED)
   expect(long.count).toBeGreaterThan(short.count)
   // Otro color de tinta junto con otro texto: la textura nueva trae el color nuevo, no el viejo.
-  await pickColor(card(page), '#4a70ba')
+  const BLUE = await pickColor(card(page), '#4a70ba')
   await card(page).getByLabel('Tu mensaje').fill('Feliz cumpleaños Ana María')
-  const BLUE = '#4a70ba'
   await expect.poll(async () => (await inkStats(page, BLUE)).count, { timeout: 20000 }).toBeGreaterThan(30)
   expect((await inkStats(page, RED)).count).toBeLessThan(10)
   await pickColor(card(page), RED)
