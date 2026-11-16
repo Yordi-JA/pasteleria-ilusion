@@ -1,6 +1,7 @@
 """Datos del negocio para el pie y la franja superior del sitio."""
 from dataclasses import dataclass
 from datetime import time
+from urllib.parse import quote
 
 from ..repositories import settings_repo
 
@@ -18,6 +19,16 @@ class StoreInfo:
     opens_at: time
     closes_at: time
     custom_lead_days: int
+
+
+# La búsqueda pública de Google Maps: abre la app o el sitio con la dirección, sin llave ni API (D71).
+MAPS_SEARCH_URL = "https://www.google.com/maps/search/?api=1&query="
+
+
+def directions_url(address: str | None) -> str | None:
+    """El enlace "Cómo llegar" con la dirección codificada; sin dirección (PENDIENTE), no hay enlace."""
+    address = (address or "").strip()
+    return f"{MAPS_SEARCH_URL}{quote(address, safe='')}" if address else None
 
 
 def _text_or_none(value: str) -> str | None:

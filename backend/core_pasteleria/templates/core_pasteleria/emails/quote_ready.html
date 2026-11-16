@@ -1,11 +1,16 @@
 {% extends "core_pasteleria/emails/base.html" %}
 {% block title %}Tu cotización #{{ number }} está lista{% endblock %}
-{% block heading %}Tu cotización #{{ number }} está lista{% endblock %}
-{% block content %}
-<p style="margin:0 0 16px 0;">Ya revisamos tu referencia para el {{ event_day }}.</p>
-<p style="margin:0 0 4px 0;"><strong>Pastel según tu referencia:</strong> {{ price }}</p>
-{% if request.quote_note %}<p style="margin:0 0 4px 0;"><strong>Nota de la pastelería:</strong> {{ request.quote_note|linebreaksbr }}</p>{% endif %}
-<p style="margin:16px 0 0 0;">{{ validity }}</p>
-<p style="margin:16px 0 0 0;">Si te gusta, entra a tu cuenta, elige la hora y quién recoge y paga el anticipo. Si quieres un cambio, escríbenos por WhatsApp.</p>
+{% block preheader %}Pastel según tu referencia: {{ price }}. Revísala en tu cuenta.{% endblock %}
+{% block heading %}Tu cotización está lista{% endblock %}
+{% block intro %}Revisamos tu referencia y ya tiene precio.{% endblock %}
+{% block details %}
+{% include "core_pasteleria/emails/_detail.html" with label="Pastel según tu referencia" value=price money=True strong=True %}
+{% include "core_pasteleria/emails/_detail.html" with label="Fecha del evento" value=event_day %}
+{% include "core_pasteleria/emails/_detail.html" with label="Válida hasta" value=valid_until %}
 {% endblock %}
+{% block extra %}{% if request.quote_note %}
+<p style="margin:20px 0 4px 0;font-size:14px;font-weight:600;color:#5e1921;">Nota de la pastelería</p>
+<p style="margin:0;color:#664243;">{{ request.quote_note|linebreaksbr }}</p>
+{% endif %}{% endblock %}
+{% block next %}Si te gusta, entra a tu cuenta, elige la hora y quién recoge y paga el anticipo. Si quieres un cambio, escríbenos por WhatsApp.{% endblock %}
 {% block button %}Ver mi cotización{% endblock %}

@@ -89,3 +89,6 @@ desktop.ini
 .claude/settings.local.json
 CLAUDE.local.md
 .claude/worktrees/
+
+# Configuración local del plugin de diseño impeccable
+.impeccable/

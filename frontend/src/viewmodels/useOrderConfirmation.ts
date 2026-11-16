@@ -34,6 +34,7 @@ export function useOrderConfirmation() {
             steps: timelineSteps(order, 'confirmation'),
             summary: paidSummary(order),
             noteAvailable: order.noteAvailable,
+            pickup: order.fulfillment === 'pickup',
           }
         : null,
   }

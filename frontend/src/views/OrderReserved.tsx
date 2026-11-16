@@ -2,6 +2,8 @@ import { Navigate } from 'react-router'
 import ButtonLink from '../components/ButtonLink.tsx'
 import Card from '../components/Card.tsx'
 import CheckoutPageHeader from '../components/CheckoutPageHeader.tsx'
+import DirectionsLink from '../components/DirectionsLink.tsx'
+import { inlineLink } from '../components/focus.ts'
 import LoadErrorNotice from '../components/LoadErrorNotice.tsx'
 import Notice from '../components/Notice.tsx'
 import Pending from '../components/Pending.tsx'
@@ -33,13 +35,22 @@ function ReservedSkeleton() {
   )
 }
 
-/** "Pastelería Ilusión, <dirección>. Todos los días, de 10:00 a 22:30.", con sus marcadores si faltan (regla 1). */
+/**
+ * "Pastelería Ilusión, <dirección>. Todos los días, de 10:00 a 22:30.", con sus marcadores si faltan (regla 1), y
+ * "Cómo llegar" cuando hay dirección (D71).
+ */
 function StoreAddress({ store }: { store: StoreDetails }) {
   if (store.status === 'loading') return <Skeleton inline className="h-4 w-64 max-w-full align-middle" />
   return (
     <>
       Pastelería Ilusión, {store.address ?? <Pending what="Dirección" />}. Todos los días,{' '}
       {store.hours ? `de ${store.hours.opensAt} a ${store.hours.closesAt}` : <Pending what="horario" />}.
+      {store.directionsUrl && (
+        <>
+          {' '}
+          <DirectionsLink url={store.directionsUrl} className={`${inlineLink} font-semibold`} />
+        </>
+      )}
     </>
   )
 }

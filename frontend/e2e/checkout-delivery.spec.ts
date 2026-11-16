@@ -63,7 +63,7 @@ test('the checkout frame, the calendar with full days and slots, and who picks u
   await expect(banner.getByRole('link', { name: 'Volver al carrito' })).toHaveAttribute('href', '/carrito')
   await expect(banner.getByRole('navigation', { name: 'Principal' })).toHaveCount(0)
   await expect(page.getByTestId('franja')).toContainText('Pagos procesados por Stripe y Mercado Pago')
-  await expect(page.getByTestId('franja').getByRole('link', { name: /WhatsApp \+520000000000/ })).toBeVisible()
+  await expect(page.getByTestId('franja').getByRole('link', { name: /WhatsApp 00 0000 0000/ })).toBeVisible()
   await expect(page.getByRole('contentinfo')).not.toContainText('Pide un deseo')
   const steps = page.getByRole('navigation', { name: 'Pasos de tu compra' })
   await expect(steps.locator('[aria-current="step"]')).toContainText('Entrega')
@@ -336,7 +336,11 @@ test('without the WhatsApp number the home delivery shows the pending marker', a
   await mockCalendar(page)
   await seedCart(page, [durazno])
   await page.goto(DELIVERY)
-  await expect(page.getByRole('region', { name: 'Forma de entrega' }).locator('[data-pendiente]')).toHaveText('[número por confirmar]')
+  // La dirección de recoger (D71) y el WhatsApp de la entrega a domicilio, cada uno con su marcador.
+  await expect(page.getByRole('region', { name: 'Forma de entrega' }).locator('[data-pendiente]')).toHaveText([
+    '[Dirección por confirmar]',
+    '[número por confirmar]',
+  ])
   await expect(page.getByTestId('franja').locator('[data-pendiente]')).toHaveText('[número por confirmar]')
 })
 

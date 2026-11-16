@@ -122,9 +122,12 @@ def test_address_and_whatsapp_are_optional_and_have_no_invented_default():
         assert field.get_default() == ""
 
 
-def test_address_and_whatsapp_help_text_marks_them_as_pending():
-    for name in ("address", "whatsapp"):
-        assert "PENDIENTE" in str(StoreSettings._meta.get_field(name).help_text)
+def test_address_and_whatsapp_help_text_explains_the_format_and_the_empty_marker():
+    # La pastelería ya los dio (D71): la ayuda explica el formato y que, vacíos, se muestran como pendientes.
+    address, whatsapp = (str(StoreSettings._meta.get_field(name).help_text) for name in ("address", "whatsapp"))
+    assert "PENDIENTE" not in address and "PENDIENTE" not in whatsapp
+    assert "calle y número" in address and "Vacía, se muestra como pendiente" in address
+    assert "52 y los 10 dígitos" in whatsapp and "Vacío, se muestra como pendiente" in whatsapp
 
 
 @pytest.mark.django_db
@@ -197,14 +200,14 @@ def test_admin_fieldsets_show_every_editable_field_once():
 
 
 @pytest.mark.django_db
-def test_admin_form_shows_the_business_data_section_with_the_pending_marker(superuser_client):
+def test_admin_form_shows_the_business_data_section_with_its_format_help(superuser_client):
     response = superuser_client.get(reverse(CHANGE_URL, args=[1]))
     assert response.status_code == 200
     sections = {fieldset.name: [field for line in fieldset for field in line] for fieldset in response.context["adminform"]}
     assert [field.field.name for field in sections[BUSINESS_DATA_SECTION]] == ["address", "whatsapp"]
     content = response.content.decode()
     assert BUSINESS_DATA_SECTION in content
-    assert content.count("PENDIENTE") >= 2
+    assert "Vacía, se muestra como pendiente" in content and "Vacío, se muestra como pendiente" in content
 
 
 @pytest.mark.django_db

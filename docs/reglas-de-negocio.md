@@ -470,11 +470,11 @@ Las etiquetas salen del texto de estas reglas y del mockup.
 | Nombre | Pastelería Ilusión |
 | Lema | "Pide un deseo. Del pastel nos encargamos." |
 | Horario | Todos los días, 10:00 a 22:30 |
-| Dirección | PENDIENTE |
-| WhatsApp | PENDIENTE |
+| Dirección | En el admin (la dio la pastelería el 15 de noviembre de 2026) |
+| WhatsApp | En el admin (lo dio la pastelería el 15 de noviembre de 2026) |
 | Aviso de privacidad y términos | PENDIENTE (el equipo prepara un texto base y la pastelería lo completa; el agente nunca los inventa) |
 
-La dirección y el WhatsApp siguen PENDIENTE. La pastelería los captura en el admin, en "Datos del negocio (pie del sitio)" de "horarios y entregas". Mientras falten, el sitio muestra un marcador visible en su lugar y no un valor supuesto. El WhatsApp se escribe solo con dígitos, con la lada del país y sin "+" (en México, 52 y los 10 dígitos). Ver D41 en [`proyecto/decisiones.md`](proyecto/decisiones.md).
+La pastelería dio la dirección y el WhatsApp el 15 de noviembre de 2026. Viven en el admin, en "Datos del negocio (pie del sitio)" de "horarios y entregas", no en el código: el sitio, la nota y los correos los leen de ahí, y la pastelería los cambia sin un despliegue. Si alguno se vacía, vuelve el marcador visible en su lugar, nunca un valor supuesto. Con la dirección, el sitio y los correos llevan "Cómo llegar", que abre Google Maps con la dirección (D71). El WhatsApp se escribe solo con dígitos, con la lada del país y sin "+" (en México, 52 y los 10 dígitos). Ver D41 en [`proyecto/decisiones.md`](proyecto/decisiones.md).
 
 ---
 
@@ -484,5 +484,5 @@ La dirección y el WhatsApp siguen PENDIENTE. La pastelería los captura en el a
 2. ¿Repartidor propio o aplicación para los envíos?
 3. Vigencia de una cotización por referencia (la respuesta es en máximo 1 hora; falta cuánto tiempo es válida): `PolicySettings.reference_quote_valid_hours`, vacío; mientras no tenga valor, no vence (D70).
 4. Políticas de cambios y qué pasa si la base regresa dañada: el equipo prepara un texto base y la pastelería lo completa. La cancelación por el cliente ya tiene su mecanismo (sección 10, D70): el usuario decidió el 50% retenido y que se cancele en cualquier momento antes de la entrega, sin corte de horas.
-5. Dirección, WhatsApp, aviso de privacidad y términos: el equipo prepara el texto base de los avisos y la pastelería lo completa.
+5. Dirección y WhatsApp: resueltos el 15 de noviembre de 2026 (los dio la pastelería y viven en el admin, sección 13). Siguen el aviso de privacidad y los términos: el equipo prepara el texto base y la pastelería lo completa.
 6. Resuelto el 14 de noviembre de 2026 (lo decidió el usuario, D63 ronda 2): con el precio, un pedido `awaiting_quote` pasa a `awaiting_payment`. Sigue PENDIENTE cuánto espera un pedido sin precio antes de cancelarse (`PolicySettings.quote_expiry_hours`, vacío: mientras no tenga valor, no vence).

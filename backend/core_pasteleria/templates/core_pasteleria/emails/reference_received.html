@@ -1,11 +1,12 @@
 {% extends "core_pasteleria/emails/base.html" %}
 {% block title %}Recibimos tu solicitud #{{ number }}{% endblock %}
-{% block heading %}Recibimos tu solicitud #{{ number }}{% endblock %}
-{% block content %}
-<p style="margin:0 0 16px 0;">Ya tenemos tus fotos de referencia. En máximo 1 hora te mandamos la cotización por correo y también la ves en tu cuenta.</p>
-<p style="margin:0 0 4px 0;"><strong>Fecha del evento:</strong> {{ event_day }}</p>
-<p style="margin:0 0 4px 0;"><strong>Personas:</strong> {{ request.people }}</p>
-{% if occasion %}<p style="margin:0 0 4px 0;"><strong>Ocasión:</strong> {{ occasion }}</p>{% endif %}
-<p style="margin:16px 0 0 0;">No se cobra nada hasta que aceptes la cotización.</p>
+{% block preheader %}En máximo 1 hora te mandamos la cotización. No se cobra nada hasta que la aceptes.{% endblock %}
+{% block heading %}Recibimos tu solicitud{% endblock %}
+{% block intro %}Ya tenemos tus fotos de referencia para el {{ event_day }}.{% endblock %}
+{% block details %}
+{% include "core_pasteleria/emails/_detail.html" with label="Fecha del evento" value=event_day %}
+{% include "core_pasteleria/emails/_detail.html" with label="Personas" value=request.people %}
+{% if occasion %}{% include "core_pasteleria/emails/_detail.html" with label="Ocasión" value=occasion %}{% endif %}
 {% endblock %}
+{% block next %}En máximo 1 hora te mandamos la cotización por correo, y también la ves en tu cuenta. No se cobra nada hasta que la aceptes.{% endblock %}
 {% block button %}Ver mi solicitud{% endblock %}

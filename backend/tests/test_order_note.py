@@ -113,6 +113,14 @@ def test_the_note_marks_the_pending_store_data_instead_of_inventing_it(api, orde
     assert b"[Direcci" in text and b"[WhatsApp por confirmar]" in text
 
 
+# En el PDF, los paréntesis de un texto van escapados: "(Stripe)" queda como "\(Stripe\)".
+@pytest.mark.parametrize(("method", "label"), [("mercadopago", rb"Mercado Pago"), ("stripe", rb"Tarjeta \(Stripe\)")])
+def test_the_note_names_the_payment_method_with_its_label(api, order, method, label):
+    text = pdf_text(api.get(note_url(pay(order, method=method))).content)
+    assert b"Pagado con " + label in text
+    assert label.lower() not in text
+
+
 def test_the_note_shows_the_store_data_once_the_bakery_sets_it(api, order):
     StoreSettings.objects.update(address="Calle Falsa 123", whatsapp="525512345678")
     text = pdf_text(api.get(note_url(pay(order))).content)
