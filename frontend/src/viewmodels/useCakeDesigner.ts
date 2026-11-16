@@ -8,8 +8,8 @@ import type { Occasion } from '../models/occasion.ts'
 import type { CakeShape, Viewpoint } from '../three/cakeShape.ts'
 import { defaultPickedColor } from './cakeDecorations.ts'
 import { designPreview } from './cakeDesignPreview.ts'
+import { withFillingBase, withFlavor, withFlavorCount } from './cakeDesignChoices.ts'
 import {
-  choosableFlavors,
   confirmStep,
   coverageColor,
   deriveDesign,
@@ -202,47 +202,16 @@ export function useCakeDesigner() {
   // --- Pasos 2 a 5 ---
   const setCakeType = useCallback((cakeType: string) => update((d) => ({ ...d, cakeType })), [update])
   const setBread = useCallback((bread: string) => update((d) => ({ ...d, bread })), [update])
-  const baseOf = useCallback((d: CakeDesignDraft) => options?.fillingBases.find((option) => option.slug === d.fillingBase) ?? null, [options])
   const setFillingBase = useCallback(
     (slug: string) => {
-      const base = options?.fillingBases.find((option) => option.slug === slug)
-      if (!base) return
-      update((d) => {
-        const offered = d.flavors.filter((flavor) => base.flavors.some((option) => option.slug === flavor))
-        const flavorCount = base.maxFlavors >= 2 ? d.flavorCount : 1
-        return { ...d, fillingBase: slug, flavorCount, flavors: offered.slice(0, flavorCount) }
-      })
+      if (!options?.fillingBases.some((option) => option.slug === slug)) return
+      update((d) => withFillingBase(d, options, slug))
     },
     [options, update],
   )
-  const setFlavorCount = useCallback(
-    (flavorCount: 1 | 2) =>
-      update((d) => {
-        const base = baseOf(d)
-        const chosen = base?.flavors.filter((flavor) => d.flavors.includes(flavor.slug)) ?? []
-        // Regla 4.7: con un sabor que no se combina, "Dos sabores" no aplica y el sabor elegido se queda.
-        if (flavorCount === 2 && chosen.some((flavor) => !flavor.isCombinable)) return d
-        return { ...d, flavorCount, flavors: flavorCount === 2 ? d.flavors : d.flavors.slice(0, 1) }
-      }),
-    [baseOf, update],
-  )
-  /**
-   * Elegir un sabor: con uno, lo reemplaza; con dos, lo agrega o lo quita (hasta dos). Antes descarta lo que ya no se
-   * puede elegir (un sabor de otra base, retirado o que el tipo no admite), para que nada guardado bloquee la lista.
-   */
-  const chooseFlavor = useCallback(
-    (slug: string) =>
-      update((d) => {
-        const base = baseOf(d)
-        const allowed = new Set(choosableFlavors(base, d.cakeType).map((flavor) => flavor.slug))
-        if (!allowed.has(slug)) return d
-        const kept = d.flavors.filter((flavor) => allowed.has(flavor))
-        const two = d.flavorCount === 2 && (base?.maxFlavors ?? 1) >= 2
-        if (!two) return { ...d, flavors: [slug] }
-        return { ...d, flavors: kept.includes(slug) ? kept.filter((flavor) => flavor !== slug) : [...kept, slug].slice(0, 2) }
-      }),
-    [baseOf, update],
-  )
+  const setFlavorCount = useCallback((flavorCount: 1 | 2) => update((d) => (options ? withFlavorCount(d, options, flavorCount) : d)), [options, update])
+  /** Elegir un sabor (`withFlavor`): con uno, lo reemplaza; con dos, lo agrega o lo quita. */
+  const chooseFlavor = useCallback((slug: string) => update((d) => (options ? withFlavor(d, options, slug) : d)), [options, update])
   const setCoverage = useCallback((coverageColor: string) => update((d) => ({ ...d, coverageColor })), [update])
 
   // --- Paso 6 ---

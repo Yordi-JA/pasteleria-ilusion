@@ -180,7 +180,7 @@ Lo construido está en D68 ([`proyecto/decisiones.md`](proyecto/decisiones.md)),
 3. Reembolso: un pago `refund_required` lo devuelve el personal a mano desde el panel de la pasarela. Una consecuencia de D63 pedía reembolsarlo en automático. El usuario decidió el 15 de noviembre de 2026 dejarlo a mano y agregar al final, solo si el 18 sobra tiempo después de la tanda 3, un botón "Reembolsar" en el admin que devuelva el pago por la API de la pasarela (un método `refund` en cada adaptador, un estado `refunded` con su migración, el permiso y la auditoría). El reembolso automático, sin una persona que lo decida, se descartó.
 4. Resuelto el 15 de noviembre de 2026 (punto 21).
 5. `CustomerNotificationObserver` solo registra el aviso en el logger `core_pasteleria.notifications`: no hay correo.
-6. `StandLoanObserver` y el evento "base devuelta" llegan con `StandLoan` (tanda 3).
+6. Resuelto el 15 de noviembre de 2026: `StandLoanObserver` y el evento "base devuelta" llegaron con `StandLoan` (D69).
 7. Producción: la migración `0037_payments`, las dos dependencias nuevas, las cuatro variables en Heroku (`heroku config:set`) y las URL de los webhooks en los paneles de Mercado Pago (evento "Pagos") y de Stripe (`payment_intent.succeeded` y `payment_intent.payment_failed`).
 8. Frontend: hecho el 15 de noviembre (`/pedido/pago` y `/pedido/apartado`, D68). Lo que quedó es lo de los puntos 12 a 19.
 9. Propuesto por el equipo, sin cifra del usuario: 20 inicios de pago por minuto por cuenta (`payments_user`) y 300 notificaciones por minuto por IP en los webhooks (`payment_webhooks`).
@@ -210,3 +210,67 @@ Lo construido está en D68 ([`proyecto/decisiones.md`](proyecto/decisiones.md)),
 33. En `frontend/src/models/payments.ts`, `safeCheckoutUrl` solo exige `https:`. Se podría limitar a los hosts de Mercado Pago.
 34. Varias cuentas que eligen efectivo pueden acaparar lapsos hasta el cierre (`payment_service.py`). Está acotado por el tope de pedidos sin pagar y por el throttle.
 35. En `stripe_adapter.py`, se usa `amount` en lugar de `amount_received`.
+
+## Nota y bases (D69)
+
+Lo construido está en D69 ([`proyecto/decisiones.md`](proyecto/decisiones.md)), en la rama `feat/tanda-3`. Quedan estos puntos:
+
+1. Frontend: hecho (la confirmación, "Mis pedidos", el detalle, "Bases en préstamo" y `/nota/:token`). Falta compararlo en el sitio desplegado con datos reales.
+2. La línea de tiempo del detalle (mockup `DetallePedido`) pone la fecha y hora de cada estado. El pedido solo guarda desde cuándo está en el actual (`status_changed_at`) y cuándo se confirmó el pago (`paid_with.paid_at`); las fechas de los estados intermedios piden un historial de estados que no existe.
+3. Revisar la nota impresa contra la captura 027: no se pudo abrir el PDF en una vista previa durante el trabajo. La revisaron las pruebas (tamaño carta, número, URL del QR, marcadores y datos de la pastelería), no el ojo.
+4. Probar que el QR se lea con un teléfono (va en el color `mermelada` sobre blanco, con corrección de errores M).
+5. Propuesto por el equipo, sin cifra del usuario: 30 verificaciones por minuto por IP (`note_verification`).
+6. La nota no incrusta fuentes: un carácter fuera de Windows-1252 del mensaje sale como "?". Si la pastelería quiere la tipografía de la marca, hay que conseguir sus `ttf` (no se convirtieron los `woff2`).
+7. Qué pasa si la base regresa dañada sigue PENDIENTE (regla 7): hoy la devolución siempre reembolsa el depósito completo.
+8. `CustomerNotificationObserver` no avisa la devolución de la base; solo los cambios de estado.
+9. Producción: la migración `0038_stand_loans`, `reportlab` y dar el permiso `register_stand_return` al personal que recibe bases.
+10. "Volver a pedir" de los pedidos anteriores (mockup `Cuenta`) no está: armar el carrito desde un pedido pide decidir qué pasa con los precios de hoy, la vitrina del día y los diseños con imagen. Por ahora cada pedido anterior lleva "Ver pedido".
+11. El detalle muestra la fecha solo del pago y del estado actual; los pasos intermedios ya pasados dicen "hecho" sin fecha hasta que exista el historial del punto 2.
+12. La confirmación dice "Te enviamos la confirmación a <correo>", como el mockup: depende de que el correo de confirmación del pedido esté funcionando en producción.
+13. El encabezado de la cuenta pone el avatar arriba del saludo; el mockup lo pone a la izquierda en escritorio. Es de D62 y no se cambió aquí.
+14. "Mis pedidos" separa en curso y anteriores solo con las páginas ya cargadas: un pedido en curso muy viejo (más de 20 pedidos después) aparece al pedir "Ver más pedidos".
+10. Frontend de `/cuenta/bases`: el submenú de la cuenta (Mis pedidos, Bases en préstamo, Datos y avisos) y el botón del menú móvil que muestra el mockup no están en la pantalla; llegan con el trabajo de "Mis pedidos".
+11. `/cuenta/bases`: el mockup dice "Regrésala hasta 15 días después de la entrega". Los días salen de `PolicySettings.stand_return_days` y la API no los manda, así que el texto dice "antes de la fecha límite de tu pedido". Si se quiere la cifra, la API tiene que darla. "Cómo devolver una base" y "Ver las condiciones del préstamo" llevan a `/bases`, que sigue vacía (BasesInfo).
+12. `/nota/:token`: se quitó del mockup "¿Trabajas en la pastelería? Inicia sesión para registrar la devolución", porque la devolución se registra en el admin (D64) y la página no lleva botón (D69). Falta decidir si se deja un enlace a `/admin/`.
+
+## Referencia, correo y cancelación (D70)
+
+Lo construido está en D70 ([`proyecto/decisiones.md`](proyecto/decisiones.md)), en la rama `feat/tanda-3`. Quedan estos puntos:
+
+1. Resuelto (frontend, segunda ronda de D70): "Mis pedidos" lista las solicitudes en revisión y con su cotización en "Solicitudes de cotización", bajo los pedidos en curso, como el mockup `Cuenta`; una aceptada se ve solo como su pedido, y una cancelada va en "Solicitudes anteriores" (historial, con su estado, su fecha y su enlace; decisión del usuario). Pide solo la primera página de `GET reference-requests/` (20): una solicitud en curso más vieja que las 20 más nuevas no saldría. Antes decía: falta la lista de solicitudes en "Mis pedidos". "Envía tu referencia", "Solicitud enviada", "Cotización lista" y "Aceptar y pagar" ya están (ver los puntos 13 a 20); el botón "Cancelar pedido" del detalle, también (ver el punto 12).
+2. Resuelto (decisión del usuario, segunda ronda de D70): el cliente cancela en cualquier momento antes de la entrega; `customer_cancel_cutoff_hours` se quitó. Resuelto también en el frontend: se quitaron `cancellable_until` y los motivos `in_preparation` y `too_late`, y el detalle de un pedido entregado muestra la frase de `not_cancellable` sin botón.
+3. Resuelto (segunda ronda de D70): quien tiene `set_reference_quote` ve las fotos de la solicitud en el admin, y solo esas.
+4. Resuelto en el backend (segunda ronda de D70): la base sale de las personas y la cotización trae `stand_deposit` con `pay_today` que lo suma. Resuelto también en el frontend: "Base para [n] kg" con su depósito y "Pagas hoy" en `/cuenta/cotizaciones/:id`, y el sabor en el formulario, en la enviada y en la cotización. Las solicitudes de antes de la `0040` no tienen sabor ni base (`bread` y `kg` en `null`, depósito 0).
+5. Proveedor de correo sin decidir (Brevo o Gmail por SMTP): en Heroku hay que definir `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` y `DEFAULT_FROM_EMAIL`. Sin ellas no sale ningún correo. Verificar SPF y DKIM del dominio con el proveedor.
+6. El correo sale en la misma petición después del commit (un webhook o el admin): con `EMAIL_TIMEOUT` de 5 s, un SMTP caído alarga esa respuesta hasta 5 s por correo. Una cola de tareas lo resolvería, pero agrega un servicio.
+7. Propuestos por el equipo, sin cifra del usuario: 1 solicitud en revisión a la vez (reutiliza `max_quote_orders_per_customer`) y los throttles `references_create_user` (10 por hora), `references_accept_user` (20 por hora) y `orders_cancel_user` (20 por hora).
+8. Una cotización vencida no se cancela sola ni libera nada (no aparta nada); solo deja de poder aceptarse.
+9. No hay correo de la cancelación ni de la devolución.
+10. Producción: las migraciones `0039_reference_requests_and_cancellation` y `0040_reference_flavor_stand_and_cancellation`, y dar el permiso `set_reference_quote` al personal que cotiza.
+11. Las pruebas se escribieron junto con el código y no se vieron en rojo antes (ver la bitácora).
+12. Frontend de la cancelación: ningún mockup trae el botón ni el diálogo, así que son de diseño propio con los componentes existentes; falta que el equipo los revise. Si la vista previa falla (red o 5xx), el detalle no muestra el botón ni avisa. No hay "Cancelar" desde "Mis pedidos", solo desde el detalle. El aviso de éxito usa lo mostrado en el diálogo, no los montos de la respuesta del `POST`.
+13. La API no publica `UploadSettings.max_reference_images` ni `max_upload_mb`: el navegador usa 3 fotos (el tope duro y la regla 9) y 5 MB (la semilla), y dice "Hasta 3 fotos, JPG, PNG o WebP de hasta 5 MB cada una". Si el admin cambia esos valores, el texto no cambia: el servidor rechaza con su mensaje. Sumarlos a `GET store/info/` (backend) resolvería las dos cosas.
+14. La subida no muestra el avance en bytes, solo "Subiendo tus fotos (1 de 2)…": `requestWithSession` usa `fetch`.
+15. El mockup `Referencia` pide la ocasión dos veces (chips y lista); queda solo la lista, con las nueve ocasiones de la API. Falta que el equipo lo revise.
+16. `/cuenta/cotizaciones/:id` no muestra "Decoración" del mockup (la API da un solo precio); "Base para [n] kg" ya está (punto 4) ni el dibujo del pastel del encabezado (no hay ese dibujo de línea en `LineDrawing`).
+17. "Cancelar solicitud" es de diseño propio (confirmación en la misma tarjeta, sin `<dialog>`); "Cancelar pedido" del detalle usa un `<dialog>`. Falta que el equipo decida si deben verse iguales.
+18. Resuelto (frontend, segunda ronda de D70): en `/pedido/entrega?cotizacion=` la barra dice "Volver a la cotización" y lleva a la solicitud; la confirmación y el detalle nombran la línea `reference` con su `product_name` ("Pastel según tu referencia") y su sabor.
+19. La llave de idempotencia de la referencia y de aceptar (`ilusion.reference.v1`, `ilusion.quoteAccept.v1`) no se borra al cerrar la sesión, como sí lo hace `resetPurchase`: es un UUID y un hash, sin datos de la cuenta, y el servidor guarda la llave por cliente. Si se quiere, `session.ts` puede llamar a `forgetAttempt` en la salida.
+20. Las fotos de la solicitud se piden una por una con la sesión cada vez que se abre la pantalla (sin caché, `Cache-Control: private, no-store`).
+21. Resuelto en el backend y en el frontend (segunda ronda de D70). Cambio de contrato pedido por el usuario: la solicitud suma el sabor (`bread`, `filling_base`, `filling_flavors`, con las reglas de los pasos 3 y 4 de "Diseña tu pastel" y sus errores bajo cada campo), la respuesta trae `bread_name`, `filling_base_name` y `filling_flavor_names` para "Solicitud enviada" y la cotización, y la cotización trae la base (kg y depósito) aparte del precio, con `pay_today` que ya suma el depósito. Resuelto en el backend: el contrato pide también `cake_type` (obligatorio, ver D70) y la base va en `kg`, `stand` (`min_kg`, `max_kg`, `deposit`) y `quote.stand_deposit`. El frontend ya lo usa (ver D70, "Frontend: segunda ronda").
+22. El correo "Tu cotización está lista" dice el precio, no el depósito de la base ni lo que se paga hoy.
+23. Al cancelar un pedido pagado desde `in_preparation` o `ready_for_delivery`, la vitrina y el pan vuelven al inventario como antes de pagar (`InventoryObserver`), aunque la pastelería ya haya empezado el pastel. No hay correo de esa cancelación.
+
+## Revisión de la tanda 3
+
+Menores de la revisión única de la tanda 3 (D70) que no se arreglaron:
+
+1. `quote_note` reinicia `quoted_at` y reenvía el correo.
+2. Aceptar no fija el precio que vio el cliente (mandar `quoted_at` o `expected_price` y responder 409).
+3. `CancellationTerms` conserva `delivery_date` y `slot_starts_at`, que ya no se usan.
+4. El texto "se devuelve el depósito" no menciona el envío.
+5. El correo síncrono en `on_commit` alarga el webhook hasta 5 s.
+6. Faltan pruebas: cancelación con envío, pedido de cotización con depósito, PaymentIntent cancelado al cancelar pagado, tope de pedidos sin pagar al aceptar, `KEY_IN_USE`, recotizar una solicitud aceptada y cancelar mientras se acepta.
+7. `paid_at` sale de `updated_at`.
+8. Enviar y aceptar referencia no limitan por IP.
+9. El PDF solo gasta el throttle general `user`.

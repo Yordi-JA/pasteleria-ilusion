@@ -19,13 +19,15 @@ from ..services import (
     cake_options_service,
     catalog_service,
     customer_image_service,
+    email_service,
     payment_summary,
     pricing_service,
     store_info_service,
     warranty_service,
 )
 from ..services.errors import DomainValidationError, attempt, raise_all
-from ..services.orders import order_service, schedule_service
+from ..services.orders import note_service, order_service, schedule_service
+from . import note_pdf
 from .parsers import MULTIPART_OVERHEAD_BYTES, BoundedImageUploadParser, declared_length
 from .serializers import (
     CakeDesignOptionsSerializer,
@@ -35,6 +37,7 @@ from .serializers import (
     CustomerImageSerializer,
     CustomerImageUploadSerializer,
     DeliveryCalendarSerializer,
+    NoteVerificationSerializer,
     DeliverySlotQuerySerializer,
     OrderCreateSerializer,
     OrderSerializer,
@@ -43,6 +46,7 @@ from .serializers import (
     ProductDetailSerializer,
     ShowcaseQuerySerializer,
     ShowcaseSerializer,
+    StandLoanSerializer,
     StoreInfoSerializer,
     TodayStockSerializer,
 )
@@ -50,6 +54,7 @@ from .throttles import (
     CustomerImageIPThrottle,
     CustomerImageUserThrottle,
     DeliverySlotUserThrottle,
+    NoteVerificationThrottle,
     OrderCreateIPThrottle,
     OrderCreateUserThrottle,
     OrderRetryUserThrottle,
@@ -680,3 +685,78 @@ class OrderDetailView(APIView):
         if order is None:
             raise NotFound("No encontrado.")
         return Response(OrderSerializer(order).data)
+
+
+# --- Nota en PDF, su verificación y bases prestadas (D69) ---
+
+NOTES_TAG = "Notas y bases"
+
+
+class OrderNoteView(APIView):
+    @extend_schema(
+        operation_id="orders_note_pdf",
+        summary="Nota del pedido en PDF",
+        description=(
+            "La nota tamaño carta del pedido, con su QR a `/nota/<token>` (regla 11). Solo el dueño, con JWT; un pedido "
+            "ajeno, uno que no existe o uno que todavía no tiene nota responden 404. Hay nota desde que el pedido está "
+            "pagado (`received` en adelante; `note_available` del pedido lo dice). Como pide el `Authorization`, el "
+            "frontend la descarga con `fetch` y la entrega como archivo (`Blob`), no con un enlace directo."
+        ),
+        responses={(200, "application/pdf"): OpenApiTypes.BINARY, 404: NOT_FOUND},
+        tags=[NOTES_TAG],
+    )
+    def get(self, request, order_id):
+        note = note_service.get_note(request.user.pk, order_id)
+        if note is None:
+            raise NotFound("No encontrado.")
+        url = email_service.site_url(f"/nota/{note.order.note_token}")
+        response = HttpResponse(note_pdf.render_note(note, url), content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="nota-pedido-{note.order.id}.pdf"'
+        response["Cache-Control"] = "private, no-store"
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
+
+
+class NoteVerificationView(PublicReadOnlyView):
+    # Pública y sin sesión, como el resto de lo público; su propio cupo por IP en la caché `security`.
+    throttle_classes = [NoteVerificationThrottle]
+    throttle_scope = "note_verification"
+
+    @extend_schema(
+        operation_id="notes_verify",
+        summary="Verificar una nota (lo que abre el QR)",
+        description=(
+            "Sin sesión. Con el token del QR, lo que fija la regla 11: \"Nota válida\", número de pedido, fecha, "
+            "cliente (nombre e inicial del apellido), entrega y cada base con su estado (`on_loan` \"Prestada\" o "
+            "`returned` \"Devuelta\"; `null` antes de la entrega), su fecha límite y su depósito. Nunca teléfono, "
+            "correo ni dirección. Un token que no existe, con otra forma o de un pedido sin nota (sin pagar o "
+            "cancelado) responde el mismo 404. No registra la devolución de la base: eso es del admin (D64). Throttle "
+            "propio por IP (`note_verification`)."
+        ),
+        responses={200: NoteVerificationSerializer, 404: NOT_FOUND},
+        tags=[NOTES_TAG],
+    )
+    def get(self, request, token):
+        note = note_service.verify_note(token)
+        if note is None:
+            raise NotFound("No encontrado.")
+        return Response(NoteVerificationSerializer(note).data)
+
+
+class StandLoanListView(ListAPIView):
+    serializer_class = StandLoanSerializer
+
+    def get_queryset(self):
+        return warranty_service.list_customer_loans(self.request.user.pk)
+
+    @extend_schema(
+        operation_id="stand_loans_list",
+        summary="Bases en préstamo",
+        description=(
+            "Las bases que el cliente tiene o tuvo prestadas, paginadas: primero las prestadas (por fecha límite) y "
+            "después las devueltas. Una base se presta al entregar el pedido; antes, el pedido la muestra en `stands`."
+        ),
+        tags=[NOTES_TAG],
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)

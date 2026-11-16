@@ -1,0 +1,11 @@
+{% extends "core_pasteleria/emails/base.html" %}
+{% block title %}Tu cotización #{{ number }} está lista{% endblock %}
+{% block heading %}Tu cotización #{{ number }} está lista{% endblock %}
+{% block content %}
+<p style="margin:0 0 16px 0;">Ya revisamos tu referencia para el {{ event_day }}.</p>
+<p style="margin:0 0 4px 0;"><strong>Pastel según tu referencia:</strong> {{ price }}</p>
+{% if request.quote_note %}<p style="margin:0 0 4px 0;"><strong>Nota de la pastelería:</strong> {{ request.quote_note|linebreaksbr }}</p>{% endif %}
+<p style="margin:16px 0 0 0;">{{ validity }}</p>
+<p style="margin:16px 0 0 0;">Si te gusta, entra a tu cuenta, elige la hora y quién recoge y paga el anticipo. Si quieres un cambio, escríbenos por WhatsApp.</p>
+{% endblock %}
+{% block button %}Ver mi cotización{% endblock %}

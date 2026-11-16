@@ -12,7 +12,8 @@ from django.contrib.auth.models import Group
 from django.core.exceptions import NON_FIELD_ERRORS, PermissionDenied, ValidationError
 from django.db import transaction
 from django.shortcuts import redirect
-from django.urls import reverse
+from django.http import HttpResponse
+from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
@@ -41,18 +42,23 @@ from .models import (
     Payment,
     SalesChannel,
     ShowcaseInventory,
+    StandLoan,
+    StandLoanStatus,
     PolicySettings,
     Product,
     ProductOffering,
+    ReferenceRequest,
+    ReferenceRequestStatus,
     StoreSettings,
     TierRecommendation,
     UploadSettings,
     User,
     WaferShape,
 )
+from .services import customer_image_service, warranty_service
 from .services.catalog_service import HOME_FEATURED_LIMIT
 from .services.errors import DomainValidationError
-from .services.orders import order_status, quote_service
+from .services.orders import order_status, quote_service, reference_service
 from .services.payments import payment_service
 
 
@@ -825,6 +831,29 @@ def payment_lines(order: Order) -> str:
 
 # Marca en la petición que un servicio rechazó el cambio: así no se registra ni se anuncia como guardado.
 ORDER_CHANGE_REFUSED = "_order_change_refused"
+
+
+class ServiceEditAdminMixin:
+    """Un registro que no guarda con `obj.save()`: cada cambio lo hace un servicio. Si el servicio lo rechaza, la página
+    muestra solo su error, sin el aviso de guardado ni la entrada del historial (`response_change` y `log_change`)."""
+
+    def _refuse(self, request, texts):
+        setattr(request, ORDER_CHANGE_REFUSED, True)
+        for text in texts:
+            self.message_user(request, text, level=messages.ERROR)
+
+    def _refuse_error(self, request, error: DomainValidationError):
+        self._refuse(request, [message for messages_ in error.errors.values() for message in messages_])
+
+    def log_change(self, request, obj, message):
+        if getattr(request, ORDER_CHANGE_REFUSED, False):
+            return None
+        return super().log_change(request, obj, message)
+
+    def response_change(self, request, obj):
+        if getattr(request, ORDER_CHANGE_REFUSED, False):
+            return redirect(request.path)
+        return super().response_change(request, obj)
 ONE_CHANGE_AT_A_TIME_MESSAGE = "Pon el precio o cambia el estado, no las dos cosas a la vez."
 
 
@@ -854,7 +883,7 @@ ORDER_EDITS = {"status": _change_order_status, "quoted_decoration_price": _price
 
 
 @admin.register(Order)
-class OrderAdmin(admin.ModelAdmin):
+class OrderAdmin(ServiceEditAdminMixin, admin.ModelAdmin):
     # Registro básico: lista y detalle, sin filtros, acciones ni formularios propios (sin vistas nuevas para el
     # personal, D63 y D64). El personal registra el cobro en efectivo, avanza o cancela el pedido cambiando el estado
     # aquí, solo hacia los estados que permite `order_status`, y pone el precio de una decoración por cotizar mientras
@@ -918,22 +947,7 @@ class OrderAdmin(admin.ModelAdmin):
         try:
             ORDER_EDITS[changed[0]](request, obj, form)
         except DomainValidationError as error:
-            self._refuse(request, [message for messages_ in error.errors.values() for message in messages_])
-
-    def _refuse(self, request, texts):
-        setattr(request, ORDER_CHANGE_REFUSED, True)
-        for text in texts:
-            self.message_user(request, text, level=messages.ERROR)
-
-    def log_change(self, request, obj, message):
-        if getattr(request, ORDER_CHANGE_REFUSED, False):
-            return None
-        return super().log_change(request, obj, message)
-
-    def response_change(self, request, obj):
-        if getattr(request, ORDER_CHANGE_REFUSED, False):
-            return redirect(request.path)
-        return super().response_change(request, obj)
+            self._refuse_error(request, error)
 
 
 @admin.register(Payment)
@@ -958,3 +972,157 @@ class PaymentAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(StandLoan)
+class StandLoanAdmin(ServiceEditAdminMixin, admin.ModelAdmin):
+    # Registro básico (D64, D69): el préstamo lo crea el Observer al entregar el pedido. El personal con
+    # `core_pasteleria.register_stand_return` registra la devolución cambiando el estado de "Prestada" a "Devuelta";
+    # el cambio pasa por `warranty_service.register_stand_return`, que emite "base devuelta" y el Observer marca el
+    # depósito reembolsado. Nada más se edita, agrega ni borra aquí.
+    list_display = ("__str__", "order", "stand", "deposit", "status", "due_date", "returned_at")
+    list_filter = ("status",)
+    list_select_related = ("order", "stand")
+    search_fields = ("=order__id",)
+    fields = (
+        "order", "stand", "deposit", "status", "delivered_on", "due_date", "returned_at", "returned_by",
+        "deposit_refunded",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        # Cambiar es solo registrar la devolución: lo da el permiso propio, no `change_standloan`.
+        return request.user.has_perm(warranty_service.RETURN_PERMISSION)
+
+    def get_readonly_fields(self, request, obj=None):
+        # Solo una base prestada ofrece el estado; una devuelta ya no cambia.
+        on_loan = obj is not None and obj.status == StandLoanStatus.ON_LOAN
+        return tuple(field for field in self.fields if not (on_loan and field == "status"))
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        if "status" in form.base_fields:
+            form.base_fields["status"].choices = StandLoanStatus.choices
+        return form
+
+    def save_model(self, request, obj, form, change):
+        # Nunca `obj.save()`: la devolución pasa por el servicio y su evento (D64).
+        if "status" not in form.changed_data or obj.status != StandLoanStatus.RETURNED:
+            return
+        try:
+            warranty_service.register_stand_return(obj.pk, actor=request.user)
+        except DomainValidationError as error:
+            self._refuse_error(request, error)
+
+
+@admin.register(ReferenceRequest)
+class ReferenceRequestAdmin(ServiceEditAdminMixin, admin.ModelAdmin):
+    # Registro básico (D64, D70): la solicitud la manda el cliente. El personal con
+    # `core_pasteleria.set_reference_quote` escribe el precio y su nota mientras está en revisión o con cotización; el
+    # cambio pasa por `reference_service.set_quote`, que la deja en "Cotización lista", lo audita y avisa al cliente.
+    # Nada más se edita, agrega ni borra aquí.
+    # Quien cotiza ve el sabor, la base y las fotos de la solicitud (D70, decisiones del usuario del 15 de noviembre de
+    # 2026): las fotos salen por `photo_view`, que pide el permiso de cotizar y que la foto sea de esta solicitud.
+    list_display = ("__str__", "customer", "status", "event_date", "people", "quoted_price", "created_at")
+    list_filter = ("status",)
+    list_select_related = ("customer",)
+    search_fields = ("=id",)
+    fields = (
+        "customer", "status", "created_at", "description", "occasion", "people", "flavor", "stand_summary",
+        "event_date", "budget", "photos", "quoted_price", "quote_note", "quoted_at", "quoted_by", "order",
+    )
+    QUOTE_FIELDS = ("quoted_price", "quote_note")
+    PHOTO_SIZE_PX = 160
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        # Cambiar es solo cotizar: lo da el permiso propio, no `change_referencerequest`.
+        return request.user.has_perm(reference_service.QUOTE_PERMISSION)
+
+    def has_view_permission(self, request, obj=None):
+        return super().has_view_permission(request, obj) or self.has_change_permission(request, obj)
+
+    def get_readonly_fields(self, request, obj=None):
+        quoting = obj is not None and obj.status in (ReferenceRequestStatus.IN_REVIEW, ReferenceRequestStatus.QUOTE_READY)
+        editable = self.QUOTE_FIELDS if quoting else ()
+        return tuple(field for field in self.fields if field not in editable)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            "bread", "filling_base", "first_flavor", "second_flavor", "stand"
+        )
+
+    def get_urls(self):
+        photo = path(
+            "<int:request_id>/photos/<uuid:image_id>/",
+            self.admin_site.admin_view(self.photo_view),
+            name="core_pasteleria_referencerequest_photo",
+        )
+        return [photo, *super().get_urls()]
+
+    def photo_view(self, request, request_id, image_id):
+        """Una foto de la solicitud para quien cotiza; sin el permiso, o si la foto no es de esta solicitud, 403."""
+        image = reference_service.get_photo_for_staff(request_id, image_id, actor=request.user)
+        if image is None:
+            raise PermissionDenied
+        response = HttpResponse(image.content, content_type=image.content_type)
+        response["Content-Disposition"] = f'inline; filename="{customer_image_service.file_name(image)}"'
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Content-Security-Policy"] = "default-src 'none'; sandbox"
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+    @admin.display(description="sabor")
+    def flavor(self, obj):
+        if obj.bread is None:
+            return "Sin sabor (solicitud de antes de pedirlo)"
+        flavors = ", ".join(flavor.name for flavor in (obj.first_flavor, obj.second_flavor) if flavor)
+        filling = f"relleno {obj.filling_base.name.lower()}: {flavors}" if obj.filling_base else "relleno incluido"
+        return f"{obj.get_cake_type_display()}, pan {obj.bread.name}, {filling}"
+
+    @admin.display(description="base")
+    def stand_summary(self, obj):
+        if obj.kg is None:
+            return "-"
+        if obj.stand is None:
+            return f"{obj.kg} kg, sin base"
+        return f"{obj.kg} kg, base de {obj.stand.min_kg} a {obj.stand.max_kg} kg, depósito ${obj.stand_deposit}"
+
+    @admin.display(description="fotos")
+    def photos(self, obj):
+        ids = list(obj.images.values_list("pk", flat=True))
+        if not ids:
+            return "Sin fotos"
+        # Las miniaturas solo sirven con el permiso de cotizar (`photo_view` lo vuelve a revisar).
+        links = (
+            (
+                reverse("admin:core_pasteleria_referencerequest_photo", args=[obj.pk, image_id]),
+                self.PHOTO_SIZE_PX,
+                f"Foto {number} de {len(ids)} de la solicitud {obj.pk}",
+            )
+            for number, image_id in enumerate(ids, start=1)
+        )
+        return format_html_join(
+            " ",
+            '<a href="{0}" target="_blank" rel="noopener"><img src="{0}" height="{1}" alt="{2}" loading="lazy"></a>',
+            links,
+        )
+
+    def save_model(self, request, obj, form, change):
+        # Nunca `obj.save()`: la cotización pasa por el servicio y su evento (D64).
+        if not any(field in form.changed_data for field in self.QUOTE_FIELDS):
+            return
+        try:
+            reference_service.set_quote(obj.pk, obj.quoted_price, obj.quote_note, actor=request.user)
+        except DomainValidationError as error:
+            self._refuse_error(request, error)

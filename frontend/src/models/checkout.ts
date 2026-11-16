@@ -8,6 +8,7 @@
  * - el pedido creado, solo en memoria: es un dato de la cuenta y no va a ningún almacenamiento del navegador.
  * Al crear el pedido o al cerrar la sesión (`resetPurchase`), la llave, la huella y las imágenes se olvidan.
  */
+import { fingerprintOf } from './attempts.ts'
 import type { CartItem } from './cart.ts'
 import type { PlacedOrder } from './orders.ts'
 
@@ -48,20 +49,6 @@ function lineIdentity(item: CartItem): string {
   return item.kind === 'design' ? `design:${item.designId}` : `${item.fulfillment}:${item.offeringId}:${item.quantity}`
 }
 
-/** Un hash estable sin `crypto.subtle` (el sitio abierto por `http://<IP>`): cyrb53, en base 36. */
-function fallbackHash(text: string): string {
-  let h1 = 0xdeadbeef
-  let h2 = 0x41c6ce57
-  for (let i = 0; i < text.length; i++) {
-    const code = text.charCodeAt(i)
-    h1 = Math.imul(h1 ^ code, 2654435761)
-    h2 = Math.imul(h2 ^ code, 1597334677)
-  }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909)
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909)
-  return `c${(4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36).padStart(11, '0')}`
-}
-
 export type PurchaseChoices = {
   items: CartItem[]
   deliveryDate: string
@@ -75,13 +62,7 @@ export type PurchaseChoices = {
  * el hash, nunca el nombre ni el teléfono.
  */
 export async function purchaseFingerprint({ items, deliveryDate, slotStartsAt, pickupName, pickupPhone }: PurchaseChoices): Promise<string> {
-  const text = JSON.stringify([deliveryDate, slotStartsAt, pickupName, pickupPhone, items.map(lineIdentity)])
-  try {
-    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
-    return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
-  } catch {
-    return fallbackHash(text)
-  }
+  return fingerprintOf(JSON.stringify([deliveryDate, slotStartsAt, pickupName, pickupPhone, items.map(lineIdentity)]))
 }
 
 /**

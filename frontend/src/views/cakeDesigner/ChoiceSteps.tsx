@@ -49,10 +49,21 @@ export function Group({ legend, children, describedBy }: { legend: string; child
 type Conflict = { title: string; target: string; alsoFilling: boolean }
 
 /** Paso 2: el tipo de pastel y, si el nuevo invalida algo ya elegido, el aviso antes de continuar (regla 4.7). */
-export function CakeTypeStep({ choices, conflict, onChoose }: { choices: Choice[]; conflict: Conflict | null; onChoose: (value: string) => void }) {
+export function CakeTypeStep({
+  choices,
+  conflict,
+  onChoose,
+  describedBy,
+}: {
+  choices: Choice[]
+  conflict: Conflict | null
+  onChoose: (value: string) => void
+  /** El id del error del campo, cuando el paso vive dentro de un formulario (el envío de referencia). */
+  describedBy?: string
+}) {
   return (
     <>
-      <Group legend="Elige el tipo de pastel">
+      <Group legend="Elige el tipo de pastel" describedBy={describedBy}>
         <Options name="tipo" choices={choices} onChoose={onChoose} />
       </Group>
       {conflict && (
@@ -68,10 +79,10 @@ export function CakeTypeStep({ choices, conflict, onChoose }: { choices: Choice[
 }
 
 /** Paso 3: el pan, con el grupo aparte de los que traen su relleno (regla 4.3). */
-export function BreadStep({ groups, onChoose }: { groups: BreadGroups; onChoose: (value: string) => void }) {
+export function BreadStep({ groups, onChoose, describedBy }: { groups: BreadGroups; onChoose: (value: string) => void; describedBy?: string }) {
   return (
     <>
-      <Group legend="Elige el pan">
+      <Group legend="Elige el pan" describedBy={describedBy}>
         <p className="text-nota font-semibold">Para combinar con un relleno</p>
         <Options name="pan" choices={groups.withFilling} onChoose={onChoose} />
         {groups.fillingIncluded.length > 0 && (
@@ -91,13 +102,15 @@ type FillingStepProps = {
   onBase: (value: string) => void
   onCount: (count: 1 | 2) => void
   onFlavor: (value: string) => void
+  /** El id del error del relleno, cuando el paso vive dentro de un formulario (el envío de referencia). */
+  describedBy?: string
 }
 
 /** Paso 4: la base, uno o dos sabores y los sabores (reglas 4.4 y 4.7). */
-export function FillingStep({ view, onBase, onCount, onFlavor }: FillingStepProps) {
+export function FillingStep({ view, onBase, onCount, onFlavor, describedBy }: FillingStepProps) {
   return (
     <>
-      <Group legend="Primero, la base del relleno">
+      <Group legend="Primero, la base del relleno" describedBy={describedBy}>
         <Options name="base" choices={view.bases} onChoose={onBase} columns="grid-cols-3 max-[600px]:grid-cols-1" />
       </Group>
       {view.countChoice && (

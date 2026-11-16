@@ -1,6 +1,7 @@
 """DTOs: validan la entrada y dan forma a la salida JSON."""
 import re
 
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.validators import ProhibitSurrogateCharactersValidator
 
@@ -15,16 +16,18 @@ from ..models import (
     Occasion,
     OrderLineKind,
     OrderStatus,
+    PaymentMethod,
     Presentation,
     Product,
     ProductCategory,
     SalesChannel,
+    StandLoanStatus,
     WaferShape,
 )
-from ..services import design_layout
+from ..services import design_layout, warranty_service
 from ..services.design_layout import MessageLayout, WaferLayout
 from ..services.text_rules import has_forbidden_name_characters
-from ..services.orders import schedule_service
+from ..services.orders import note_service, schedule_service
 from ..services.orders.order_lines import DesignRequest, LineRequest
 from ..services.orders.order_service import OrderRequest
 from ..services.pricing_service import CakeDesignChoice
@@ -701,8 +704,8 @@ class CustomerImageUploadSerializer(serializers.Serializer):
     )
     purpose = serializers.ChoiceField(
         choices=CustomerImagePurpose.choices,
-        help_text="`wafer` (oblea) o `decoration` (\"Otra decoración\").",
-        error_messages={"invalid_choice": "Indica si la imagen es de la oblea o de la decoración."},
+        help_text="`wafer` (oblea), `decoration` (\"Otra decoración\") o `reference` (envío de referencia, D70).",
+        error_messages={"invalid_choice": "Indica si la imagen es de la oblea, de la decoración o una referencia."},
     )
 
 
@@ -746,7 +749,8 @@ class DeliverySlotQuerySerializer(serializers.Serializer):
         allow_empty=False,
         help_text=(
             "Los tipos de línea del pedido (se repite: `?kind=design&kind=order`). La anticipación es la del más "
-            "estricto: `design` 2 días; `order` hoy con 2 horas o cualquier otro día; `showcase` solo hoy."
+            "estricto: `design` 2 días; `order` hoy con 2 horas o cualquier otro día; `showcase` solo hoy; "
+            "`reference` (aceptar una cotización, D70) cualquier lapso que no haya pasado."
         ),
         error_messages={"empty": "Indica qué lleva tu pedido.", "required": "Indica qué lleva tu pedido."},
     )
@@ -894,9 +898,13 @@ class OrderDesignSerializer(serializers.Serializer):
         )
 
 
+# Las líneas que manda el carrito; `reference` solo nace al aceptar una cotización (D70).
+CART_LINE_KINDS = [choice for choice in OrderLineKind.choices if choice[0] != OrderLineKind.REFERENCE]
+
+
 class OrderItemRequestSerializer(serializers.Serializer):
     kind = serializers.ChoiceField(
-        choices=OrderLineKind.choices,
+        choices=CART_LINE_KINDS,
         help_text="`order` (encargo del catálogo), `showcase` (vitrina de hoy) o `design` (\"Diseña tu pastel\").",
     )
     offering_id = serializers.IntegerField(
@@ -1044,6 +1052,31 @@ class OrderDesignOutSerializer(serializers.Serializer):
     total = money(help_text="Sin el depósito de la base.")
     requires_quote = serializers.BooleanField()
     stand = OrderStandSerializer(source="*", allow_null=True)
+    bread_name = serializers.CharField(help_text="El nombre del pan, para mostrarlo (D69).")
+    filling_base_name = serializers.CharField(allow_null=True, help_text="`null` con el relleno incluido en el pan.")
+    filling_flavor_names = serializers.ListField(child=serializers.CharField())
+    decoration_name = serializers.CharField()
+
+
+class ReferenceCakeSerializer(serializers.Serializer):
+    """El pastel de un envío de referencia (D70): personas, kilos, sabor con sus nombres y la base."""
+
+    people = serializers.IntegerField()
+    kg = serializers.IntegerField(allow_null=True, help_text="Salen de las personas (regla 3.1).")
+    cake_type = serializers.ChoiceField(
+        choices=[("", ""), *CakeType.choices], allow_blank=True, help_text="Vacío solo en solicitudes viejas."
+    )
+    cake_type_label = serializers.SerializerMethodField()
+    bread = serializers.SlugField(allow_null=True)
+    bread_name = serializers.CharField(allow_null=True)
+    filling_base = serializers.SlugField(allow_null=True, help_text="`null` con un pan de relleno incluido.")
+    filling_base_name = serializers.CharField(allow_null=True)
+    filling_flavors = serializers.ListField(child=serializers.SlugField())
+    filling_flavor_names = serializers.ListField(child=serializers.CharField())
+    stand = OrderStandSerializer(source="*", allow_null=True)
+
+    def get_cake_type_label(self, cake) -> str | None:
+        return CakeType(cake.cake_type).label if cake.cake_type else None
 
 
 class OrderItemSerializer(serializers.Serializer):
@@ -1055,6 +1088,9 @@ class OrderItemSerializer(serializers.Serializer):
     unit_price = money()
     line_total = money()
     design = OrderDesignOutSerializer(allow_null=True)
+    reference = ReferenceCakeSerializer(
+        allow_null=True, help_text="En la línea `reference`: el pastel de su envío de referencia (D70); si no, `null`."
+    )
 
 
 class OrderPaymentSerializer(serializers.Serializer):
@@ -1074,6 +1110,47 @@ class OrderPaymentSerializer(serializers.Serializer):
 
     def to_representation(self, instance):
         return None if instance.advance is None else super().to_representation(instance)
+
+
+def _stand_status_label(status: str | None) -> str | None:
+    """La etiqueta en español del estado de la base (regla 12); `null` antes de la entrega."""
+    return StandLoanStatus(status).label if status else None
+
+
+class OrderStandStatusSerializer(serializers.Serializer):
+    """La base de un diseño del pedido y su préstamo (D69): antes de la entrega, sin estado y con la fecha prevista."""
+
+    kg = serializers.IntegerField(help_text='Los kilos del pastel: "Base para <kg> kg".')
+    deposit = money(help_text="El depósito de la base, que se paga completo con el anticipo.")
+    return_days = serializers.IntegerField(help_text="Días para devolverla desde la entrega (`stand_return_days`).")
+    return_by = serializers.DateField(
+        help_text=(
+            "Antes de la entrega, la fecha prevista (día de entrega más `return_days`); desde la entrega, la del "
+            "préstamo."
+        )
+    )
+    status = serializers.ChoiceField(
+        choices=StandLoanStatus.choices, allow_null=True, help_text="`null` hasta que se entrega el pedido."
+    )
+    status_label = serializers.SerializerMethodField()
+    returned_at = serializers.DateTimeField(allow_null=True)
+
+    def get_status_label(self, stand) -> str | None:
+        return _stand_status_label(stand.status)
+
+
+class PaidWithSerializer(serializers.Serializer):
+    """El cobro que pagó el pedido: su método y cuándo se confirmó; `null` sin pago."""
+
+    method = serializers.ChoiceField(choices=PaymentMethod.choices, source="paid_with")
+    method_label = serializers.SerializerMethodField()
+    paid_at = serializers.DateTimeField()
+
+    def get_method_label(self, order) -> str:
+        return PaymentMethod(order.paid_with).label
+
+    def to_representation(self, instance):
+        return super().to_representation(instance) if instance.paid_with else None
 
 
 class OrderSerializer(serializers.Serializer):
@@ -1101,3 +1178,91 @@ class OrderSerializer(serializers.Serializer):
     )
     created_at = serializers.DateTimeField()
     items = OrderItemSerializer(many=True)
+    # D69: lo que piden la confirmación, "Mis pedidos" y el detalle.
+    status_label = serializers.SerializerMethodField(help_text="La etiqueta del estado (regla 12).")
+    status_changed_at = serializers.DateTimeField(allow_null=True, help_text="Desde cuándo está en este estado.")
+    note_available = serializers.SerializerMethodField(
+        help_text="Si ya hay nota en PDF (`GET orders/<id>/note.pdf`): desde `received`."
+    )
+    paid_with = PaidWithSerializer(source="*", allow_null=True)
+    stands = serializers.SerializerMethodField(
+        help_text=(
+            "Una por pastel que lleva base con depósito (un diseño o el de un envío de referencia); vacía si el pedido "
+            "no lleva base."
+        )
+    )
+
+    def get_status_label(self, order) -> str:
+        return OrderStatus(order.status).label
+
+    def get_note_available(self, order) -> bool:
+        return note_service.has_note(order.status)
+
+    @extend_schema_field(OrderStandStatusSerializer(many=True))
+    def get_stands(self, order):
+        # Los días para devolver la base se leen una vez por respuesta, no una vez por pedido de la lista.
+        context = self.context
+        if "stand_return_days" not in context:
+            context["stand_return_days"] = warranty_service.stand_return_days()
+        stands = note_service.order_stands(order, context["stand_return_days"])
+        return OrderStandStatusSerializer(stands, many=True).data
+
+
+# --- Bases prestadas y verificación de la nota (D69) ---
+
+
+class StandLoanSerializer(serializers.Serializer):
+    """Una base del cliente en "Bases en préstamo"."""
+
+    id = serializers.IntegerField()
+    order_id = serializers.IntegerField()
+    kg = serializers.IntegerField(help_text='Los kilos del pastel: "Base para <kg> kg".')
+    deposit = money(help_text="El depósito retenido mientras la tiene.")
+    status = serializers.ChoiceField(choices=StandLoanStatus.choices)
+    status_label = serializers.SerializerMethodField()
+    delivered_on = serializers.DateField()
+    due_date = serializers.DateField(help_text="Devolverla antes de esta fecha.")
+    returned_at = serializers.DateTimeField(allow_null=True)
+    deposit_refunded = serializers.BooleanField()
+
+    def get_status_label(self, loan) -> str:
+        return StandLoanStatus(loan.status).label
+
+
+class NoteDeliverySerializer(serializers.Serializer):
+    fulfillment = serializers.ChoiceField(choices=Fulfillment.choices)
+    fulfillment_label = serializers.SerializerMethodField()
+    date = serializers.DateField(source="delivery_date")
+    starts_at = _hh_mm_input("")
+    ends_at = _hh_mm_input("")
+
+    def get_fulfillment_label(self, note) -> str:
+        return Fulfillment(note.fulfillment).label
+
+
+class NoteStandSerializer(serializers.Serializer):
+    kg = serializers.IntegerField()
+    deposit = money()
+    status = serializers.ChoiceField(
+        choices=StandLoanStatus.choices, allow_null=True, help_text="`null` hasta que se entrega el pedido."
+    )
+    status_label = serializers.SerializerMethodField()
+    return_by = serializers.DateField()
+    returned_at = serializers.DateTimeField(allow_null=True)
+
+    def get_status_label(self, stand) -> str | None:
+        return _stand_status_label(stand.status)
+
+
+class NoteVerificationSerializer(serializers.Serializer):
+    """Solo lo que fija la regla 11: nunca teléfono, correo ni dirección."""
+
+    valid = serializers.SerializerMethodField(help_text="Siempre `true`: una nota que no vale responde 404.")
+    order_id = serializers.IntegerField()
+    created_at = serializers.DateTimeField()
+    customer = serializers.CharField(help_text='El nombre y la inicial del apellido, por ejemplo "Mariana P.".')
+    delivery = NoteDeliverySerializer(source="*")
+    stands = NoteStandSerializer(many=True)
+
+    def get_valid(self, note) -> bool:
+        return True

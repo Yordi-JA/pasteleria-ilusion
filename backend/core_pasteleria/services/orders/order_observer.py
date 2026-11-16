@@ -10,25 +10,44 @@ Observadores de hoy:
   (`order_service._reserve`), porque decide si el pedido puede existir (D63): el pedido nace `awaiting_payment` con lo
   apartado, así que "lo que ocurra primero" de la arquitectura es siempre la creación.
 - `CustomerNotificationObserver`: registra el aviso de cada cambio de estado, después de confirmarse la transacción.
-  Todavía no hay correo; el registro deja el id del pedido y los dos estados, nunca datos personales.
+  El correo va aparte (`CustomerEmailObserver`); el registro deja el id del pedido y los dos estados, nunca datos
+  personales.
 - `StripeCheckoutObserver`: al entrar en `cancelled`, cancela en Stripe los PaymentIntent abiertos del pedido, después
   de confirmarse la transacción (revisión única de D68). La preferencia de Mercado Pago vence sola
   (`expiration_date_to`) y el efectivo no abre nada en una pasarela.
 
-`StandLoanObserver` llega con `StandLoan` (tanda 3): se suscribe en `build_order_subject` y recibe el mismo evento.
+- `StandLoanObserver` (D69): al entrar en `delivered`, presta cada base con depósito del pedido (`StandLoan` `on_loan`,
+  fecha límite = día de la entrega + `PolicySettings.stand_return_days`). Con el evento "base devuelta"
+  (`StandReturned`), que emite solo `warranty_service.register_stand_return`, la marca `returned` con el depósito
+  reembolsado.
+
+- `CustomerEmailObserver` (D70): manda al cliente, después del commit y como mejor esfuerzo, "Recibimos tu pago" al
+  entrar en `received`, "Tu pedido está listo" al entrar en `ready_for_delivery`, "Recibimos tu solicitud" con un envío
+  de referencia nuevo y "Tu cotización está lista" cuando la pastelería le pone precio. Va aparte de
+  `CustomerNotificationObserver`, que solo registra, para que ninguno de los dos acumule los correos, sus plantillas y
+  sus fallas.
+
+Cuatro eventos: "estado cambiado" (`StatusChanged`), "base devuelta" (`StandReturned`) y, del envío de referencia que se
+vuelve pedido (D70), "referencia recibida" (`ReferenceReceived`) y "cotización lista" (`QuoteReady`). `OrderObserver.update`
+los reparte por su tipo a `status_changed`, `stand_returned`, `reference_received` y `quote_ready`, y cada observador
+escribe solo los que le importan.
 
 Sin estado global: cada operación arma su sujeto con los repositorios que recibió (`build_order_subject`), así las
 pruebas inyectan otros.
 """
 import logging
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 
+from django.utils import timezone
+
 from ...models import OrderLineKind, OrderStatus
-from ...repositories import order_repo, payment_repo, product_repo
+from ...repositories import order_repo, payment_repo, product_repo, settings_repo, stand_loan_repo
+# Importa el módulo, no sus nombres: `warranty_service` también importa este módulo para emitir "base devuelta".
+from .. import email_service, warranty_service
 from ..payments.errors import PaymentError
 from ..payments.payment_factory import OPEN_STATUSES, StripePayment
 
@@ -48,10 +67,63 @@ class StatusChanged:
     changed_at: datetime
 
 
+@dataclass(frozen=True)
+class StandReturned:
+    """El personal `actor_id` registró que la base del préstamo `loan_id` volvió (D64, D69)."""
+
+    order_id: int
+    loan_id: int
+    actor_id: int
+    returned_at: datetime
+
+
+@dataclass(frozen=True)
+class ReferenceReceived:
+    """El cliente mandó el envío de referencia `request_id`; queda `in_review` (D70)."""
+
+    request_id: int
+    received_at: datetime
+
+
+@dataclass(frozen=True)
+class QuoteReady:
+    """El personal `actor_id` le puso precio al envío de referencia `request_id` (`quote_ready`, D70)."""
+
+    request_id: int
+    actor_id: int
+    quoted_at: datetime
+
+
+OrderEvent = StatusChanged | StandReturned | ReferenceReceived | QuoteReady
+
+
 class OrderObserver(ABC):
-    @abstractmethod
-    def update(self, event: StatusChanged) -> None:
-        """Reacciona al evento. Corre dentro de la transacción del cambio: un error lo deshace."""
+    """Recibe cada evento del pedido en `update`, dentro de la transacción que lo produjo: un error la deshace.
+
+    `update` lo reparte por su tipo; un observador escribe `status_changed`, `stand_returned` o los dos, y el otro no
+    hace nada.
+    """
+
+    def update(self, event: OrderEvent) -> None:
+        handlers = {
+            StatusChanged: self.status_changed,
+            StandReturned: self.stand_returned,
+            ReferenceReceived: self.reference_received,
+            QuoteReady: self.quote_ready,
+        }
+        handlers[type(event)](event)
+
+    def status_changed(self, event: StatusChanged) -> None:
+        return None
+
+    def stand_returned(self, event: StandReturned) -> None:
+        return None
+
+    def reference_received(self, event: ReferenceReceived) -> None:
+        return None
+
+    def quote_ready(self, event: QuoteReady) -> None:
+        return None
 
 
 class OrderSubject:
@@ -61,7 +133,7 @@ class OrderSubject:
     def subscribe(self, observer: OrderObserver) -> None:
         self._observers.append(observer)
 
-    def notify(self, event: StatusChanged) -> None:
+    def notify(self, event: OrderEvent) -> None:
         for observer in self._observers:
             observer.update(event)
 
@@ -78,7 +150,7 @@ class InventoryObserver(OrderObserver):
         self._products = products
         self._effects: dict[str, Callable[[int], None]] = {OrderStatus.CANCELLED: self._give_back}
 
-    def update(self, event: StatusChanged) -> None:
+    def status_changed(self, event: StatusChanged) -> None:
         self._effects.get(event.new_status, _nothing)(event.order_id)
 
     def _give_back(self, order_id: int) -> None:
@@ -105,7 +177,7 @@ class CustomerNotificationObserver(OrderObserver):
     def __init__(self, orders=order_repo):
         self._orders = orders
 
-    def update(self, event: StatusChanged) -> None:
+    def status_changed(self, event: StatusChanged) -> None:
         self._orders.on_commit(lambda: self._announce(event))
 
     @staticmethod
@@ -137,7 +209,7 @@ class StripeCheckoutObserver(OrderObserver):
         self._processor = processor
         self._effects: dict[str, Callable[[int], None]] = {OrderStatus.CANCELLED: self._cancel_open_checkouts}
 
-    def update(self, event: StatusChanged) -> None:
+    def status_changed(self, event: StatusChanged) -> None:
         self._effects.get(event.new_status, _nothing)(event.order_id)
 
     def _cancel_open_checkouts(self, order_id: int) -> None:
@@ -161,10 +233,72 @@ class StripeCheckoutObserver(OrderObserver):
                 )
 
 
+class StandLoanObserver(OrderObserver):
+    """Presta las bases al entregar el pedido y las cierra con el evento "base devuelta" (regla 12, D69).
+
+    Solo los diseños con base y depósito (los kilos que llevan base, regla 7) tienen préstamo; un pedido del catálogo
+    no. El día de la entrega es el de la pastelería (Ciudad de México) en que el pedido pasó a `delivered`.
+    """
+
+    def __init__(self, loans=stand_loan_repo, settings=settings_repo):
+        self._loans = loans
+        self._settings = settings
+        self._effects: dict[str, Callable[[StatusChanged], None]] = {OrderStatus.DELIVERED: self._lend}
+
+    def status_changed(self, event: StatusChanged) -> None:
+        self._effects.get(event.new_status, _nothing)(event)
+
+    def _lend(self, event: StatusChanged) -> None:
+        stands = self._loans.list_order_stands(event.order_id)
+        if not stands:
+            return
+        delivered_on = timezone.localdate(event.changed_at)
+        due_date = warranty_service.return_deadline(delivered_on, warranty_service.stand_return_days(self._settings))
+        self._loans.create_loans(event.order_id, stands, delivered_on=delivered_on, due_date=due_date)
+
+    def stand_returned(self, event: StandReturned) -> None:
+        # `register_stand_return` ya bloqueó la base y vio que seguía prestada: si el `UPDATE` no la encuentra así, algo
+        # la cambió por fuera y la transacción se deshace en vez de reembolsar a ciegas.
+        if not self._loans.mark_returned(event.loan_id, returned_at=event.returned_at, actor_id=event.actor_id):
+            raise RuntimeError(f"La base {event.loan_id} ya no estaba prestada.")
+
+
+class CustomerEmailObserver(OrderObserver):
+    """Manda los correos al cliente después del commit (D70); si la transacción se deshace, no sale ninguno.
+
+    El correo es de mejor esfuerzo (`email_service`): una falla del SMTP queda en un WARNING y no toca el pedido.
+    """
+
+    ORDER_EMAILS = {
+        OrderStatus.RECEIVED: email_service.PAYMENT_RECEIVED,
+        OrderStatus.READY_FOR_DELIVERY: email_service.ORDER_READY,
+    }
+
+    def __init__(self, orders=order_repo, mailer=email_service):
+        self._orders = orders
+        self._mailer = mailer
+
+    def status_changed(self, event: StatusChanged) -> None:
+        kind = self.ORDER_EMAILS.get(event.new_status)
+        if kind is not None:
+            self._orders.on_commit(lambda: self._mailer.send_order_email(kind, event.order_id))
+
+    def reference_received(self, event: ReferenceReceived) -> None:
+        self._orders.on_commit(
+            lambda: self._mailer.send_reference_email(email_service.REFERENCE_RECEIVED, event.request_id)
+        )
+
+    def quote_ready(self, event: QuoteReady) -> None:
+        self._orders.on_commit(lambda: self._mailer.send_reference_email(email_service.QUOTE_READY, event.request_id))
+
+
 def build_order_subject(orders=order_repo, products=product_repo) -> OrderSubject:
     """El sujeto con los observadores del pedido, sobre los repositorios de quien cambia el estado."""
     subject = OrderSubject()
     subject.subscribe(InventoryObserver(orders, products))
     subject.subscribe(CustomerNotificationObserver(orders))
     subject.subscribe(StripeCheckoutObserver(orders))
+    subject.subscribe(StandLoanObserver())
+    subject.subscribe(CustomerEmailObserver(orders))
     return subject
+

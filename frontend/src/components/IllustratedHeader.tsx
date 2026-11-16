@@ -1,5 +1,6 @@
 import type { ReactNode, RefObject } from 'react'
 import Breadcrumb from './Breadcrumb.tsx'
+import type { Crumb } from './Breadcrumb.tsx'
 import Duya from './Duya.tsx'
 import { focusRing } from './focus.ts'
 import LineDrawing from './LineDrawing.tsx'
@@ -15,13 +16,15 @@ type IllustratedHeaderProps = {
   headingRef?: RefObject<HTMLHeadingElement | null>
   /** La frase bajo el título. */
   children?: ReactNode
+  /** Las migas; por omisión, "Inicio" y el título. Una lista vacía no lleva migas (mockup `SolicitudEnviada`). */
+  crumbs?: Crumb[]
 }
 
 /**
  * Encabezado sobre `fresa` de la vitrina y las rebanadas: migas, `h1`, su frase y el dibujo de línea a la derecha al
  * 30%, detrás del contenido (libro de marca, "Dibujos de línea"); en móvil el dibujo no va. Cierra con las conchas.
  */
-export default function IllustratedHeader({ title, titleId, drawing, headingRef, children }: IllustratedHeaderProps) {
+export default function IllustratedHeader({ title, titleId, drawing, headingRef, children, crumbs }: IllustratedHeaderProps) {
   return (
     <>
       <section aria-labelledby={titleId} className="relative z-[2] bg-fresa">
@@ -30,7 +33,7 @@ export default function IllustratedHeader({ title, titleId, drawing, headingRef,
             <LineDrawing drawing={drawing} className="text-mermelada opacity-30" />
           </div>
           <div className="flex flex-col gap-4 pb-12 pr-36 pt-8 max-[600px]:pr-0">
-            <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: title }]} />
+            {crumbs?.length !== 0 && <Breadcrumb items={crumbs ?? [{ label: 'Inicio', to: '/' }, { label: title }]} />}
             <h1 id={titleId} ref={headingRef} tabIndex={-1} className={`self-start rounded-sm font-display text-display max-[600px]:text-titulo-1 ${focusRing}`}>
               {title}
             </h1>

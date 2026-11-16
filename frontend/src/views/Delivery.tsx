@@ -1,4 +1,5 @@
 import { useMemo, useRef } from 'react'
+import { useSearchParams } from 'react-router'
 import Button from '../components/Button.tsx'
 import ButtonLink from '../components/ButtonLink.tsx'
 import Card from '../components/Card.tsx'
@@ -12,6 +13,7 @@ import { formatTime } from '../viewmodels/deliverySchedule.ts'
 import { usePageTitle } from '../viewmodels/usePageTitle.ts'
 import { useDelivery } from '../viewmodels/useDelivery.ts'
 import DateAndTime from './delivery/DateAndTime.tsx'
+import QuoteDelivery from './delivery/QuoteDelivery.tsx'
 import { DeliverySummary, Fulfillment, Pickup } from './delivery/DeliveryParts.tsx'
 
 const TITLE = '¿Cómo recibes tu pedido?'
@@ -23,9 +25,16 @@ const STATUS_TEXT = { idle: '', uploading: 'Subiendo tus imágenes…', creating
 /**
  * `/pedido/entrega` (D66): forma de entrega, fecha y hora con el calendario de la API, quién recoge y el resumen.
  * "Continuar al pago" crea el pedido en el servidor y lleva a `/pedido/pago`; con "Otra decoración" el pedido queda en
- * pausa por cotización y la pantalla lo dice. Pide sesión (`RequireSession`, D62).
+ * pausa por cotización y la pantalla lo dice. Pide sesión (`RequireSession`, D62). Con `?cotizacion=<id>` es la entrega de
+ * una cotización aceptada (D70): el día del evento fijo, sin el carrito.
  */
 export default function Delivery() {
+  const [params] = useSearchParams()
+  const quote = params.get('cotizacion')
+  return quote === null ? <CartDelivery /> : <QuoteDelivery title={TITLE} rawId={quote} />
+}
+
+function CartDelivery() {
   usePageTitle(TITLE)
   const alertRef = useRef<HTMLDivElement>(null)
   const nameRef = useRef<HTMLInputElement>(null)

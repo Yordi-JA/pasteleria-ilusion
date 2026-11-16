@@ -40,7 +40,8 @@ const navLink =
  * La barra de la compra (mockup de Entrega y Pago): el logo y "Volver al carrito", sin la navegación ni el menú, para
  * que la persona termine su pedido. Misma barra flotante y fija que la del sitio.
  */
-export function CheckoutHeader() {
+/** La barra de la compra. `back` es a dónde regresa: por omisión, al carrito; aceptando una cotización, a ella (D70). */
+export function CheckoutHeader({ back = { to: '/carrito', label: 'Volver al carrito' } }: { back?: { to: string; label: string } }) {
   return (
     <header className="sticky top-4 z-30 mt-5 max-[600px]:mt-3">
       <div className="mx-auto max-w-[1200px] px-6 max-[600px]:px-4">
@@ -48,8 +49,8 @@ export function CheckoutHeader() {
           <Link to="/" className={`block shrink-0 rounded-sm ${focusRing}`}>
             <img src={logo} alt="Pastelería Ilusión, inicio" width={150} height={66} className="h-auto w-[150px] max-[600px]:w-[120px]" />
           </Link>
-          <Link to="/carrito" className={`inline-flex min-h-11 items-center rounded-sm px-2 text-etiqueta text-mermelada underline underline-offset-4 ${focusRing}`}>
-            Volver al carrito
+          <Link to={back.to} className={`inline-flex min-h-11 items-center rounded-sm px-2 text-etiqueta text-mermelada underline underline-offset-4 ${focusRing}`}>
+            {back.label}
           </Link>
         </div>
       </div>

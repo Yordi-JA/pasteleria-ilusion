@@ -374,9 +374,14 @@ def delivery_fee(total_kg: float, km: float):
 - Máximo **3 imágenes**.
 - La pastelería responde con la cotización en **máximo 1 hora** (confirmado).
 - El pedido sigue la misma anticipación de 2 días.
-- PENDIENTE: vigencia de la cotización.
+- PENDIENTE: vigencia de la cotización (`PolicySettings.reference_quote_valid_hours`, vacío: mientras no tenga valor, no vence; la pantalla muestra el marcador).
+- El cliente manda las fotos, qué quiere tomar de ellas, la ocasión (opcional), las personas, el sabor, la fecha del evento y un presupuesto opcional. No se cobra nada al enviar.
+- **Personas y sabor** (lo decidió el usuario el 15 de noviembre de 2026, D70): la pastelería cotiza con base en eso. El sabor es el tipo de pastel, el pan y el relleno, con las mismas opciones y validaciones de la sección 4 (4.7). La **base se asigna sola** con las personas, con los kilos de 3.1 y la tabla de la sección 7, como en "Diseña tu pastel"; con más personas de las que se piden en línea, "escríbenos por WhatsApp". La cotización muestra el depósito de la base aparte del precio, y al aceptar se paga completo con el anticipo (sección 10). La base se presta al entregar el pedido, como cualquier otra.
+- Quien cotiza (el personal con el permiso de cotizar) ve las fotos de la solicitud en el admin; las de "Otra decoración" y de la oblea, no (D70). Tiene como mucho 1 solicitud en revisión a la vez (el mismo tope que un pedido en pausa por cotización, propuesto por el equipo). Lo decidió el usuario el 15 de noviembre de 2026 (D70).
+- La pastelería pone el precio y su nota en el admin, con permiso (D64). El cliente recibe un correo y la ve en su cuenta.
+- "Aceptar y pagar": el cliente elige la hora del día del evento y quién recoge; en ese momento se revisa la agenda y nace un pedido normal "Apartado, falta tu pago" con el precio cotizado, que se paga con el anticipo de siempre. "Pedir un cambio" y "Escribir por WhatsApp" van a WhatsApp. Lo decidió el usuario el 15 de noviembre de 2026 (D70).
 
-Estados: `in_review` (En revisión) → `quote_ready` (Cotización lista) → (cliente acepta y paga) → pedido normal. Las etiquetas están en la sección 12.
+Estados: `in_review` (En revisión) → `quote_ready` (Cotización lista) → (cliente acepta y paga) → pedido normal. Las etiquetas están en la sección 12. Además, `accepted` (Aceptada: ya es el pedido) y `cancelled` (Cancelada, sin cobro, por el cliente) cierran la solicitud (D70).
 
 ---
 
@@ -410,7 +415,18 @@ Ejemplo: pedido $1,000 + base $150 + envío $80 → hoy $730 (500 + 150 + 80); e
 - Los botones de pago muestran el monto exacto: "Pagar $X con tarjeta", "Pagar $X con Mercado Pago".
 - **Registrar el efectivo:** lo hace el personal con el permiso de cobro en efectivo, cambiando el estado del pedido a "Recibido" en el admin (D64, D68).
 - **Pago que llega tarde:** un pago en línea aprobado para un pedido ya cancelado, ya pagado o sin lugar en su horario, o con otro monto o moneda, no revive el pedido. Queda marcado para reembolso y el personal lo devuelve desde el panel de la pasarela (D68). Un apartado vencido que todavía no se cancela sí se recibe si su lapso tiene lugar, como el efectivo.
-- PENDIENTE: política de cambios y cancelaciones.
+- **Cancelación por el cliente** (lo decidió el usuario el 15 de noviembre de 2026, D70): desde su cuenta, **en cualquier momento antes de la entrega** (también "En preparación" y "Listo para entregar"); un pedido entregado o cancelado ya no. Sin pagar (`awaiting_payment`, `awaiting_quote` o una solicitud de referencia) no cuesta nada y se reintegra lo apartado. Pagado, la pastelería **retiene el 50% del monto total del pedido** (sin el depósito de la base; `PolicySettings.customer_cancel_retention_percent`) y devuelve lo pagado menos lo retenido, nunca menos de 0. En un pedido normal, con el anticipo del 50%, se devuelve el depósito de la base; en la vitrina, pagada al 100%, la mitad. La devolución la hace el personal a mano (pago `refund_required`, motivo `customer_cancelled`).
+
+```python
+def customer_cancellation(paid, order_total, retention_percent=50):
+    retained = min(round(order_total * retention_percent / 100, 2), paid)  # order_total sin base
+    return {"retained": retained, "refund": max(paid - retained, 0)}
+```
+
+Ejemplo: pedido $1,000 + base $150, pagado hoy $650 → se retienen $500 y se devuelven $150.
+
+- **Hasta cuándo** (lo decidió el usuario el 15 de noviembre de 2026, D70): hasta antes de la entrega, sin corte de horas. Si el pago ya se procesó, se retiene el 50% del pedido (arriba). Reemplaza la propuesta del equipo de no cancelar desde "En preparación".
+- PENDIENTE: política de cambios, y el texto de la política de cancelaciones para el cliente.
 
 ---
 
@@ -466,7 +482,7 @@ La dirección y el WhatsApp siguen PENDIENTE. La pastelería los captura en el a
 
 1. Los precios de las decoraciones quedaron resueltos (D54, regla 6.1). Falta el tamaño máximo de la imagen de "Otra decoración" (propuesta: 5 MB).
 2. ¿Repartidor propio o aplicación para los envíos?
-3. Vigencia de una cotización por referencia (la respuesta es en máximo 1 hora; falta cuánto tiempo es válida).
-4. Políticas de cambios y cancelaciones, y qué pasa si la base regresa dañada: el equipo prepara un texto base y la pastelería lo completa.
+3. Vigencia de una cotización por referencia (la respuesta es en máximo 1 hora; falta cuánto tiempo es válida): `PolicySettings.reference_quote_valid_hours`, vacío; mientras no tenga valor, no vence (D70).
+4. Políticas de cambios y qué pasa si la base regresa dañada: el equipo prepara un texto base y la pastelería lo completa. La cancelación por el cliente ya tiene su mecanismo (sección 10, D70): el usuario decidió el 50% retenido y que se cancele en cualquier momento antes de la entrega, sin corte de horas.
 5. Dirección, WhatsApp, aviso de privacidad y términos: el equipo prepara el texto base de los avisos y la pastelería lo completa.
 6. Resuelto el 14 de noviembre de 2026 (lo decidió el usuario, D63 ronda 2): con el precio, un pedido `awaiting_quote` pasa a `awaiting_payment`. Sigue PENDIENTE cuánto espera un pedido sin precio antes de cancelarse (`PolicySettings.quote_expiry_hours`, vacío: mientras no tenga valor, no vence).

@@ -9,6 +9,8 @@ import { PRICE_PATTERN } from './money.ts'
 import { parsePlacedOrder } from './orders.ts'
 import type { PlacedOrder } from './orders.ts'
 import { isOfferingPresentation } from './presentation.ts'
+import { parseOptionalReferenceFlavor } from './referenceFlavor.ts'
+import type { ReferenceFlavor } from './referenceFlavor.ts'
 import type { OfferingPresentation } from './presentation.ts'
 import { requestWithSession } from './session.ts'
 
@@ -26,13 +28,16 @@ const ATTEMPT_STATUSES = new Set<unknown>(['pending', 'succeeded', 'failed', 're
 
 /** Una línea del pedido como la guardó el servidor, con lo que muestra el resumen. */
 export type PaymentOrderItem = {
-  kind: 'order' | 'showcase' | 'design'
+  /** `reference`: el precio de una cotización aceptada (D70), con `productName` y sin presentación ni diseño. */
+  kind: 'order' | 'showcase' | 'design' | 'reference'
   productName: string | null
   presentation: OfferingPresentation | null
   quantity: number
   lineTotal: string
   /** Solo en un pastel diseñado; los kilos los calculó el servidor. */
   design: { kg: number | null; tiers: number | null } | null
+  /** Solo en la línea `reference`: el sabor y la base de la solicitud aceptada (D70); `null` en las demás. */
+  reference: ReferenceFlavor | null
 }
 
 /** El pedido de `GET orders/<id>/` con sus líneas y su fecha de creación. */
@@ -76,7 +81,7 @@ function count(value: unknown): number | null {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : null
 }
 
-const ITEM_KINDS = new Set<unknown>(['order', 'showcase', 'design'])
+const ITEM_KINDS = new Set<unknown>(['order', 'showcase', 'design', 'reference'])
 
 function parseItem(data: unknown): PaymentOrderItem {
   if (!isRecord(data) || !ITEM_KINDS.has(data.kind)) throw new TypeError('Una línea del pedido no tiene la forma esperada.')
@@ -88,6 +93,7 @@ function parseItem(data: unknown): PaymentOrderItem {
     quantity: count(data.quantity) ?? 1,
     lineTotal: money(data.line_total, 'El importe de una línea'),
     design,
+    reference: data.kind === 'reference' ? parseOptionalReferenceFlavor(data.reference) : null,
   }
 }
 

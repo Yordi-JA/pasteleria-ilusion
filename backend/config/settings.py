@@ -430,6 +430,18 @@ REST_FRAMEWORK = {
         # una notificación firmada consulta a Mercado Pago. Holgado para no perder
         # avisos legítimos; aparte del cupo `anon` del sitio.
         "payment_webhooks": "300/min",
+        # Verificación pública de la nota (D69), por IP en la caché `security`. El
+        # token no se adivina; el cupo frena a quien pruebe tokens en masa y cabe
+        # holgado para el personal que escanea notas en el mostrador.
+        "note_verification": "30/min",
+        # Envío de referencia (D70), por cuenta en la caché `security`: enviar
+        # (cada uno guarda hasta 3 fotos y le pide trabajo a la pastelería) y
+        # aceptar la cotización (crea el pedido y aparta el lapso). Un reintento
+        # del envío con su misma llave usa `orders_retry_user`.
+        "references_create_user": "10/hour",
+        "references_accept_user": "20/hour",
+        # Cancelar un pedido desde la cuenta (D70), por cuenta.
+        "orders_cancel_user": "20/hour",
     },
     # Saltos de proxy delante de la app (en Heroku, 1). Con 0 se ignora
     # X-Forwarded-For y se usa la dirección de la conexión: si no, un cliente
@@ -511,6 +523,41 @@ if STRIPE_SECRET_KEY.startswith(("sk_live_", "rk_live_")):
 if STRIPE_WEBHOOK_SECRET and not STRIPE_WEBHOOK_SECRET.startswith("whsec_"):
     raise ImproperlyConfigured("STRIPE_WEBHOOK_SECRET es el secreto del webhook de Stripe (whsec_...).")
 
+# --- Correo (D70) ---
+
+# SMTP por variables de entorno, sin atarse a un proveedor (Brevo, Gmail u otro).
+# Sin EMAIL_HOST: en desarrollo los correos salen en la consola; en producción
+# no se envía nada y queda un INFO en el registro (`EMAIL_ENABLED` apagado).
+# Los correos son de mejor esfuerzo: una falla del SMTP no deshace nada.
+EMAIL_HOST = env("EMAIL_HOST", default="").strip()
+EMAIL_PORT = env_int("EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="").strip()
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+# Corto: el correo sale después del commit, en la misma petición (un webhook o
+# el admin), y un SMTP lento no debe dejarla esperando.
+EMAIL_TIMEOUT = env_int("EMAIL_TIMEOUT", default=5)
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="").strip() or "webmaster@localhost"
+if EMAIL_TIMEOUT < 1:
+    raise ImproperlyConfigured("EMAIL_TIMEOUT debe ser al menos 1 segundo.")
+if EMAIL_HOST and DEFAULT_FROM_EMAIL == "webmaster@localhost":
+    raise ImproperlyConfigured("Con EMAIL_HOST, DEFAULT_FROM_EMAIL es obligatorio (el remitente de los correos).")
+if EMAIL_HOST:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+elif DEBUG:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.dummy.EmailBackend"
+EMAIL_ENABLED = bool(EMAIL_HOST) or DEBUG
+if EMAIL_HOST and not DEBUG and not CANONICAL_HOST:
+    raise ImproperlyConfigured(
+        "Con EMAIL_HOST y DEBUG apagado, CANONICAL_HOST es obligatorio: sin él, los enlaces de los correos y el QR "
+        "de la nota apuntarían a localhost."
+    )
+# El dominio de los enlaces de los correos, nunca el de la petición: el canónico
+# (D40) o, sin él, el frontend de desarrollo.
+SITE_URL = f"https://{CANONICAL_HOST}" if CANONICAL_HOST else "http://127.0.0.1:5173"
+
 # --- drf-spectacular ---
 
 SPECTACULAR_SETTINGS = {
@@ -529,6 +576,17 @@ SPECTACULAR_SETTINGS = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
+    # Tres campos `status` con choices distintos (pedido, pago y base, D69): la
+    # base lleva su propio nombre para que el de los otros no cambie.
+    "ENUM_NAME_OVERRIDES": {
+        "StandLoanStatusEnum": "core_pasteleria.models.StandLoanStatus",
+        # D70: el estado del envío de referencia, el cuarto `status`.
+        "ReferenceRequestStatusEnum": "core_pasteleria.models.ReferenceRequestStatus",
+        # D70: el método de pago sale también en `paid_with` de la cancelación.
+        "PaymentMethodEnum": "core_pasteleria.models.PaymentMethod",
+        # El estado del pedido sale en el pedido y en la vista previa de la cancelación.
+        "OrderStatusEnum": "core_pasteleria.models.OrderStatus",
+    },
 }
 
 # --- Registro (logging) ---

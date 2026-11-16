@@ -1,0 +1,12 @@
+{% autoescape off %}Hola.
+
+{% block content %}{% endblock %}
+
+{% block button %}{% endblock %}: {{ url }}
+
+Pastelería Ilusión
+Pide un deseo. Del pastel nos encargamos.
+{{ address }}
+Todos los días, de {{ opens_at|time:"H:i" }} a {{ closes_at|time:"H:i" }}
+WhatsApp {{ whatsapp }}
+{% endautoescape %}

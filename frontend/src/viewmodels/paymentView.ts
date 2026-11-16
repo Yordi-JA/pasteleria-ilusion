@@ -11,6 +11,7 @@ import { paymentErrorBody } from '../models/payments.ts'
 import type { PaymentMethod, PaymentOrder, PaymentOrderItem, PaymentState } from '../models/payments.ts'
 import { offeringLabel, PRESENTATION_LABELS } from '../models/presentation.ts'
 import { formatTime } from './deliverySchedule.ts'
+import { cakeBrief } from './referenceFlavorView.ts'
 
 /** Los estados de un pedido ya pagado (regla 12): de `received` en adelante. */
 const PAID_STATUSES = new Set(['received', 'in_preparation', 'ready_for_delivery', 'delivered'])
@@ -70,6 +71,11 @@ export type SummaryItem = { key: string; name: string; brief: string; total: str
 
 function itemView(item: PaymentOrderItem, index: number): SummaryItem {
   const pieces = `${item.quantity} ${item.quantity === 1 ? 'pieza' : 'piezas'}`
+  // El pastel de una cotización aceptada (D70): el servidor lo nombra ("Pastel según tu referencia").
+  if (item.kind === 'reference') {
+    const brief = (item.reference && cakeBrief(item.reference)) ?? 'Cotizado por la pastelería'
+    return { key: `linea-${index}`, name: item.productName ?? 'Pastel según tu referencia', brief, total: price(item.lineTotal) }
+  }
   if (item.kind === 'design' || !item.productName || !item.presentation) {
     const kg = item.design?.kg ? `${item.design.kg} kg` : null
     const tiers = item.design?.tiers ? `${item.design.tiers} ${item.design.tiers === 1 ? 'piso' : 'pisos'}` : null

@@ -2,7 +2,7 @@
 from django.urls import path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from . import auth_views, payment_views, views
+from . import auth_views, payment_views, reference_views, views
 
 urlpatterns = [
     # Acceso de clientes (D62): la cookie del refresh vive solo bajo `auth/`.
@@ -34,6 +34,10 @@ urlpatterns = [
     path("delivery-slots/", views.DeliverySlotListView.as_view(), name="delivery-slots"),
     path("orders/", views.OrderListCreateView.as_view(), name="order-list"),
     path("orders/<int:order_id>/", views.OrderDetailView.as_view(), name="order-detail"),
+    # Nota en PDF (dueño, JWT), su verificación pública (lo que abre el QR) y las bases del cliente (D69).
+    path("orders/<int:order_id>/note.pdf", views.OrderNoteView.as_view(), name="order-note"),
+    path("notes/<str:token>/", views.NoteVerificationView.as_view(), name="note-verification"),
+    path("stand-loans/", views.StandLoanListView.as_view(), name="stand-loans"),
     # Pagos (D68): iniciar y consultar con JWT; los webhooks, sin sesión ni CSRF (la firma es la autenticación).
     path("orders/<int:order_id>/payment/", payment_views.OrderPaymentView.as_view(), name="order-payment"),
     path(
@@ -42,6 +46,24 @@ urlpatterns = [
         name="payment-webhook-mercadopago",
     ),
     path("payments/webhooks/stripe/", payment_views.StripeWebhookView.as_view(), name="payment-webhook-stripe"),
+    # Envío de referencia y su cotización, y la cancelación por el cliente (D70): JWT, del dueño.
+    path("orders/<int:order_id>/cancel/", reference_views.OrderCancelView.as_view(), name="order-cancel"),
+    path("reference-requests/", reference_views.ReferenceRequestListCreateView.as_view(), name="reference-requests"),
+    path(
+        "reference-requests/<int:request_id>/",
+        reference_views.ReferenceRequestDetailView.as_view(),
+        name="reference-request-detail",
+    ),
+    path(
+        "reference-requests/<int:request_id>/accept/",
+        reference_views.ReferenceQuoteAcceptView.as_view(),
+        name="reference-request-accept",
+    ),
+    path(
+        "reference-requests/<int:request_id>/cancel/",
+        reference_views.ReferenceRequestCancelView.as_view(),
+        name="reference-request-cancel",
+    ),
     path("customer-images/", views.CustomerImageUploadView.as_view(), name="customer-image-upload"),
     path("customer-images/<uuid:image_id>/", views.CustomerImageView.as_view(), name="customer-image"),
 ]

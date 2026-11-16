@@ -198,6 +198,9 @@ class PolicySettingsRecord:
     max_quote_orders_per_customer: int = 1
     max_unpaid_showcase_pieces: int = 10
     expired_showcase_cooldown_hours: int = 24
+    # D70: `None` es PENDIENTE (la cotización por referencia no vence); lo que se retiene al cancelar un pedido pagado.
+    reference_quote_valid_hours: int | None = None
+    customer_cancel_retention_percent: int = 50
 
 
 @dataclass(frozen=True)
@@ -267,6 +270,35 @@ class StoredImageRecord:
 
 
 # --- Pedidos ---
+
+
+# --- Bases prestadas (D69) ---
+
+
+@dataclass(frozen=True)
+class LoanableStand:
+    """Un pastel del pedido con base y depósito: lo que se presta al entregarlo. Es de un diseño o del envío de
+    referencia aceptado (D70)."""
+
+    design_id: int | None
+    stand_id: int
+    deposit: Decimal
+    reference_request_id: int | None = None
+
+
+@dataclass(frozen=True)
+class StandLoanRecord:
+    id: int
+    order_id: int
+    # `None` en la base del pastel de un envío de referencia (D70).
+    design_id: int | None
+    kg: int
+    deposit: Decimal
+    status: str
+    delivered_on: date
+    due_date: date
+    returned_at: datetime | None
+    deposit_refunded: bool
 
 
 @dataclass(frozen=True)
@@ -344,6 +376,33 @@ class NewOrder:
 @dataclass(frozen=True)
 class CakeDesignRecord(NewCakeDesign):
     stand_min_kg: int | None = None
+    # Los nombres de lo que eligió el cliente, para mostrarlos sin otra consulta (D69).
+    bread_name: str = ""
+    filling_base_name: str | None = None
+    filling_flavor_names: tuple[str, ...] = ()
+    decoration_name: str = ""
+    # El préstamo de su base, desde que se entregó el pedido (D69).
+    loan: StandLoanRecord | None = None
+
+
+@dataclass(frozen=True)
+class ReferenceCakeRecord:
+    """El pastel de un envío de referencia: personas, kilos, sabor y base (D70). Con los mismos nombres que el diseño
+    para la base (`kg`, `stand_max_kg`, `stand_deposit`, `loan`), así la nota y "Mis pedidos" los leen igual."""
+
+    people: int
+    kg: int | None
+    cake_type: str
+    bread: str | None
+    filling_base: str | None
+    filling_flavors: tuple[str, ...]
+    bread_name: str | None
+    filling_base_name: str | None
+    filling_flavor_names: tuple[str, ...]
+    stand_min_kg: int | None
+    stand_max_kg: int | None
+    stand_deposit: Decimal
+    loan: StandLoanRecord | None = None
 
 
 @dataclass(frozen=True)
@@ -356,6 +415,8 @@ class OrderItemRecord:
     unit_price: Decimal
     line_total: Decimal
     design: CakeDesignRecord | None
+    # La línea `reference`: el pastel de su envío de referencia (D70).
+    reference: ReferenceCakeRecord | None = None
 
 
 @dataclass(frozen=True)
@@ -382,6 +443,13 @@ class OrderRecord:
     delivery_slot_id: int | None = None
     pickup_name: str = ""
     pickup_phone: str = ""
+    # El cobro que pagó el pedido (D69): su método y cuándo se confirmó; vacíos sin pago.
+    paid_with: str = ""
+    paid_at: datetime | None = None
+    # La cuenta del cliente, para la nota (D69). La API de pedidos no los devuelve.
+    customer_name: str = ""
+    customer_email: str = ""
+    note_token: str = ""
 
 
 @dataclass(frozen=True)
@@ -480,3 +548,74 @@ class PaymentTerms:
     order_id: int
     status: str
     pay_today: Decimal | None
+
+
+# --- Envío de referencia (D70) ---
+
+
+@dataclass(frozen=True)
+class ReferenceImageRecord:
+    id: UUID
+    original_name: str
+    width: int
+    height: int
+
+
+@dataclass(frozen=True)
+class NewReferenceRequest:
+    customer_id: int
+    idempotency_key: str
+    status: str
+    status_changed_at: datetime
+    description: str
+    occasion: str
+    people: int
+    event_date: date
+    budget: Decimal | None
+    image_ids: tuple[UUID, ...]
+    # El sabor por `slug` y la base que toca a los kilos (D70); el tamaño de base va por sus kilos máximos.
+    cake_type: str = ""
+    bread: str | None = None
+    filling_base: str | None = None
+    filling_flavors: tuple[str, ...] = ()
+    kg: int | None = None
+    stand_max_kg: int | None = None
+    stand_deposit: Decimal = Decimal("0.00")
+
+
+@dataclass(frozen=True)
+class ReferenceRequestRecord:
+    id: int
+    customer_id: int
+    status: str
+    status_changed_at: datetime
+    created_at: datetime
+    description: str
+    occasion: str
+    people: int
+    event_date: date
+    budget: Decimal | None
+    quoted_price: Decimal | None
+    quote_note: str
+    quoted_at: datetime | None
+    order_id: int | None
+    images: tuple[ReferenceImageRecord, ...]
+    customer_name: str = ""
+    customer_email: str = ""
+    # El pastel: personas, sabor y base (D70).
+    cake: ReferenceCakeRecord | None = None
+
+
+# --- Cancelación por el cliente (D70) ---
+
+
+@dataclass(frozen=True)
+class CancellationTerms:
+    """Lo que hace falta del pedido para saber si el cliente lo puede cancelar y cuánto se retiene."""
+
+    order_id: int
+    status: str
+    subtotal: Decimal
+    delivery_fee: Decimal
+    delivery_date: date
+    slot_starts_at: time

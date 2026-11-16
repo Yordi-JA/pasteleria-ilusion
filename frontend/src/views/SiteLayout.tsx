@@ -9,6 +9,7 @@ import LogoutUnconfirmedNotice from './account/LogoutUnconfirmedNotice.tsx'
 import { CartContext, useCartState } from '../viewmodels/useCart.ts'
 import { CartFlightContext, useCartFlightState } from '../viewmodels/useCartFlight.ts'
 import { ClosingFieldContext, useClosingFieldState } from '../viewmodels/useClosingField.ts'
+import { checkoutBack } from '../viewmodels/referenceView.ts'
 import { useRouteFocus } from '../viewmodels/useRouteFocus.ts'
 import { useRestoreSession, useSession, useSignOut, useSignOutAcknowledgement } from '../viewmodels/useSession.ts'
 import { useSiteMenu } from '../viewmodels/useSiteMenu.ts'
@@ -36,7 +37,8 @@ export default function SiteLayout() {
   const session = useSession()
   const signOut = useSignOut()
   const [closingField, setClosingField] = useClosingFieldState()
-  const checkout = CHECKOUT_PATHS.has(useLocation().pathname)
+  const location = useLocation()
+  const checkout = CHECKOUT_PATHS.has(location.pathname)
 
   return (
     <CartContext value={cart}>
@@ -56,7 +58,7 @@ export default function SiteLayout() {
             <TopStrip store={store} checkout={checkout} />
             <div data-testid="toldo" className="toldo" aria-hidden="true" />
             {checkout ? (
-              <CheckoutHeader />
+              <CheckoutHeader back={checkoutBack(location.pathname, location.search)} />
             ) : (
               <SiteHeader
                 store={store}

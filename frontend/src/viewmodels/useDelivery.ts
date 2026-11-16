@@ -12,13 +12,13 @@ import { useSession } from './useSession.ts'
 import { useStoreDetails } from './useStoreInfo.ts'
 
 /** Los mismos separadores que acepta el servidor en un teléfono ("55 1234 5678", "55-1234-5678"). */
-const PHONE_SEPARATORS = /[\s().-]/g
-const PHONE_DIGITS = /^\d{10}$/
+export const PHONE_SEPARATORS = /[\s().-]/g
+export const PHONE_DIGITS = /^\d{10}$/
 /** El tope de `pickup_name` en el servidor (el de `User.full_name`). */
 export const PICKUP_NAME_MAX_LENGTH = 150
 
 /** "5512345678" como lo escribe la gente y como lo pide el ejemplo: "55 1234 5678". */
-function displayPhone(digits: string | null): string {
+export function displayPhone(digits: string | null): string {
   return digits && PHONE_DIGITS.test(digits) ? `${digits.slice(0, 2)} ${digits.slice(2, 6)} ${digits.slice(6)}` : ''
 }
 

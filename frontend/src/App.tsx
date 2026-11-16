@@ -62,14 +62,16 @@ export default function App() {
           {/* El pago y el apartado leen el pedido de la cuenta (D68). */}
           <Route path="/pedido/pago" element={<Payment />} />
           <Route path="/pedido/apartado" element={<OrderReserved />} />
+          {/* La confirmación se verifica con el pedido de la cuenta (D69). */}
+          <Route path="/pedido/confirmacion" element={<OrderConfirmation />} />
+          {/* El envío de referencia sube fotos y crea la solicitud en la cuenta (D70). */}
+          <Route path="/pedido/referencia" element={<ReferenceUpload />} />
+          <Route path="/pedido/referencia/enviada" element={<ReferenceSent />} />
         </Route>
 
         <Route path="/carrito" element={<Cart />} />
         <Route path="/pedido" element={<OrderStart />} />
         <Route path="/pedido/disena" element={<CakeDesigner />} />
-        <Route path="/pedido/referencia" element={<ReferenceUpload />} />
-        <Route path="/pedido/referencia/enviada" element={<ReferenceSent />} />
-        <Route path="/pedido/confirmacion" element={<OrderConfirmation />} />
 
         <Route path="/nota/:token" element={<NoteVerification />} />
         <Route path="/legal" element={<Legal />} />

@@ -1,0 +1,11 @@
+{% extends "core_pasteleria/emails/base.html" %}
+{% block title %}Recibimos tu solicitud #{{ number }}{% endblock %}
+{% block heading %}Recibimos tu solicitud #{{ number }}{% endblock %}
+{% block content %}
+<p style="margin:0 0 16px 0;">Ya tenemos tus fotos de referencia. En máximo 1 hora te mandamos la cotización por correo y también la ves en tu cuenta.</p>
+<p style="margin:0 0 4px 0;"><strong>Fecha del evento:</strong> {{ event_day }}</p>
+<p style="margin:0 0 4px 0;"><strong>Personas:</strong> {{ request.people }}</p>
+{% if occasion %}<p style="margin:0 0 4px 0;"><strong>Ocasión:</strong> {{ occasion }}</p>{% endif %}
+<p style="margin:16px 0 0 0;">No se cobra nada hasta que aceptes la cotización.</p>
+{% endblock %}
+{% block button %}Ver mi solicitud{% endblock %}

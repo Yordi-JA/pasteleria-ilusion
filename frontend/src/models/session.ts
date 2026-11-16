@@ -378,6 +378,13 @@ export type SessionRequest = {
   signal?: AbortSignal
   /** Corte propio, por ejemplo para subir una imagen grande; por omisión, 10 s. */
   timeoutMs?: number
+  /**
+   * `blob`: la respuesta exitosa es un archivo (la nota en PDF, D69) y `body` es un `Blob`; un error sigue leyéndose
+   * como JSON. Por omisión, JSON.
+   */
+  as?: 'json' | 'blob'
+  /** `false` para una ruta de Django sin barra final, como `orders/<id>/note.pdf`. Por omisión, con barra. */
+  trailingSlash?: boolean
 }
 
 /** La respuesta de un recurso de la cuenta: el código y el JSON sin validar (`null` sin cuerpo). */
@@ -401,7 +408,8 @@ function searchOf(query: SessionRequest['query']): string {
  * solo como una cookie. Se corta a los 10 s (o `timeoutMs`), además de la señal de quien llama; sin red, `fetch` lanza.
  */
 export async function requestWithSession(segments: string[], init: SessionRequest = {}): Promise<SessionResponse> {
-  const path = apiPath(...segments)
+  const slashed = apiPath(...segments)
+  const path = init.trailingSlash === false ? slashed.slice(0, -1) : slashed
   const method = init.method ?? 'GET'
   const timeout = AbortSignal.timeout(init.timeoutMs ?? REQUEST_TIMEOUT_MS)
   const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout
@@ -424,8 +432,9 @@ export async function requestWithSession(segments: string[], init: SessionReques
       if (access?.token === token) access = null
       continue
     }
-    const data: unknown = response.status === 204 ? null : await response.json().catch(() => undefined)
-    if (!response.ok) throw new ApiError(response.status, path, method, data)
+    if (!response.ok) throw new ApiError(response.status, path, method, await response.json().catch(() => undefined))
+    if (response.status === 204) return { status: response.status, body: null }
+    const data: unknown = init.as === 'blob' ? await response.blob() : await response.json().catch(() => undefined)
     return { status: response.status, body: data }
   }
   signOutLocally()

@@ -31,9 +31,16 @@ from ..models import (
     FillingFlavor,
     Order,
     OrderItem,
+    OrderLineKind,
+    Payment,
+    PaymentStatus,
+    ReferenceRequest,
 )
+from . import reference_repo
 from .records import (
     CakeDesignRecord,
+    CancellationTerms,
+    StandLoanRecord,
     NewCakeDesign,
     NewOrder,
     OrderItemRecord,
@@ -144,7 +151,11 @@ def count_orders_by_date_and_slot(
 
 
 def _orders():
-    return Order.objects.select_related("delivery_slot").prefetch_related(
+    # El envío de referencia de la línea `reference` (D70) viene en la misma consulta del pedido.
+    reference = ("reference_request", *(f"reference_request__{name}" for name in reference_repo.CAKE_RELATIONS))
+    return Order.objects.select_related(
+        "delivery_slot", "customer", *reference, "reference_request__stand_loan"
+    ).prefetch_related(
         Prefetch(
             "items",
             queryset=OrderItem.objects.select_related(
@@ -154,8 +165,29 @@ def _orders():
                 "design__second_flavor",
                 "design__decoration",
                 "design__stand",
+                "design__stand_loan",
             ).order_by("position"),
-        )
+        ),
+        Prefetch("payments", queryset=Payment.objects.filter(status=PaymentStatus.SUCCEEDED), to_attr="succeeded"),
+    )
+
+
+def _loan_record(cake: CakeDesign | ReferenceRequest) -> StandLoanRecord | None:
+    """El préstamo de la base de un diseño o del pastel de un envío de referencia (D70); `None` antes de la entrega."""
+    loan = getattr(cake, "stand_loan", None)
+    if loan is None:
+        return None
+    return StandLoanRecord(
+        id=loan.pk,
+        order_id=loan.order_id,
+        design_id=loan.design_id,
+        kg=cake.kg,
+        deposit=loan.deposit,
+        status=loan.status,
+        delivered_on=loan.delivered_on,
+        due_date=loan.due_date,
+        returned_at=loan.returned_at,
+        deposit_refunded=loan.deposit_refunded,
     )
 
 
@@ -164,7 +196,8 @@ def _slug(option) -> str | None:
 
 
 def _design_record(design: CakeDesign) -> CakeDesignRecord:
-    flavors = tuple(flavor.slug for flavor in (design.first_flavor, design.second_flavor) if flavor is not None)
+    chosen = tuple(flavor for flavor in (design.first_flavor, design.second_flavor) if flavor is not None)
+    flavors = tuple(flavor.slug for flavor in chosen)
     return CakeDesignRecord(
         people=design.people,
         kg=design.kg,
@@ -194,11 +227,20 @@ def _design_record(design: CakeDesign) -> CakeDesignRecord:
         stand_max_kg=design.stand.max_kg if design.stand else None,
         stand_deposit=design.stand_deposit,
         stand_min_kg=design.stand.min_kg if design.stand else None,
+        bread_name=design.bread.name,
+        filling_base_name=design.filling_base.name if design.filling_base else None,
+        filling_flavor_names=tuple(flavor.name for flavor in chosen),
+        decoration_name=design.decoration.name,
+        loan=_loan_record(design),
     )
 
 
 def _order_record(order: Order) -> OrderRecord:
     slot = order.delivery_slot
+    # Un solo pago `succeeded` por pedido (restricción de D68), del prefetch de `_orders()`.
+    paid = order.succeeded[0] if order.succeeded else None
+    request = getattr(order, "reference_request", None)
+    reference_cake = reference_repo.cake_record(request, _loan_record(request)) if request is not None else None
     return OrderRecord(
         id=order.pk,
         customer_id=order.customer_id,
@@ -221,6 +263,11 @@ def _order_record(order: Order) -> OrderRecord:
         delivery_slot_id=order.delivery_slot_id,
         pickup_name=order.pickup_name,
         pickup_phone=order.pickup_phone,
+        paid_with=paid.method if paid else "",
+        paid_at=paid.updated_at if paid else None,
+        customer_name=order.customer.full_name,
+        customer_email=order.customer.email,
+        note_token=order.note_token,
         items=tuple(
             OrderItemRecord(
                 kind=item.kind,
@@ -231,6 +278,7 @@ def _order_record(order: Order) -> OrderRecord:
                 unit_price=item.unit_price,
                 line_total=item.line_total,
                 design=_design_record(item.design) if item.design_id else None,
+                reference=reference_cake if item.kind == OrderLineKind.REFERENCE else None,
             )
             for item in order.items.all()
         ),
@@ -268,9 +316,21 @@ def change_status(
     return orders.update(**fields) == 1
 
 
+def get_order(order_id: int) -> OrderRecord | None:
+    """El pedido sin filtrar por dueño: solo para avisos del sistema (el correo, D70), nunca para la API del cliente."""
+    order = _orders().filter(pk=order_id).first()
+    return _order_record(order) if order else None
+
+
 def get_customer_order(customer_id: int, order_id: int) -> OrderRecord | None:
     """El pedido si es de ese cliente; uno ajeno es `None` (la API responde 404, no 403)."""
     order = _orders().filter(customer_id=customer_id, pk=order_id).first()
+    return _order_record(order) if order else None
+
+
+def find_order_by_note_token(token: str, *, statuses) -> OrderRecord | None:
+    """El pedido de esa nota, solo si está en `statuses` (los que ya tienen nota); si no, `None`."""
+    order = _orders().filter(note_token=token, status__in=statuses).first()
     return _order_record(order) if order else None
 
 
@@ -504,3 +564,27 @@ def extend_payment_due_at(order_id: int, due_at: datetime, *, unpaid_status: str
     otra mitad de `change_status(..., due_by=)`: los dos `UPDATE` condicionales sobre la misma fila, y gana uno solo."""
     orders = Order.objects.filter(pk=order_id, status=unpaid_status, payment_due_at__gt=now)
     return orders.update(payment_due_at=due_at) == 1
+
+
+# --- Cancelación por el cliente (D70) ---
+
+
+def get_cancellation_terms(customer_id: int, order_id: int, *, lock: bool = False) -> CancellationTerms | None:
+    """Lo que decide si el cliente puede cancelar su pedido y cuánto se retiene; `None` si no es suyo.
+
+    Con `lock` bloquea el pedido hasta el fin de la transacción: la cancelación y un cambio del personal se esperan.
+    """
+    orders = Order.objects.filter(pk=order_id, customer_id=customer_id).select_related("delivery_slot")
+    if lock:
+        orders = orders.select_for_update(of=("self",))
+    order = orders.first()
+    if order is None:
+        return None
+    return CancellationTerms(
+        order_id=order.pk,
+        status=order.status,
+        subtotal=order.subtotal,
+        delivery_fee=order.delivery_fee,
+        delivery_date=order.delivery_slot.date,
+        slot_starts_at=order.delivery_slot.starts_at,
+    )

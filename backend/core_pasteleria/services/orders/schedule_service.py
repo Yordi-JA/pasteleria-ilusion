@@ -9,6 +9,8 @@ Anticipación por tipo de línea (`OrderLineKind`), una regla por tipo en un reg
   `same_day_showcase_lead_hours` (2), es decir, el primer lapso que empieza después de esa hora. El pan del día lo
   revisa la creación del pedido.
 - `showcase` (vitrina de hoy): solo hoy, desde el siguiente lapso.
+- `reference` (cotización aceptada de un envío de referencia, D70): el día del evento, que ya cumplió los 2 días al
+  enviarse; al aceptar solo se pide un lapso que no haya pasado.
 Un pedido sigue la regla más estricta de sus líneas: el inicio más tarde y el último día más temprano. La vitrina de hoy
 y un diseño no caben en el mismo pedido. Además, el lapso empieza por lo menos `payment_window_minutes` después de ahora
 (D63, ronda 2): el plazo para pagar nunca queda recortado por el inicio del lapso, así que siempre hay tiempo de pagar.
@@ -119,10 +121,17 @@ def _showcase_rule(now: datetime, store: StoreSettingsRecord) -> LeadRule:
     return LeadRule(now, now.date())
 
 
+def _reference_rule(now: datetime, store: StoreSettingsRecord) -> LeadRule:
+    """Una cotización aceptada (D70): su día se revisó con la anticipación de 2 días al enviar la referencia, así que al
+    aceptarla solo pide que el lapso no haya pasado (y, como todos, que deje el plazo para pagar)."""
+    return LeadRule(now, None)
+
+
 LEAD_RULES = {
     OrderLineKind.DESIGN.value: _design_rule,
     OrderLineKind.ORDER.value: _order_rule,
     OrderLineKind.SHOWCASE.value: _showcase_rule,
+    OrderLineKind.REFERENCE.value: _reference_rule,
 }
 
 

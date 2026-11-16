@@ -210,7 +210,7 @@ class ShowcaseLine(OfferingLine):
 # --- "Diseña tu pastel" ---
 
 
-def _remap_kg(errors: dict) -> dict:
+def remap_kg_to_people(errors: dict) -> dict:
     """El cliente manda personas: un error de los kilos se muestra en `people`."""
     return {("people" if field == "kg" else field): messages for field, messages in errors.items()}
 
@@ -286,7 +286,7 @@ class DesignLine:
         stand = attempt(failures, warranty_service.get_stand_deposit, size.kg, context.settings)
         errors: dict = {}
         for failure in failures:
-            for field, messages in _remap_kg(failure.errors).items():
+            for field, messages in remap_kg_to_people(failure.errors).items():
                 errors.setdefault(field, messages)
         coverage = _normalized_color(design.coverage_color, "coverage_color", errors, required=True)
         decoration_color = _normalized_color(design.decoration_color, "decoration_color", errors, required=False)
