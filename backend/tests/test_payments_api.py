@@ -94,7 +94,11 @@ def test_stripe_charges_the_advance_plus_the_stand_deposit_in_cents(api, gateway
     assert response.status_code == 201, response.json()
     params, options = gateways.stripe.created[0]
     assert params["amount"] == int(order.pay_today * 100) and params["currency"] == "mxn"
-    assert params["metadata"] == {"order_id": str(order.pk)} and params["payment_method_types"] == ["card"]
+    assert params["metadata"] == {"order_id": str(order.pk)}
+    # Stripe ya no acepta `payment_method_types` (D68): los métodos salen del Dashboard y, sin redirecciones, solo los
+    # que el Card Element con `confirmCardPayment` puede confirmar.
+    assert params["automatic_payment_methods"] == {"enabled": True, "allow_redirects": "never"}
+    assert "payment_method_types" not in params
     assert len(options["idempotency_key"]) == 64
     data = response.json()
     assert (data["method"], data["status"], data["amount"], data["currency"]) == ("stripe", "pending", str(order.pay_today), "MXN")

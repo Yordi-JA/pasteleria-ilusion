@@ -85,7 +85,8 @@ test('shows the order from ?pedido= with the breakdown of the API and the three 
 
   await expect(mpButton(page)).toBeEnabled()
   await expect(cardButton(page)).toBeEnabled()
-  await expect(methods(page)).toContainText('Procesado por Stripe')
+  await expect(methods(page)).toContainText('Procesado por')
+  await expect(methods(page).getByRole('img', { name: 'Stripe' })).toBeVisible()
   await expect(methods(page)).toContainText('Lleva $2,287.50 a la pastelería hoy, antes de las 22:30, o el pedido se cancela.')
   await expect(cashButton(page)).toBeEnabled()
   await expect(page.getByRole('link', { name: 'Volver a entrega' })).toHaveAttribute('href', '/pedido/entrega')
@@ -96,6 +97,26 @@ test('shows the order from ?pedido= with the breakdown of the API and the three 
   expect([...new Set(calls.created.map((created) => created.type))]).toEqual(['cardNumber', 'cardExpiry', 'cardCvc'])
   expect(JSON.stringify(calls.created[0].options)).toContain('#5e1921')
   await expect(page.locator('body')).not.toContainText(/cotizador|3D|bizcocho|stand|la mitad/i)
+})
+
+test('the official logos of Mercado Pago and Stripe show as images, without changing the accessible names', async ({ page }) => {
+  await signedIn(page)
+  await mockStripe(page)
+  await mockPayment(page)
+  await page.goto(PAYMENT)
+  const mpLogo = mpButton(page).locator('img')
+  await expect(mpLogo).toHaveCount(1)
+  await expect(mpLogo).toHaveAttribute('src', /mercado-pago.*\.svg/)
+  await expect(mpLogo).toHaveAttribute('alt', '')
+  await expect(mpLogo).toHaveAttribute('aria-hidden', 'true')
+  await expect(mpLogo).toHaveJSProperty('complete', true)
+  expect(await mpLogo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
+  const stripeLogo = methods(page).getByRole('img', { name: 'Stripe' })
+  // Vite incrusta el SVG chico como data URI: el archivo sigue siendo el original, con su Blurple.
+  await expect(stripeLogo).toHaveAttribute('src', /^data:image\/svg\+xml.*533AFD/i)
+  expect(await stripeLogo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
+  // El logo no cambia el texto de la tarjeta: se sigue leyendo "Procesado por Stripe".
+  await expect(page.getByRole('heading', { name: 'Tarjeta de crédito o débito' }).locator('xpath=..')).toContainText('Procesado por')
 })
 
 test('arriving from delivery with the order in history.state puts ?pedido= in the URL', async ({ page }) => {

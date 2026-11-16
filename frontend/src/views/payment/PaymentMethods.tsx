@@ -2,6 +2,7 @@ import { LockSimple } from '@phosphor-icons/react'
 import { lazy, Suspense } from 'react'
 import type { Ref } from 'react'
 import { Link } from 'react-router'
+import mercadoPagoLogo from '../../../../assets/logos/mercado-pago.svg'
 import Button from '../../components/Button.tsx'
 import Card from '../../components/Card.tsx'
 import { focusRing, inlineLink } from '../../components/focus.ts'
@@ -114,14 +115,14 @@ export default function PaymentMethods(props: PaymentMethodsProps) {
         )}
 
         <div className="flex flex-col gap-2">
-          {/* El logo oficial de Mercado Pago está pendiente: el botón lo nombra (docs/pendientes.md, "Pagos (D68)"). */}
           <Button
             variant="secondary"
-            className="w-full"
+            className="w-full gap-3"
             disabled={!idle || !available.mercadopago}
             aria-describedby={available.mercadopago ? undefined : 'mercadopago-motivo'}
             onClick={props.onMercadoPago}
           >
+            <img src={mercadoPagoLogo} alt="" aria-hidden="true" className={`h-10 w-auto shrink-0 ${idle && available.mercadopago ? '' : 'opacity-60'}`} />
             Pagar {payToday} con Mercado Pago
           </Button>
           {!available.mercadopago && (

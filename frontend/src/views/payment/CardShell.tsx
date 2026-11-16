@@ -1,5 +1,6 @@
 import { CircleNotch } from '@phosphor-icons/react'
 import type { ReactNode, Ref } from 'react'
+import stripeLogo from '../../../../assets/logos/stripe.svg'
 import Button from '../../components/Button.tsx'
 import Skeleton from '../../components/Skeleton.tsx'
 
@@ -34,9 +35,8 @@ export default function CardShell({ amount, children, reason = null, loading = f
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <h3 className="text-cuerpo font-semibold">Tarjeta de crédito o débito</h3>
-        {/* El logo oficial de Stripe está pendiente: va el nombre (docs/pendientes.md, "Pagos (D68)"). */}
-        <p className="text-nota text-mermelada-suave">
-          Procesado por <span className="font-semibold text-mermelada">Stripe</span>
+        <p className="flex items-center gap-2 text-nota text-mermelada-suave">
+          Procesado por <img src={stripeLogo} alt="Stripe" className="h-5 w-auto" />
         </p>
       </div>
       {loading && (
