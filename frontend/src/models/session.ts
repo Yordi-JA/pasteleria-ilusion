@@ -85,6 +85,18 @@ export function subscribeSession(listener: () => void): () => void {
   return () => listeners.delete(listener)
 }
 
+/** Quien quiere saber que la persona cerró la sesión (el carrito, que se vacía, D77). */
+const signOutListeners = new Set<() => void>()
+
+/**
+ * Avisa cada vez que la persona cierra la sesión, aquí o en otra pestaña. No avisa cuando la sesión vence o el servidor la
+ * rechaza: eso no es "Cerrar sesión" y lo que se eligió sin cuenta se conserva.
+ */
+export function subscribeSignOut(listener: () => void): () => void {
+  signOutListeners.add(listener)
+  return () => signOutListeners.delete(listener)
+}
+
 function setState(next: SessionState) {
   state = next
   for (const listener of listeners) listener()
@@ -97,6 +109,7 @@ function signOutLocally({ byPerson = false } = {}) {
   // con el aviso de salida de otra pestaña, que llega aquí.
   resetPurchase()
   setState({ status: 'anonymous', signedOutFrom: byPerson ? window.location.pathname : undefined })
+  if (byPerson) for (const listener of signOutListeners) listener()
 }
 
 /** Ya en otra ruta, "acaba de salir" deja de contar: entrar a la cuenta otra vez pide iniciar sesión. */

@@ -117,7 +117,7 @@ export function reviewView({ draft, design, options, price, leadDays }: ReviewIn
     view.lines.push({
       key: 'coverage',
       title: 'Cobertura de crema pastelera',
-      detail: `Color ${colorPhrase(design.coverage, options.coverageColors)}`,
+      detail: `Color ${colorPhrase(design.coverage, options.coverageColors) ?? 'elegido'}`,
       swatches: [design.coverage],
       amount: 'Incluido',
       change: { step: COVERAGE_STEP, label: 'la cobertura' },

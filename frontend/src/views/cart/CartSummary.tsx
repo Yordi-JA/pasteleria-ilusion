@@ -26,7 +26,7 @@ type CartSummaryProps = {
 }
 
 /**
- * El resumen del carrito (mockup de Carrito): piezas, entrega, "Total estimado del pedido", el depósito de la base aparte
+ * El resumen del carrito (mockup de Carrito): piezas, "Total estimado del pedido", el depósito de la base aparte
  * y lo que se paga hoy en una frase. Los montos son estimados: el servidor los vuelve a calcular al crear el pedido.
  * Con un carrito que no cabe en un pedido, el aviso dice por qué y "Continuar a entrega" queda desactivado.
  */
@@ -34,14 +34,11 @@ export default function CartSummary({ summary, paymentNote, canContinue }: CartS
   const conflict = summary.conflict ? CONFLICTS[summary.conflict] : null
   return (
     <Card large className="flex flex-col gap-4">
+      {/* Sin la fila "Entrega": en el carrito todavía no se elige y la entrega la muestra su paso (tanda 1). */}
       <dl className="flex flex-col gap-2 border-b border-relieve pb-4 text-cuerpo">
         <div className="flex justify-between gap-4">
           <dt className="text-mermelada-suave">{productsLabel(summary.count)}</dt>
           <dd className="font-semibold tabular-nums">{summary.total ?? 'Por confirmar'}</dd>
-        </div>
-        <div className="flex justify-between gap-4">
-          <dt className="text-mermelada-suave">Entrega</dt>
-          <dd className="text-right font-semibold">Se elige en el siguiente paso</dd>
         </div>
       </dl>
       <p className="flex flex-wrap items-baseline justify-between gap-x-4 text-titulo-3">

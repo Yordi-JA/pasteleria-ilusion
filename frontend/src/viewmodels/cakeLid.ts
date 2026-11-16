@@ -2,7 +2,6 @@ import type { CakeDesignOptions } from '../models/cakeDesign.ts'
 import type { MessageLayout, WaferLayout, WaferShape } from '../models/cakeDesignLayout.ts'
 import type { CakeDesignDraft } from '../models/cakeDesignDraft.ts'
 import { TIER_EDGE_UNITS } from '../models/cakeDesignLayout.ts'
-import { displayHex } from '../models/color.ts'
 import type { CakeLid } from '../three/cakeShape.ts'
 import { clampCm, tierSizes, UNITS_PER_CM } from './cakeMolds.ts'
 import { colorPhrase } from './colors.ts'
@@ -116,18 +115,18 @@ export function shapeLabel(shape: WaferShape) {
 }
 
 /**
- * El color del mensaje en palabras, o `null` en el automático (negro, que no hace falta decir): "color #A1B2C3, parecido a rosa" o
- * "color más oscuro de tu cobertura, #6B2A47".
+ * El color del mensaje en palabras, o `null` en el automático (negro, que no hace falta decir): "color parecido a rosa", "color
+ * elegido" (sin nombre parecido) o "color más oscuro de tu cobertura". Sin el código (tanda 1): lo muestra la muestra redonda.
  */
 export function messageColorPhrase(draft: CakeDesignDraft, coverage: string | null, references: CakeDesignOptions['coverageColors']): string | null {
   const { mode, value } = draft.message.color
   const ink = messageInk(draft.message.color, coverage)
-  if (mode === 'custom') return `color ${colorPhrase(ink, references)}`
-  if (mode === 'tones') return `color ${value === 'light' ? 'más claro' : 'más oscuro'} de tu cobertura, ${displayHex(ink)}`
+  if (mode === 'custom') return `color ${colorPhrase(ink, references) ?? 'elegido'}`
+  if (mode === 'tones') return `color ${value === 'light' ? 'más claro' : 'más oscuro'} de tu cobertura`
   return null
 }
 
-/** El texto de "Tu pastel" para el paso 7: "Mensaje: Feliz cumpleaños Ana, color #A1B2C3. Oblea: círculo, foto.jpg", o que no lleva ninguno. */
+/** El texto de "Tu pastel" para el paso 7: "Mensaje: Feliz cumpleaños Ana, color parecido a rosa. Oblea: círculo, foto.jpg", o que no lleva ninguno. */
 export function lidSummary(draft: CakeDesignDraft, coverage: string | null, references: CakeDesignOptions['coverageColors']): string {
   const parts: string[] = []
   if (draft.messageEnabled && draft.message.text.trim() !== '') {

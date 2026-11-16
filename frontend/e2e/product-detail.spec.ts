@@ -33,7 +33,8 @@ test('shows the product with its tags, prices, sizes, pending details and relate
   await expect(page).toHaveTitle('Tres leches de durazno · Pastelería Ilusión')
   const hero = page.getByRole('region', { name: 'Tres leches de durazno' })
   await expect(hero).toContainText('En vitrina hoy')
-  await expect(hero).toContainText('$350 · $35 la rebanada')
+  // El precio va en "Elige tu pastel"; el encabezado no repite precios (tanda 1).
+  await expect(hero).not.toContainText('$')
   await expect(hero.getByRole('navigation', { name: 'Ruta' }).getByRole('link', { name: 'Catálogo' })).toHaveAttribute('href', '/catalogo')
 
   // Sin rebanadas cargadas hoy, la ficha no ofrece "Rebanada": son solo de la vitrina del día (D60).
@@ -90,12 +91,13 @@ test('"Encargarlo para una fecha" adds an order line; a presentation not loaded 
   ])
 })
 
-test('Red velvet is only made to order: the showcase option says why, and the price per kilo comes from the options', async ({ page }) => {
+test('Red velvet is only made to order: the showcase option says why, and no price per kilo before building an order', async ({ page }) => {
   await mockProductDetails(page, [redVelvet])
   await page.goto('/pasteles/red-velvet')
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Red velvet')
   await expect(page.getByRole('region', { name: 'Red velvet' })).toContainText('Seco, solo por encargo')
-  await expect(page.getByRole('region', { name: 'Red velvet' })).toContainText('$450 · Por pedido, $280 por kg')
+  // El precio por kilo solo se ve al armar un pedido (tanda 1).
+  await expect(page.getByRole('region', { name: 'Red velvet' })).not.toContainText('por kg')
   await expect(when(page).getByRole('radio', { name: /Hoy, de la vitrina/ })).toBeDisabled()
   await expect(when(page)).toContainText('Solo por encargo')
   // Con notas de la pastelería, se muestran tal cual.

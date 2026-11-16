@@ -4,6 +4,12 @@
  * lee ni se confía en nada de lo que trae.
  */
 const SCRIPT_URL = 'https://accounts.google.com/gsi/client'
+/**
+ * La hoja de estilos del botón. La librería la pide sola, pero dibuja el botón antes de que llegue: su logo es un SVG sin
+ * tamaño propio y, sin la hoja, ocupa todo el ancho por un momento (el "logo gigante" al abrir el acceso, tanda 1). Por eso
+ * se carga aquí y se espera antes de dibujar. Está permitida en la CSP (`style-src`, `backend/config/csp.py`).
+ */
+const STYLE_URL = 'https://accounts.google.com/gsi/style'
 
 /** El ancho que acepta el botón de Google, en píxeles. */
 const MIN_WIDTH = 200
@@ -48,6 +54,24 @@ export function googleClientId(): string {
 }
 
 let loading: Promise<GoogleIdApi> | null = null
+let styling: Promise<void> | null = null
+
+/** Pide la hoja de estilos de Google una sola vez y espera a que llegue. Si falla, sigue: el contenedor del botón ya reserva su alto. */
+function loadGoogleStyles(): Promise<void> {
+  styling ??= new Promise<void>((resolve) => {
+    const existing = document.querySelector<HTMLLinkElement>(`link[href="${STYLE_URL}"]`)
+    if (existing?.sheet) return resolve()
+    const link = existing ?? document.createElement('link')
+    link.addEventListener('load', () => resolve(), { once: true })
+    link.addEventListener('error', () => resolve(), { once: true })
+    if (!existing) {
+      link.rel = 'stylesheet'
+      link.href = STYLE_URL
+      document.head.append(link)
+    }
+  })
+  return styling
+}
 
 /** Carga la librería una sola vez; un fallo (red, bloqueador) deja intentar otra vez en la próxima pantalla. */
 export function loadGoogleIdentity(): Promise<GoogleIdApi> {
@@ -79,7 +103,7 @@ export async function renderGoogleButton(
   parent: HTMLElement,
   { clientId, purpose, onCredential }: { clientId: string; purpose: GoogleButtonPurpose; onCredential: (credential: string) => void },
 ): Promise<void> {
-  const api = await loadGoogleIdentity()
+  const [api] = await Promise.all([loadGoogleIdentity(), loadGoogleStyles()])
   api.initialize({
     client_id: clientId,
     callback: (response) => {

@@ -18,8 +18,9 @@ const TITLE = 'Crea tu cuenta'
 
 const BENEFITS = [
   { title: 'Sigue tu pedido', detail: 'Te avisamos cada vez que cambia de estado.' },
-  { title: 'Controla tus bases', detail: 'Ve qué bases tienes en préstamo y cuándo se libera tu depósito.' },
-  { title: 'Repite lo que te gustó', detail: 'Tus pedidos anteriores quedan guardados.' },
+  { title: 'Tu depósito, a la vista', detail: 'Sabes qué base te prestamos, hasta cuándo la regresas y cuánto te devolvemos.' },
+  // No hay botón para repetir un pedido: el beneficio es el historial (tanda 1).
+  { title: 'Tu historial', detail: 'Todos tus pedidos en un solo lugar.' },
 ]
 
 /** La flama de la vela de la marca, como viñeta de la lista (Registro.dc.html). */
@@ -89,7 +90,7 @@ export default function Register() {
   )
 
   return (
-    <AccessLayout slogan="Una cuenta para todos tus pedidos." aside={<Benefits />}>
+    <AccessLayout slogan="Tu próximo pastel empieza aquí." aside={<Benefits />}>
       <AccessCard
         title={TITLE}
         subtitle={{ withGoogle: 'Regístrate con Google o con tu correo.', emailOnly: 'Regístrate con tu correo.' }}

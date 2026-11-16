@@ -1,9 +1,21 @@
 import { Check, LockSimple } from '@phosphor-icons/react'
 import { Link } from 'react-router'
 import { focusRing } from '../../components/focus.ts'
+import Toggletip from '../../components/Toggletip.tsx'
 import type { StepStatus } from '../../viewmodels/cakeDesignSteps.ts'
 
-export type StepItem = { number: number; short: string; title: string; status: StepStatus; reachable: boolean }
+export type StepItem = {
+  number: number
+  short: string
+  title: string
+  status: StepStatus
+  reachable: boolean
+  /** Por qué el paso está incluido (el relleno del pan): el mensaje flotante del candado (tanda 1). */
+  tip?: string
+}
+
+/** El área de toque del candado llega a 44 px sin cambiar el círculo de 30 px, que se alinea con la línea de los pasos. */
+const LOCK_BUTTON = "h-[30px] w-[30px] before:absolute before:-inset-[7px] before:content-['']"
 
 /** Palabra de cada estado para el lector de pantalla: el círculo nunca dice solo con color. */
 const STATUS_WORDS: Record<StepStatus, string> = {
@@ -52,19 +64,26 @@ function Circle({ step }: { step: StepItem }) {
 
 /**
  * Avance de "Diseña tu pastel". En escritorio, los 8 pasos con su círculo (palomita, actual, candado del relleno
- * incluido, "!" si hay que cambiarlo, o el número) y la línea que los une; los ya alcanzados son enlaces para
+ * incluido, con su mensaje flotante, "!" si hay que cambiarlo, o el número) y la línea que los une; los ya alcanzados son enlaces para
  * regresar (libro de marca, "Cotizador 3D"). En móvil (hasta 600 px), "Paso 3 de 8: Pan" con 8 segmentos.
  */
 export default function StepBar({ steps, current }: { steps: StepItem[]; current: number }) {
   const total = steps.length
   const now = steps[current - 1]
+  const included = steps.find((step) => step.tip)
   return (
     <nav aria-label="Pasos de Diseña tu pastel">
       <ol className="grid grid-cols-8 max-[600px]:hidden">
         {steps.map((step, index) => {
           const label = (
             <>
-              <Circle step={step} />
+              {step.tip ? (
+                <Toggletip label={`${step.short} incluido`} text={step.tip} buttonClassName={LOCK_BUTTON}>
+                  <Circle step={step} />
+                </Toggletip>
+              ) : (
+                <Circle step={step} />
+              )}
               <span className={`text-nota ${step.status === 'current' || step.status === 'complete' ? 'font-semibold text-mermelada' : 'text-mermelada-suave'}`}>
                 {step.short}
               </span>
@@ -97,9 +116,17 @@ export default function StepBar({ steps, current }: { steps: StepItem[]; current
         })}
       </ol>
       <div className="hidden flex-col gap-2.5 max-[600px]:flex">
-        <p className="text-etiqueta">
-          Paso {current} de {total}: {now?.title}
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-etiqueta">
+            Paso {current} de {total}: {now?.title}
+          </p>
+          {/* En móvil no se ven los círculos: el candado del paso incluido va junto al paso actual. */}
+          {included?.tip && (
+            <Toggletip label={`${included.short} incluido`} text={included.tip}>
+              <LockSimple size={20} aria-hidden="true" />
+            </Toggletip>
+          )}
+        </div>
         <ol aria-hidden="true" className="grid grid-cols-8 gap-1.5">
           {steps.map((step) => (
             <li

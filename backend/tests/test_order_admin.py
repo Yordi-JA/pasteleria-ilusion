@@ -38,6 +38,8 @@ def test_staff_sees_the_order_with_its_lines_read_only(superuser_client, order):
     assert "Apartado, falta tu pago" in html
     # El color se pinta con el valor validado; el texto del cliente va escapado.
     assert "background-color: #f6b8ca" in html and "parecido a Rosa" in html
+    # El personal ve la muestra y el "parecido a", no el código hexadecimal (tanda 1).
+    assert "#F6B8CA" not in html and "> #f6b8ca" not in html
     assert "&lt;b&gt;Hola&lt;/b&gt;" in html and "<b>Hola</b>" not in html
     # Las líneas no se editan: ningún campo de la línea en el formulario.
     assert 'name="items-0-quantity"' not in html and 'name="items-0-unit_price"' not in html

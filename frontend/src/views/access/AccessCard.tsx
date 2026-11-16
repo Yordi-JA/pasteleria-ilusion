@@ -5,7 +5,8 @@ import type { GoogleSignInView } from '../../viewmodels/useGoogleSignIn.ts'
 
 /**
  * El botón oficial de Google, dibujado por su librería dentro de `container` (conserva sus colores, libro de marca,
- * "Inicio de sesión y pagos"). Mientras carga guarda su alto; si la librería no carga, lo dice y deja el correo.
+ * "Inicio de sesión y pagos"). Su lugar mide siempre 44 px y recorta lo que se salga, así no brinca al cargar; si la
+ * librería no carga, lo dice y deja el correo.
  */
 function GoogleButton({ google: { container, ...google } }: { google: GoogleSignInView }) {
   return (
@@ -15,7 +16,8 @@ function GoogleButton({ google: { container, ...google } }: { google: GoogleSign
         data-testid="boton-google"
         data-state={google.status}
         aria-busy={google.status === 'loading' || undefined}
-        className={`flex min-h-11 justify-center ${google.status === 'failed' ? 'hidden' : ''}`}
+        // Alto fijo y recortado: el lugar del botón mide lo mismo antes y después de que Google lo dibuje (tanda 1).
+        className={`flex h-11 items-center justify-center overflow-hidden ${google.status === 'failed' ? 'hidden' : ''}`}
       />
       {google.status === 'failed' && (
         <Notice title="No pudimos cargar el acceso con Google." live={false}>

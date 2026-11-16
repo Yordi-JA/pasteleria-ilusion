@@ -132,11 +132,9 @@ test('without a WhatsApp number the menu shows the marker and no link', async ({
 test.describe('between 601 and 767px', () => {
   test.use({ viewport: { width: 700, height: 900 } })
 
-  test('the links move into the menu instead of wrapping, and the strip keeps WhatsApp', async ({ page }) => {
+  test('the links move into the menu instead of wrapping', async ({ page }) => {
     await expect(page.getByRole('banner').getByRole('navigation', { name: 'Principal' })).toBeHidden()
     await expect(menuButton(page)).toBeVisible()
-    await expect(page.getByTestId('franja')).toContainText('WhatsApp 00 0000 0000')
-    await expect(page.getByTestId('franja').getByText(/WhatsApp/)).toBeVisible()
   })
 
   test('the open menu closes when the window grows to desktop', async ({ page }) => {

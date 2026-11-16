@@ -121,7 +121,7 @@ export default function DecorationStep({ groups, color, quote, imagePicker, onCh
       <p role="status" className="sr-only">
         {open ? `Se muestran ${open.choices.length} diseños de ${open.title}` : ''}
       </p>
-      <Group legend="Elige la decoración">
+      <Group legend="Elige la decoración" hideLegend>
         {groups.map((group) =>
           group.title ? (
             <div key={group.key} className="flex flex-col gap-2">

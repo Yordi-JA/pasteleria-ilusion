@@ -74,9 +74,9 @@ function CurrentStep({ designer }: { designer: CakeDesignerView }) {
         />
       )
     case 2:
-      return <CakeTypeStep choices={view.choices.cakeTypes} conflict={view.conflict} onChoose={actions.setCakeType} />
+      return <CakeTypeStep choices={view.choices.cakeTypes} conflict={view.conflict} onChoose={actions.setCakeType} legendHidden />
     case 3:
-      return <BreadStep groups={view.choices.breads} onChoose={actions.setBread} />
+      return <BreadStep groups={view.choices.breads} onChoose={actions.setBread} legendHidden />
     case 4:
       return (
         <FillingStep
@@ -84,10 +84,11 @@ function CurrentStep({ designer }: { designer: CakeDesignerView }) {
           onBase={actions.setFillingBase}
           onCount={actions.setFlavorCount}
           onFlavor={actions.chooseFlavor}
+          legendHidden
         />
       )
     case 5:
-      return <CoverageStep color={view.choices.coverage} includedFilling={view.choices.includedFilling} onChoose={actions.setCoverage} />
+      return <CoverageStep color={view.choices.coverage} onChoose={actions.setCoverage} />
     case 6:
       return (
         <DecorationStep

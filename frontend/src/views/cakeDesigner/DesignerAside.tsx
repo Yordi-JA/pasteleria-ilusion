@@ -61,13 +61,14 @@ const DRAG_HINT = 'Arrastra el pastel para girarlo.'
 const KEYS_HINT = 'Usa las flechas para girarlo y verlo desde arriba o desde abajo.'
 
 /**
- * Las dos frases de cómo girar la vista previa: la describen (`aria-describedby`) y solo se ven cuando el pastel ya se puede
- * girar. En la revisión (paso 8) no hay tarjeta del total y esta pista va sola, bajo la vista previa.
+ * Las dos frases de cómo girar la vista previa: la describen (`aria-describedby`) para el lector de pantalla. A la vista solo
+ * sale la de las flechas, cuando el pastel tiene el foco del teclado; "Arrastra el pastel para girarlo." ya no se ve (tanda 1).
+ * En la revisión (paso 8) no hay tarjeta del total y esta pista va sola, bajo la vista previa.
  */
 export function PreviewHint({ hintId, sceneReady, keyboardFocus }: { hintId: string; sceneReady: boolean; keyboardFocus: boolean }) {
   return (
     <span id={hintId} className={sceneReady ? '' : 'sr-only'}>
-      <span className={keyboardFocus ? 'sr-only' : ''}>{DRAG_HINT}</span>
+      <span className="sr-only">{DRAG_HINT}</span>
       <span className={keyboardFocus ? '' : 'sr-only'}>{KEYS_HINT}</span>
     </span>
   )
@@ -106,12 +107,12 @@ export function PriceCard({ price, sizeLine, hintId, sceneReady, keyboardFocus, 
   )
 }
 
-/** La pista de la vista previa en móvil, bajo el pastel. La que describe la escena es la del total de escritorio. */
+/** La pista de las flechas en móvil, bajo el pastel, solo con el foco del teclado. La que describe la escena es la del total de escritorio. */
 export function MobileHint({ visible, keyboardFocus }: { visible: boolean; keyboardFocus: boolean }) {
-  if (!visible) return null
+  if (!visible || !keyboardFocus) return null
   return (
     <p aria-hidden="true" className="hidden text-nota text-mermelada-suave max-[900px]:block">
-      {keyboardFocus ? KEYS_HINT : DRAG_HINT}
+      {KEYS_HINT}
     </p>
   )
 }

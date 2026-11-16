@@ -1,12 +1,10 @@
 import { useId, useRef } from 'react'
 import type { KeyboardEvent, PointerEvent } from 'react'
-import { displayHex } from '../models/color.ts'
 import { COLOR_BARS, useColorPicker } from '../viewmodels/useColorPicker.ts'
 import type { ColorBarKey } from '../viewmodels/useColorPicker.ts'
 import type { Hsl } from '../viewmodels/colors.ts'
 import { hslToHex } from '../viewmodels/colors.ts'
 import { focusRing } from './focus.ts'
-import TextField from './TextField.tsx'
 
 /** Alto del control y ancho de la perilla: la barra mide 44 px para el dedo y la perilla se queda dentro de ella. */
 const THUMB = 32
@@ -132,10 +130,11 @@ type ColorPickerProps = {
 }
 
 /**
- * Selector libre de color, el mismo para la cobertura, la decoración y el texto del mensaje: una muestra grande del color,
- * tres barras (tono, intensidad y claridad) y el campo del código hexadecimal. No usa `<input type="color">`, que no sigue la
- * marca y se ve distinto en cada sistema. Los colores que muestra son los que elige la persona para su pastel (comida), no de la
- * interfaz; todo lo demás sale de los tokens.
+ * Selector libre de color, el mismo para la cobertura, la decoración y el texto del mensaje: una muestra grande del color y
+ * tres barras (tono, intensidad y claridad). Sin el código hexadecimal (tanda 1): a la persona solo le importa el color, que se
+ * sigue guardando como `#rrggbb`. La muestra lo lleva en `data-color` para las pruebas. No usa `<input type="color">`, que no
+ * sigue la marca y se ve distinto en cada sistema. Los colores que muestra son los que elige la persona para su pastel (comida),
+ * no de la interfaz; todo lo demás sale de los tokens.
  */
 export default function ColorPicker({ legend, value, onChange }: ColorPickerProps) {
   const picker = useColorPicker(value, onChange)
@@ -144,35 +143,16 @@ export default function ColorPicker({ legend, value, onChange }: ColorPickerProp
   return (
     <fieldset className="flex flex-col gap-4 rounded-md border border-relieve p-4" data-testid="selector-de-color">
       <legend className="float-left text-etiqueta">{legend}</legend>
-      <div className="clear-both flex items-center gap-4">
-        <span aria-hidden="true" className="h-20 w-20 shrink-0 rounded-md border-2 border-relieve" style={{ backgroundColor: hex }} data-testid="muestra-de-color" />
-        <p className="flex min-w-0 flex-col">
-          <span className="text-nota text-mermelada-suave">Color elegido</span>
-          <span className="text-cuerpo font-semibold tabular-nums" data-testid="codigo-de-color">
-            {displayHex(hex)}
-          </span>
-        </p>
-      </div>
+      <span
+        aria-hidden="true"
+        className="clear-both h-20 w-20 shrink-0 rounded-md border-2 border-relieve"
+        style={{ backgroundColor: hex }}
+        data-testid="muestra-de-color"
+        data-color={hex}
+      />
       {(Object.keys(COLOR_BARS) as ColorBarKey[]).map((key) => (
         <ColorBar key={key} barKey={key} color={color} hex={hex} onChange={picker.setBar} />
       ))}
-      <TextField
-        label="Código del color"
-        help="Seis dígitos, con o sin #. Por ejemplo #A1B2C3."
-        value={picker.text}
-        error={picker.error ?? undefined}
-        maxLength={9}
-        autoComplete="off"
-        autoCapitalize="characters"
-        spellCheck={false}
-        onChange={(event) => picker.typeText(event.target.value)}
-        onBlur={picker.settleText}
-        onKeyDown={(event) => {
-          if (event.key !== 'Enter') return
-          event.preventDefault()
-          picker.settleText()
-        }}
-      />
     </fieldset>
   )
 }

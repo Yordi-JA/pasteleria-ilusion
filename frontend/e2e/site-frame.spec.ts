@@ -43,17 +43,18 @@ test.describe('header bar at 1440px', () => {
     await expect(nav.getByRole('link', { name: 'Realizar pedido' })).toHaveAttribute('aria-current', 'page')
   })
 
-  test('the awning sits between the strip and the bar, drawn with CSS only', async ({ page }) => {
+  test('the awning opens the page above the bar, drawn with CSS only; there is no strip above it', async ({ page }) => {
     await mockStoreInfo(page)
     await page.goto('/')
     const awning = page.getByTestId('toldo')
     await expect(awning).toHaveAttribute('aria-hidden', 'true')
     await expect(awning).toHaveCSS('background-image', /repeating-linear-gradient.*|radial-gradient/)
     await expect(awning).not.toHaveCSS('background-image', /url\(/)
-    const strip = (await topStrip(page).boundingBox())!
+    // Tanda 1 (D77): la franja de los días y el WhatsApp se quitó; el WhatsApp está en el pie y los días, en /pedido.
+    await expect(topStrip(page)).toHaveCount(0)
     const awningBox = (await awning.boundingBox())!
     const bar = (await page.getByTestId('barra').boundingBox())!
-    expect(awningBox.y).toBeCloseTo(strip.y + strip.height, 0)
+    expect(awningBox.y).toBeCloseTo(0, 0)
     expect(bar.y - (awningBox.y + awningBox.height)).toBeCloseTo(20, 0)
   })
 
@@ -66,12 +67,10 @@ test.describe('header bar at 1440px', () => {
   })
 })
 
-test.describe('store data in the strip and the footer', () => {
+test.describe('store data in the footer', () => {
   test('with data: lead days, hours, address and a WhatsApp link', async ({ page }) => {
     const requests = await mockStoreInfo(page, fullStoreInfo)
     await page.goto('/')
-    await expect(topStrip(page)).toContainText('Pedidos con 2 días de anticipación')
-    await expect(topStrip(page)).toContainText('WhatsApp 00 0000 0000')
     await expect(footer(page)).toContainText('Calle de Prueba 123, Col. Centro')
     await expect(footer(page)).toContainText('Todos los días, de 10:00 a 22:30')
     await expect(footer(page)).toContainText('WhatsApp 00 0000 0000')
@@ -80,7 +79,7 @@ test.describe('store data in the strip and the footer', () => {
     await expect(whatsapp).toHaveAttribute('rel', 'noopener noreferrer')
     await expect(whatsapp).toHaveAttribute('target', '_blank')
     await expect(page.locator('[data-pendiente]')).toHaveCount(0)
-    // Franja, menú y pie comparten una sola petición, también al navegar dentro del sitio.
+    // Menú y pie comparten una sola petición, también al navegar dentro del sitio.
     await footer(page).getByRole('link', { name: 'Vitrina' }).click()
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Vitrina')
     await expectRequestCountStays(requests, 1)
@@ -142,8 +141,8 @@ test.describe('store data in the strip and the footer', () => {
 
   test('one day is singular', async ({ page }) => {
     await mockStoreInfo(page, { ...fullStoreInfo, custom_lead_days: 1 })
-    await page.goto('/')
-    await expect(topStrip(page)).toContainText('Pedidos con 1 día de anticipación')
+    await page.goto('/pedido')
+    await expect(page.getByRole('main')).toContainText('1 día de anticipación')
   })
 
   const markerCases: { name: string; body: object; status: number }[] = [
@@ -156,7 +155,6 @@ test.describe('store data in the strip and the footer', () => {
     test(`with ${name}: visible pending markers and no WhatsApp link`, async ({ page }) => {
       await mockStoreInfo(page, body, status)
       await page.goto('/')
-      await expect(topStrip(page)).toContainText('Pedidos con [días por confirmar] de anticipación')
       await expect(footer(page)).toContainText('[Dirección por confirmar]')
       await expect(footer(page)).toContainText('[Horario por confirmar]')
       // Sin número, el pie dice una sola vez que falta: solo la frase "Escribir por WhatsApp", sin la línea del número.
@@ -169,7 +167,6 @@ test.describe('store data in the strip and the footer', () => {
       await expect(page.getByRole('link', { name: /WhatsApp/ })).toHaveCount(0)
       await expect(page.locator('a[href*="wa.me"]')).toHaveCount(0)
       await expect(footer(page)).not.toContainText(/\d{1,2}:\d{2}/)
-      await expect(topStrip(page)).not.toContainText(/\d/)
     })
   }
 
@@ -179,18 +176,16 @@ test.describe('store data in the strip and the footer', () => {
     await mockCatalog(page, { featured: ['hang'], showcase: ['hang'], slices: ['hang'] })
     await page.goto('/')
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
-    await expect(topStrip(page).locator('[aria-busy="true"]')).toHaveCount(1)
     await expect(footer(page).locator('[aria-busy="true"]')).not.toHaveCount(0)
-    await expect(page.locator('[data-esqueleto]').first()).toBeVisible()
+    await expect(page.locator('[data-esqueleto]').filter({ visible: true }).first()).toBeVisible()
     // Los bloques son decorativos; cada región ocupada dice una sola vez qué se carga.
     for (const block of await page.locator('[data-esqueleto]').all()) {
       await expect(block).toHaveAttribute('aria-hidden', 'true')
       await expect(block).toHaveText('')
     }
-    await expect(topStrip(page).getByText('Cargando datos de la pastelería')).toHaveCount(1)
     await expect(footer(page).getByText('Cargando datos de la pastelería')).toHaveCount(2)
     await expect(page.locator('[data-pendiente]')).toHaveCount(0)
-    await expect(topStrip(page)).not.toContainText('por confirmar')
+    await expect(footer(page)).not.toContainText('por confirmar')
     await expect(page.locator('a[href*="wa.me"]')).toHaveCount(0)
   })
 
@@ -199,7 +194,7 @@ test.describe('store data in the strip and the footer', () => {
     await shortenStoreInfoTimeout(page, 300)
     await hangStoreInfo(page)
     await page.goto('/')
-    await expect(topStrip(page)).toContainText('Pedidos con [días por confirmar] de anticipación', { timeout: 3_000 })
+    await expect(footer(page)).toContainText('[Dirección por confirmar]', { timeout: 3_000 })
     await expect(page.locator('[aria-busy="true"]')).toHaveCount(0)
   })
 })

@@ -8,7 +8,7 @@ import { usePageTitle } from '../viewmodels/usePageTitle.ts'
 import { usePasswordRecovery } from '../viewmodels/usePasswordRecovery.ts'
 import { PASSWORD_HELP } from '../viewmodels/useRegister.ts'
 import AccessLayout from './access/AccessLayout.tsx'
-import AccessPanel, { AccessAside } from './access/AccessPanel.tsx'
+import AccessPanel from './access/AccessPanel.tsx'
 
 const REQUEST_TITLE = 'Recupera tu contraseña'
 const RESET_TITLE = 'Crea tu nueva contraseña'
@@ -16,7 +16,10 @@ const RESET_TITLE = 'Crea tu nueva contraseña'
 type Recovery = Omit<ReturnType<typeof usePasswordRecovery>, 'refs'>
 type FieldRef = ReturnType<typeof usePasswordRecovery>['refs']['email']
 
-/** Recuperar.dc.html: el correo, "Enviar enlace", el mensaje neutro, la nota de Google y "Volver a iniciar sesión". */
+/**
+ * Recuperar.dc.html: el correo, "Enviar enlace", el mensaje neutro y "Volver a iniciar sesión". Sin la nota de Google (tanda 1):
+ * el correo de recuperación ya le dice a una cuenta de Google que entre con Google.
+ */
 function RequestForm({ recovery: { request, invalidLinkNotice }, emailRef }: { recovery: Recovery; emailRef: FieldRef }) {
   return (
     <>
@@ -57,12 +60,6 @@ function RequestForm({ recovery: { request, invalidLinkNotice }, emailRef }: { r
           )}
         </div>
       </form>
-      <AccessAside>
-        <span>
-          Si entras con Google no necesitas contraseña: usa <strong className="font-semibold">Continuar con Google</strong> al iniciar
-          sesión.
-        </span>
-      </AccessAside>
       <p className="text-center">
         <Link to="/entrar" className={`font-semibold ${inlineLink}`}>
           Volver a iniciar sesión

@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { ana, CSRF_TOKEN, mockAuth, mockGoogleIdentity, opened, rejected, sessionBody, signedIn, withoutGoogle } from './support/auth.ts'
 import { mockStoreInfo } from './support/store-info.ts'
+import { durazno, seedCart, storedCart } from './support/checkout.ts'
 
 /** Acceso de clientes (D62): `/entrar`, `/registro`, la sesión en el marco y las rutas de la cuenta. */
 
@@ -163,8 +164,15 @@ test.describe('/registro', () => {
     await mockAuth(page)
     await page.goto('/registro')
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Crea tu cuenta')
-    await expect(page.getByText('Una cuenta para todos tus pedidos.')).toBeVisible()
+    await expect(page.getByText('Tu próximo pastel empieza aquí.')).toBeVisible()
     await expect(page.getByText('Sigue tu pedido')).toBeVisible()
+    await expect(page.getByText('Tu depósito, a la vista')).toBeVisible()
+    await expect(page.getByText('Sabes qué base te prestamos, hasta cuándo la regresas y cuánto te devolvemos.')).toBeVisible()
+    await expect(page.getByText('Tu historial')).toBeVisible()
+    await expect(page.getByText('Todos tus pedidos en un solo lugar.')).toBeVisible()
+    await expect(page.getByText('Repite lo que te gustó')).toHaveCount(0)
+    // Sin la franja de arriba no queda ningún marcador pendiente en el acceso (tanda 1).
+    await expect(page.locator('[data-pendiente]')).toHaveCount(0)
     await expect(page.getByText('Mínimo 8 caracteres.')).toBeVisible()
     await expect(page.getByText('10 dígitos. Lo usamos si hay algún detalle con tu pedido.')).toBeVisible()
     await expect(page.getByLabel('Teléfono o WhatsApp (opcional)')).toHaveAttribute('type', 'tel')
@@ -239,6 +247,24 @@ test.describe('Google', () => {
     expect(calls.google[0].postDataJSON()).toEqual({ credential: 'id-token-de-ana' })
     const config = await page.evaluate(() => Reflect.get(globalThis, '__gisConfig'))
     expect(config).toMatchObject({ client_id: '1234-prueba.apps.googleusercontent.com', ux_mode: 'popup', context: 'signin' })
+  })
+
+  test('the Google button keeps its height while it loads: it waits for its stylesheet and never shows a giant logo', async ({ page }) => {
+    await mockGoogleIdentity(page, { styleDelayMs: 1500 })
+    await mockAuth(page)
+    await page.goto('/registro')
+    const slot = page.getByTestId('boton-google')
+    await expect(slot).toHaveAttribute('data-state', 'loading')
+    // Mientras llega la hoja de estilos el botón no se dibuja, y su lugar ya mide lo que medirá.
+    expect(await page.evaluate(() => Reflect.get(globalThis, '__gisOptions'))).toBeUndefined()
+    const before = (await slot.boundingBox())!
+    expect(before.height).toBeGreaterThanOrEqual(40)
+    expect(before.height).toBeLessThanOrEqual(44)
+    await expect(page.getByRole('button', { name: 'Registrarse con Google' })).toBeVisible()
+    const after = (await slot.boundingBox())!
+    expect(after.height).toBe(before.height)
+    const logo = (await slot.locator('[data-logo-google]').boundingBox())!
+    expect(logo.height).toBeLessThanOrEqual(44)
   })
 
   test('the register page asks Google for its sign-up text', async ({ page }) => {
@@ -326,6 +352,36 @@ test.describe('session and account routes', () => {
     await signedIn(page, { ...ana, full_name: '' })
     await page.goto('/cuenta')
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Hola')
+  })
+
+  test('"Cerrar sesión" empties the cart and the header counter', async ({ page }) => {
+    // Desde el menú de la portada: no necesita las pantallas de la cuenta.
+    await page.setViewportSize({ width: 390, height: 844 })
+    await seedCart(page, [durazno])
+    await signedIn(page)
+    await page.goto('/')
+    await expect(page.getByRole('banner').getByRole('link', { name: 'Carrito, 1 producto' })).toBeVisible()
+    await page.getByRole('button', { name: 'Abrir menú' }).click()
+    await page.getByRole('dialog', { name: 'Menú' }).getByRole('button', { name: 'Cerrar sesión' }).click()
+    await expect.poll(async () => (await storedCart(page))?.items ?? []).toEqual([])
+    await expect(page.getByRole('banner').getByRole('link', { name: 'Carrito, vacío' })).toBeVisible()
+  })
+
+  test('logging out in one tab empties the cart in the other', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await seedCart(page, [durazno])
+    await signedIn(page)
+    await page.goto('/')
+    const other = await page.context().newPage()
+    await mockStoreInfo(other)
+    await mockAuth(other, { refresh: () => opened() })
+    await other.goto('/')
+    await expect(other.getByRole('banner').getByRole('link', { name: 'Carrito, 1 producto' })).toBeVisible()
+    await page.getByRole('button', { name: 'Abrir menú' }).click()
+    await page.getByRole('dialog', { name: 'Menú' }).getByRole('button', { name: 'Cerrar sesión' }).click()
+    await expect(other.getByRole('link', { name: 'Cuenta', exact: true })).toBeVisible()
+    await expect(other.getByRole('banner').getByRole('link', { name: 'Carrito, vacío' })).toBeVisible()
+    await expect.poll(async () => (await storedCart(other))?.items ?? []).toEqual([])
   })
 
   test('logging out in one tab logs out the other', async ({ page }) => {

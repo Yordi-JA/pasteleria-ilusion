@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { cakeDesignOptions, COVERAGE_HEX, mockCakeDesignOptions, mockCakeDesignPrice, PRICE_PATH, priceResponse, sizeFor, withPendingDecorations } from './support/cake-design.ts'
-import { colorPicker, pickColor } from './support/color-picker.ts'
+import { colorPicker, pickColor, swatchColor } from './support/color-picker.ts'
 import { emptyStoreInfo, mockStoreInfo } from './support/store-info.ts'
 
 /**
@@ -312,7 +312,24 @@ test('choco-pingüino skips the filling step and envinado asks to choose another
   // El relleno queda "Incluido" y se salta a la cobertura.
   await expect(stepTitle(page)).toHaveText('5. Cobertura')
   await expect(page).toHaveURL(/\?paso=5$/)
-  await expect(page.getByText('ya trae su relleno de crema de chocolate sabor helado')).toBeVisible()
+  // El porqué va en el mensaje flotante del candado, no en una tarjeta del paso (tanda 1).
+  const why = 'Tu pan Choco-pingüino ya trae su relleno de crema de chocolate sabor helado, así que este paso se salta.'
+  const lock = page.getByRole('navigation', { name: 'Pasos de Diseña tu pastel' }).getByRole('button', { name: 'Relleno incluido' })
+  const tip = page.getByRole('tooltip').filter({ hasText: why })
+  await expect(tip).toBeHidden()
+  await expect(page.getByTestId('tarjeta-paso')).not.toContainText('ya trae su relleno')
+  await expect(lock).toHaveAccessibleDescription(why)
+  await lock.hover()
+  await expect(tip).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(tip).toBeHidden()
+  await page.mouse.move(0, 0)
+  await lock.focus()
+  await expect(tip).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(tip).toBeHidden()
+  await expect(lock).toBeFocused()
+  await expect(page.getByTestId('tarjeta-paso')).not.toContainText('La única que manejamos')
   await expect(page.getByRole('navigation', { name: 'Pasos de Diseña tu pastel' }).getByText('Relleno: incluido')).toBeAttached()
   await page.getByRole('button', { name: 'Atrás' }).click()
   await expect(stepTitle(page)).toHaveText('3. Pan')
@@ -335,7 +352,28 @@ test('choco-pingüino skips the filling step and envinado asks to choose another
   await expect(page.getByText('No se combina con pastel envinado').first()).toBeVisible()
   await expect(page.getByText('Para usar Choco-pingüino, cambia el tipo de pastel a Tres leches o Seco.')).toBeVisible()
   // Lo demás se conserva: la cobertura lila sigue en "Tu pastel".
-  await expect(shown(page, 'Crema pastelera, #CCBAE4, parecido a lila')).toBeVisible()
+  await expect(shown(page, 'Crema pastelera, parecido a lila')).toBeVisible()
+})
+
+test('the steps do not repeat their titles nor explain the obvious', async ({ page }) => {
+  await open(page)
+  const card = page.getByTestId('tarjeta-paso')
+  await expect(card).not.toContainText('La vista previa se irá armando')
+  await expect(card).not.toContainText('Calculamos 1 kg')
+  await expect(page.getByText('Arrastra el pastel para girarlo.', { exact: true }).filter({ visible: true })).toHaveCount(0)
+  await expect(kilos(page)).not.toHaveAttribute('aria-busy', 'true')
+  await proceed(page)
+  await expect(stepTitle(page)).toHaveText('2. Tipo de pastel')
+  // El grupo conserva su nombre para el lector de pantalla, pero no repite el título a la vista.
+  const types = card.getByRole('group', { name: 'Elige el tipo de pastel' })
+  await expect(types).toBeVisible()
+  await expect(card.getByText('Elige el tipo de pastel', { exact: true })).toHaveClass(/sr-only/)
+  // El envinado no lleva "No se combina con…": lo explica el pan desactivado en el paso 3.
+  await expect(card.getByText('Pan bañado en almíbar con vino', { exact: true })).toBeVisible()
+  await expect(card).not.toContainText('No se combina con')
+  await page.getByRole('radio', { name: 'Tres leches' }).check()
+  await proceed(page)
+  await expect(card.getByText('Elige el pan', { exact: true })).toHaveClass(/sr-only/)
 })
 
 test('after switching to envinado, "Cambiar" on the bread leads to choosing another one', async ({ page }) => {
@@ -563,6 +601,9 @@ test('"Chispas" opens its three types, with the first chosen and each one includ
   for (const name of SPRINKLES) await expect(panel.getByRole('radio', { name })).toBeEnabled()
   await expect(panel.getByRole('radio', { name: 'Chispas de capuchino' })).toBeChecked()
   await expect(panel.getByText('Incluido')).toHaveCount(3)
+  // Sin la descripción de cada tipo de chispas (tanda 1): el nombre ya lo dice.
+  await expect(panel).not.toContainText('Granillo')
+  await expect(panel).not.toContainText('como el relleno')
   // Las chispas no llevan selector de color: salen de los rellenos.
   await expect(card.getByText('Color de la decoración')).toHaveCount(0)
   await panel.getByRole('radio', { name: 'Chispas de chocolate' }).check()
@@ -631,15 +672,14 @@ test('the color of a design is automatic by default, shows the tones of the cove
   await card.getByRole('radio', { name: 'Elegir un color' }).check()
   const picker = colorPicker(card)
   await expect(picker).toBeVisible()
-  // Cualquier color, no solo los 11 de la lista: arranca en el tono principal de la cobertura y se cambia con el código.
-  await pickColor(card, '#12ab9f')
-  await expect(picker.getByLabel('Código del color')).toHaveValue(/^#12ab9f$/i)
+  // Cualquier color, no solo los 11 de la lista: arranca en el tono principal de la cobertura y se cambia con las barras.
+  const chosen = await pickColor(card, '#12ab9f')
   await proceed(page)
-  await expect(shown(page, 'Rosas, color #12AB9F, parecido a turquesa')).toBeVisible()
+  await expect(shown(page, 'Rosas, color parecido a turquesa')).toBeVisible()
   // Atrás: el color elegido sigue y se puede volver a automático.
   await page.getByRole('link', { name: 'Cambiar decoración' }).filter({ visible: true }).first().click()
   await expect(card.getByRole('radio', { name: 'Elegir un color' })).toBeChecked()
-  await expect(colorPicker(card).getByTestId('codigo-de-color')).toHaveText('#12AB9F')
+  await expect(swatchColor(card)).toHaveAttribute('data-color', chosen)
   await card.getByRole('radio', { name: 'Automático' }).check()
   await expect(colorPicker(card)).toHaveCount(0)
 })
@@ -649,12 +689,12 @@ test('the chosen color is saved in the session with the design', async ({ page }
   await page.getByRole('radio', { name: 'Patrón con duya' }).check()
   await page.getByRole('radio', { name: 'Festones colgantes' }).check()
   await page.getByRole('radio', { name: 'Elegir un color' }).check()
-  await pickColor(page.getByTestId('tarjeta-paso'), '#FFFBFB')
+  const chosen = await pickColor(page.getByTestId('tarjeta-paso'), '#FFFBFB')
   const draft = await page.evaluate(() => JSON.parse(sessionStorage.getItem('ilusion.cakeDesign.v1') ?? '{}'))
-  expect(draft).toMatchObject({ decoration: 'festones', decorationColor: '#fffbfb' })
+  expect(draft).toMatchObject({ decoration: 'festones', decorationColor: chosen })
   await page.reload()
   await expect(page.getByRole('radio', { name: 'Elegir un color' })).toBeChecked()
-  await expect(colorPicker(page.getByTestId('tarjeta-paso')).getByTestId('codigo-de-color')).toHaveText('#FFFBFB')
+  await expect(swatchColor(page.getByTestId('tarjeta-paso'))).toHaveAttribute('data-color', chosen)
 })
 
 test('the keyboard moves through the options as one radio group, the groups included, and "Continuar" is reachable', async ({ page }) => {
@@ -967,18 +1007,20 @@ test.describe('the preview, with reduced motion', () => {
   })
 })
 
-test('the hint and the accessible description mention the arrows, and the visible one follows the keyboard focus', async ({ page }) => {
+test('the accessible description mentions dragging and the arrows; only the arrows show, with the keyboard focus', async ({ page }) => {
   await openPreview(page)
   const card = page.getByRole('region', { name: 'Total estimado' })
   await expect(preview(page)).toHaveAccessibleDescription(new RegExp(ARROWS_HINT))
   await expect(preview(page)).toHaveAccessibleDescription(new RegExp(DRAG_HINT))
-  await expect(card.getByText(DRAG_HINT, { exact: true })).not.toHaveClass(/sr-only/)
+  // "Arrastra el pastel para girarlo." ya no se ve (tanda 1): queda solo para el lector de pantalla.
+  await expect(card.getByText(DRAG_HINT, { exact: true })).toHaveClass(/sr-only/)
   await expect(card.getByText(ARROWS_HINT, { exact: true })).toHaveClass(/sr-only/)
   await preview(page).focus()
   await expect(card.getByText(ARROWS_HINT, { exact: true })).not.toHaveClass(/sr-only/)
   await expect(card.getByText(DRAG_HINT, { exact: true })).toHaveClass(/sr-only/)
   await preview(page).blur()
-  await expect(card.getByText(DRAG_HINT, { exact: true })).not.toHaveClass(/sr-only/)
+  await expect(card.getByText(DRAG_HINT, { exact: true })).toHaveClass(/sr-only/)
+  await expect(card.getByText(ARROWS_HINT, { exact: true })).toHaveClass(/sr-only/)
 })
 
 test.describe('the preview on a phone', () => {

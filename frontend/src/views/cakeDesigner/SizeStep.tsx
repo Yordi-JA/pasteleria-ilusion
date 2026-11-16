@@ -88,7 +88,6 @@ export default function SizeStep({
         >
           {view.kgLine}
         </p>
-        <p className="text-nota text-mermelada-suave">{view.kgNote}</p>
       </div>
 
       {view.minimum && (
@@ -171,8 +170,6 @@ export default function SizeStep({
       </fieldset>
 
       {view.tierNotice && <Notice title={view.tierNotice} />}
-
-      <p className="text-nota">La vista previa se irá armando con cada paso. Por ahora, solo el pan.</p>
     </>
   )
 }

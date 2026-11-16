@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { useLocation } from 'react-router'
-import { acknowledgeSignOut, getSessionState, logout, restoreSession, subscribeSession } from '../models/session.ts'
+import { acknowledgeSignOut, getSessionState, logout, restoreSession, subscribeSession, subscribeSignOut } from '../models/session.ts'
 import type { SessionState, SessionUser } from '../models/session.ts'
 
 /**
@@ -36,6 +36,14 @@ export function useSignOutAcknowledgement() {
   useEffect(() => {
     acknowledgeSignOut(pathname)
   }, [pathname])
+}
+
+/**
+ * En el marco: corre `onSignOut` cuando la persona cierra la sesión, aquí o en otra pestaña (D77: el carrito se vacía, y con
+ * él las imágenes de sus diseños). Una sesión que vence sola no cuenta.
+ */
+export function useSignOutEffect(onSignOut: () => void) {
+  useEffect(() => subscribeSignOut(onSignOut), [onSignOut])
 }
 
 /** El nombre para el saludo: la primera palabra del nombre completo; sin nombre, nada. */

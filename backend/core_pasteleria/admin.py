@@ -711,13 +711,13 @@ class BreadInventoryAdmin(InventoryAdmin):
 
 
 def _swatch(color: str, name: str) -> str:
-    """La muestra del color, su código y el "parecido a" que calculó el servidor."""
-    similar = format_html(", parecido a {}", name) if name else ""
+    """La muestra del color y el "parecido a" que calculó el servidor, sin el código (tanda 1): la pastelería trabaja con el
+    círculo del color, no con el hexadecimal, que sigue guardado en el pedido."""
+    similar = format_html(" parecido a {}", name) if name else ""
     return format_html(
         '<span style="display:inline-block;width:1em;height:1em;vertical-align:middle;'
-        'border:1px solid #2b1d1a;background-color: {}"></span> {}{}',
+        'border:1px solid #2b1d1a;background-color: {}"></span>{}',
         color,
-        color.upper(),
         similar,
     )
 

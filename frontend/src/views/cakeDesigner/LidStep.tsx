@@ -32,7 +32,7 @@ function AddOn({ id, label, description, trailing, checked, disabled, disabledRe
       ? 'border-2 border-mermelada bg-betun'
       : 'border border-mermelada-suave bg-betun'
   return (
-    <div className={`rounded-md ${state}`}>
+    <div className={`min-w-0 rounded-md ${state}`}>
       <label htmlFor={id} className={`flex min-h-11 cursor-pointer items-center gap-3.5 rounded-md px-4 py-3.5 ${disabled ? 'cursor-not-allowed' : ''} ${focusRingWithin}`}>
         <input
           id={id}
@@ -157,7 +157,7 @@ export default function LidStep({ view, actions }: LidStepProps) {
   const imagePicker = { image: wafer.image, lostName: wafer.lostName, error: wafer.error, onPick: actions.chooseWaferImage, onRemove: actions.removeWaferImage, onUnreadable: actions.unreadableWaferImage }
   return (
     <>
-      <Group legend="Mensaje">
+      <Group legend="Mensaje" hideLegend>
         <AddOn
           id={`${id}-mensaje`}
           label="Agregar un mensaje"
@@ -186,11 +186,11 @@ export default function LidStep({ view, actions }: LidStepProps) {
         </AddOn>
       </Group>
 
-      <Group legend="Oblea">
+      <Group legend="Oblea" hideLegend>
         <AddOn
           id={`${id}-oblea`}
           label="Agregar una oblea con tu imagen"
-          description="Se imprime hasta tamaño carta"
+          description={`Impresa hasta tamaño carta (${wafer.letter})`}
           trailing={wafer.price ? `+${wafer.price}` : null}
           checked={wafer.enabled}
           disabled={wafer.unavailableReason !== null}
@@ -205,9 +205,6 @@ export default function LidStep({ view, actions }: LidStepProps) {
               <RangeField label="Mover la imagen arriba o abajo" value={wafer.panY} min={-1} max={1} step={0.05} text={wafer.panY === 0 ? 'Centrada' : `${Math.round(Math.abs(wafer.panY) * 100)} % hacia ${wafer.panY < 0 ? 'arriba' : 'abajo'}`} onChange={(value) => actions.setImagePan('imageY', value)} ends={['Arriba', 'Abajo']} />
             </div>
           )}
-          <p className="text-nota text-mermelada-suave">
-            Se imprime hasta tamaño carta ({wafer.letter}). Su forma, tamaño y lugar los acomodas abajo.
-          </p>
         </AddOn>
       </Group>
 
@@ -277,7 +274,7 @@ export default function LidStep({ view, actions }: LidStepProps) {
             </div>
           </div>
           <p id={hintId} className="text-nota text-mermelada-suave">
-            Arrastra para mover; usa las esquinas para cambiar el tamaño y el círculo de arriba para girar. Con el teclado, las flechas mueven lo que elegiste.
+            Arrastra para mover, las esquinas cambian el tamaño y el círculo de arriba gira. Con el teclado, las flechas mueven lo que elegiste.
           </p>
         </section>
       )}
