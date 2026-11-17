@@ -6,6 +6,7 @@ from ..models import (
     CakeMold,
     CoverageColor,
     DecorationOption,
+    DesignSize,
     FillingBase,
     FillingFlavor,
     FillingPrice,
@@ -16,10 +17,17 @@ from .records import (
     CakeMoldRecord,
     CoverageColorRecord,
     DecorationRecord,
+    DesignSizeRecord,
     FillingBaseRecord,
     FillingFlavorRecord,
+    GroupPrice,
     TierRecommendationRecord,
 )
+
+
+def _group_price(price) -> GroupPrice | None:
+    """El precio de catálogo de un grupo de vitrina; `None` si la opción no apunta a ninguno."""
+    return GroupPrice(name=price.name, amount=price.amount) if price is not None else None
 
 
 def list_breads() -> list[BreadRecord]:
@@ -37,8 +45,9 @@ def list_breads() -> list[BreadRecord]:
             preview_color_bottom=bread.preview_color_bottom,
             included_filling_preview_style=bread.included_filling_preview_style,
             included_filling_preview_color_secondary=bread.included_filling_preview_color_secondary,
+            showcase_price=_group_price(bread.showcase_price),
         )
-        for bread in Bread.objects.filter(is_active=True)
+        for bread in Bread.objects.filter(is_active=True).select_related("showcase_price")
     ]
 
 
@@ -67,8 +76,10 @@ def list_filling_bases_with_flavors() -> list[FillingBaseRecord]:
             max_flavors=base.max_flavors,
             combined_extra_per_kg=base.combined_extra_per_kg,
             flavors=tuple(flavors_by_base.get(base.id, ())),
+            showcase_price=_group_price(base.showcase_price),
+            available_in_mini=base.available_in_mini,
         )
-        for base in FillingBase.objects.filter(is_active=True)
+        for base in FillingBase.objects.filter(is_active=True).select_related("showcase_price")
     ]
 
 
@@ -109,6 +120,8 @@ def _decoration_record(decoration: DecorationOption) -> DecorationRecord:
         preview_bread=bread.slug if bread else None,
         preview_source_inactive=linked and flavor is None and bread is None,
         accepts_color=decoration.accepts_color,
+        available_in_mini=decoration.available_in_mini,
+        mini_price=decoration.mini_price,
     )
 
 
@@ -134,4 +147,21 @@ def list_cake_molds() -> list[CakeMoldRecord]:
     return [
         CakeMoldRecord(form=mold.form, kg=mold.kg, length_cm=mold.length_cm, width_cm=mold.width_cm)
         for mold in CakeMold.objects.all()
+    ]
+
+
+def list_design_sizes() -> list[DesignSizeRecord]:
+    """El pastel de vitrina y el mini con su molde y lo que dice su precio de catálogo (una consulta)."""
+    return [
+        DesignSizeRecord(
+            code=size.code,
+            price=size.catalog_price.amount,
+            approx_weight_kg=size.catalog_price.approx_weight_kg,
+            servings=size.catalog_price.servings,
+            diameter_cm=size.diameter_cm,
+            height_cm=size.height_cm,
+            reference_cake_type=size.reference_cake_type,
+            reference_bread=size.reference_bread.slug if size.reference_bread else None,
+        )
+        for size in DesignSize.objects.select_related("catalog_price", "reference_bread")
     ]

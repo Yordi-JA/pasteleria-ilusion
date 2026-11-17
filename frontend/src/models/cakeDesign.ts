@@ -124,6 +124,11 @@ export type CakeDesignLimits = {
   waferMaxHeightCm: number
   /** Palabras que la pastelería sugiere para el mensaje (4): es una sugerencia, no bloquea. */
   messageSuggestedMaxWords: number
+  /**
+   * Alto mínimo de la letra del mensaje en cm (tanda 2, "1.5"), en todos los tamaños: la escala por el radio de la parte plana de
+   * la tapa no baja de aquí. `null` si la API no lo manda (una versión anterior): entonces no hay mínimo.
+   */
+  messageMinLetterCm: number | null
 }
 
 /** Kilos mínimos para un número de pisos (regla 3.3, D50): con menos kilos, esos pisos no se eligen. */
@@ -147,6 +152,45 @@ export type CakeSize = { approxWeightKg: string | null; servings: number | null 
 
 export type SmallerAlternatives = { showcaseCake: CakeSize | null; miniCake: CakeSize | null }
 
+/** Los tamaños de "Diseña tu pastel" (tanda 2 de correcciones): por kilos, de vitrina o mini. */
+export type CakeSizeCode = 'by_weight' | 'showcase' | 'mini'
+
+/** Motivo por `slug` de lo que un tamaño no admite (el mini: panes de relleno incluido, queso, flan, algunas decoraciones). */
+export type ReasonsBySlug = Readonly<Record<string, string>>
+
+/**
+ * Un tamaño de `sizes` (`DesignSizeSerializer`). El de vitrina y el mini son redondos, de 1 piso y sin base: su molde real
+ * (`diameterCm`, `heightCm`) dibuja la vista previa y `lidRadiusCm` acomoda la oblea y el mensaje. `null` es un dato que la
+ * pastelería no ha definido (PENDIENTE). Los umbrales del paso 1 salen de aquí (`servings` y `minPeople`), nunca del código.
+ */
+export type DesignSizeOption = {
+  code: CakeSizeCode
+  /** "Por kilos", "Pastel de vitrina" o "Pastel mini". */
+  name: string
+  available: boolean
+  unavailableReason: string | null
+  /** "Desde $X" sin decoración ni oblea; `null` es PENDIENTE. */
+  priceFrom: string | null
+  servings: number | null
+  approxWeightKg: string | null
+  diameterCm: number | null
+  heightCm: number | null
+  lidRadiusCm: number | null
+  /** Solo por kilos: los kilos y las personas del pedido mínimo (4 y 28). */
+  minKg: number | null
+  minPeople: number | null
+  /** Por qué no lleva oblea (el mini); `null` si la lleva. */
+  waferUnavailableReason: string | null
+  unavailableBreads: ReasonsBySlug
+  unavailableFillingBases: ReasonsBySlug
+  unavailableDecorations: ReasonsBySlug
+  /**
+   * Lo que cobra este tamaño por cada decoración que se puede elegir en él (`slug -> monto`, ronda de arreglos de la tanda 2):
+   * en el mini, una de precio fijo cobra su precio de mini. Vacío si la API no lo manda.
+   */
+  decorationPrices: Readonly<Record<string, string>>
+}
+
 export type CakeDesignOptions = {
   cakeTypes: CakeTypeOption[]
   breads: BreadOption[]
@@ -159,11 +203,18 @@ export type CakeDesignOptions = {
   /** Moldes de la pastelería; vacío si la API no los manda (la vista previa usa un tamaño de respaldo). */
   cakeMolds: CakeMold[]
   smallerAlternatives: SmallerAlternatives
+  /** Los tamaños en el orden de la API (por kilos, vitrina y mini); vacío si la API no los manda: entonces solo hay por kilos. */
+  sizes: DesignSizeOption[]
 }
 
 /** Lo que el precio necesita. Forma y pisos no cambian el precio, así que no van. Los kilos los calcula la API. */
 export type CakeDesignPriceRequest = {
-  people: number
+  /** El tamaño; por kilos no se manda (es el de omisión de la API). */
+  cakeSize: CakeSizeCode
+  /** Solo con el pastel de vitrina de "Personalizar este pastel": el `slug` del producto. */
+  sourceProduct: string | null
+  /** Las personas, solo por kilos: el pastel de vitrina y el mini ya traen su tamaño (`null`). */
+  people: number | null
   cakeType: string
   bread: string
   fillingBase: string | null
@@ -193,8 +244,9 @@ export type PeopleSize = {
 
 /** Los montos del pedido, tal como los calcula la API (texto decimal, "3825.00"); el navegador nunca los calcula. */
 export type QuoteBreakdown = {
-  kg: number
-  pricePerKg: string
+  /** `null` en el pastel de vitrina y en el mini: no se cobran por kilo y `cakeSubtotal` es su precio. */
+  kg: number | null
+  pricePerKg: string | null
   cakeSubtotal: string
   wafer: string
   decoration: string
@@ -220,6 +272,8 @@ export type PaymentSummary = {
  * API rechazó la elección (400) pero mandó los kilos por personas, así el paso 1 sigue; no hay total.
  */
 export type CakeDesignQuote = {
+  /** El tamaño que cobró la API. */
+  cakeSize: CakeSizeCode
   total: string | null
   pricePerKg: string | null
   /** El desglose de la revisión (paso 8); `null` si la API no lo mandó completo. */
@@ -248,6 +302,9 @@ const MOLD_MAX_KG = 100
 const MOLD_MAX_CM = 150
 // `max_length` de los nombres de las opciones en el backend.
 const MAX_NAME_LENGTH = 120
+// Un radio o una medida con dos decimales ("13.12"), como `lid_radius_cm`.
+const CM_TWO_DECIMALS = /^\d{1,3}(?:\.\d{1,2})?$/
+const SIZE_CODES = new Set<string>(['by_weight', 'showcase', 'mini'])
 const DECORATION_PRICINGS = new Set<string>(['included', 'fixed', 'quote'])
 const BREAD_MODES = new Set<string>(['extra_per_kg', 'full_price_per_kg'])
 const CODES = new Set<string>(['not_offered', 'not_combinable', 'only_in'])
@@ -452,6 +509,61 @@ function parseSize(data: unknown): CakeSize | null {
   return weight === null && servings === null ? null : { approxWeightKg: weight, servings }
 }
 
+/** Una medida positiva en cm con hasta dos decimales; `null` si falta o no sirve. */
+function cmMeasure(value: unknown): number | null {
+  if (typeof value !== 'string' || !CM_TWO_DECIMALS.test(value)) return null
+  const parsed = Number(value)
+  return parsed > 0 && parsed <= MOLD_MAX_CM ? parsed : null
+}
+
+function sizeCode(value: unknown): CakeSizeCode | null {
+  return typeof value === 'string' && SIZE_CODES.has(value) ? (value as CakeSizeCode) : null
+}
+
+/** Un diccionario `slug -> motivo`; las entradas que no sirven se descartan. */
+function reasonsBySlug(value: unknown): ReasonsBySlug {
+  return textByType(value, name)
+}
+
+/** Un tamaño de `sizes`. Sin código ni nombre se descarta; un dato dudoso queda en `null` (no se inventa). */
+function parseDesignSize(data: unknown): DesignSizeOption | null {
+  if (!isRecord(data)) return null
+  const code = sizeCode(data.code)
+  const sizeName = name(data.name)
+  if (!code || !sizeName) return null
+  return {
+    code,
+    name: sizeName,
+    // Solo un `true` explícito lo deja elegir.
+    available: data.available === true,
+    unavailableReason: name(data.unavailable_reason),
+    priceFrom: money(data.price_from),
+    servings: count(data.servings, 1),
+    approxWeightKg: typeof data.approx_weight_kg === 'string' && WEIGHT.test(data.approx_weight_kg) ? data.approx_weight_kg : null,
+    diameterCm: cmMeasure(data.diameter_cm),
+    heightCm: cmMeasure(data.height_cm),
+    lidRadiusCm: cmMeasure(data.lid_radius_cm),
+    minKg: count(data.min_kg, 1),
+    minPeople: count(data.min_people, 1),
+    waferUnavailableReason: name(data.wafer_unavailable_reason),
+    unavailableBreads: reasonsBySlug(data.unavailable_breads),
+    unavailableFillingBases: reasonsBySlug(data.unavailable_filling_bases),
+    unavailableDecorations: reasonsBySlug(data.unavailable_decorations),
+    decorationPrices: textByType(data.decoration_prices, money),
+  }
+}
+
+/** Los tamaños, uno por código y en el orden de la API. Sin lista (una versión anterior), ninguno: el diseñador es solo por kilos. */
+function parseDesignSizes(value: unknown): DesignSizeOption[] {
+  if (!Array.isArray(value)) return []
+  const seen = new Set<CakeSizeCode>()
+  return list(value, parseDesignSize, 'tamaños').filter((size) => {
+    if (seen.has(size.code)) return false
+    seen.add(size.code)
+    return true
+  })
+}
+
 function parseLimits(data: unknown): CakeDesignLimits {
   if (!isRecord(data)) throw new TypeError('Los límites de "Diseña tu pastel" no tienen la forma esperada.')
   const peoplePerKg = count(data.people_per_kg, 1)
@@ -468,7 +580,18 @@ function parseLimits(data: unknown): CakeDesignLimits {
   if (waferMaxWidthCm === null || waferMaxHeightCm === null || messageSuggestedMaxWords === null) {
     throw new TypeError('Los límites de "Diseña tu pastel" no tienen la forma esperada.')
   }
-  return { peoplePerKg, minCustomKg, maxOnlineKg, waferPrice, waferMaxWidthCm, waferMaxHeightCm, messageSuggestedMaxWords }
+  // Sin mínimo (o con uno dudoso), la letra no tiene tope inferior propio; el servidor lo vuelve a revisar.
+  const minLetter = typeof data.message_min_letter_cm === 'string' && WEIGHT.test(data.message_min_letter_cm) ? Number(data.message_min_letter_cm) : null
+  return {
+    peoplePerKg,
+    minCustomKg,
+    maxOnlineKg,
+    waferPrice,
+    waferMaxWidthCm,
+    waferMaxHeightCm,
+    messageSuggestedMaxWords,
+    messageMinLetterCm: minLetter !== null && minLetter > 0 ? minLetter : null,
+  }
 }
 
 /**
@@ -495,6 +618,7 @@ export function parseCakeDesignOptions(data: unknown): CakeDesignOptions {
       showcaseCake: isRecord(data.smaller_alternatives) ? parseSize(data.smaller_alternatives.showcase_cake) : null,
       miniCake: isRecord(data.smaller_alternatives) ? parseSize(data.smaller_alternatives.mini_cake) : null,
     },
+    sizes: parseDesignSizes(data.sizes),
   }
   const missing = (['cakeTypes', 'breads', 'fillingBases', 'decorations', 'tierMinimums'] as const).filter(
     (key) => options[key].length === 0,
@@ -526,13 +650,16 @@ function parseSizeBlock(data: unknown): PeopleSize | null {
   }
 }
 
-function parseBreakdown(data: Raw): QuoteBreakdown | null {
+function parseBreakdown(data: Raw, byWeight: boolean): QuoteBreakdown | null {
   const kg = count(data.kg, 1)
-  const [pricePerKg, cakeSubtotal, wafer, decoration, total] = [data.price_per_kg, data.cake_subtotal, data.wafer, data.decoration, data.total].map(money)
-  if (kg === null || [pricePerKg, cakeSubtotal, wafer, decoration, total].includes(null) || typeof data.requires_quote !== 'boolean') return null
+  const pricePerKg = money(data.price_per_kg)
+  const [cakeSubtotal, wafer, decoration, total] = [data.cake_subtotal, data.wafer, data.decoration, data.total].map(money)
+  // Por kilos, los kilos y el precio por kilo son parte del desglose; en vitrina y mini no existen.
+  if (byWeight && (kg === null || pricePerKg === null)) return null
+  if ([cakeSubtotal, wafer, decoration, total].includes(null) || typeof data.requires_quote !== 'boolean') return null
   return {
-    kg,
-    pricePerKg: pricePerKg as string,
+    kg: byWeight ? kg : null,
+    pricePerKg: byWeight ? pricePerKg : null,
     cakeSubtotal: cakeSubtotal as string,
     wafer: wafer as string,
     decoration: decoration as string,
@@ -573,15 +700,20 @@ export function parseCakeDesignQuote(data: unknown): CakeDesignQuote {
   if (!isRecord(data)) throw new TypeError('El precio no tiene la forma esperada.')
   const size = parseSizeBlock(data.size)
   if (data.size !== null && data.size !== undefined && size === null) throw new TypeError('El tamaño no tiene la forma esperada.')
+  // Sin `cake_size` (una versión anterior de la API), es por kilos.
+  const cakeSize = data.cake_size === undefined || data.cake_size === null ? 'by_weight' : sizeCode(data.cake_size)
+  if (!cakeSize) throw new TypeError('El tamaño no tiene la forma esperada.')
   const empty = { total: null, pricePerKg: null, breakdown: null, stand: null, payment: null }
-  if (size?.aboveMaximum) return { ...empty, size, isEstimate: false, rejected: false, rejectedReason: null }
+  if (size?.aboveMaximum) return { ...empty, cakeSize, size, isEstimate: false, rejected: false, rejectedReason: null }
+  const byWeight = cakeSize === 'by_weight'
   const total = money(data.total)
   const pricePerKg = money(data.price_per_kg)
-  if (total === null || pricePerKg === null) throw new TypeError('El precio no tiene la forma esperada.')
+  if (total === null || (byWeight && pricePerKg === null)) throw new TypeError('El precio no tiene la forma esperada.')
   return {
+    cakeSize,
     total,
-    pricePerKg,
-    breakdown: parseBreakdown(data),
+    pricePerKg: byWeight ? pricePerKg : null,
+    breakdown: parseBreakdown(data, byWeight),
     stand: parseStand(data.stand),
     payment: parsePayment(data.payment),
     size,
@@ -591,18 +723,22 @@ export function parseCakeDesignQuote(data: unknown): CakeDesignQuote {
   }
 }
 
-/** Un 400 de la elección que trae `size`: sin total, pero con los kilos. Sin `size`, `null` (es una falla). */
-function rejectedQuote(error: unknown): CakeDesignQuote | null {
+/**
+ * Un 400 de la elección: sin total. Por kilos trae `size` con los kilos (sin él, `null`: es una falla); el pastel de vitrina y el
+ * mini no llevan kilos, así que su rechazo son solo los errores por campo.
+ */
+function rejectedQuote(error: unknown, cakeSize: CakeSizeCode): CakeDesignQuote | null {
   if (!(error instanceof ApiError) || error.status !== 400 || !isRecord(error.body)) return null
   const size = parseSizeBlock(error.body.size)
-  if (!size) return null
+  if (!size && cakeSize === 'by_weight') return null
   // El 400 trae los errores por campo junto a `size` (forma plana, ver la descripción del endpoint): el primero se muestra.
   const reasons = Object.entries(error.body)
     .filter(([field]) => field !== 'size')
     .flatMap(([, value]) => (Array.isArray(value) ? value : []))
     .map((reason) => name(reason))
     .filter((reason): reason is string => reason !== null)
-  return { total: null, pricePerKg: null, breakdown: null, stand: null, payment: null, size, isEstimate: false, rejected: true, rejectedReason: reasons[0] ?? null }
+  if (!size && reasons.length === 0) return null
+  return { cakeSize, total: null, pricePerKg: null, breakdown: null, stand: null, payment: null, size, isEstimate: false, rejected: true, rejectedReason: reasons[0] ?? null }
 }
 
 /**
@@ -622,7 +758,9 @@ export async function getCakeDesignOptions(signal: AbortSignal): Promise<CakeDes
 /** Precio de un diseño. El servidor lo calcula todo; aquí solo se manda lo elegido. */
 export async function getCakeDesignQuote(request: CakeDesignPriceRequest, signal: AbortSignal): Promise<CakeDesignQuote> {
   const body = {
-    people: request.people,
+    // Por kilos el cuerpo sigue como antes (el tamaño por omisión de la API); vitrina y mini van sin personas.
+    ...(request.cakeSize === 'by_weight' ? { people: request.people } : { cake_size: request.cakeSize }),
+    ...(request.sourceProduct ? { source_product: request.sourceProduct } : {}),
     cake_type: request.cakeType,
     bread: request.bread,
     ...(request.fillingBase ? { filling_base: request.fillingBase, filling_flavors: request.fillingFlavors } : {}),
@@ -634,7 +772,7 @@ export async function getCakeDesignQuote(request: CakeDesignPriceRequest, signal
   try {
     data = await postJson(['cake-designs', 'price'], body, { signal: withTimeout(signal) })
   } catch (error) {
-    const rejected = rejectedQuote(error)
+    const rejected = rejectedQuote(error, request.cakeSize)
     if (rejected) return rejected
     throw error
   }

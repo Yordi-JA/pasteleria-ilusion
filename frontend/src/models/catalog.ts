@@ -13,12 +13,28 @@ import type { OfferingPresentation } from './presentation.ts'
 export type ProductCategory = 'cake' | 'dessert'
 export type SalesChannel = 'showcase_and_order' | 'order_only' | 'showcase_only'
 
-/** Una presentación en una tarjeta: con su id se agrega al pedido. El precio llega como texto ("350.00"). */
+/**
+ * Una presentación en una tarjeta: con su id se agrega al pedido. El precio llega como texto ("350.00"); `null` es PENDIENTE
+ * (tanda 2): la interfaz dice "[Precio por confirmar]" y no la deja agregar.
+ */
 export type CardOffering = {
   id: number
   presentation: OfferingPresentation
-  price: string
+  price: string | null
 }
+
+/** Una presentación con precio: la única que se agrega al pedido. */
+export type PricedOffering = CardOffering & { price: string }
+
+export function isPriced<T extends CardOffering>(offering: T): offering is T & { price: string } {
+  return offering.price !== null
+}
+
+/** El marcador de un precio PENDIENTE (regla 1 de AGENTS.md), como `Pending`. */
+export const PENDING_PRICE = '[Precio por confirmar]'
+
+/** Si "Personalizar este pastel" lo abre como pastel de vitrina (tanda 2) y, si no, por qué. */
+export type ShowcaseDesign = { available: boolean; unavailableReason: string | null }
 
 /** Tarjeta de producto de `products/`, `featured-products/` y `related`. `null` es un dato pendiente. */
 export type ProductCard = {
@@ -39,6 +55,8 @@ export type ProductCard = {
   slicedToday: boolean
   /** Presentaciones activas que esta versión sabe mostrar, en el orden del admin. */
   offerings: CardOffering[]
+  /** `null` si la API no lo manda (una versión anterior): entonces no se personaliza como pastel de vitrina. */
+  showcaseDesign: ShowcaseDesign | null
 }
 
 /** Una partida de la vitrina o de las rebanadas de hoy. */
@@ -110,12 +128,23 @@ function price(value: unknown): string | null {
   return typeof value === 'string' && PRICE_PATTERN.test(value) ? value : null
 }
 
+/** Un precio de la API, o `null` si es PENDIENTE (`price` en `null` con `price_pending`); `undefined` si no tiene la forma esperada. */
+function offeringPrice(data: Raw): string | null | undefined {
+  if (data.price === null && data.price_pending === true) return null
+  return price(data.price) ?? undefined
+}
+
 function parseOffering(data: unknown): CardOffering | null {
   if (!isRecord(data)) return null
   const offeringId = id(data.id)
-  const amount = price(data.price)
-  if (offeringId === null || amount === null || !isOfferingPresentation(data.presentation)) return null
+  const amount = offeringPrice(data)
+  if (offeringId === null || amount === undefined || !isOfferingPresentation(data.presentation)) return null
   return { id: offeringId, presentation: data.presentation, price: amount }
+}
+
+function parseShowcaseDesign(data: unknown): ShowcaseDesign | null {
+  if (!isRecord(data)) return null
+  return { available: data.available === true, unavailableReason: typeof data.unavailable_reason === 'string' ? data.unavailable_reason : null }
 }
 
 function parseCard(data: unknown): ProductCard | null {
@@ -140,6 +169,7 @@ function parseCard(data: unknown): ProductCard | null {
     inShowcaseToday: data.in_showcase_today === true,
     slicedToday: data.sliced_today === true,
     offerings,
+    showcaseDesign: parseShowcaseDesign(data.showcase_design),
   }
 }
 
@@ -172,9 +202,10 @@ function parseStockItem(data: unknown): StockItem | null {
   const productSlug = text(data.product_slug, MAX_TEXT_LENGTH, SLUG)
   const productName = text(data.product_name)
   const kind = category(data.category)
-  const amount = price(data.price)
+  const amount = offeringPrice(data)
   const { stock, presentation } = data
-  if (offeringId === null || !productSlug || !productName || !kind || amount === null) return null
+  // Una partida de hoy sin precio (PENDIENTE) no se puede vender en la vitrina: se descarta, como una dudosa.
+  if (offeringId === null || !productSlug || !productName || !kind || amount === undefined || amount === null) return null
   if (!isOfferingPresentation(presentation)) return null
   if (typeof stock !== 'number' || !Number.isSafeInteger(stock) || stock < 0) return null
   return {
@@ -216,7 +247,7 @@ export function photoUrl(file: string): string | null {
  * La presentación que se ofrece en una tarjeta de la portada: el pastel completo (`whole`) si lo hay; si no,
  * la primera que no es rebanada, en el orden del admin (una rebanada no se encarga, D60). Sin ninguna, `null`.
  */
-export function featuredOffering(card: Pick<ProductCard, 'offerings'>): CardOffering | null {
+export function featuredOffering<T extends CardOffering>(card: { offerings: T[] }): T | null {
   const orderable = card.offerings.filter((offering) => offering.presentation !== 'slice')
   return orderable.find((offering) => offering.presentation === 'whole') ?? orderable[0] ?? null
 }
@@ -225,7 +256,7 @@ export function featuredOffering(card: Pick<ProductCard, 'offerings'>): CardOffe
  * Adaptador de una tarjeta o ficha al carrito: por omisión un encargo (`order`), sin tope de existencias; la ficha
  * pasa `showcase` cuando se lleva hoy de la vitrina. El nombre lleva la presentación cuando no es el completo.
  */
-export function toCartOffering(card: Pick<ProductCard, 'slug' | 'name'>, offering: CardOffering, fulfillment: Fulfillment = 'order'): CartOffering {
+export function toCartOffering(card: Pick<ProductCard, 'slug' | 'name'>, offering: PricedOffering, fulfillment: Fulfillment = 'order'): CartOffering {
   return {
     offeringId: offering.id,
     name: offeringLabel(card.name, offering.presentation),

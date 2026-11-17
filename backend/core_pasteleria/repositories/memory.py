@@ -18,6 +18,7 @@ from .records import (
     CoverageColorRecord,
     DecorationRecord,
     DeliveryBandRecord,
+    DesignSizeRecord,
     FillingBaseRecord,
     OfferingRecord,
     PolicySettingsRecord,
@@ -202,6 +203,7 @@ class MemoryCakeOptionRepo:
         decorations: list[DecorationRecord] = (),
         tier_recommendations: list[TierRecommendationRecord] = (),
         cake_molds: list[CakeMoldRecord] = (),
+        design_sizes: list[DesignSizeRecord] = (),
     ):
         self._breads = list(breads)
         self._filling_bases = list(filling_bases)
@@ -210,6 +212,7 @@ class MemoryCakeOptionRepo:
         self._decorations = list(decorations)
         self._tier_recommendations = list(tier_recommendations)
         self._cake_molds = list(cake_molds)
+        self._design_sizes = list(design_sizes)
 
     def list_breads(self) -> list[BreadRecord]:
         return list(self._breads)
@@ -231,6 +234,9 @@ class MemoryCakeOptionRepo:
 
     def list_cake_molds(self) -> list[CakeMoldRecord]:
         return list(self._cake_molds)
+
+    def list_design_sizes(self) -> list[DesignSizeRecord]:
+        return list(self._design_sizes)
 
 
 class MemorySettingsRepo:

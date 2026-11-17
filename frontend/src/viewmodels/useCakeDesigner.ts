@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { getCakeDesignOptions } from '../models/cakeDesign.ts'
-import type { CakeDesignOptions, CakeDesignQuote } from '../models/cakeDesign.ts'
+import type { CakeDesignOptions, CakeDesignQuote, CakeSizeCode } from '../models/cakeDesign.ts'
 import { emptyDraft, MAX_PEOPLE_INPUT, migrateLegacyColors, readDraft, writeDraft } from '../models/cakeDesignDraft.ts'
 import type { CakeDesignDraft, CakeForm } from '../models/cakeDesignDraft.ts'
 import type { Occasion } from '../models/occasion.ts'
@@ -11,6 +11,7 @@ import { designPreview } from './cakeDesignPreview.ts'
 import { withFillingBase, withFlavor, withFlavorCount } from './cakeDesignChoices.ts'
 import {
   confirmStep,
+  COVERAGE_STEP,
   coverageColor,
   deriveDesign,
   firstIncompleteStep,
@@ -133,7 +134,11 @@ export function useCakeDesigner() {
   }, [])
   const price = useCakeDesignPrice(plan?.request ?? null, onQuote)
   const apiSize = price.quote?.size ?? null
-  const design = useMemo(() => (options ? deriveDesign(draft, options, apiSize, imageReady, waferReady) : null), [apiSize, draft, imageReady, options, waferReady])
+  // Con lo que mide el texto: el paso 7 revisa que el mensaje quepa con la letra mínima (tanda 2).
+  const design = useMemo(
+    () => (options ? deriveDesign(draft, options, apiSize, imageReady, waferReady, metrics) : null),
+    [apiSize, draft, imageReady, metrics, options, waferReady],
+  )
 
   const requested = requestedStep(searchParams.get('paso'))
   const current = design ? allowedStep(requested, design, draft) : requested
@@ -190,6 +195,8 @@ export function useCakeDesigner() {
     [update],
   )
   const settlePeople = useCallback(() => setPeopleText(String(draft.people)), [draft.people])
+  /** Entre dos tamaños que rinden (tanda 2): el pastel de vitrina o hacerlo por kilos con el mínimo. */
+  const chooseSize = useCallback((cakeSize: CakeSizeCode) => update((d) => ({ ...d, cakeSize })), [update])
   const setForm = useCallback((form: CakeForm) => update((d) => ({ ...d, form })), [update])
   const setTiers = useCallback(
     (tiers: number) => {
@@ -251,6 +258,8 @@ export function useCakeDesigner() {
 
   // --- Avance ---
   const { flush } = price
+  const { clear: clearDecorationImage } = decorationImage
+  const { clear: clearWaferImage } = waferImage
   // Un solo "Continuar" a la vez: un doble clic o Enter sostenido mientras se esperan los kilos no navega dos veces.
   const proceedingRef = useRef(false)
   const [proceeding, setProceeding] = useState(false)
@@ -263,7 +272,8 @@ export function useCakeDesigner() {
       let stepDesign = design
       let size = apiSize
       let base = draft
-      if (current === 1 && !design.size?.current) {
+      // Solo por kilos se esperan los kilos de la API: el pastel de vitrina y el mini ya traen su tamaño.
+      if (current === 1 && design.cakeSize === 'by_weight' && !design.size?.current) {
         // Los kilos de estas personas todavía no llegan: se pide ya (sin esperar el fin de los cambios) y se espera la
         // respuesta, así basta una pulsación. Solo una falla de red deja el error con reintento.
         const settled = await flush()
@@ -280,7 +290,7 @@ export function useCakeDesigner() {
         }
         // Si los kilos no permiten los pisos, bajan aquí también (la respuesta pudo llegar en esta misma espera).
         if (base.tiers > size.maxTiers) base = { ...base, tiers: size.maxTiers }
-        stepDesign = deriveDesign(base, options, size, imageReady, waferReady)
+        stepDesign = deriveDesign(base, options, size, imageReady, waferReady, metrics)
       }
       const missing = missingChoice(current, stepDesign, base, imageReady)
       if (missing) {
@@ -289,16 +299,19 @@ export function useCakeDesigner() {
       }
       const next = confirmStep(current, stepDesign, base)
       if (next.people !== base.people) setPeopleText(String(next.people))
+      // Lo que el tamaño no admite se quitó al continuar (tanda 2): sus imágenes, que viven en la memoria de la pestaña, también.
+      if (base.decorationImageName && !next.decorationImageName) clearDecorationImage()
+      if (base.waferEnabled && !next.waferEnabled) clearWaferImage()
       // Funcional: lo que este paso confirma se aplica sobre el borrador más reciente, sin pisar otros cambios.
       const changes = diffOf(latestDraft.current, next)
       setDraft((latest) => ({ ...latest, ...changes }))
-      const after = deriveDesign(next, options, next.people === base.people ? size : null, imageReady, waferReady)
+      const after = deriveDesign(next, options, next.people === base.people ? size : null, imageReady, waferReady, metrics)
       navigate({ search: `?paso=${stepAfter(current, stepDesign, after, next)}` })
     } finally {
       proceedingRef.current = false
       setProceeding(false)
     }
-  }, [apiSize, current, design, draft, flush, imageReady, navigate, options, waferReady])
+  }, [apiSize, clearDecorationImage, clearWaferImage, current, design, draft, flush, imageReady, metrics, navigate, options, waferReady])
 
   const back = useCallback(() => {
     if (current === 1 || !design) navigate('/pedido')
@@ -321,26 +334,34 @@ export function useCakeDesigner() {
     if (!orderLine) return
     await order.add(orderLine, { decoration: decorationLocal, wafer: waferLocal }, draft.replaces)
   }, [decorationLocal, draft.replaces, order, orderLine, waferLocal])
-  const { clear: clearDecorationImage } = decorationImage
-  const { clear: clearWaferImage } = waferImage
-  /** Empieza con `fresh` en el paso 1, sin las imágenes del diseño anterior. */
+  /** Empieza con `fresh` en `step` (por omisión, el paso 1), sin las imágenes del diseño anterior. */
+  // El paso al que lleva `restart`: se navega cuando el borrador nuevo ya está en pantalla. Si la URL cambiara antes, el paso
+  // pedido (el 5 de un pastel de vitrina de origen) se mediría con el borrador viejo y se corregiría al primero sin completar.
+  const restartTo = useRef<{ step: number; replace: boolean } | null>(null)
+  useEffect(() => {
+    const pending = restartTo.current
+    if (!pending) return
+    restartTo.current = null
+    navigate({ search: `?paso=${pending.step}` }, { replace: pending.replace })
+  }, [draft, navigate])
   const restart = useCallback(
-    (fresh: CakeDesignDraft, replace = false) => {
+    (fresh: CakeDesignDraft, replace = false, step = 1) => {
       clearDecorationImage()
       clearWaferImage()
       setPeopleText(String(fresh.people))
       setTierNotice(null)
       setStepError(null)
+      restartTo.current = { step, replace }
       setDraft(fresh)
-      navigate({ search: '?paso=1' }, { replace })
     },
-    [clearDecorationImage, clearWaferImage, navigate],
+    [clearDecorationImage, clearWaferImage],
   )
   /** "Diseñar otro pastel": empieza de cero, sin las imágenes de este. */
   const startOver = useCallback(() => restart(emptyDraft()), [restart])
 
   // --- "Personalizar este pastel" desde la ficha (D59) ---
-  const restartWithProduct = useCallback((fresh: CakeDesignDraft) => restart(fresh, true), [restart])
+  // Un pastel de vitrina de origen ya trae tamaño, tipo, pan y relleno: el recorrido empieza en la cobertura (tanda 2).
+  const restartWithProduct = useCallback((fresh: CakeDesignDraft) => restart(fresh, true, fresh.source ? COVERAGE_STEP : 1), [restart])
   const prefill = useDesignPrefill({ options, draft, restart: restartWithProduct })
 
   // --- Vista previa ---
@@ -380,6 +401,7 @@ export function useCakeDesigner() {
       setPeople,
       typePeople,
       settlePeople,
+      chooseSize,
       setForm,
       setTiers,
       setCakeType,

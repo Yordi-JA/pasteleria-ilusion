@@ -69,13 +69,15 @@ export type BreadGroups = {
 export function breadChoices(draft: CakeDesignDraft, design: DesignDerived, options: CakeDesignOptions): BreadGroups {
   const type = design.cakeType?.value ?? ''
   const toChoice = (bread: BreadOption): Choice => {
-    const reason = bread.unavailableReasons[type]
+    // Lo que el tamaño no admite (el mini, tanda 2) también se ve desactivado con su motivo.
+    const reason = bread.unavailableReasons[type] ?? design.sizeOption?.unavailableBreads[bread.slug]
     const included = bread.pricingMode === 'full_price_per_kg'
     return {
       value: bread.slug,
       label: bread.name,
       description: bread.description || (included && bread.includedFilling ? `Relleno de ${lowerFirst(bread.includedFilling)}` : undefined),
-      trailing: reason ? undefined : perKg(bread.pricePerKgFrom[type], !included),
+      // El precio por kilo solo aplica por kilos: el pastel de vitrina y el mini tienen su propio precio.
+      trailing: reason || design.small ? undefined : perKg(bread.pricePerKgFrom[type], !included),
       checked: draft.bread === bread.slug,
       disabledReason: reason,
     }
@@ -122,7 +124,7 @@ export function fillingChoices(draft: CakeDesignDraft, design: DesignDerived, op
     return {
       value: flavor.slug,
       label: flavor.name,
-      trailing: reason ? undefined : perKg(flavor.pricePerKgByCakeType[type], false),
+      trailing: reason || design.small ? undefined : perKg(flavor.pricePerKgByCakeType[type], false),
       checked: chosen.has(flavor.slug),
       // Con los dos sabores elegidos, los demás esperan a que se quite uno; el contador lo dice.
       disabledReason: reason ?? (full && !chosen.has(flavor.slug) ? '' : undefined),
@@ -137,9 +139,9 @@ export function fillingChoices(draft: CakeDesignDraft, design: DesignDerived, op
     bases: options.fillingBases.map((option) => ({
       value: option.slug,
       label: option.name,
-      description: perKg(option.pricePerKgByCakeType[type], false),
+      description: design.small ? undefined : perKg(option.pricePerKgByCakeType[type], false),
       checked: draft.fillingBase === option.slug,
-      disabledReason: option.unavailableReasons[type],
+      disabledReason: option.unavailableReasons[type] ?? design.sizeOption?.unavailableFillingBases[option.slug],
     })),
     flavorsHeading: base && base.maxFlavors < 2 ? `Ahora, el sabor ${lowerFirst(base.name)}` : multiple ? 'Elige 2 sabores' : 'Elige el sabor',
     countChoice:
@@ -149,7 +151,7 @@ export function fillingChoices(draft: CakeDesignDraft, design: DesignDerived, op
             two: {
               value: '2',
               label: 'Dos sabores',
-              description: extra && extra !== '$0' ? `Mitad y mitad, +${extra} por kg` : 'Mitad y mitad',
+              description: extra && extra !== '$0' && !design.small ? `Mitad y mitad, +${extra} por kg` : 'Mitad y mitad',
               checked: multiple,
               disabledReason: blocking ? `${blocking.name} no se combina` : undefined,
             },

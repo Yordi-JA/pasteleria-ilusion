@@ -105,6 +105,34 @@ def check_wafer_layout(layout: WaferLayout, wafer: bool, limits: CakeDesignSetti
         )
 
 
+# Holgura de la letra mínima: el editor redondea la escala, así que una centésima de milímetro no es un rechazo.
+LETTER_TOLERANCE_CM = 0.001
+
+
+def check_message_letter(layout: MessageLayout, lid_radius_cm: float, min_letter_cm) -> None:
+    """La letra del mensaje no baja del mínimo de la pastelería (`CakeDesignSettings.message_min_letter_cm`).
+
+    El alto de la letra es `scale` por el radio de la parte plana de la tapa, como en la vista previa
+    (`messageGeometry.ts`). Si ni con la escala más grande del editor se alcanza el mínimo, en esa tapa no cabe ningún
+    mensaje. El ancho del texto depende de la tipografía, que el servidor no mide: que quepa a lo ancho lo revisa el
+    editor, y por eso el mensaje dice qué hacer si con el mínimo ya no cabe.
+    """
+    minimum = float(min_letter_cm)
+    if minimum / lid_radius_cm > MAX_MESSAGE_SCALE + 1e-9:
+        raise DomainValidationError(
+            {"message_layout": [f"En este pastel no cabe un mensaje con letra de al menos {minimum:g} cm."]}
+        )
+    if layout.scale * lid_radius_cm + LETTER_TOLERANCE_CM < minimum:
+        raise DomainValidationError(
+            {
+                "message_layout": [
+                    f"La letra del mensaje mide al menos {minimum:g} cm de alto: hazla más grande. "
+                    "Si así no cabe en el pastel, acorta el mensaje."
+                ]
+            }
+        )
+
+
 def normalize_hex_color(value: object) -> str | None:
     """El color `#RRGGBB` en minúsculas, o `None` si no es exactamente eso (`fullmatch`: ni un salto de línea de más)."""
     if isinstance(value, str) and HEX_COLOR.fullmatch(value):

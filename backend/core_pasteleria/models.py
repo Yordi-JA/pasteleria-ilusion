@@ -162,6 +162,15 @@ class CakeShape(models.TextChoices):
     RECTANGULAR = "rectangular", "Rectangular"
 
 
+class CakeDesignSize(models.TextChoices):
+    """Tamaño de un pastel de "Diseña tu pastel" (tanda 2 de correcciones): por kilos (desde el mínimo de pedido), de
+    vitrina o mini. Cada uno se cobra con su estrategia (`pricing_service.SIZE_PRICING_STRATEGIES`)."""
+
+    BY_WEIGHT = "by_weight", "Por kilos"
+    SHOWCASE = "showcase", "Pastel de vitrina"
+    MINI = "mini", "Pastel mini"
+
+
 class WaferShape(models.TextChoices):
     """Forma de la oblea del paso 7: una hoja (con ancho y alto propios) o un círculo."""
 
@@ -459,6 +468,17 @@ class CakeDesignSettings(SingletonSettings):
         "palabras sugeridas para el mensaje",
         help_text="Es una sugerencia: no bloquea el pedido.",
     )
+    message_min_letter_cm = models.DecimalField(
+        "alto mínimo de la letra del mensaje (cm)",
+        max_digits=3,
+        decimal_places=1,
+        default=Decimal("1.5"),
+        db_default=Decimal("1.5"),
+        help_text=(
+            "En todos los tamaños: la letra del mensaje no puede ser más chica. Si con este alto el mensaje no cabe "
+            "en la tapa, el cliente tiene que acortarlo."
+        ),
+    )
 
     class Meta(SingletonSettings.Meta):
         verbose_name = "Diseña tu pastel"
@@ -506,6 +526,11 @@ class CakeDesignSettings(SingletonSettings):
                 condition=Q(message_suggested_max_words__gt=0),
                 name="cakedesignsettings_message_words_positive",
                 violation_error_message="Las palabras sugeridas deben ser más de 0.",
+            ),
+            models.CheckConstraint(
+                condition=Q(message_min_letter_cm__gt=0),
+                name="cakedesignsettings_min_letter_positive",
+                violation_error_message="El alto mínimo de la letra debe ser mayor que 0.",
             ),
         ]
 
@@ -877,6 +902,18 @@ class Bread(OrderedOption):
         validators=[hex_color_validator],
         help_text="Color de las chispas, los trozos o el granillo del relleno incluido. Vacío si es liso.",
     )
+    showcase_price = models.ForeignKey(
+        "CatalogPrice",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="precio como pastel de vitrina",
+        help_text=(
+            "Solo para un pan con relleno incluido (Choco-pingüino, Red velvet): el precio de catálogo del pastel de "
+            "vitrina armado con este pan en «Diseña tu pastel». Vacío: ese pan no se ofrece en el pastel de vitrina."
+        ),
+    )
 
     class Meta:
         verbose_name = "pan"
@@ -902,6 +939,13 @@ class Bread(OrderedOption):
                 name="bread_extra_price_has_no_filling",
                 violation_error_message=(
                     "Un pan con incremento por kilo no lleva relleno incluido."
+                ),
+            ),
+            models.CheckConstraint(
+                condition=~Q(pricing_mode=BreadPricingMode.EXTRA_PER_KG) | Q(showcase_price__isnull=True),
+                name="bread_showcase_price_only_with_included_filling",
+                violation_error_message=(
+                    "Un pan con incremento por kilo toma el precio de vitrina de la base del relleno: déjalo vacío."
                 ),
             ),
             *cake_types_constraints("bread"),
@@ -937,6 +981,24 @@ class FillingBase(OrderedOption):
         max_digits=8,
         decimal_places=2,
         help_text="Solo aplica si se elige más de un sabor.",
+    )
+    showcase_price = models.ForeignKey(
+        "CatalogPrice",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="precio como pastel de vitrina",
+        help_text=(
+            "El precio de catálogo del pastel de vitrina armado con esta base en «Diseña tu pastel» (por ejemplo, "
+            "«Pastel de sabor normal, completo»). Vacío: esta base no se ofrece en el pastel de vitrina."
+        ),
+    )
+    available_in_mini = models.BooleanField(
+        "disponible en el pastel mini",
+        default=False,
+        db_default=False,
+        help_text="No hay pastel mini con queso ni con flan: solo la base Normal va marcada.",
     )
 
     class Meta:
@@ -1359,6 +1421,23 @@ class DecorationOption(OrderedOption):
             "acepta un color para esta decoración (regla 6.1)."
         ),
     )
+    available_in_mini = models.BooleanField(
+        "disponible en el pastel mini",
+        default=False,
+        db_default=False,
+        help_text="El pastel mini es chico: solo lleva las decoraciones marcadas. Las demás salen desactivadas.",
+    )
+    mini_price = models.DecimalField(
+        "precio en el pastel mini",
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text=(
+            "Solo para una decoración de precio fijo marcada para el mini (Rosas): su precio en el mini. Vacío es "
+            "PENDIENTE: en el mini sale desactivada con «Precio por confirmar». Déjalo vacío; no pongas un valor supuesto."
+        ),
+    )
 
     class Meta:
         verbose_name = "decoración"
@@ -1376,6 +1455,11 @@ class DecorationOption(OrderedOption):
                 condition=Q(price__isnull=True) | Q(price__gt=0),
                 name="decorationoption_price_positive",
                 violation_error_message="El precio debe ser mayor que 0.",
+            ),
+            models.CheckConstraint(
+                condition=Q(mini_price__isnull=True) | (Q(pricing=DecorationPricing.FIXED) & Q(mini_price__gt=0)),
+                name="decorationoption_mini_price_only_when_fixed",
+                violation_error_message="Solo una decoración de precio fijo lleva precio en el mini, mayor que 0.",
             ),
             models.CheckConstraint(
                 condition=Q(preview_flavor__isnull=True) | Q(preview_bread__isnull=True),
@@ -1693,7 +1777,17 @@ class CatalogPrice(models.Model):
     """
 
     name = models.CharField("nombre", max_length=80, unique=True)
-    amount = models.DecimalField("precio", max_digits=8, decimal_places=2)
+    amount = models.DecimalField(
+        "precio",
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text=(
+            "Vacío es PENDIENTE: el catálogo muestra «[Precio por confirmar]» y esa presentación no se puede pedir. "
+            "Déjalo vacío; no pongas un valor supuesto."
+        ),
+    )
     approx_weight_kg = models.DecimalField(
         "peso aproximado (kg)",
         max_digits=4,
@@ -1713,7 +1807,7 @@ class CatalogPrice(models.Model):
         ordering = ["sort_order", "name"]
         constraints = [
             models.CheckConstraint(
-                condition=Q(amount__gt=0),
+                condition=Q(amount__isnull=True) | Q(amount__gt=0),
                 name="catalogprice_amount_positive",
                 violation_error_message="El precio debe ser mayor que 0.",
             ),
@@ -1721,6 +1815,92 @@ class CatalogPrice(models.Model):
 
     def __str__(self):
         return self.name
+
+
+# Los tamaños con fila en `DesignSize`: siempre redondos, de 1 piso y sin base.
+SMALL_DESIGN_SIZES = (CakeDesignSize.SHOWCASE, CakeDesignSize.MINI)
+
+
+class DesignSize(models.Model):
+    """Molde y precio del pastel de vitrina y del mini en "Diseña tu pastel" (tanda 2 de correcciones).
+
+    El precio, el peso y las personas no se repiten aquí: salen del precio de catálogo al que apunta (el mini, de
+    «Pastel mini»; la vitrina, del pastel de sabor normal, que es su referencia y su "desde"). Aquí viven las medidas
+    del molde (siempre redondo y de 1 piso) y, en la vitrina, la referencia contra la que se cobra la diferencia por
+    kilo de lo elegido. El pastel por kilos no lleva fila: sus límites están en la configuración y sus moldes en
+    `CakeMold`.
+    """
+
+    code = models.CharField(
+        "tamaño",
+        max_length=12,
+        choices=[(size.value, size.label) for size in SMALL_DESIGN_SIZES],
+        unique=True,
+    )
+    catalog_price = models.ForeignKey(
+        CatalogPrice,
+        on_delete=models.PROTECT,
+        related_name="+",
+        verbose_name="precio de catálogo",
+        help_text=(
+            "De aquí salen el peso, las personas y el precio: el del mini, siempre; el de la vitrina, como «desde» y "
+            "como peso con que se cobra la diferencia por kilo."
+        ),
+    )
+    diameter_cm = models.DecimalField(
+        "diámetro del molde (cm)",
+        max_digits=4,
+        decimal_places=1,
+        validators=[MinValueValidator(Decimal("0.1")), MaxValueValidator(MOLD_MAX_CM)],
+    )
+    height_cm = models.DecimalField(
+        "alto (cm)",
+        max_digits=4,
+        decimal_places=1,
+        validators=[MinValueValidator(Decimal("0.1")), MaxValueValidator(MOLD_MAX_CM)],
+    )
+    reference_cake_type = models.CharField(
+        "tipo de pastel de referencia",
+        max_length=20,
+        choices=CakeType.choices,
+        blank=True,
+        help_text="Solo en la vitrina: la diferencia por kilo se cobra contra este tipo, este pan y la base sin sabor propio.",
+    )
+    reference_bread = models.ForeignKey(
+        Bread,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="pan de referencia",
+        help_text="Solo en la vitrina.",
+    )
+
+    class Meta:
+        verbose_name = "tamaño de vitrina o mini"
+        verbose_name_plural = "tamaños de vitrina y mini"
+        ordering = ["code"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(code__in=[size.value for size in SMALL_DESIGN_SIZES]),
+                name="designsize_code_known",
+                violation_error_message="Ese tamaño no existe.",
+            ),
+            models.CheckConstraint(
+                condition=Q(diameter_cm__gt=0, diameter_cm__lte=MOLD_MAX_CM) & Q(height_cm__gt=0, height_cm__lte=MOLD_MAX_CM),
+                name="designsize_mold_in_range",
+                violation_error_message="El diámetro y el alto deben ser mayores que 0 (hasta 150 cm).",
+            ),
+            models.CheckConstraint(
+                condition=~Q(code=CakeDesignSize.SHOWCASE)
+                | (~Q(reference_cake_type="") & Q(reference_bread__isnull=False)),
+                name="designsize_showcase_needs_reference",
+                violation_error_message="La vitrina lleva su tipo de pastel y su pan de referencia.",
+            ),
+        ]
+
+    def __str__(self):
+        return self.get_code_display()
 
 
 class ProductOffering(OrderedOption):
@@ -2141,8 +2321,26 @@ class CakeDesign(models.Model):
     los colores, de la lista de nombres de referencia.
     """
 
-    people = models.PositiveSmallIntegerField("personas")
-    kg = models.PositiveSmallIntegerField("kilos")
+    cake_size = models.CharField(
+        "tamaño",
+        max_length=12,
+        choices=CakeDesignSize.choices,
+        default=CakeDesignSize.BY_WEIGHT,
+        db_default=CakeDesignSize.BY_WEIGHT,
+    )
+    # Por kilos: las que pidió el cliente. Vitrina y mini: las que rinde, del catálogo al hacer el pedido (vacías si la
+    # pastelería no las ha definido).
+    people = models.PositiveSmallIntegerField("personas", null=True, blank=True)
+    kg = models.PositiveSmallIntegerField("kilos", null=True, blank=True, help_text="Solo en un pastel por kilos.")
+    source_product = models.ForeignKey(
+        "Product",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="pastel de vitrina de origen",
+        help_text="Con «Personalizar este pastel» de un pastel de vitrina: su tipo, pan y relleno no cambian.",
+    )
     form = models.CharField("forma", max_length=12, choices=CakeShape.choices)
     tiers = models.PositiveSmallIntegerField("pisos")
     cake_type = models.CharField("tipo de pastel", max_length=20, choices=CakeType.choices)
@@ -2187,7 +2385,7 @@ class CakeDesign(models.Model):
         verbose_name="imagen de la oblea",
     )
     occasion = models.CharField("ocasión", max_length=20, choices=Occasion.choices, blank=True)
-    price_per_kg = _money("precio por kilo")
+    price_per_kg = _money("precio por kilo", null=True, blank=True, help_text="Solo en un pastel por kilos.")
     cake_subtotal = _money("pastel")
     wafer_price = _money("oblea")
     decoration_price = _money("decoración")
@@ -2219,9 +2417,48 @@ class CakeDesign(models.Model):
                 violation_error_message="El color de la decoración va como #rrggbb o vacío.",
             ),
             models.CheckConstraint(
-                condition=Q(kg__gt=0) & Q(people__gt=0) & Q(tiers__gt=0),
+                condition=Q(tiers__gt=0)
+                & (Q(kg__isnull=True) | Q(kg__gt=0))
+                & (Q(people__isnull=True) | Q(people__gt=0)),
                 name="cakedesign_size_positive",
                 violation_error_message="Las personas, los kilos y los pisos deben ser más de 0.",
+            ),
+            models.CheckConstraint(
+                condition=Q(cake_size__in=CakeDesignSize.values),
+                name="cakedesign_cake_size_known",
+                violation_error_message="Ese tamaño no existe.",
+            ),
+            # Por kilos: kilos, personas y precio por kilo. Vitrina y mini: redondo, de 1 piso, sin kilos y sin base.
+            models.CheckConstraint(
+                condition=(
+                    Q(cake_size=CakeDesignSize.BY_WEIGHT)
+                    & Q(kg__isnull=False)
+                    & Q(people__isnull=False)
+                    & Q(price_per_kg__isnull=False)
+                )
+                | (
+                    ~Q(cake_size=CakeDesignSize.BY_WEIGHT)
+                    & Q(kg__isnull=True)
+                    & Q(price_per_kg__isnull=True)
+                    & Q(form=CakeShape.ROUND)
+                    & Q(tiers=1)
+                    & Q(stand__isnull=True)
+                    & Q(stand_deposit=0)
+                ),
+                name="cakedesign_cake_size_shape",
+                violation_error_message=(
+                    "Un pastel por kilos lleva kilos y personas; uno de vitrina o mini es redondo, de 1 piso y sin base."
+                ),
+            ),
+            models.CheckConstraint(
+                condition=Q(source_product__isnull=True) | Q(cake_size=CakeDesignSize.SHOWCASE),
+                name="cakedesign_source_product_is_showcase",
+                violation_error_message="Solo un pastel de vitrina sale de un producto.",
+            ),
+            models.CheckConstraint(
+                condition=~Q(cake_size=CakeDesignSize.MINI) | Q(wafer=False),
+                name="cakedesign_mini_has_no_wafer",
+                violation_error_message="El pastel mini no lleva oblea.",
             ),
             models.CheckConstraint(
                 condition=Q(wafer=True) | (Q(wafer_layout__isnull=True) & Q(wafer_image__isnull=True)),
@@ -2231,7 +2468,9 @@ class CakeDesign(models.Model):
         ]
 
     def __str__(self):
-        return f"Pastel de {self.kg} kg"
+        if self.cake_size == CakeDesignSize.BY_WEIGHT:
+            return f"Pastel de {self.kg} kg"
+        return self.get_cake_size_display()
 
 
 def new_note_token():

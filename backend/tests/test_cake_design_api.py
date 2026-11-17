@@ -79,6 +79,8 @@ def test_options_carry_the_seeded_data(api):
         "wafer_max_width_cm": "21.6",
         "wafer_max_height_cm": "27.9",
         "message_suggested_max_words": 4,
+        # Tanda 2: la letra del mensaje no baja de 1.5 cm en ningún tamaño.
+        "message_min_letter_cm": "1.5",
     }
     # Regla 3.3 (D50): kilos mínimos que bloquean, no recomendaciones.
     assert body["tier_minimums"] == [
@@ -125,6 +127,7 @@ def test_price_of_the_rule_4_6_example_with_its_stand_deposit(api):
     response = api.post(PRICE_URL, RULE_4_6_EXAMPLE, format="json")
     assert response.status_code == 200
     assert response.json() == {
+        "cake_size": "by_weight",
         "price_per_kg": "255.00",
         "kg": 15,
         "cake_subtotal": "3825.00",
@@ -566,6 +569,8 @@ def test_options_carry_the_seeded_preview_styles(api):
         "durazno": "fruit_chunks", "fresa": "fruit_chunks", "zarzamora": "smooth", "cajeta": "smooth",
         "galleta": "cookie_chunks", "chocolate": "sprinkles", "choco_vainilla": "sprinkles",
         "capuchino": "sprinkles", "fresa_yogurt": "crumbles", "nuez": "nut_pieces",
+        # Tanda 2: blueberry es mermelada lisa, como la zarzamora.
+        "blueberry": "smooth",
     }
     assert all(flavor["preview_color_secondary"] for flavor in flavors.values() if flavor["preview_style"] != "smooth")
     # Choco-pingüino y Red velvet traen cómo se ve su relleno incluido (crema pastelera con chispas o granillo rojo).

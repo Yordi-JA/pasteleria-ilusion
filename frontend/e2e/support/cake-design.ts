@@ -51,6 +51,30 @@ type DecorationFixture = {
   preview_bread?: string | null
 }
 
+/** Un tamaño de "Diseña tu pastel" (tanda 2 de correcciones), como `DesignSizeSerializer`. */
+type SizeFixture = {
+  code: string
+  name: string
+  available: boolean
+  unavailable_reason: string | null
+  price_from: string | null
+  servings: number | null
+  approx_weight_kg: string | null
+  diameter_cm: string | null
+  height_cm: string | null
+  lid_radius_cm: string | null
+  form: string | null
+  tiers: number | null
+  min_kg: number | null
+  min_people: number | null
+  wafer_unavailable_reason: string | null
+  unavailable_breads: Record<string, string>
+  unavailable_filling_bases: Record<string, string>
+  unavailable_decorations: Record<string, string>
+  /** Lo que cobra el tamaño por cada decoración que se puede elegir en él (en el mini, su precio de mini). */
+  decoration_prices: Record<string, string>
+}
+
 export const cakeDesignOptions = {
   "cake_types": [
     {
@@ -690,7 +714,8 @@ export const cakeDesignOptions = {
     "wafer_price": "125.00" as string | null,
     "wafer_max_width_cm": "21.6",
     "wafer_max_height_cm": "27.9",
-    "message_suggested_max_words": 4
+    "message_suggested_max_words": 4,
+    "message_min_letter_cm": "1.5"
   },
   "tier_minimums": [
     {
@@ -794,6 +819,39 @@ export const cakeDesignOptions = {
       "width_cm": "44.0"
     }
   ],
+  "sizes": [
+    {
+      "code": "by_weight", "name": "Por kilos", "available": true, "unavailable_reason": null, "price_from": "720.00",
+      "servings": null, "approx_weight_kg": null, "diameter_cm": null, "height_cm": null, "lid_radius_cm": null,
+      "form": null, "tiers": null, "min_kg": 4, "min_people": 28, "wafer_unavailable_reason": null,
+      "unavailable_breads": {}, "unavailable_filling_bases": {}, "unavailable_decorations": {},
+      "decoration_prices": { "ninguna": "0.00", "duya": "0.00", "flores": "120.00", "otra": "0.00" }
+    },
+    {
+      "code": "showcase", "name": "Pastel de vitrina", "available": true, "unavailable_reason": null, "price_from": "350.00",
+      "servings": 19, "approx_weight_kg": "2.7", "diameter_cm": "28.0", "height_cm": "6.7", "lid_radius_cm": "13.12",
+      "form": "round", "tiers": 1, "min_kg": null, "min_people": null, "wafer_unavailable_reason": null,
+      "unavailable_breads": {}, "unavailable_filling_bases": {}, "unavailable_decorations": {},
+      "decoration_prices": { "ninguna": "0.00", "duya": "0.00", "flores": "120.00", "otra": "0.00" }
+    },
+    {
+      "code": "mini", "name": "Pastel mini", "available": true, "unavailable_reason": null, "price_from": "130.00",
+      "servings": 3, "approx_weight_kg": null, "diameter_cm": "14.0", "height_cm": "4.5", "lid_radius_cm": "6.12",
+      "form": "round", "tiers": 1, "min_kg": null, "min_people": null, "wafer_unavailable_reason": "El pastel mini no lleva oblea.",
+      "unavailable_breads": {
+        "choco_pinguino": "Choco-pingüino no va en el pastel mini: ya trae su relleno.",
+        "red_velvet": "Red velvet no va en el pastel mini: ya trae su relleno."
+      },
+      "unavailable_filling_bases": { "queso": "No hay pastel mini con queso.", "flan": "No hay pastel mini con flan." },
+      "unavailable_decorations": {
+        "rosetones": "Rosetones no va en el pastel mini.",
+        "olanes": "Olanes no va en el pastel mini.",
+        "flores": "Precio por confirmar",
+        "otra": "Otra decoración no va en el pastel mini."
+      },
+      "decoration_prices": { "ninguna": "0.00", "duya": "0.00", "festones": "0.00", "chispas": "0.00" }
+    }
+  ] as SizeFixture[],
   "smaller_alternatives": {
     "showcase_cake": {
       "approx_weight_kg": "2.7",
@@ -825,6 +883,9 @@ export function withPendingDecorations(slugs: string[]) {
 
 type PriceBody = {
   wafer?: boolean
+  /** Tanda 2: `showcase` o `mini`; sin él, por kilos. */
+  cake_size?: string
+  source_product?: string | null
   people?: number
   kg?: number
   cake_type: string
@@ -915,6 +976,7 @@ export function sizeFor(people: number) {
  * `people`, trae también `size`.
  */
 export function priceResponse(body: PriceBody, options: typeof cakeDesignOptions = cakeDesignOptions): { status: number; body: object } {
+  if (body.cake_size === 'showcase' || body.cake_size === 'mini') return smallPriceResponse(body, options)
   const size = body.people === undefined ? null : sizeFor(body.people)
   if (size?.above_maximum) {
     const empty = { price_per_kg: null, kg: null, cake_subtotal: null, wafer: null, decoration: null, total: null }
@@ -940,6 +1002,7 @@ export function priceResponse(body: PriceBody, options: typeof cakeDesignOptions
   return {
     status: 200,
     body: {
+      cake_size: 'by_weight',
       price_per_kg: money(perKg),
       kg,
       cake_subtotal: money(cake),
@@ -955,6 +1018,76 @@ export function priceResponse(body: PriceBody, options: typeof cakeDesignOptions
   }
 }
 
+/**
+ * Los pasteles de "Personalizar este pastel" que la simulación conoce: el precio de su completo y su tipo, pan y relleno
+ * (`ShowcaseSizePricing._from_product` del backend).
+ */
+export const SHOWCASE_PRODUCTS: Record<string, { price: string; cake_type: string; bread: string; filling_base: string | null; filling_flavors: string[] }> = {
+  'choco-pinguino': { price: '350.00', cake_type: 'seco', bread: 'choco_pinguino', filling_base: null, filling_flavors: [] },
+  'tres-leches-de-durazno': { price: '350.00', cake_type: 'tres_leches', bread: 'chocolate', filling_base: 'normal', filling_flavors: ['durazno'] },
+}
+
+/** El grupo de catálogo de un pastel de vitrina armado: el de su base o el de su pan de relleno incluido (backend, tanda 2). */
+const SHOWCASE_GROUPS: Record<string, number> = { normal: 350, queso: 420, flan: 420, choco_pinguino: 350, red_velvet: 450 }
+
+/**
+ * El precio del pastel de vitrina y del mini, como `ShowcaseSizePricing` y `MiniSizePricing`: el de vitrina cuesta su grupo más
+ * lo que cuesta de más por kilo lo elegido contra tres leches con pan de vainilla, por 2.7 kg; el mini siempre lo mismo. Sin
+ * kilos, sin base y sin `size`; un rechazo va por campo.
+ */
+function smallPriceResponse(body: PriceBody, options: typeof cakeDesignOptions): { status: number; body: object } {
+  const size = options.sizes.find((entry) => entry.code === body.cake_size)
+  if (!size) return { status: 400, body: { cake_size: ['Ese tamaño no está disponible por ahora.'] } }
+  if (body.people !== undefined) return { status: 400, body: { people: ['El pastel de vitrina y el mini ya traen su tamaño: no se indican personas ni kilos.'] } }
+  const errors: Record<string, string[]> = {}
+  const breadReason = size.unavailable_breads[body.bread]
+  if (breadReason) errors.bread = [breadReason]
+  const baseReason = body.filling_base ? size.unavailable_filling_bases[body.filling_base] : undefined
+  if (baseReason) errors.filling_base = [baseReason]
+  const decorationReason = body.decoration ? size.unavailable_decorations[body.decoration] : undefined
+  if (decorationReason) errors.decoration = [decorationReason]
+  if (body.wafer && size.wafer_unavailable_reason) errors.wafer = [size.wafer_unavailable_reason]
+  const product = body.source_product ? SHOWCASE_PRODUCTS[body.source_product] : null
+  if (body.source_product && !product) errors.source_product = ['Ese pastel no existe o no está disponible.']
+  if (product) {
+    const name = body.source_product
+    if (product.bread !== body.bread) errors.bread = [`${name} no cambia el pan: para cambiarlo, arma tu pastel desde el principio.`]
+    if (product.cake_type !== body.cake_type) errors.cake_type = [`${name} no cambia el tipo de pastel: para cambiarlo, arma tu pastel desde el principio.`]
+  }
+  const perKg = pricePerKg(body)
+  if (perKg === null && !errors.bread) errors.bread = ['Elección no válida.']
+  if (Object.keys(errors).length > 0) return { status: 400, body: errors }
+  const bread = options.breads.find((option) => option.slug === body.bread)
+  const included = bread?.pricing_mode === 'full_price_per_kg'
+  const reference = Number(options.filling_bases.find((option) => option.slug === body.filling_base)?.price_per_kg_by_cake_type.tres_leches ?? 0)
+  const group = SHOWCASE_GROUPS[included ? body.bread : (body.filling_base ?? '')] ?? 0
+  const cake = body.cake_size === 'mini' ? Number(size.price_from) : product ? Number(product.price) : group + (included ? 0 : Math.max(0, (perKg ?? 0) - reference) * 2.7)
+  const decoration = body.decoration === undefined ? null : options.decorations.find((option) => option.slug === body.decoration)
+  // Lo que cobra este tamaño por la decoración (en el mini, su precio de mini), como `MiniSizePricing.priced`.
+  const sizedPrice = body.decoration ? size.decoration_prices[body.decoration] : undefined
+  const decorationAmount = decoration?.pricing === 'fixed' ? Number(sizedPrice ?? decoration.price) : 0
+  const waferAmount = body.wafer ? Number(options.limits.wafer_price) : 0
+  const total = cake + decorationAmount + waferAmount
+  const requiresQuote = decoration?.requires_quote ?? false
+  return {
+    status: 200,
+    body: {
+      cake_size: body.cake_size,
+      price_per_kg: null,
+      kg: null,
+      cake_subtotal: money(cake),
+      wafer: money(waferAmount),
+      decoration: money(decorationAmount),
+      total: money(total),
+      requires_quote: requiresQuote,
+      is_estimate: body.estimate === true,
+      stand: null,
+      payment: requiresQuote ? null : paymentFor(total, 0),
+      size: null,
+    },
+  }
+}
+
 /** Responde el precio con la fórmula de las reglas y guarda cada cuerpo recibido, en orden. */
 export async function mockCakeDesignPrice(page: Page, options: typeof cakeDesignOptions = cakeDesignOptions) {
   const bodies: PriceBody[] = []
@@ -965,4 +1098,9 @@ export async function mockCakeDesignPrice(page: Page, options: typeof cakeDesign
     await route.fulfill({ status: response.status, contentType: 'application/json', body: JSON.stringify(response.body) })
   })
   return bodies
+}
+
+/** Las opciones con un tamaño cambiado (tanda 2): por ejemplo, el de vitrina no disponible o el precio de las rosas en el mini. */
+export function withSize(code: string, changes: Partial<SizeFixture>) {
+  return { ...cakeDesignOptions, sizes: cakeDesignOptions.sizes.map((size) => (size.code === code ? { ...size, ...changes } : size)) }
 }

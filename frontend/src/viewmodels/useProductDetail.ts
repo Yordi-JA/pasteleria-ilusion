@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { getCakeDesignOptions } from '../models/cakeDesign.ts'
 import { MAX_LINE_QUANTITY } from '../models/cart.ts'
 import type { Fulfillment } from '../models/cart.ts'
-import { getProduct, toCartOffering } from '../models/catalog.ts'
+import { getProduct, isPriced, PENDING_PRICE, toCartOffering } from '../models/catalog.ts'
 import type { DetailOffering, ProductDetail } from '../models/catalog.ts'
 import { formatPrice } from '../models/money.ts'
 import { PRESENTATION_LABELS } from '../models/presentation.ts'
@@ -29,8 +29,14 @@ export type PresentationChoice = {
   description: string | null
   price: string
   checked: boolean
-  /** "Agotada por hoy" en la rebanada sin piezas; si no, `null`. */
+  /** "Agotada por hoy" en la rebanada sin piezas o "Precio por confirmar" sin precio (tanda 2); si no, `null`. */
   disabledReason: string | null
+}
+
+/** Por qué no se elige una presentación en la ficha: sin precio (PENDIENTE, tanda 2) o la rebanada agotada hoy. */
+function presentationReason(offering: DetailOffering): string | null {
+  if (offering.price === null) return 'Precio por confirmar'
+  return offering.presentation === 'slice' && offering.stock === 0 ? 'Agotada por hoy' : null
 }
 
 /** Las rebanadas se venden solo de la vitrina del día, nunca por encargo (decisión del dueño, D60). */
@@ -132,7 +138,7 @@ export function useProductDetail(slug: string) {
   const view = useMemo(() => {
     if (!product) return null
     const offered = offeredPresentations(product.offerings)
-    const selectable = offered.filter((o) => !(o.presentation === 'slice' && o.stock === 0))
+    const selectable = offered.filter((o) => presentationReason(o) === null)
     const offering = selectable.find((o) => o.id === offeringId) ?? selectable[0] ?? null
     const fulfillments = offering ? fulfillmentChoices(product, offering, null) : []
     const fulfillment = effectiveFulfillment(fulfillments, wanted)
@@ -152,24 +158,32 @@ export function useProductDetail(slug: string) {
         id: o.id,
         label: PRESENTATION_LABELS[o.presentation],
         description: offeringSize(o),
-        price: formatPrice(o.price) ?? '',
+        price: o.price === null ? PENDING_PRICE : (formatPrice(o.price) ?? ''),
         checked: o.id === offering?.id,
-        disabledReason: o.presentation === 'slice' && o.stock === 0 ? 'Agotada por hoy' : null,
+        disabledReason: presentationReason(o),
       })),
       fulfillments: fulfillments.map((choice) => ({ ...choice, checked: choice.value === fulfillment })),
       canAdd: offering !== null && fulfillment !== null,
+      /** Ninguna presentación se puede pedir porque todas esperan su precio (tanda 2). */
+      pricePending: offering === null && offered.some((o) => o.price === null),
       quantity: shown,
       maxQuantity,
       /** Precio por pieza de la presentación elegida; con más de una, "c/u" (el total lo calcula el backend). */
-      unitPrice: offering ? `${formatPrice(offering.price) ?? ''}${shown > 1 ? ' c/u' : ''}` : null,
+      unitPrice: offering?.price ? `${formatPrice(offering.price) ?? ''}${shown > 1 ? ' c/u' : ''}` : null,
       storageNotes: product.storageNotes,
       transportNotes: product.transportNotes,
       personalize:
         product.category === 'cake' && product.cakeType
           ? {
-              href: designPrefillHref(product.slug),
+              // Un pastel que sale en la vitrina se personaliza como pastel de vitrina (tanda 2): con su tipo, pan y relleno.
+              showcase: product.showcaseDesign?.available === true,
+              href: designPrefillHref(product.slug, product.showcaseDesign?.available === true),
               // Un pastel con su pan fijo (Choco-pingüino, Red velvet) no se ofrece en todos los tipos: no se promete.
-              title: product.bread === null ? '¿Lo quieres seco, envinado o más grande?' : '¿Lo quieres más grande o a tu gusto?',
+              title: product.showcaseDesign?.available
+                ? '¿Lo quieres con tu decoración?'
+                : product.bread === null
+                  ? '¿Lo quieres seco, envinado o más grande?'
+                  : '¿Lo quieres más grande o a tu gusto?',
               minKg,
               leadDays: store.status === 'loading' ? undefined : store.leadDays,
             }
@@ -183,6 +197,8 @@ export function useProductDetail(slug: string) {
   const addToOrder = useCallback(() => {
     if (!product || !view?.offering || !view.fulfillment) return
     const { offering, fulfillment } = view
+    // Sin precio (PENDIENTE) no se agrega: la opción ya va desactivada.
+    if (!isPriced(offering)) return
     // Defensa: una rebanada nunca se encarga (la opción ya va desactivada).
     if (offering.presentation === 'slice' && fulfillment === 'order') return
     add(toCartOffering(product, offering, fulfillment), view.quantity, fulfillment === 'showcase' ? (offering.stock ?? 0) : undefined)

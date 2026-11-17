@@ -8,32 +8,59 @@ pan de incremento usa y el de precio completo rechaza. La oblea es un precio
 fijo de la configuración (`CakeDesignSettings.wafer_price`); vacío es PENDIENTE
 y la oblea no se puede pedir.
 
+El tamaño (tanda 2 de correcciones) es otra estrategia (`SIZE_PRICING_STRATEGIES`):
+por kilos (precio por kilo por los kilos), de vitrina (el precio de catálogo de
+su grupo más la diferencia por kilo contra la referencia, o el del producto si
+sale de su ficha) o mini (siempre el precio de «Pastel mini»). La decoración y la
+oblea se suman aparte en los tres; el mini no lleva oblea y solo las decoraciones
+marcadas para él.
+
 Todas las cifras salen de los repositorios, que se reciben por parámetro (en
 las pruebas, los de `repositories/memory.py`). Forma y pisos no cambian el
 precio. Los montos son `Decimal` con dos decimales.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import ROUND_HALF_UP, Decimal
 from typing import NoReturn
 
-from ..models import BreadPricingMode, CakeShape, CakeType, DecorationPricing
-from ..repositories import cake_option_repo, settings_repo
+from ..models import (
+    BreadPricingMode,
+    CakeDesignSize,
+    CakeShape,
+    CakeType,
+    DecorationPricing,
+    Presentation,
+    ProductCategory,
+    SalesChannel,
+)
+from ..repositories import cake_option_repo, product_repo, settings_repo
 from ..repositories.records import (
     BreadRecord,
     CakeDesignSettingsRecord,
     DecorationRecord,
+    DesignSizeRecord,
     FillingBaseRecord,
     FillingFlavorRecord,
+    GroupPrice,
+    ProductRecord,
 )
+from . import cake_lid
 from .audit import audit_operation
-from .design_layout import MessageLayout, WaferLayout, check_message_layout, check_wafer_layout
+from .design_layout import (
+    MessageLayout,
+    WaferLayout,
+    check_message_layout,
+    check_message_letter,
+    check_wafer_layout,
+)
 from .errors import DomainValidationError, attempt, raise_all
-from .warranty_service import effective_cake_design_limits
+from .warranty_service import NO_DEPOSIT, StandDeposit, effective_cake_design_limits, get_stand_deposit
 
 ZERO = Decimal("0.00")
 CENT = Decimal("0.01")
 PENDING_PRICE_REASON = "Precio por confirmar"
 CAKE_TYPE_LABELS = dict(CakeType.choices)
+CAKE_SIZE_LABELS = dict(CakeDesignSize.choices)
 
 
 class CakeDesignError(DomainValidationError):
@@ -49,10 +76,11 @@ class CakeDesignChoice:
     """Lo que el cliente eligió.
 
     Forma y pisos no cambian el precio, pero se validan (regla 3.3) si llegan; el acomodo de la oblea y del mensaje
-    (paso 7) tampoco lo cambia y se valida igual.
+    (paso 7) tampoco lo cambia y se valida igual. `kg` solo va en un pastel por kilos: el de vitrina y el mini no se
+    piden por kilos. `source_product` es el `slug` del pastel de vitrina de "Personalizar este pastel".
     """
 
-    kg: int
+    kg: int | None
     cake_type: str
     bread: str
     filling_base: str | None = None
@@ -63,14 +91,19 @@ class CakeDesignChoice:
     form: str | None = None
     wafer_layout: WaferLayout | None = None
     message_layout: MessageLayout | None = None
+    cake_size: str = CakeDesignSize.BY_WEIGHT.value
+    source_product: str | None = None
 
 
 @dataclass(frozen=True)
 class PriceBreakdown:
-    """Desglose del precio. La decoración por cotizar no se suma: `requires_quote` lo avisa."""
+    """Desglose del precio. La decoración por cotizar no se suma: `requires_quote` lo avisa.
 
-    price_per_kg: Decimal
-    kg: int
+    El pastel de vitrina y el mini no tienen kilos ni precio por kilo (`None`): `cake_subtotal` es su precio.
+    """
+
+    price_per_kg: Decimal | None
+    kg: int | None
     cake_subtotal: Decimal
     wafer: Decimal
     decoration: Decimal
@@ -78,6 +111,7 @@ class PriceBreakdown:
     requires_quote: bool
     # Un estimado ("Desde $X") puede ir sin sabores: ningún pedido debe aceptar un desglose así.
     is_estimate: bool = False
+    cake_size: str = CakeDesignSize.BY_WEIGHT.value
 
 
 # --- Motivos por tipo de pastel (regla 4.7) ---
@@ -257,6 +291,14 @@ class ExtraPerKgBreadPricing:
         """Lo que la interfaz muestra como "Desde $X por kg"; sin relleno en ese tipo, nada."""
         return None if cheapest_filling is None else self.price_per_kg(bread, cheapest_filling)
 
+    def showcase_group(self, bread: BreadRecord, base: FillingBaseRecord | None) -> GroupPrice | None:
+        """En el pastel de vitrina, el grupo de catálogo lo da la base del relleno."""
+        return base.showcase_price if base is not None else None
+
+    def showcase_extra_per_kg(self, price_per_kg: Decimal, reference_per_kg: Decimal | None) -> Decimal | None:
+        """Lo que cuesta de más por kilo lo elegido contra la referencia del grupo (nunca menos de 0)."""
+        return None if reference_per_kg is None else max(ZERO, price_per_kg - reference_per_kg)
+
 
 class FullPriceBreadPricing:
     """Pan de precio completo (Choco-pingüino, Red velvet): trae su relleno y no lleva otro."""
@@ -275,6 +317,14 @@ class FullPriceBreadPricing:
 
     def price_per_kg_from(self, bread: BreadRecord, cheapest_filling: Decimal | None) -> Decimal:
         return bread.price_per_kg
+
+    def showcase_group(self, bread: BreadRecord, base: FillingBaseRecord | None) -> GroupPrice | None:
+        """Choco-pingüino y Red velvet: el precio de su pastel completo del catálogo."""
+        return bread.showcase_price
+
+    def showcase_extra_per_kg(self, price_per_kg: Decimal, reference_per_kg: Decimal | None) -> Decimal:
+        """Su precio completo ya es el del grupo: no hay diferencia."""
+        return ZERO
 
 
 BREAD_PRICING_STRATEGIES = {
@@ -410,7 +460,8 @@ def _check_form(form) -> None:
         _fail("form", "Elige una forma: redondo o rectangular.")
 
 
-def _cake_price_per_kg(choice: CakeDesignChoice, cake_options, estimate: bool = False) -> Decimal:
+def _chosen(choice: CakeDesignChoice, cake_options) -> tuple[BreadRecord, FillingPricing]:
+    """El pan elegido y el relleno del tipo elegido, ya revisados contra la regla 4.7."""
     if choice.cake_type not in CAKE_TYPE_LABELS:
         _fail("cake_type", "Ese tipo de pastel no existe.")
     bread = next((b for b in cake_options.list_breads() if b.slug == choice.bread), None)
@@ -424,17 +475,29 @@ def _cake_price_per_kg(choice: CakeDesignChoice, cake_options, estimate: bool = 
     reason = bread_unavailable_reason(bread, filling)
     if reason:
         _fail("bread", _as_sentence(bread.name, reason))
+    return bread, filling
+
+
+def _cake_price_per_kg(choice: CakeDesignChoice, cake_options, estimate: bool = False) -> Decimal:
+    bread, filling = _chosen(choice, cake_options)
     strategy = BREAD_PRICING_STRATEGIES[bread.pricing_mode]
     return strategy.price_per_kg(bread, strategy.filling_per_kg(choice, filling, estimate))
 
 
-def _decoration_charge(slug: str | None, cake_options) -> tuple[Decimal, bool]:
-    """Importe de la decoración y si requiere cotización. Sin decoración elegida, nada."""
+def _decoration_charge(slug: str | None, cake_options, size) -> tuple[Decimal, bool]:
+    """Importe de la decoración y si requiere cotización. Sin decoración elegida, nada.
+
+    El tamaño decide si se puede poner (el mini solo lleva las suyas) y con qué precio (`size.priced`).
+    """
     if slug is None:
         return ZERO, False
     decoration = next((d for d in cake_options.list_decorations() if d.slug == slug), None)
     if decoration is None:
         _fail("decoration", "Esa decoración no existe o no está disponible.")
+    refusal = size.decoration_refusal(decoration)
+    if refusal:
+        _fail("decoration", refusal)
+    decoration = size.priced(decoration)
     reason = decoration_unavailable_reason(decoration)
     if reason == SPRINKLE_SOURCE_REASON:
         _fail("decoration", reason)
@@ -442,22 +505,29 @@ def _decoration_charge(slug: str | None, cake_options) -> tuple[Decimal, bool]:
     return strategy.amount(decoration), strategy.requires_quote
 
 
-def _wafer_charge(wafer: bool, limits: CakeDesignSettingsRecord) -> Decimal:
-    """Importe de la oblea. Sin precio (PENDIENTE) no se puede pedir ni se cobra como $0."""
+def _wafer_charge(wafer: bool, limits: CakeDesignSettingsRecord, size) -> Decimal:
+    """Importe de la oblea. Sin precio (PENDIENTE) no se puede pedir ni se cobra como $0; el mini no la lleva."""
     if not wafer:
         return ZERO
+    refusal = size.wafer_refusal()
+    if refusal:
+        _fail("wafer", refusal)
     if limits.wafer_price is None:
         _fail("wafer", PENDING_PRICE_REASON, PendingPriceError)
     return limits.wafer_price
 
 
-def _check_layouts(choice: CakeDesignChoice, limits: CakeDesignSettingsRecord, cake_options) -> None:
-    """Acomodo de la oblea y del mensaje, si llegan: cotas del paso 7 (`design_layout`)."""
+def _check_layouts(choice: CakeDesignChoice, limits: CakeDesignSettingsRecord, cake_options, size) -> None:
+    """Acomodo de la oblea y del mensaje, si llegan: cotas del paso 7 (`design_layout`) y la letra mínima del mensaje,
+    con el radio de la tapa de ese pastel (si con lo que llegó no se sabe, otra revisión ya lo rechaza)."""
     failures: list[DomainValidationError] = []
     if choice.wafer_layout is not None:
         attempt(failures, check_wafer_layout, choice.wafer_layout, choice.wafer, limits)
     if choice.message_layout is not None:
         attempt(failures, check_message_layout, choice.message_layout)
+        lid = attempt([], size.lid, choice, cake_options)
+        if lid is not None and limits.message_min_letter_cm is not None and not failures:
+            attempt(failures, check_message_letter, choice.message_layout, lid.radius, limits.message_min_letter_cm)
     try:
         raise_all(failures)
     except DomainValidationError as error:
@@ -465,24 +535,384 @@ def _check_layouts(choice: CakeDesignChoice, limits: CakeDesignSettingsRecord, c
         raise CakeDesignError(error.errors) from error
 
 
-def _price(choice: CakeDesignChoice, cake_options, settings, estimate: bool) -> PriceBreakdown:
+# --- Estrategias del tamaño (tanda 2 de correcciones) ---
+
+
+ONLY_SHOWCASE_FROM_PRODUCT = "Solo un pastel de vitrina se personaliza desde su ficha."
+SIZE_UNAVAILABLE = "Ese tamaño no está disponible por ahora."
+UNKNOWN_SIZE = "Elige un tamaño: por kilos, de vitrina o mini."
+
+
+def _size_name(code: str) -> str:
+    """"Pastel mini" -> "pastel mini", para las frases."""
+    label = CAKE_SIZE_LABELS[code]
+    return label[:1].lower() + label[1:]
+
+
+def _design_size(code: str, cake_options) -> DesignSizeRecord:
+    size = next((size for size in cake_options.list_design_sizes() if size.code == code), None)
+    if size is None:
+        _fail("cake_size", SIZE_UNAVAILABLE)
+    return size
+
+
+def _is_int(value) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+class ByWeightSizePricing:
+    """Por kilos (desde el mínimo de pedido): el precio por kilo de lo elegido por los kilos, con su base (regla 7)."""
+
+    code = CakeDesignSize.BY_WEIGHT.value
+
+    def check_size(self, choice: CakeDesignChoice, limits: CakeDesignSettingsRecord, cake_options) -> None:
+        failures: list[DomainValidationError] = []
+        attempt(failures, _check_kg, choice.kg, limits)
+        attempt(failures, _check_tiers, choice.tiers, choice.kg, cake_options)
+        attempt(failures, _check_form, choice.form)
+        if choice.source_product is not None:
+            attempt(failures, _fail, "source_product", ONLY_SHOWCASE_FROM_PRODUCT)
+        raise_all(failures, CakeDesignError)
+
+    def cake_price(self, choice, cake_options, products, estimate: bool) -> tuple[Decimal | None, Decimal]:
+        price_per_kg = _cake_price_per_kg(choice, cake_options, estimate)
+        # Unos kilos que no valen ya los rechazó `check_size`: aquí no se multiplica por ellos.
+        kg = choice.kg if _is_int(choice.kg) else 0
+        return price_per_kg.quantize(CENT), (price_per_kg * kg).quantize(CENT)
+
+    def bread_refusal(self, bread: BreadRecord | None) -> str | None:
+        return None
+
+    def base_refusal(self, base: FillingBaseRecord | None) -> str | None:
+        return None
+
+    def decoration_refusal(self, decoration: DecorationRecord) -> str | None:
+        return None
+
+    def priced(self, decoration: DecorationRecord) -> DecorationRecord:
+        return decoration
+
+    def wafer_refusal(self) -> str | None:
+        return None
+
+    def lid(self, choice: CakeDesignChoice, cake_options) -> cake_lid.Lid | None:
+        """La tapa del último piso por los moldes (D52); sin forma, pisos o kilos válidos no se sabe."""
+        valid = choice.form in CakeShape.values and _is_int(choice.tiers) and _is_int(choice.kg) and choice.kg > 0
+        return cake_lid.lid_for(cake_options.list_cake_molds(), choice.form, choice.kg, choice.tiers) if valid else None
+
+    def stand(self, choice: CakeDesignChoice, settings) -> StandDeposit:
+        return get_stand_deposit(choice.kg, settings)
+
+    def servings(self, choice: CakeDesignChoice, cake_options, products) -> int | None:
+        """Por kilos, las personas son las que pidió el cliente: no salen del catálogo."""
+        return None
+
+
+class SmallSizePricing:
+    """Lo común del pastel de vitrina y del mini: redondo, de 1 piso, sin kilos y sin base (pesan menos de 4 kg)."""
+
+    code: str
+    # Solo el pastel de vitrina sale de la ficha de un producto ("Personalizar este pastel").
+    takes_source_product = False
+
+    def check_size(self, choice: CakeDesignChoice, limits: CakeDesignSettingsRecord, cake_options) -> None:
+        name = _size_name(self.code)
+        failures: list[DomainValidationError] = []
+        attempt(failures, _design_size, self.code, cake_options)
+        refusals = (
+            ("kg", choice.kg is not None, f"El {name} no se pide por kilos."),
+            ("form", choice.form is not None and choice.form != CakeShape.ROUND, f"El {name} es redondo."),
+            ("tiers", choice.tiers is not None and choice.tiers != 1, f"El {name} es de 1 piso."),
+            (
+                "source_product",
+                choice.source_product is not None and not self.takes_source_product,
+                ONLY_SHOWCASE_FROM_PRODUCT,
+            ),
+        )
+        for field, applies, message in refusals:
+            if applies:
+                attempt(failures, _fail, field, message)
+        raise_all(failures, CakeDesignError)
+
+    def bread_refusal(self, bread: BreadRecord | None) -> str | None:
+        return None
+
+    def base_refusal(self, base: FillingBaseRecord | None) -> str | None:
+        return None
+
+    def decoration_refusal(self, decoration: DecorationRecord) -> str | None:
+        return None
+
+    def priced(self, decoration: DecorationRecord) -> DecorationRecord:
+        return decoration
+
+    def wafer_refusal(self) -> str | None:
+        return None
+
+    def lid(self, choice: CakeDesignChoice, cake_options) -> cake_lid.Lid:
+        return cake_lid.round_lid(_design_size(self.code, cake_options).diameter_cm)
+
+    def stand(self, choice: CakeDesignChoice, settings) -> StandDeposit:
+        return StandDeposit(stand=None, deposit=NO_DEPOSIT, return_days=settings.get_policy_settings().stand_return_days)
+
+    def servings(self, choice: CakeDesignChoice, cake_options, products) -> int | None:
+        """Las personas que rinde, del catálogo (`None` si la pastelería no las ha definido)."""
+        return _design_size(self.code, cake_options).servings
+
+
+def _showcase_group_refusal(name: str, group: GroupPrice | None) -> str | None:
+    """Sin grupo de catálogo, esa opción no va en el pastel de vitrina; con su precio vacío, es PENDIENTE."""
+    if group is None:
+        return f"{name}: no se ofrece en el pastel de vitrina."
+    return PENDING_PRICE_REASON if group.amount is None else None
+
+
+def _whole_offering(product: ProductRecord):
+    return next((offering for offering in product.offerings if offering.presentation == Presentation.WHOLE), None)
+
+
+def showcase_product_unavailable(product: ProductRecord | None) -> str | None:
+    """Por qué un producto no se personaliza como pastel de vitrina desde su ficha, o `None` si se puede.
+
+    Solo un pastel que sale en la vitrina, con su presentación completa con precio y con su tipo y su pan definidos
+    (el pan de los pasteles de vitrina es PENDIENTE hasta que la pastelería lo captura en el admin). Lo solo por encargo
+    (Red velvet, nuez) se arma como un pedido por kilos o como un pastel de vitrina desde cero.
+    """
+    if product is None:
+        return "Ese pastel no existe o no está disponible."
+    whole = _whole_offering(product)
+    rules = (
+        (product.category != ProductCategory.CAKE or not product.cake_type, "Este producto no se personaliza."),
+        (product.sales_channel == SalesChannel.ORDER_ONLY, "Solo por encargo: no sale en la vitrina."),
+        (whole is None, "Este pastel no se vende completo."),
+        (whole is not None and whole.price is None, PENDING_PRICE_REASON),
+        (product.bread_slug is None, "El pan de este pastel está por confirmar."),
+    )
+    return next((reason for applies, reason in rules if applies), None)
+
+
+def _differences(choice: CakeDesignChoice, product: ProductRecord) -> list[tuple[str, str]]:
+    """Lo que la elección cambia del producto, como `(campo, qué)`: tipo, pan, base y sabor (un producto lleva uno)."""
+    flavors = (product.filling_flavor_slug,) if product.filling_flavor_slug else ()
+    compared = (
+        ("cake_type", choice.cake_type != product.cake_type, "el tipo de pastel"),
+        ("bread", choice.bread != product.bread_slug, "el pan"),
+        ("filling_base", (choice.filling_base or None) != product.filling_base_slug, "la base del relleno"),
+        ("filling_flavors", tuple(choice.filling_flavors) != flavors, "el sabor"),
+    )
+    return [(field, what) for field, differs, what in compared if differs]
+
+
+def _matching_showcase_product(choice: CakeDesignChoice, products) -> ProductRecord | None:
+    """El pastel de la vitrina que es justo lo elegido, o `None`.
+
+    Solo cuenta un producto que se podría personalizar desde su ficha (`showcase_product_unavailable`): activo, que
+    sale en la vitrina, con su completo con precio (uno PENDIENTE, como la nuez, no cuenta) y su pan definido.
+    """
+    cakes = products.list_catalog(on_date=None, category=ProductCategory.CAKE)
+    return next(
+        (cake for cake in cakes if showcase_product_unavailable(cake) is None and not _differences(choice, cake)),
+        None,
+    )
+
+
+class ShowcaseSizePricing(SmallSizePricing):
+    """Pastel de vitrina (peso y personas del catálogo: 2.7 kg, ~19 personas).
+
+    Armado libre: si lo elegido es un pastel de la vitrina (mismo tipo, pan, base y un solo sabor que un producto que se
+    puede personalizar, `showcase_product_unavailable`), el precio de ese producto. Si no, el precio de catálogo del
+    grupo de su relleno (o de su pan de relleno incluido) más lo que cuesta de más por kilo lo elegido contra la
+    referencia del grupo (tres leches, pan de vainilla y un sabor sin precio propio de esa base), por el peso de vitrina.
+    Desde la ficha: el precio del producto, sin cambiar su tipo, pan ni relleno.
+    """
+
+    code = CakeDesignSize.SHOWCASE.value
+    takes_source_product = True
+
+    def cake_price(self, choice, cake_options, products, estimate: bool) -> tuple[None, Decimal]:
+        if choice.source_product is not None:
+            return None, self._from_product(choice, cake_options, products)
+        return None, self._assembled(choice, cake_options, products, estimate)
+
+    def _assembled(self, choice: CakeDesignChoice, cake_options, products, estimate: bool) -> Decimal:
+        bread, filling = _chosen(choice, cake_options)
+        strategy = BREAD_PRICING_STRATEGIES[bread.pricing_mode]
+        # También revisa el relleno (regla 4.7): un pastel que coincide con un producto se valida igual.
+        price_per_kg = strategy.price_per_kg(bread, strategy.filling_per_kg(choice, filling, estimate))
+        product = _matching_showcase_product(choice, products)
+        if product is not None:
+            return _whole_offering(product).price.quantize(CENT)
+        base = next((b for b in filling.available_bases() if b.slug == choice.filling_base), None)
+        for field, refusal in (("bread", self.bread_refusal(bread)), ("filling_base", self.base_refusal(base))):
+            if refusal:
+                _fail(field, refusal, PendingPriceError if refusal == PENDING_PRICE_REASON else CakeDesignError)
+        group = strategy.showcase_group(bread, base)
+        size = _design_size(self.code, cake_options)
+        extra = strategy.showcase_extra_per_kg(price_per_kg, self._reference_per_kg(size, base, cake_options))
+        if group is None or extra is None or (extra > 0 and size.approx_weight_kg is None):
+            _fail("cake_size", PENDING_PRICE_REASON, PendingPriceError)
+        weight = size.approx_weight_kg if extra > 0 else ZERO
+        return (group.amount + extra * weight).quantize(CENT, rounding=ROUND_HALF_UP)
+
+    def bread_refusal(self, bread: BreadRecord | None) -> str | None:
+        """Un pan de relleno incluido sin precio de vitrina no se ofrece; los demás toman el de su base."""
+        if bread is None or bread.pricing_mode != BreadPricingMode.FULL_PRICE_PER_KG:
+            return None
+        return _showcase_group_refusal(bread.name, bread.showcase_price)
+
+    def base_refusal(self, base: FillingBaseRecord | None) -> str | None:
+        return None if base is None else _showcase_group_refusal(base.name, base.showcase_price)
+
+    def price_from(self, size: DesignSizeRecord, breads: list[BreadRecord], bases: list[FillingBaseRecord]):
+        """Desde el grupo más barato que se puede elegir (`breads` y `bases`, sin los que este tamaño rechaza)."""
+        groups = [base.showcase_price for base in bases] + [
+            bread.showcase_price for bread in breads if bread.pricing_mode == BreadPricingMode.FULL_PRICE_PER_KG
+        ]
+        return min((group.amount for group in groups if group is not None and group.amount is not None), default=None)
+
+    @staticmethod
+    def _reference_per_kg(size: DesignSizeRecord, base: FillingBaseRecord | None, cake_options) -> Decimal | None:
+        """La referencia del grupo: el precio general de la base en el tipo de referencia más el pan de referencia."""
+        if base is None or not size.reference_cake_type:
+            return None
+        bread = next((b for b in cake_options.list_breads() if b.slug == size.reference_bread), None)
+        general = cake_options.get_filling_price_table().get((size.reference_cake_type, base.slug, None))
+        if bread is None or general is None:
+            return None
+        return general + bread.price_per_kg
+
+    def _from_product(self, choice: CakeDesignChoice, cake_options, products) -> Decimal:
+        product = products.get_product_by_slug(choice.source_product, None)
+        reason = showcase_product_unavailable(product)
+        if reason:
+            _fail("source_product", reason)
+        errors = {
+            field: [f"{product.name} no cambia {what}: para cambiarlo, arma tu pastel desde el principio."]
+            for field, what in _differences(choice, product)
+        }
+        if errors:
+            raise CakeDesignError(errors)
+        # El tipo, el pan y el relleno del producto también tienen que poder hacerse (regla 4.7 y lo activo).
+        _cake_price_per_kg(choice, cake_options)
+        return _whole_offering(product).price.quantize(CENT)
+
+    def servings(self, choice: CakeDesignChoice, cake_options, products) -> int | None:
+        """Desde la ficha, las del pastel completo del producto; armado libre, las de la vitrina."""
+        product = products.get_product_by_slug(choice.source_product, None) if choice.source_product else None
+        whole = _whole_offering(product) if product is not None else None
+        if whole is not None and whole.servings is not None:
+            return whole.servings
+        return super().servings(choice, cake_options, products)
+
+
+class MiniSizePricing(SmallSizePricing):
+    """Pastel mini (~3 personas): siempre el precio de «Pastel mini» del catálogo, sin recargos por tipo, pan ni
+    combinado. Sin oblea, sin panes de relleno incluido, solo con las bases y las decoraciones marcadas para el mini;
+    una decoración de precio fijo cobra su precio de mini (vacío: PENDIENTE)."""
+
+    code = CakeDesignSize.MINI.value
+
+    def cake_price(self, choice, cake_options, products, estimate: bool) -> tuple[None, Decimal]:
+        refusal = self.bread_refusal(next((b for b in cake_options.list_breads() if b.slug == choice.bread), None))
+        if refusal:
+            _fail("bread", refusal)
+        base = next((b for b in cake_options.list_filling_bases_with_flavors() if b.slug == choice.filling_base), None)
+        refusal = self.base_refusal(base)
+        if refusal:
+            _fail("filling_base", refusal)
+        # El relleno se revisa igual que en cualquier pastel (tipo, sabores, combinado); su precio no cuenta.
+        _cake_price_per_kg(choice, cake_options, estimate)
+        size = _design_size(self.code, cake_options)
+        if size.price is None:
+            _fail("cake_size", PENDING_PRICE_REASON, PendingPriceError)
+        return None, size.price.quantize(CENT)
+
+    @staticmethod
+    def bread_refusal(bread: BreadRecord | None) -> str | None:
+        if bread is None or bread.pricing_mode != BreadPricingMode.FULL_PRICE_PER_KG:
+            return None
+        return f"{bread.name} no va en el pastel mini: ya trae su relleno."
+
+    @staticmethod
+    def base_refusal(base: FillingBaseRecord | None) -> str | None:
+        return None if base is None or base.available_in_mini else f"No hay pastel mini {base.name.lower()}."
+
+    def decoration_refusal(self, decoration: DecorationRecord) -> str | None:
+        return None if decoration.available_in_mini else f"{decoration.name} no va en el pastel mini."
+
+    def priced(self, decoration: DecorationRecord) -> DecorationRecord:
+        """En el mini, una decoración de precio fijo cobra su precio de mini; las incluidas siguen incluidas."""
+        if decoration.pricing != DecorationPricing.FIXED:
+            return decoration
+        return replace(decoration, price=decoration.mini_price)
+
+    def wafer_refusal(self) -> str | None:
+        return "El pastel mini no lleva oblea."
+
+    def price_from(self, size: DesignSizeRecord, breads: list[BreadRecord], bases: list[FillingBaseRecord]):
+        """El mini cuesta siempre lo mismo; `None` si su precio es PENDIENTE."""
+        return size.price
+
+
+SIZE_PRICING_STRATEGIES = {
+    CakeDesignSize.BY_WEIGHT.value: ByWeightSizePricing(),
+    CakeDesignSize.SHOWCASE.value: ShowcaseSizePricing(),
+    CakeDesignSize.MINI.value: MiniSizePricing(),
+}
+
+
+def size_strategy(cake_size: str):
+    """La estrategia del tamaño; uno que no existe es error del campo `cake_size`."""
+    strategy = SIZE_PRICING_STRATEGIES.get(cake_size)
+    if strategy is None:
+        _fail("cake_size", UNKNOWN_SIZE)
+    return strategy
+
+
+def stand_for(choice: CakeDesignChoice, settings=settings_repo) -> StandDeposit:
+    """La base del pastel y su depósito: por kilos, la que toca a los kilos (regla 7); vitrina y mini, ninguna."""
+    return size_strategy(choice.cake_size).stand(choice, settings)
+
+
+def lid_for(choice: CakeDesignChoice, cake_options=cake_option_repo) -> cake_lid.Lid | None:
+    """La parte plana de la tapa del pastel elegido (para la oblea y el mensaje); `None` si no se puede saber."""
+    return size_strategy(choice.cake_size).lid(choice, cake_options)
+
+
+def servings_for(choice: CakeDesignChoice, cake_options=cake_option_repo, products=product_repo) -> int | None:
+    """Las personas que rinde un pastel de vitrina o mini, para guardarlas con el pedido; por kilos, `None`."""
+    return size_strategy(choice.cake_size).servings(choice, cake_options, products)
+
+
+def describe_cake_size(cake_size: str, kg: int | None, people: int | None) -> str:
+    """Cómo se dice el tamaño en la revisión, el carrito, el admin y la nota.
+
+    "Pastel de 4 kg, 30 personas", "Pastel mini, ~3 personas" o "Pastel de vitrina, ~19 personas" (sin personas si la
+    pastelería no las ha definido).
+    """
+    if cake_size == CakeDesignSize.BY_WEIGHT:
+        return f"Pastel de {kg} kg, {people} personas"
+    name = CAKE_SIZE_LABELS.get(cake_size, cake_size)
+    return f"{name}, ~{people} personas" if people else name
+
+
+def _price(choice: CakeDesignChoice, cake_options, settings, products, estimate: bool) -> PriceBreakdown:
     # El máximo es el efectivo, el mismo que anuncian las opciones y que usan los kilos por personas.
     limits = effective_cake_design_limits(settings)
+    size = size_strategy(choice.cake_size)
     failures: list[DomainValidationError] = []
-    attempt(failures, _check_kg, choice.kg, limits)
-    attempt(failures, _check_tiers, choice.tiers, choice.kg, cake_options)
-    attempt(failures, _check_form, choice.form)
-    price_per_kg = attempt(failures, _cake_price_per_kg, choice, cake_options, estimate)
-    decoration = attempt(failures, _decoration_charge, choice.decoration, cake_options)
-    wafer_amount = attempt(failures, _wafer_charge, choice.wafer, limits)
-    attempt(failures, _check_layouts, choice, limits, cake_options)
+    attempt(failures, size.check_size, choice, limits, cake_options)
+    cake = attempt(failures, size.cake_price, choice, cake_options, products, estimate)
+    decoration = attempt(failures, _decoration_charge, choice.decoration, cake_options, size)
+    wafer_amount = attempt(failures, _wafer_charge, choice.wafer, limits, size)
+    attempt(failures, _check_layouts, choice, limits, cake_options, size)
     raise_all(failures, CakeDesignError)
+    price_per_kg, cake_subtotal = cake
     decoration_amount, requires_quote = decoration
-    cake_subtotal = (price_per_kg * choice.kg).quantize(CENT)
     wafer = wafer_amount.quantize(CENT)
     decoration_amount = decoration_amount.quantize(CENT)
     return PriceBreakdown(
-        price_per_kg=price_per_kg.quantize(CENT),
+        price_per_kg=price_per_kg,
         kg=choice.kg,
         cake_subtotal=cake_subtotal,
         wafer=wafer,
@@ -490,21 +920,22 @@ def _price(choice: CakeDesignChoice, cake_options, settings, estimate: bool) -> 
         total=cake_subtotal + wafer + decoration_amount,
         requires_quote=requires_quote,
         is_estimate=estimate,
+        cake_size=size.code,
     )
 
 
 @audit_operation(expected_errors=(DomainValidationError,))
 def calculate_price(
-    choice: CakeDesignChoice, cake_options=cake_option_repo, settings=settings_repo
+    choice: CakeDesignChoice, cake_options=cake_option_repo, settings=settings_repo, products=product_repo
 ) -> PriceBreakdown:
     """Precio de un diseño con las cifras vigentes.
 
-    Valida kilos, pan, relleno y decoración por separado y, si algo falla,
+    Valida el tamaño, el pan, el relleno y la decoración por separado y, si algo falla,
     lanza `CakeDesignError` con todos los errores por campo
-    (`PendingPriceError` si lo único que falla es una decoración sin precio).
+    (`PendingPriceError` si lo único que falla es un precio PENDIENTE).
     El relleno pide su base y sus sabores: es el precio que llevaría un pedido.
     """
-    return _price(choice, cake_options, settings, estimate=False)
+    return _price(choice, cake_options, settings, products, estimate=False)
 
 
 @audit_operation(expected_errors=(DomainValidationError,))
@@ -522,14 +953,14 @@ def check_size_and_flavor(choice: CakeDesignChoice, cake_options=cake_option_rep
 
 @audit_operation(expected_errors=(DomainValidationError,))
 def estimate_price(
-    choice: CakeDesignChoice, cake_options=cake_option_repo, settings=settings_repo
+    choice: CakeDesignChoice, cake_options=cake_option_repo, settings=settings_repo, products=product_repo
 ) -> PriceBreakdown:
     """Total estimado mientras se arma el pastel ("Desde $X").
 
     Igual que `calculate_price`, salvo que la base del relleno puede ir sin
     sabores: entonces cuenta su precio general. Ningún pedido usa este precio.
     """
-    return _price(choice, cake_options, settings, estimate=True)
+    return _price(choice, cake_options, settings, products, estimate=True)
 
 
 # --- Kilos por personas (regla 3.1) ---

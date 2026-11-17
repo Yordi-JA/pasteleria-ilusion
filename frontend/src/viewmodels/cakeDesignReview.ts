@@ -7,6 +7,7 @@ import { lowerFirst } from './cakeDesignChoices.ts'
 import { COVERAGE_STEP, DECORATION_STEP, LID_STEP } from './cakeDesignSteps.ts'
 import type { DesignDerived } from './cakeDesignSteps.ts'
 import { messageColorPhrase, shapeLabel } from './cakeLid.ts'
+import { smallSizeLabel } from './cakeSizes.ts'
 import { colorPhrase } from './colors.ts'
 import { messageInk } from './messageColors.ts'
 import type { PriceState } from './useCakeDesignPrice.ts'
@@ -105,13 +106,16 @@ export function reviewView({ draft, design, options, price, leadDays }: ReviewIn
     footnote: null,
   }
   if (!breakdown || !quote) return view
+  // Por kilos, los kilos por el precio por kilo; el pastel de vitrina y el mini, su tamaño (tanda 2): no se cobran por kilo.
+  const perKg = breakdown.kg !== null && breakdown.pricePerKg !== null ? `${breakdown.kg} kg × ${money(breakdown.pricePerKg)} por kg` : null
   view.lines.push({
     key: 'cake',
     title: cakeTitle(design),
-    detail: `${breakdown.kg} kg × ${money(breakdown.pricePerKg)} por kg`,
+    detail: smallSizeLabel(draft, design) ?? perKg ?? undefined,
     amount: money(breakdown.cakeSubtotal),
-    // El renglón junta cuatro pasos (tamaño, tipo, pan y relleno): lleva al primero, y de ahí se avanza por el resto.
-    change: { step: 1, label: 'el pastel: tamaño, tipo, pan y relleno' },
+    // El renglón junta cuatro pasos (tamaño, tipo, pan y relleno): lleva al primero, y de ahí se avanza por el resto. Un pastel de
+    // vitrina de origen no cambia su tipo, pan ni relleno: lleva al tamaño.
+    change: design.locked ? { step: 1, label: 'el tamaño' } : { step: 1, label: 'el pastel: tamaño, tipo, pan y relleno' },
   })
   if (design.coverage) {
     view.lines.push({
@@ -175,8 +179,10 @@ export function reviewView({ draft, design, options, price, leadDays }: ReviewIn
       onDelivery: { key: 'delivery', title: 'Resto, el día de la entrega', amount: money(payment.payOnDelivery) },
     }
     const delivery = leadDays === null ? '' : `; tu pastel puede ser para dentro de ${leadDays} días o después`
+    // El pastel de vitrina y el mini no llevan base (tanda 2): sin depósito que pagar.
+    const deposit = stand ? ' más el depósito de la base' : ''
     view.footnote =
-      `Precio final. Hoy pagas el ${payment.advancePercent}% del pedido más el depósito de la base, y el resto el día de la entrega. ` +
+      `Precio final. Hoy pagas el ${payment.advancePercent}% del pedido${deposit}, y el resto el día de la entrega. ` +
       `La fecha y la forma de entrega las eliges en el carrito${delivery}.`
   }
   return view

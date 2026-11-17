@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { mockCakeDesignOptions, mockCakeDesignPrice } from './support/cake-design.ts'
-import { durazno, mockProductDetails, productDetail, PRODUCTS_PATH, redVelvet } from './support/products.ts'
+import { chocoPinguino, durazno, duraznoShowcase, mockProductDetails, productDetail, PRODUCTS_PATH, redVelvet } from './support/products.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 
 /**
@@ -11,10 +11,12 @@ import { mockStoreInfo } from './support/store-info.ts'
 
 test.use({ viewport: { width: 1440, height: 1000 } })
 
+let prices: Awaited<ReturnType<typeof mockCakeDesignPrice>> = []
+
 test.beforeEach(async ({ page }) => {
   await mockStoreInfo(page)
   await mockCakeDesignOptions(page)
-  await mockCakeDesignPrice(page)
+  prices = await mockCakeDesignPrice(page)
 })
 
 const DRAFT_KEY = 'ilusion.cakeDesign.v1'
@@ -204,4 +206,65 @@ test('the half-done question takes focus only the first time it shows', async ({
   await expect(stepTitle(page)).toHaveText('1. Tamaño y forma')
   await expect(question(page)).toBeVisible()
   await expect(question(page)).not.toBeFocused()
+})
+
+// --- Pastel de vitrina desde su ficha (tanda 2) ---
+
+const stepBar = (page: Page) => page.getByRole('navigation', { name: 'Pasos de Diseña tu pastel' })
+
+test('a showcase cake from its product page starts at the coverage with its type, bread and filling locked', async ({ page }) => {
+  await mockProductDetails(page, [duraznoShowcase])
+  await page.goto('/pasteles/tres-leches-de-durazno')
+  await page.getByRole('link', { name: 'Personalizar este pastel' }).click()
+
+  await expect(stepTitle(page)).toHaveText('5. Cobertura')
+  await expect(page).toHaveURL(/\/pedido\/disena\?paso=5$/)
+  expect(await storedDraft(page)).toMatchObject({
+    cakeSize: 'showcase', source: { slug: 'tres-leches-de-durazno', name: 'Tres leches de durazno', servings: 19 },
+    cakeType: 'tres_leches', bread: 'chocolate', fillingBase: 'normal', flavors: ['durazno'],
+  })
+  // El precio es el del producto: con su tamaño y su `slug`, sin personas.
+  await expect(page.getByTestId('total-estimado').first()).toHaveText('$350 MXN')
+  expect(prices.at(-1)).toMatchObject({ cake_size: 'showcase', source_product: 'tres-leches-de-durazno', cake_type: 'tres_leches', bread: 'chocolate', filling_base: 'normal', filling_flavors: ['durazno'] })
+  expect(prices.at(-1)).not.toHaveProperty('people')
+
+  // Tipo, pan y relleno se ven hechos con candado; su mensaje flotante dice de dónde vienen y cómo cambiarlos.
+  for (const short of ['Tipo', 'Pan', 'Relleno']) {
+    await expect(stepBar(page).getByRole('link', { name: new RegExp(`^${short}`) })).toHaveCount(0)
+  }
+  const lock = stepBar(page).getByRole('button', { name: 'Pan del pastel elegido' })
+  await lock.focus()
+  const tip = page.getByRole('tooltip').filter({ visible: true })
+  await expect(tip).toHaveText('El pan viene de Tres leches de durazno. Para cambiarlo, arma tu pastel desde el principio en Diseña tu pastel.')
+  await page.keyboard.press('Escape')
+  await expect(tip).toHaveCount(0)
+  // "Tu pastel" los lista sin "Cambiar".
+  const summary = page.getByRole('region', { name: 'Tu pastel' })
+  await expect(summary).toContainText('Pastel de vitrina, ~19 personas')
+  await expect(summary.getByRole('link', { name: 'Cambiar pan' })).toHaveCount(0)
+  await expect(summary.getByRole('link', { name: 'Cambiar cobertura' })).toHaveCount(0)
+
+  // El paso 1 muestra el pastel de vitrina fijo, sin personas, y la salida para armarlo desde el principio.
+  await stepBar(page).getByRole('link', { name: /^Tamaño/ }).click()
+  await expect(stepTitle(page)).toHaveText('1. Tamaño y forma')
+  await expect(page.getByTestId('tarjeta-paso').getByRole('radio', { name: /Pastel de vitrina/ })).toBeChecked()
+  await expect(page.getByLabel('¿Para cuántas personas?')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Arma tu pastel desde el principio' }).click()
+  expect(await storedDraft(page)).toMatchObject({ cakeSize: null, source: null, cakeType: null, confirmed: [] })
+})
+
+test('Choco-pingüino as a showcase cake keeps its included filling locked too', async ({ page }) => {
+  await mockProductDetails(page, [chocoPinguino])
+  await page.goto('/pedido/disena?pastel=choco-pinguino&tamano=vitrina')
+  await expect(stepTitle(page)).toHaveText('5. Cobertura')
+  expect(await storedDraft(page)).toMatchObject({ cakeSize: 'showcase', cakeType: 'seco', bread: 'choco_pinguino', fillingBase: null })
+  await expect(page.getByTestId('total-estimado').first()).toHaveText('$350 MXN')
+})
+
+test('a product that cannot be a showcase cake keeps the D59 behavior even with "tamano=vitrina"', async ({ page }) => {
+  await mockProductDetails(page, [durazno])
+  await page.goto('/pedido/disena?pastel=tres-leches-de-durazno&tamano=vitrina')
+  await expect(stepTitle(page)).toHaveText('1. Tamaño y forma')
+  await expect(page).toHaveURL(/\/pedido\/disena\?paso=1$/)
+  expect(await storedDraft(page)).toMatchObject({ cakeSize: null, source: null, cakeType: 'tres_leches', fillingBase: 'normal', flavors: ['durazno'], confirmed: [] })
 })

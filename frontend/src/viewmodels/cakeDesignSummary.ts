@@ -1,4 +1,4 @@
-import type { CakeDesignOptions, CakeSize } from '../models/cakeDesign.ts'
+import type { CakeDesignOptions, CakeSizeCode, DesignSizeOption } from '../models/cakeDesign.ts'
 import type { CakeDesignDraft, CakeForm } from '../models/cakeDesignDraft.ts'
 import { formatPrice } from '../models/money.ts'
 import { reviewView } from './cakeDesignReview.ts'
@@ -15,16 +15,23 @@ import {
   DESIGN_STEPS,
   FILLING_STEP,
   firstIncompleteStep,
+  isLocked,
   isSkipped,
   LAST_BUILT_STEP,
   LID_STEP,
+  LOCKED_STEPS,
   REVIEW_STEP,
+  sizeConflictItems,
   stepStatus,
 } from './cakeDesignSteps.ts'
+import { minimumPeople, offeredSizes, sizeName, sizeOption, smallSizeLabel } from './cakeSizes.ts'
 import type { DesignDerived } from './cakeDesignSteps.ts'
 import type { PricePlan, PriceState } from './useCakeDesignPrice.ts'
 
 /** Textos de "Tu pastel", del total y del paso 1, y la vista completa que pinta `CakeDesigner`. Sin React. */
+
+/** Lo que dice el candado de cada paso que viene del pastel de vitrina de origen (tanda 2). */
+const LOCKED_WHAT: Record<number, string> = { 2: 'El tipo', 3: 'El pan', 4: 'El relleno' }
 
 const FORM_LABELS: Record<CakeForm, string> = { round: 'redondo', rectangular: 'rectangular' }
 
@@ -63,34 +70,42 @@ export type SummaryRow = {
  * Lo elegido en cada paso confirmado, menos el que se está viendo, como "Tu pastel" del mockup. El relleno incluido
  * se lista sin "Cambiar"; un pan que el tipo de pastel ya no admite dice "Hay que cambiarlo".
  */
+/** Lo que viene del pastel de vitrina de origen y no se cambia (tanda 2). */
+const FROM_SOURCE = 'Del pastel elegido, no se cambia'
+
 export function summaryRows(draft: CakeDesignDraft, design: DesignDerived, current: number, options: CakeDesignOptions): SummaryRow[] {
   const rows: SummaryRow[] = []
   const shown = (step: number) => step !== current && step <= LAST_BUILT_STEP && (draft.confirmed.includes(step) || isSkipped(step, design))
+  const locked = (step: number) => isLocked(step, design)
+  const { sizeConflicts: conflicts } = design
   if (shown(1)) {
     const kg = design.size?.current ? `, ${design.size.kg} kg` : ''
-    rows.push({ step: 1, label: DESIGN_STEPS[0].title, value: `${personas(draft.people)}${kg}, ${formLabel(draft.form, draft.tiers)}`, canChange: true })
+    const value = smallSizeLabel(draft, design) ?? `${personas(draft.people)}${kg}, ${formLabel(draft.form, draft.tiers)}`
+    rows.push({ step: 1, label: DESIGN_STEPS[0].title, value, canChange: true })
   }
-  if (shown(2) && design.cakeType) rows.push({ step: 2, label: DESIGN_STEPS[1].title, value: design.cakeType.label, canChange: true })
+  if (shown(2) && design.cakeType) {
+    rows.push({ step: 2, label: DESIGN_STEPS[1].title, value: design.cakeType.label, note: locked(2) ? FROM_SOURCE : undefined, canChange: !locked(2) })
+  }
   if (shown(3) && design.bread) {
-    const included = design.bread.pricingMode === 'full_price_per_kg' && !design.breadIssue
+    const included = design.bread.pricingMode === 'full_price_per_kg' && !design.breadIssue && !conflicts.bread
     rows.push({
       step: 3,
       label: DESIGN_STEPS[2].title,
       value: included ? `${design.bread.name}, relleno incluido` : design.bread.name,
-      note: design.breadIssue ? 'Hay que cambiarlo' : undefined,
-      canChange: true,
+      note: design.breadIssue || conflicts.bread ? 'Hay que cambiarlo' : locked(3) ? FROM_SOURCE : undefined,
+      canChange: !locked(3),
     })
   }
   const includedFilling = design.bread?.pricingMode === 'full_price_per_kg' ? design.bread.includedFilling : ''
-  if (current !== FILLING_STEP && includedFilling && (design.fillingIncluded || design.breadIssue) && draft.confirmed.includes(3)) {
-    rows.push({ step: FILLING_STEP, label: DESIGN_STEPS[3].title, value: includedFilling, note: 'Incluido, no se cambia', canChange: false })
+  if (current !== FILLING_STEP && includedFilling && (design.fillingIncluded || design.breadIssue) && (draft.confirmed.includes(3) || locked(3))) {
+    rows.push({ step: FILLING_STEP, label: DESIGN_STEPS[3].title, value: includedFilling, note: locked(FILLING_STEP) ? FROM_SOURCE : 'Incluido, no se cambia', canChange: false })
   } else if (shown(FILLING_STEP) && design.base && !design.fillingIncluded) {
     rows.push({
       step: FILLING_STEP,
       label: DESIGN_STEPS[3].title,
       value: fillingLabel(design),
-      note: design.fillingIssue ? 'Hay que cambiarlo' : undefined,
-      canChange: true,
+      note: design.fillingIssue || conflicts.base ? 'Hay que cambiarlo' : locked(FILLING_STEP) ? FROM_SOURCE : undefined,
+      canChange: !locked(FILLING_STEP),
     })
   }
   if (shown(5) && design.coverage) {
@@ -98,17 +113,35 @@ export function summaryRows(draft: CakeDesignDraft, design: DesignDerived, curre
   }
   const decoration = shown(DECORATION_STEP) ? decorationSummary(draft, design, options) : null
   if (decoration) {
-    rows.push({ step: DECORATION_STEP, label: DESIGN_STEPS[5].title, value: decoration.value, note: decoration.note, canChange: true, swatches: decorationSwatches(draft, design) })
+    rows.push({
+      step: DECORATION_STEP,
+      label: DESIGN_STEPS[5].title,
+      value: decoration.value,
+      note: conflicts.decoration ? 'Hay que cambiarlo' : decoration.note,
+      canChange: true,
+      swatches: decorationSwatches(draft, design),
+    })
   }
   if (shown(LID_STEP)) {
     const message = draft.messageEnabled && draft.message.text.trim() !== '' && draft.message.color.mode !== 'auto'
-    rows.push({ step: LID_STEP, label: DESIGN_STEPS[6].title, value: lidSummary(draft, design.coverage, options.coverageColors), canChange: true, swatches: message ? [messageInk(draft.message.color, design.coverage)] : undefined })
+    rows.push({
+      step: LID_STEP,
+      label: DESIGN_STEPS[6].title,
+      value: lidSummary(draft, design.coverage, options.coverageColors),
+      note: conflicts.wafer ? 'Hay que quitar la oblea' : undefined,
+      canChange: true,
+      swatches: message ? [messageInk(draft.message.color, design.coverage)] : undefined,
+    })
   }
   return rows
 }
 
 /** La línea del total: "Para 40 personas, aprox. 6 kg, redondo" o, bajo el mínimo, "Mínimo 4 kg, para unas 28 personas". */
 export function sizeLine(draft: CakeDesignDraft, design: DesignDerived, withForm: boolean) {
+  const small = smallSizeLabel(draft, design)
+  if (small) return small
+  // Entre la vitrina y el mínimo, sin tamaño elegido, solo las personas.
+  if (design.cakeSize === null) return `Para ${personas(draft.people)}`
   const size = design.size
   if (size?.belowMinimum) return `Mínimo ${size.kg} kg, para unas ${size.minimumPeople} personas`
   const kg = size ? `, aprox. ${size.kg} kg` : ''
@@ -116,32 +149,68 @@ export function sizeLine(draft: CakeDesignDraft, design: DesignDerived, withForm
   return withForm ? `${line}, ${formLabel(draft.form, draft.tiers)}` : line
 }
 
-/** "aprox. 2.7 kg, unas 19 personas, y puede ser para hoy mismo." con lo que el catálogo tenga. */
-function showcaseText(size: CakeSize | null) {
-  const parts = [size?.approxWeightKg ? `aprox. ${size.approxWeightKg} kg` : null, size?.servings ? `unas ${size.servings} personas` : null].filter(Boolean)
-  return parts.length ? `${parts.join(', ')}, y puede ser para hoy mismo.` : 'puede ser para hoy mismo.'
+/** Una tarjeta de tamaño del paso 1 (tanda 2): nombre, personas y "Desde $X"; desactivada con su motivo si no está disponible. */
+export type SizeChoice = {
+  value: CakeSizeCode
+  label: string
+  description: string | undefined
+  trailing: string | undefined
+  checked: boolean
+  disabledReason: string | undefined
 }
 
-/** Lo que pinta el paso 1, con los kilos, el mínimo y el máximo que calculó la API. */
+function sizeChoice(option: DesignSizeOption, design: DesignDerived): SizeChoice {
+  const from = formatPrice(option.priceFrom)
+  const byWeight = option.code === 'by_weight'
+  const people = byWeight ? option.minPeople : option.servings
+  return {
+    value: option.code,
+    // Por kilos, con el pedido mínimo: "Hacerlo de 4 kg", para 28 personas.
+    label: byWeight && option.minKg ? `Hacerlo de ${option.minKg} kg` : option.name,
+    description: people ? (byWeight ? `${people} personas, precio por kilo` : `~${people} personas`) : undefined,
+    trailing: from ? `Desde ${from}` : undefined,
+    checked: design.cakeSize === option.code,
+    disabledReason: option.available ? undefined : (option.unavailableReason ?? 'No disponible por ahora'),
+  }
+}
+
+/**
+ * Las tarjetas de tamaño del paso 1, solo las que rinden para las personas; `null` desde el mínimo por kilos, donde el paso es el
+ * de siempre (kilos, forma y pisos). Con un pastel de vitrina de origen, solo él, fijo.
+ */
+function sizeChoices(draft: CakeDesignDraft, design: DesignDerived, options: CakeDesignOptions): SizeChoice[] | null {
+  const codes: CakeSizeCode[] = draft.source ? ['showcase'] : offeredSizes(draft.people, options)
+  if (codes.length === 1 && codes[0] === 'by_weight') return null
+  return codes
+    .map((code) => sizeOption(options, code))
+    .filter((option): option is DesignSizeOption => option !== null)
+    .map((option) => sizeChoice(option, design))
+}
+
+/** Lo que pinta el paso 1, con los kilos, el mínimo y el máximo que calculó la API, y los tamaños que rinden (tanda 2). */
 export function sizeStepView(draft: CakeDesignDraft, design: DesignDerived, options: CakeDesignOptions, tierNotice: string | null) {
   const size = design.size
-  const { showcaseCake, miniCake } = options.smallerAlternatives
+  const byWeight = design.cakeSize === 'by_weight'
+  const conflictItems = sizeConflictItems(design)
   return {
+    sizes: sizeChoices(draft, design, options),
+    /** Con un pastel de vitrina de origen: su nombre; el paso es fijo y no pide personas. */
+    source: draft.source ? { name: draft.source.name, label: smallSizeLabel(draft, design) } : null,
+    /** Los kilos por personas solo desde el mínimo por kilos: debajo, las tarjetas ya dicen lo que rinde cada tamaño. */
+    showKilos: byWeight && draft.people >= minimumPeople(options),
+    /** Forma y pisos solo por kilos: el pastel de vitrina y el mini son redondos, de 1 piso. */
+    showShape: byWeight,
+    /** Lo ya elegido que el tamaño no admite (como el cambio de tipo, regla 4.7): se avisa antes de continuar. */
+    sizeConflict:
+      conflictItems.length > 0 && design.sizeOption
+        ? { title: `El ${sizeName(design.sizeOption)} no lleva todo lo que elegiste`, items: conflictItems }
+        : null,
     /** "Aprox. 6 kg para 40 personas", "Menos de 1 kg para 3 personas" o, sin respuesta, "Calculando los kilos…". */
     kgLine: size
       ? `${size.roundedKg < 1 ? 'Menos de 1 kg' : `Aprox. ${size.roundedKg} kg`} para ${personas(size.people)}`
       : 'Calculando los kilos…',
     /** Los kilos son de otras personas mientras llega la respuesta nueva. */
     kgStale: !size?.current,
-    minimum:
-      size?.belowMinimum
-        ? {
-            title: `Para ${personas(size.people)} hay opciones más chicas`,
-            intro: `Los pedidos son desde ${size.kg} kg, que alcanzan para unas ${size.minimumPeople} personas. Si prefieres algo más chico:`,
-            showcase: showcaseText(showcaseCake),
-            mini: miniCake?.servings ? `unas ${miniCake.servings} personas cada uno.` : '',
-          }
-        : null,
     tooLarge: design.aboveMaximum && size
       ? options.limits.maxOnlineKg <= 0
         ? {
@@ -190,6 +259,8 @@ export type PriceView = {
 export function priceView(price: PriceState, plan: PricePlan | null, design: DesignDerived): PriceView {
   const base = { updating: false, failed: false, assumed: null, isFigure: false, rejectedReason: null, note: null }
   if (design.aboveMaximum) return { ...base, amount: 'Por WhatsApp' }
+  // Entre la vitrina y el mínimo, sin tamaño elegido, todavía no hay qué calcular (tanda 2).
+  if (design.cakeSize === null) return { ...base, amount: 'Elige el tamaño' }
   // Una falla de red (429, 5xx, tiempo agotado) no deja total y ofrece reintentar.
   if (price.failed) return { ...base, amount: 'Sin calcular', failed: true }
   // Una elección rechazada (400 con los kilos) tampoco deja total, pero reintentar daría lo mismo: se dice por qué.
@@ -229,19 +300,33 @@ export function designerView({ draft, design, options, current, price, plan, tie
   const conflict = current === 2 && design.cakeType ? conflictTarget(design) : null
   const reachableUpTo = firstIncompleteStep(design, draft)
   const review = current === REVIEW_STEP ? reviewView({ draft, design, options, price, leadDays }) : null
+  const source = design.locked ? draft.source : null
   return {
     steps: DESIGN_STEPS.map((step, index) => {
       const number = index + 1
       const status = stepStatus(number, current, design, draft)
-      // Se puede volver a un paso ya alcanzado; los siguientes y el relleno incluido no se tocan.
+      // Se puede volver a un paso ya alcanzado; los siguientes, el relleno incluido y lo del pastel de origen no se tocan.
       const reachable = number !== current && status !== 'included' && number <= reachableUpTo
-      // El porqué del relleno incluido va en el mensaje flotante del candado, no en una tarjeta del paso 5 (tanda 1).
+      const fromSource = Boolean(source) && LOCKED_STEPS.includes(number)
+      // El porqué del candado va en su mensaje flotante (tanda 1): lo que viene del pastel de vitrina elegido (tanda 2) o el
+      // relleno incluido del pan.
       const tip =
-        status === 'included' && design.bread?.includedFilling
-          ? `Tu pan ${design.bread.name} ya trae su relleno de ${lowerFirst(design.bread.includedFilling)}, así que este paso se salta.`
-          : undefined
-      return { number, ...step, status, reachable, tip }
+        status !== 'included'
+          ? undefined
+          : fromSource && source
+            ? `${LOCKED_WHAT[number]} viene de ${source.name}. Para cambiarlo, arma tu pastel desde el principio en Diseña tu pastel.`
+            : design.bread?.includedFilling
+              ? `Tu pan ${design.bread.name} ya trae su relleno de ${lowerFirst(design.bread.includedFilling)}, así que este paso se salta.`
+              : undefined
+      return { number, ...step, status, reachable, tip, tipLabel: `${step.short} ${fromSource ? 'del pastel elegido' : 'incluido'}` }
     }),
+    /** En móvil la barra no muestra los círculos: un solo candado junto al paso dice lo que viene del pastel de origen. */
+    mobileTip: source
+      ? {
+          label: 'Del pastel elegido',
+          text: `El tipo, el pan y el relleno vienen de ${source.name}. Para cambiarlos, arma tu pastel desde el principio en Diseña tu pastel.`,
+        }
+      : null,
     summary: summaryRows(draft, design, current, options),
     conflict:
       conflict && design.cakeType
@@ -256,13 +341,22 @@ export function designerView({ draft, design, options, current, price, plan, tie
       breads: breadChoices(draft, design, options),
       filling: fillingChoices(draft, design, options),
       coverage: design.coverage,
-      decorations: decorationGroups(draft, options),
+      decorations: decorationGroups(
+        draft,
+        options,
+        design.small ? design.sizeOption?.unavailableDecorations : undefined,
+        design.small ? design.sizeOption?.decorationPrices : undefined,
+      ),
       decorationColor: decorationColorView(draft, design),
       decorationQuote: Boolean(design.decoration?.requiresQuote),
     },
     continueLabel: continueLabel(current, design),
     continueShort:
-      current === 1 && design.belowMinimum && !design.aboveMaximum && design.size ? `Continuar con ${design.size.kg} kg` : 'Continuar',
+      current === 1 && design.cakeSize === 'by_weight' && design.belowMinimum && !design.aboveMaximum && design.size
+        ? `Continuar con ${design.size.kg} kg`
+        : current === 1 && sizeConflictItems(design).length > 0
+          ? continueLabel(current, design)
+          : 'Continuar',
     // El paso 1 arriba del máximo no se puede confirmar; la revisión espera los montos de la API.
     continueDisabled: (current === 1 && design.aboveMaximum) || current > LAST_BUILT_STEP || proceeding || (review !== null && !review.ready),
     proceeding,

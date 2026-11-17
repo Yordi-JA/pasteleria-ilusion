@@ -9,7 +9,19 @@ import type { Page } from '@playwright/test'
 
 export const PRODUCTS_PATH = '/api/v1/products/'
 
-const offering = (id: number, presentation: string, price: string) => ({ id, presentation, price })
+/** Una presentación; `price` en `null` es PENDIENTE, con `price_pending` (tanda 2: "[Precio por confirmar]"). */
+const offering = (id: number, presentation: string, price: string | null) => ({ id, presentation, price, price_pending: price === null })
+
+/**
+ * Si "Personalizar este pastel" lo abre como pastel de vitrina (tanda 2). La semilla ya captura el pan de los pasteles de vitrina
+ * y los deja disponibles; aquí los de sabor siguen con el pan PENDIENTE a propósito, para cubrir el caso de D59 (todo editable).
+ * `chocoPinguino` y `duraznoShowcase` son los disponibles.
+ */
+type ShowcaseDesign = { available: boolean; unavailable_reason: string | null }
+const PENDING_BREAD: ShowcaseDesign = { available: false, unavailable_reason: 'El pan de este pastel está por confirmar.' }
+const ORDER_ONLY: ShowcaseDesign = { available: false, unavailable_reason: 'Solo por encargo: no sale en la vitrina.' }
+const NOT_DESIGNED: ShowcaseDesign = { available: false, unavailable_reason: 'Este producto no se personaliza.' }
+export const SHOWCASE_AVAILABLE: ShowcaseDesign = { available: true, unavailable_reason: null }
 
 type CardFields = {
   slug: string
@@ -23,9 +35,10 @@ type CardFields = {
   filling_base?: string | null
   in_showcase_today?: boolean
   sliced_today?: boolean
+  showcase_design?: ShowcaseDesign
 }
 
-const card = ({ sales_channel = 'showcase_and_order', cake_type = null, bread = null, filling_base = null, in_showcase_today = false, sliced_today = false, ...rest }: CardFields) => ({
+const card = ({ sales_channel = 'showcase_and_order', cake_type = null, bread = null, filling_base = null, in_showcase_today = false, sliced_today = false, showcase_design, ...rest }: CardFields) => ({
   ...rest,
   sales_channel,
   cake_type,
@@ -34,6 +47,7 @@ const card = ({ sales_channel = 'showcase_and_order', cake_type = null, bread = 
   photo: null,
   in_showcase_today,
   sliced_today,
+  showcase_design: showcase_design ?? (rest.category === 'dessert' ? NOT_DESIGNED : sales_channel === 'order_only' ? ORDER_ONLY : PENDING_BREAD),
 })
 
 const normal = (first: number) => [offering(first, 'whole', '350.00'), offering(first + 1, 'slice', '35.00'), offering(first + 2, 'mini', '130.00')]
@@ -50,7 +64,7 @@ export const productCards = [
     filling_base: 'queso',
     offerings: [offering(10, 'whole', '420.00'), offering(11, 'slice', '40.00')],
   }),
-  card({ slug: 'choco-pinguino', name: 'Choco-pingüino', category: 'cake', summary: 'Pan de chocolate con su crema de chocolate sabor helado.', cake_type: 'seco', bread: 'choco_pinguino', in_showcase_today: true, offerings: [offering(20, 'whole', '350.00'), offering(21, 'slice', '35.00')] }),
+  card({ slug: 'choco-pinguino', name: 'Choco-pingüino', category: 'cake', summary: 'Pan de chocolate con su crema de chocolate sabor helado.', cake_type: 'seco', bread: 'choco_pinguino', in_showcase_today: true, showcase_design: SHOWCASE_AVAILABLE, offerings: [offering(20, 'whole', '350.00'), offering(21, 'slice', '35.00')] }),
   card({ slug: 'red-velvet', name: 'Red velvet', category: 'cake', summary: 'Con su relleno típico de red velvet.', sales_channel: 'order_only', cake_type: 'seco', bread: 'red_velvet', offerings: [offering(30, 'whole', '450.00')] }),
   card({ slug: 'imposible', name: 'Imposible', category: 'dessert', summary: 'Flan con pan de chocolate.', offerings: [offering(40, 'whole', '350.00'), offering(41, 'slice', '35.00')] }),
   card({ slug: 'flan-napolitano', name: 'Flan napolitano', category: 'dessert', summary: 'Grande o individual.', offerings: [offering(50, 'large', '360.00'), offering(51, 'individual', '35.00')] }),
@@ -58,6 +72,18 @@ export const productCards = [
 ]
 
 type Card = (typeof productCards)[number]
+
+/** Tres leches de nuez: solo por encargo y con su precio PENDIENTE (tanda 2). No está en la lista por omisión. */
+export const nuezCard = card({
+  slug: 'tres-leches-de-nuez',
+  name: 'Tres leches de nuez',
+  category: 'cake',
+  summary: 'Relleno de nuez y cobertura de crema pastelera.',
+  sales_channel: 'order_only',
+  cake_type: 'tres_leches',
+  filling_base: 'normal',
+  offerings: [offering(70, 'whole', null)],
+})
 
 /** Lo que agrega la ficha a una tarjeta: peso, personas y existencias por presentación, notas y relacionados. */
 type DetailExtras = {
@@ -70,15 +96,20 @@ type DetailExtras = {
   /** "Rebanado hoy" (D60). */
   sliced_today?: boolean
   in_showcase_today?: boolean
+  /** El pan del producto (el de la semilla es PENDIENTE en los pasteles de sabor). */
+  bread?: string | null
+  showcase_design?: ShowcaseDesign
 }
 
 export function productDetail(slug: string, extras: DetailExtras = {}) {
-  const base = productCards.find((entry) => entry.slug === slug)
+  const base = [...productCards, nuezCard].find((entry) => entry.slug === slug)
   if (!base) throw new Error(`No hay tarjeta para ${slug}`)
   const { stock = {}, sizes = {}, filling_flavor = null, storage_notes = null, transport_notes = null, related = [] } = extras
   return {
     ...base,
     sliced_today: extras.sliced_today ?? base.sliced_today,
+    bread: extras.bread === undefined ? base.bread : extras.bread,
+    showcase_design: extras.showcase_design ?? base.showcase_design,
     in_showcase_today: extras.in_showcase_today ?? base.in_showcase_today,
     description: '',
     filling_flavor,
@@ -106,6 +137,20 @@ export const durazno = productDetail('tres-leches-de-durazno', {
 export const redVelvet = productDetail('red-velvet', { storage_notes: 'En refrigeración, hasta 3 días.', transport_notes: 'En su caja, sobre una superficie plana.' })
 
 export const mosaico = productDetail('mosaico-con-crema', { stock: { 60: 0 } })
+
+/** Choco-pingüino, que sí se personaliza como pastel de vitrina (tanda 2): su completo rinde 19 personas. */
+export const chocoPinguino = productDetail('choco-pinguino', { sizes: { 20: { approx_weight_kg: '2.7', servings: 19 } }, related: [] })
+
+/** Durazno con su pan ya capturado (chocolate): se personaliza como pastel de vitrina con su relleno bloqueado. */
+export const duraznoShowcase = productDetail('tres-leches-de-durazno', {
+  sizes: { 1: { approx_weight_kg: '2.7', servings: 19 } },
+  filling_flavor: 'durazno',
+  bread: 'chocolate',
+  showcase_design: SHOWCASE_AVAILABLE,
+})
+
+/** La ficha de Tres leches de nuez: su único completo, sin precio todavía. */
+export const nuez = productDetail('tres-leches-de-nuez', { filling_flavor: 'nuez' })
 
 function fold(value: string) {
   return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()

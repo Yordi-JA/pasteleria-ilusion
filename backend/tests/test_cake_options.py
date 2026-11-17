@@ -539,10 +539,12 @@ def test_seeded_filling_bases_and_flavors_match_section_4_4():
     assert offered["normal"] == {
         "Durazno", "Fresa", "Zarzamora", "Cajeta", "Galleta", "Chocolate",
         "Choco vainilla", "Capuchino", "Fresa con yogurt", "Nuez",
+        # Tanda 2 de correcciones: solo en la base Normal.
+        "Blueberry",
     }
     assert offered["queso"] == {"Chocolate", "Zarzamora"}
     assert offered["flan"] == {"Cajeta", "Zarzamora"}
-    assert FillingFlavor.objects.count() == 10
+    assert FillingFlavor.objects.count() == 11
 
 
 def test_seeded_base_colors_come_from_the_3d_prototype():

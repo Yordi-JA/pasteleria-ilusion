@@ -34,8 +34,11 @@ export type PaymentOrderItem = {
   presentation: OfferingPresentation | null
   quantity: number
   lineTotal: string
-  /** Solo en un pastel diseñado; los kilos los calculó el servidor. */
-  design: { kg: number | null; tiers: number | null } | null
+  /**
+   * Solo en un pastel diseñado; los kilos los calculó el servidor. `sizeLabel` es su `cake_size_label` (tanda 2): "Pastel de 4 kg,
+   * 30 personas", "Pastel mini, ~3 personas"; `small` si es de vitrina o mini (sin kilos ni pisos que decir).
+   */
+  design: { kg: number | null; tiers: number | null; sizeLabel: string | null; small: boolean } | null
   /** Solo en la línea `reference`: el sabor y la base de la solicitud aceptada (D70); `null` en las demás. */
   reference: ReferenceFlavor | null
 }
@@ -85,7 +88,14 @@ const ITEM_KINDS = new Set<unknown>(['order', 'showcase', 'design', 'reference']
 
 function parseItem(data: unknown): PaymentOrderItem {
   if (!isRecord(data) || !ITEM_KINDS.has(data.kind)) throw new TypeError('Una línea del pedido no tiene la forma esperada.')
-  const design = isRecord(data.design) ? { kg: count(data.design.kg), tiers: count(data.design.tiers) } : null
+  const design = isRecord(data.design)
+    ? {
+        kg: count(data.design.kg),
+        tiers: count(data.design.tiers),
+        sizeLabel: typeof data.design.cake_size_label === 'string' && data.design.cake_size_label !== '' ? data.design.cake_size_label : null,
+        small: data.design.cake_size === 'showcase' || data.design.cake_size === 'mini',
+      }
+    : null
   return {
     kind: data.kind as PaymentOrderItem['kind'],
     productName: typeof data.product_name === 'string' && data.product_name !== '' ? data.product_name : null,

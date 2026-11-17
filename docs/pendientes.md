@@ -68,7 +68,7 @@ Lo construido está en D57 ([`proyecto/decisiones.md`](proyecto/decisiones.md)),
 
 Lo construido está en D59 ([`proyecto/decisiones.md`](proyecto/decisiones.md)), en la rama `feat/catalogo`, sin desplegar. Quedan estos puntos:
 
-1. "Pastel mini": el mockup dice "para unas 3 personas", pero las tarjetas de `GET /api/v1/products/` no traen las personas de cada presentación (la ficha sí). Hoy la frase va sin ese dato. Para mostrarlo, la API tendría que agregar `servings` a `CardOfferingSerializer`. El botón "Ver sabores" del mockup no se hizo: no hay una pantalla de sabores del mini, y cada ficha ya ofrece "Mini".
+1. Actualizado por D78: la tarjeta del mini ya lleva "Diseña tu pastel mini", que abre el diseñador con el mini elegido; lo de abajo sobre elegirlo en cada ficha quedó desfasado. "Pastel mini": el mockup dice "para unas 3 personas", pero las tarjetas de `GET /api/v1/products/` no traen las personas de cada presentación (la ficha sí). Hoy la frase va sin ese dato. Para mostrarlo, la API tendría que agregar `servings` a `CardOfferingSerializer`. El botón "Ver sabores" del mockup no se hizo: no hay una pantalla de sabores del mini, y cada ficha ya ofrece "Mini".
 2. "Encargarlo para una fecha" agrega una línea `order` sin fecha. La fecha y la hora, el encargo de hoy con 2 horas de anticipación y la disponibilidad de pan (`Inventory`, D30) son de la entrega (Etapa 4).
 3. Fotos de producto: siguen PENDIENTE (el hueco "Foto del pastel"). Van en `frontend/public/fotos/` (D32, D47) con el nombre de [`fotografia.md`](fotografia.md) (D67). La primera es `tres-leches-de-cajeta.jpg`, del 15 de noviembre, y le falta esto:
     - Es un JPG de 2048 × 2048 px, sin fondo transparente y de 1.7 MB; [`fotografia.md`](fotografia.md) pide un PNG transparente de 2000 × 2000 px y de menos de 1.5 MB. Falta el recorte o decidir si el sitio la muestra así mientras tanto.
@@ -110,7 +110,7 @@ Lo construido está en D63 ([`proyecto/decisiones.md`](proyecto/decisiones.md)),
 5. Resuelto en la ronda 2 de D63 (lo decidió el usuario): con el precio que pone la pastelería en el admin, el pedido pasa a `awaiting_payment`. Sigue PENDIENTE cuánto espera sin precio antes de cancelarse (`PolicySettings.quote_expiry_hours`, vacío: mientras tanto no vence).
 6. Imágenes huérfanas: una imagen subida que nunca entra en un pedido se queda en PostgreSQL. El tope de 10 por cliente las acota, pero falta un barrido periódico. Heroku Postgres `essential-0` tiene 1 GB.
 7. Valores propuestos que la pastelería debe confirmar en el admin: 30 minutos para pagar, 2 pedidos sin pagar por cliente, 60 días a futuro, 20 piezas por línea de encargo, 10 imágenes sin pedido y 12 megapíxeles (los dio el usuario el 14 de noviembre de 2026), y 100 piezas por pedido (lo propuso el equipo, sin cifra del usuario).
-8. Unidad del pan para encargos de hoy: se cuenta una pieza de pan por pieza encargada. La unidad sigue siendo una pregunta para la pastelería ("Preguntas del catálogo" en las decisiones abiertas). Sin pan definido para el producto (PENDIENTE en la semilla, salvo Choco-pingüino y Red velvet), no hay encargo para hoy.
+8. Unidad del pan para encargos de hoy: se cuenta una pieza de pan por pieza encargada. La unidad sigue siendo una pregunta para la pastelería ("Preguntas del catálogo" en las decisiones abiertas). Sin pan definido para el producto (PENDIENTE en la semilla, salvo Choco-pingüino y Red velvet), no hay encargo para hoy. Desde D78 el pan de cada pastel de vitrina está cargado en la `0045`; el producto sin pan sigue sin encargo para hoy.
 9. `DecorationOption.accepts_color` no sale en `GET cake-designs/options/`: el frontend sigue decidiendo por `slug` qué decoraciones llevan color. Si la pastelería marca otra en el admin, el frontend no se entera hasta que la API lo mande.
 10. El frontend todavía no usa estos endpoints: falta subir las imágenes, mandar el pedido con `Idempotency-Key`, pedir los lapsos con `kind` y mostrar los errores de los topes.
 11. Producción: las migraciones `0032_orders` y `0033_seed_decoration_accepts_color` (eran la `0031` y la `0032`; se renumeraron al fusionar con el acceso, que trae la `0031_user_profile_and_google`) más la `0034_order_round2_policy` de la ronda 2, y Pillow 13.0.0 en el slug (está en `backend/requirements.txt`).
@@ -304,7 +304,30 @@ Menores de la revisión única de "Datos y avisos" que no se implementaron:
 
 1. Las descripciones del catálogo ("Relleno de X y cobertura de crema pastelera.") son genéricas. La pastelería debe escribir las reales de cada pastel (regla 1: no se inventan); se cambian en el admin, sin despliegue.
 2. Fotos que faltan: Choco-pingüino, Red velvet, nuez, queso y zarzamora, flan y zarzamora, y tres leches de chocolate. Mientras tanto se ve el hueco "Foto del pastel pendiente". Las ocho `.webp` de esta tanda ya están en `frontend/public/fotos/`; `tres-leches-de-cajeta.jpg` se queda porque producción todavía apunta a ella.
-3. Pregunta para la pastelería, de la tanda 2 (personalizar el pastel mini): ¿cuánto cuestan las rosas en un mini? En los demás pasteles cuestan $120. Las rosas del mini son del mismo tamaño, pero caben menos que en un pastel normal. Mientras no se defina, el precio de las rosas en el mini queda pendiente.
+3. Pregunta para la pastelería, de la tanda 2 (personalizar el pastel mini): ¿cuánto cuestan las rosas en un mini? En los demás pasteles cuestan $120. Las rosas del mini son del mismo tamaño, pero caben menos que en un pastel normal. Desde D78, el precio es un campo vacío del admin (`DecorationOption.mini_price`): las rosas salen desactivadas en el mini con "Precio por confirmar" hasta que la pastelería lo capture.
+
+## Tanda 2 de correcciones (D78)
+
+Lo construido está en D78 ([`proyecto/decisiones.md`](proyecto/decisiones.md)), en la rama `fix/correcciones-tanda-2`, sin fusionar. Quedan estos puntos:
+
+1. Peso del pastel mini: PENDIENTE. El precio de catálogo "Pastel mini" no lo tiene; la pastelería lo captura en el admin.
+2. Precio de "Tres leches de nuez": PENDIENTE. `CatalogPrice.amount` va vacío y el producto no se puede pedir hasta que la pastelería lo capture.
+3. Color de Blueberry en la vista previa: `#3E3A6E`, propuesto por el equipo. La pastelería lo confirma o lo cambia en el admin (`FillingFlavor.preview_color`).
+4. Falta la foto de "Tres leches de blueberry". Mientras tanto se ve el hueco "Foto del pastel pendiente".
+5. Una vitrina o una rebanada con el precio vacío se descarta al leerla: no muestra "[Precio por confirmar]".
+6. En el carrito, los pedidos por kilos siguen diciendo "6 kg" y no "Pastel de 6 kg, 40 personas", como sí lo dicen la revisión y el admin.
+7. "Mis pedidos", la confirmación y el pago usan la etiqueta de tamaño (`cake_size_label`) sin una prueba E2E que lo compruebe.
+8. La migración `0044` no se puede revertir si hay diseños mini o de vitrina guardados.
+9. La semilla de tamaños (`0045`) busca los precios de catálogo por su nombre. Si la pastelería los renombró, ese tamaño queda no disponible hasta que se agregue su fila en el admin ("Tamaños de vitrina y mini").
+10. Producción: las migraciones `0044_design_sizes` y `0045_seed_design_sizes`.
+
+Menores de la revisión única que no se arreglaron:
+
+11. Un carrito guardado antes del despliegue con un mensaje de letra menor a 1.5 cm recibe 400 al crear el pedido, porque la letra mínima también aplica por kilos. El cliente tiene que editar la línea.
+12. `0044` y `0045` no se revierten con datos (diseños mini o de vitrina, o precios vacíos); es el punto 8 y la reversa de la `0045` solo quita la nuez PENDIENTE.
+13. `StockItemSerializer` (vitrina y rebanadas) manda `price: null` sin `price_pending`; el frontend descarta la partida.
+14. `POST cake-designs/price/` de una vitrina armada lee todo el catálogo para buscar el producto que coincide, y `get_cake_design_options` llama dos veces a `list_design_sizes()`. Se puede cachear por petición.
+15. `pricing_service.py` pasa de 1000 líneas e incluye reglas del catálogo (`showcase_product_unavailable`, `_matching_showcase_product`). Conviene separarlo después del congelamiento para que no se vuelva un Objeto Dios.
 
 ## Confirmar el correo y recuperar la contraseña (D76)
 

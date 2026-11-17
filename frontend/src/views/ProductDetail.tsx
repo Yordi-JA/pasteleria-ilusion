@@ -120,7 +120,9 @@ function ChooseCard({ detail, view }: { detail: ProductDetailView; view: Ready }
               </Button>
             </>
           ) : (
-            <p className="border-t border-relieve pt-5 text-cuerpo text-mermelada-suave">Hoy no se puede agregar: solo se vende en la vitrina y hoy no hay.</p>
+            <p className="border-t border-relieve pt-5 text-cuerpo text-mermelada-suave">
+              {view.pricePending ? 'Por ahora no se puede agregar: su precio está por confirmar.' : 'Hoy no se puede agregar: solo se vende en la vitrina y hoy no hay.'}
+            </p>
           )}
         </>
       ) : (
@@ -131,17 +133,26 @@ function ChooseCard({ detail, view }: { detail: ProductDetailView; view: Ready }
   )
 }
 
-/** "¿Lo quieres seco, envinado o más grande?": avisa las condiciones antes de abrir "Diseña tu pastel". */
+/**
+ * "¿Lo quieres seco, envinado o más grande?": avisa las condiciones antes de abrir "Diseña tu pastel". Un pastel que sale en la
+ * vitrina (tanda 2) se personaliza con su tipo, pan y relleno: solo se eligen la cobertura, la decoración y el mensaje.
+ */
 function PersonalizeCard({ personalize }: { personalize: NonNullable<Ready['personalize']> }) {
   const { minKg, leadDays } = personalize
   return (
     <div className="flex flex-col gap-2.5 rounded-lg border border-relieve bg-nata p-6 max-[600px]:p-4">
       <h3 className="font-display text-titulo-3">{personalize.title}</h3>
-      <p className="text-cuerpo text-mermelada-suave">
-        Parte de este sabor y cámbialo a tu gusto. Pedidos desde{' '}
-        {minKg === undefined ? <Skeleton inline className="h-[1em] w-10 align-[-0.15em]" /> : minKg === null ? <Pending what="kilos" /> : `${minKg} kg`}, con precio por kilo
-        y <LeadDays days={leadDays} /> de anticipación.
-      </p>
+      {personalize.showcase ? (
+        <p className="text-cuerpo text-mermelada-suave">
+          Elige su cobertura, su decoración y su mensaje. Pedidos con <LeadDays days={leadDays} /> de anticipación.
+        </p>
+      ) : (
+        <p className="text-cuerpo text-mermelada-suave">
+          Parte de este sabor y cámbialo a tu gusto. Pedidos desde{' '}
+          {minKg === undefined ? <Skeleton inline className="h-[1em] w-10 align-[-0.15em]" /> : minKg === null ? <Pending what="kilos" /> : `${minKg} kg`}, con precio
+          por kilo y <LeadDays days={leadDays} /> de anticipación.
+        </p>
+      )}
       <ButtonLink to={personalize.href} variant="secondary" className="self-start">
         Personalizar este pastel
       </ButtonLink>

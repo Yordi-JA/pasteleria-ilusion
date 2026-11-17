@@ -23,7 +23,8 @@ class OfferingRecord:
     category: str
     sales_channel: str
     presentation: str
-    price: Decimal
+    # `None`: PENDIENTE ("[Precio por confirmar]"); esa presentación no se puede pedir.
+    price: Decimal | None
     approx_weight_kg: Decimal | None
     servings: int | None
     # La de la presentación o, si no tiene, la del producto. Vacía: PENDIENTE.
@@ -79,6 +80,16 @@ class BreadRecord:
     # Solo en un pan con relleno incluido: cómo se ve (siempre sobre crema pastelera blanca) y el color de sus trozos.
     included_filling_preview_style: str = "smooth"
     included_filling_preview_color_secondary: str = ""
+    # Pastel de vitrina (tanda 2): un pan con relleno incluido se cobra con el precio de catálogo de su pastel.
+    showcase_price: "GroupPrice | None" = None
+
+
+@dataclass(frozen=True)
+class GroupPrice:
+    """El precio de catálogo de un grupo de pasteles de vitrina; `amount` en `None` es PENDIENTE."""
+
+    name: str
+    amount: Decimal | None
 
 
 @dataclass(frozen=True)
@@ -101,6 +112,10 @@ class FillingBaseRecord:
     max_flavors: int
     combined_extra_per_kg: Decimal
     flavors: tuple[FillingFlavorRecord, ...]
+    # Pastel de vitrina (tanda 2): el precio de catálogo del grupo de esta base; `None`, no se ofrece en vitrina.
+    showcase_price: GroupPrice | None = None
+    # No hay pastel mini con queso ni con flan.
+    available_in_mini: bool = False
 
 
 @dataclass(frozen=True)
@@ -126,6 +141,9 @@ class DecorationRecord:
     preview_source_inactive: bool = False
     # Los diseños con duya y las rosas: el cliente elige su color (regla 6.1).
     accepts_color: bool = False
+    # El pastel mini solo lleva las decoraciones marcadas; una de precio fijo cobra ahí su `mini_price` (`None`: PENDIENTE).
+    available_in_mini: bool = False
+    mini_price: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -147,6 +165,22 @@ class CakeMoldRecord:
     length_cm: Decimal
     # `None` en un molde redondo.
     width_cm: Decimal | None
+
+
+@dataclass(frozen=True)
+class DesignSizeRecord:
+    """El pastel de vitrina o el mini (tanda 2): su molde y lo que dice su precio de catálogo."""
+
+    code: str
+    # Del precio de catálogo; `None` es PENDIENTE.
+    price: Decimal | None
+    approx_weight_kg: Decimal | None
+    servings: int | None
+    diameter_cm: Decimal
+    height_cm: Decimal
+    # Solo la vitrina: contra qué se cobra la diferencia por kilo de lo elegido.
+    reference_cake_type: str = ""
+    reference_bread: str | None = None
 
 
 # --- Configuraciones, bases y envío ---
@@ -178,6 +212,8 @@ class CakeDesignSettingsRecord:
     wafer_max_width_cm: Decimal
     wafer_max_height_cm: Decimal
     message_suggested_max_words: int
+    # El alto mínimo de la letra del mensaje en cm; `None` (solo en pruebas en memoria) no revisa el mínimo.
+    message_min_letter_cm: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -305,8 +341,10 @@ class StandLoanRecord:
 class NewCakeDesign:
     """Diseño ya revalidado y calculado por el servidor. Las opciones van por su `slug`."""
 
-    people: int
-    kg: int
+    # Por kilos, las del cliente; vitrina y mini, las que rinden (`None` si no se han definido).
+    people: int | None
+    # Solo por kilos.
+    kg: int | None
     form: str
     tiers: int
     cake_type: str
@@ -324,7 +362,7 @@ class NewCakeDesign:
     wafer_layout: dict | None
     wafer_image_id: UUID | None
     occasion: str
-    price_per_kg: Decimal
+    price_per_kg: Decimal | None
     cake_subtotal: Decimal
     wafer_price: Decimal
     decoration_price: Decimal
@@ -333,6 +371,9 @@ class NewCakeDesign:
     # El tamaño de base se identifica por sus kilos máximos (únicos); `None` sin base.
     stand_max_kg: int | None
     stand_deposit: Decimal
+    # Tanda 2: por kilos, de vitrina o mini; el pastel de vitrina de origen por su `slug`.
+    cake_size: str = "by_weight"
+    source_product: str | None = None
 
 
 @dataclass(frozen=True)

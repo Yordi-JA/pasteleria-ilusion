@@ -7,7 +7,8 @@ import { pickedColor } from './cakeDecorations.ts'
 import { cakeTitle } from './cakeDesignReview.ts'
 import type { DesignDerived } from './cakeDesignSteps.ts'
 import { summaryRows } from './cakeDesignSummary.ts'
-import { effectiveMessage, effectiveWafer, lidFor } from './cakeLid.ts'
+import { effectiveMessage, effectiveWafer, lidFor, minLetterScale } from './cakeLid.ts'
+import { smallSizeLabel } from './cakeSizes.ts'
 import type { MessageMetrics } from './messageGeometry.ts'
 
 /**
@@ -44,10 +45,14 @@ type OrderInput = {
 export function designSnapshot({ draft, design, options, metrics }: Omit<OrderInput, 'quote' | 'imageIds'>): Record<string, unknown> {
   const lid = lidFor(draft, design, options)
   return {
+    // El tamaño (tanda 2): el pastel de vitrina y el mini son redondos, de 1 piso, sin kilos; su etiqueta va al carrito.
+    cakeSize: design.cakeSize,
+    source: draft.source,
+    sizeLabel: smallSizeLabel(draft, design),
     people: draft.people,
     kg: design.kg,
-    form: draft.form,
-    tiers: draft.tiers,
+    form: design.small ? 'round' : draft.form,
+    tiers: design.small ? 1 : draft.tiers,
     cakeType: draft.cakeType,
     bread: draft.bread,
     fillingBase: design.fillingIncluded ? null : draft.fillingBase,
@@ -56,7 +61,7 @@ export function designSnapshot({ draft, design, options, metrics }: Omit<OrderIn
     decoration: draft.decoration,
     decorationColor: pickedColor(draft),
     decorationImageName: design.decoration?.requiresQuote ? draft.decorationImageName : null,
-    message: effectiveMessage(draft, lid, metrics),
+    message: effectiveMessage(draft, lid, metrics, minLetterScale(options, lid)),
     wafer: effectiveWafer(draft, lid, options),
     waferImageName: draft.waferEnabled ? draft.waferImageName : null,
     occasion: draft.occasion,

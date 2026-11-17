@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { mockCakeDesignOptions } from './support/cake-design.ts'
-import { durazno, mockProductDetails, mosaico, productDetail, PRODUCTS_PATH, redVelvet } from './support/products.ts'
+import { chocoPinguino, durazno, mockProductDetails, mosaico, nuez, productDetail, PRODUCTS_PATH, redVelvet } from './support/products.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 
 /** `/pasteles/:slug`, la ficha (D59). La API se simula con `support/products.ts`. Escritorio salvo donde se dice. */
@@ -186,6 +186,28 @@ test('"Personalizar este pastel" explains the conditions and opens the designer 
   const personalize = page.getByRole('heading', { level: 3, name: '¿Lo quieres seco, envinado o más grande?' }).locator('..')
   await expect(personalize).toContainText('Pedidos desde 4 kg, con precio por kilo y 2 días de anticipación.')
   await expect(personalize.getByRole('link', { name: 'Personalizar este pastel' })).toHaveAttribute('href', '/pedido/disena?pastel=tres-leches-de-durazno')
+})
+
+test('a cake that can be a showcase cake opens the designer as one, with its own conditions (tanda 2)', async ({ page }) => {
+  await mockProductDetails(page, [chocoPinguino])
+  await page.goto('/pasteles/choco-pinguino')
+  const personalize = page.getByRole('heading', { level: 3, name: '¿Lo quieres con tu decoración?' }).locator('..')
+  await expect(personalize).toContainText('Elige su cobertura, su decoración y su mensaje. Pedidos con 2 días de anticipación.')
+  await expect(personalize).not.toContainText('por kilo')
+  await expect(personalize.getByRole('link', { name: 'Personalizar este pastel' })).toHaveAttribute('href', '/pedido/disena?pastel=choco-pinguino&tamano=vitrina')
+})
+
+test('a presentation without a price says "[Precio por confirmar]" and cannot be added (tanda 2)', async ({ page }) => {
+  await mockProductDetails(page, [nuez])
+  await page.goto('/pasteles/tres-leches-de-nuez')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tres leches de nuez')
+  const completo = presentation(page).getByRole('radio', { name: /Completo/ })
+  await expect(completo).toBeDisabled()
+  await expect(presentation(page)).toContainText('[Precio por confirmar]')
+  await expect(page.getByRole('button', { name: 'Agregar al pedido' })).toHaveCount(0)
+  await expect(page.getByText('Por ahora no se puede agregar: su precio está por confirmar.')).toBeVisible()
+  // Solo por encargo: "Personalizar este pastel" sigue como pedido por kilos (D59).
+  await expect(page.getByRole('link', { name: 'Personalizar este pastel' })).toHaveAttribute('href', '/pedido/disena?pastel=tres-leches-de-nuez')
 })
 
 test('an unknown product says it was not found, with a way back to the catalog', async ({ page }) => {

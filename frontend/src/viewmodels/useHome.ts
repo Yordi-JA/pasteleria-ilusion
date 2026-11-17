@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { featuredOffering, getFeaturedProducts, getShowcase, getSlices, toCartOffering } from '../models/catalog.ts'
+import { featuredOffering, getFeaturedProducts, getShowcase, getSlices, isPriced, PENDING_PRICE, toCartOffering } from '../models/catalog.ts'
 import type { ProductCard, StockItem, TodayStock } from '../models/catalog.ts'
 import { formatTodayDate } from '../models/dates.ts'
 import { formatPrice } from '../models/money.ts'
@@ -61,14 +61,16 @@ export type FeaturedItemView = {
 
 function toFeaturedItem(card: ProductCard): FeaturedItemView {
   const offering = featuredOffering(card)
-  const amount = offering && price(offering.price)
+  // Un precio PENDIENTE (tanda 2) lleva su marcador y no se agrega al pedido.
+  const priced = offering && isPriced(offering) ? offering : null
+  const amount = offering && (priced ? price(priced.price) : PENDING_PRICE)
   return {
     key: card.slug,
     name: card.name,
     summary: card.summary,
     price: offering && (offering.presentation === 'whole' ? amount : `${PRESENTATION_LABELS[offering.presentation]}, ${amount}`),
     photo: photoView(card.photo, card.name, PHOTO_PLACEHOLDER[card.category]),
-    addable: offering && { offering: toCartOffering(card, offering), label: offeringLabel(card.name, offering.presentation) },
+    addable: priced && { offering: toCartOffering(card, priced), label: offeringLabel(card.name, priced.presentation) },
   }
 }
 

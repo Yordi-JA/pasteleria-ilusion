@@ -4,8 +4,11 @@ import type { CakeDesignOptions } from '../models/cakeDesign.ts'
 import type { CakeDesignDraft } from '../models/cakeDesignDraft.ts'
 import { getProduct, isProductSlug } from '../models/catalog.ts'
 import type { ProductDetail } from '../models/catalog.ts'
-import { hasProgress, matchesPrefill, PREFILL_PARAM, prefilledDraft, prefillSummary } from './cakeDesignPrefill.ts'
+import { hasProgress, matchesPrefill, miniPrefill, PREFILL_PARAM, prefilledDraft, prefillSize, prefillSummary, showcasePrefill, SIZE_PARAM } from './cakeDesignPrefill.ts'
 import type { Prefill } from './cakeDesignPrefill.ts'
+
+/** Cómo se nombra el mini en los avisos del prellenado. */
+const MINI_NAME = 'el pastel mini'
 
 /** Lo que el diseñador muestra del prellenado. */
 export type PrefillNotice =
@@ -52,13 +55,16 @@ export function useDesignPrefill({ options, draft, restart }: Options) {
     const value = searchParams.get(PREFILL_PARAM)
     return value && isProductSlug(value) ? value : null
   })
-  const hasParam = searchParams.has(PREFILL_PARAM)
+  // El tamaño con que abre (tanda 2): `vitrina` con un producto, o `mini` desde la tarjeta del catálogo.
+  const [size] = useState(() => prefillSize(searchParams.get(SIZE_PARAM)))
+  const hasParam = searchParams.has(PREFILL_PARAM) || searchParams.has(SIZE_PARAM)
   useEffect(() => {
     if (!hasParam) return
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
         next.delete(PREFILL_PARAM)
+        next.delete(SIZE_PARAM)
         return next
       },
       { replace: true },
@@ -88,10 +94,19 @@ export function useDesignPrefill({ options, draft, restart }: Options) {
   // Se decide una sola vez, en el render en que ya están la ficha y las opciones, con el borrador de ese momento.
   const [decision, setDecision] = useState<Decision | null>(null)
   if (decision === null && product.status === 'ready' && options) {
-    const prefill = prefilledDraft(product.product, options)
+    // Un pastel de vitrina con `tamano=vitrina` llega con su tipo, pan y relleno fijos; si ya no se puede, como en D59.
+    const prefill = (size === 'vitrina' ? showcasePrefill(product.product, options) : null) ?? prefilledDraft(product.product, options)
     const outcome = prefill.applied.length === 0 ? 'none' : matchesPrefill(draft, prefill) ? 'match' : hasProgress(draft) ? 'ask' : 'apply'
     setDecision({ prefill, productName: product.product.name, outcome })
   }
+  // El mini de la tarjeta del catálogo no pide ficha: se decide al llegar las opciones.
+  const miniWanted = !slug && size === 'mini' && options !== null
+  const mini = decision === null && miniWanted ? miniPrefill(options) : null
+  if (mini) {
+    setDecision({ prefill: mini, productName: MINI_NAME, outcome: matchesPrefill(draft, mini) ? 'match' : hasProgress(draft) ? 'ask' : 'apply' })
+  }
+  // El mini no disponible (o sin sus personas): el borrador no cambia y se dice por qué, en lugar de abrir otro tamaño.
+  const miniUnavailable = miniWanted && decision === null && mini === null
   const [answer, setAnswer] = useState<'keep' | 'product' | null>(null)
   // El borrador prellenado ya está en el estado: hasta entonces el diseñador sigue en su esqueleto, así no se ve un
   // cuadro del paso 1 vacío. Se marca una vez; un cambio posterior de la persona no lo deshace.
@@ -128,9 +143,10 @@ export function useDesignPrefill({ options, draft, restart }: Options) {
   // Una ficha que no existe o que no llegó no cambia el borrador: solo lo avisa.
   if (product.status === 'notFound' || product.status === 'error') notice = { kind: product.status }
   else if (product.status === 'loading' && attempt > 0) notice = { kind: 'retrying' }
+  else if (miniUnavailable) notice = { kind: 'unavailable', productName: MINI_NAME, detail: 'Por ahora no se puede pedir en línea. Elige otro tamaño en este paso.' }
   else if (decision?.outcome === 'none') {
     notice = { kind: 'unavailable', productName: decision.productName, detail: prefillSummary(decision.prefill, decision.productName) }
-  } else if (decision && (decision.outcome === 'apply' || answer === 'product')) {
+  } else if (decision && !decision.prefill.quiet && (decision.outcome === 'apply' || answer === 'product')) {
     notice = { kind: 'applied', productName: decision.productName, detail: prefillSummary(decision.prefill, decision.productName) }
   } else if (decision?.outcome === 'ask' && answer === null) notice = { kind: 'ask', productName: decision.productName, autoFocus: !askFocused }
 

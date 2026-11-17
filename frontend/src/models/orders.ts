@@ -42,9 +42,14 @@ type WaferLayoutRequest = {
   image_y: number
 }
 
-/** Un pastel de "Diseña tu pastel", campo por campo, como lo lee `OrderDesignSerializer`. */
+/**
+ * Un pastel de "Diseña tu pastel", campo por campo, como lo lee `OrderDesignSerializer`. Por kilos lleva `people`; el pastel de
+ * vitrina y el mini (tanda 2) llevan `cake_size` (y `source_product`, si parte de un producto) y van sin personas.
+ */
 export type OrderDesignRequest = {
-  people: number
+  cake_size?: 'showcase' | 'mini'
+  source_product?: string
+  people?: number
   form: 'round' | 'rectangular'
   tiers: number
   cake_type: string
@@ -137,6 +142,8 @@ export function designImageNeeds(item: DesignItem): DesignImageNeed[] {
  * `null` si lo guardado no tiene la forma esperada (por ejemplo, de una versión vieja del sitio).
  */
 export function designRequest(snapshot: Record<string, unknown>, imageIds: Partial<Record<ImagePurpose, string>>): OrderDesignRequest | null {
+  const cakeSize = snapshot.cakeSize === 'showcase' || snapshot.cakeSize === 'mini' ? snapshot.cakeSize : null
+  const source = isRecord(snapshot.source) ? slug(snapshot.source.slug) : null
   const people = whole(snapshot.people)
   const tiers = whole(snapshot.tiers)
   const cakeType = slug(snapshot.cakeType)
@@ -158,7 +165,8 @@ export function designRequest(snapshot: Record<string, unknown>, imageIds: Parti
   const waferImage = wafer ? (imageIds.wafer ?? null) : null
   if ((snapshot.decorationImageName && !decorationImage) || (wafer && !waferImage)) return null
   return {
-    people,
+    // Por kilos, como antes; el pastel de vitrina y el mini, con su tamaño y sin personas.
+    ...(cakeSize ? { cake_size: cakeSize, ...(cakeSize === 'showcase' && source ? { source_product: source } : {}) } : { people }),
     form,
     tiers,
     cake_type: cakeType,

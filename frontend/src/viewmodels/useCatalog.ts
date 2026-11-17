@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getProducts } from '../models/catalog.ts'
 import type { ProductCard } from '../models/catalog.ts'
 import { formatPrice } from '../models/money.ts'
+import { MINI_DESIGN_HREF } from './cakeDesignPrefill.ts'
 import { countLabel, toProductCardView } from './productCards.ts'
 import { useStoreDetails } from './useStoreInfo.ts'
 
@@ -13,7 +14,10 @@ type Result = { status: 'ready' | 'error'; cards: ProductCard[] }
  * mismo; si los precios difieren, no hay tarjeta (no se inventa un "desde").
  */
 function miniPrice(cards: ProductCard[]): string | null {
-  const prices = new Set(cards.flatMap((card) => card.offerings.filter((offering) => offering.presentation === 'mini').map((offering) => offering.price)))
+  // Un mini sin precio (PENDIENTE) no cuenta: el de la tarjeta es el de los que sí lo tienen.
+  const prices = new Set(
+    cards.flatMap((card) => card.offerings.filter((offering) => offering.presentation === 'mini' && offering.price !== null).map((offering) => offering.price)),
+  )
   if (prices.size !== 1) return null
   return formatPrice([...prices][0]) || null
 }
@@ -61,6 +65,8 @@ export function useCatalog() {
       dessertCount: countLabel(desserts.length, 'dessert'),
       /** Precio de la tarjeta del pastel mini, o `null` si no va. */
       miniPrice: miniPrice(cakeCards),
+      /** "Diseña tu pastel mini" (tanda 2): abre el diseñador con el mini ya elegido. */
+      miniDesignHref: MINI_DESIGN_HREF,
       empty: cakes.length === 0 && desserts.length === 0,
     }
   }, [result])

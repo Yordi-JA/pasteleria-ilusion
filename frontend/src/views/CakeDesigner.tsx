@@ -70,6 +70,8 @@ function CurrentStep({ designer }: { designer: CakeDesignerView }) {
           onSettlePeople={actions.settlePeople}
           onForm={actions.setForm}
           onTiers={actions.setTiers}
+          onSize={actions.chooseSize}
+          onRestart={actions.startOver}
           onSubmit={actions.proceed}
         />
       )
@@ -142,7 +144,7 @@ function Designer({ designer, hintId }: { designer: CakeDesignerView; hintId: st
             onAnswered={() => designer.stepTitle.current?.focus()}
           />
         )}
-        <StepBar steps={view.steps} current={current} />
+        <StepBar steps={view.steps} current={current} mobileTip={view.mobileTip} />
         <div className="grid grid-cols-2 items-start gap-9 max-[900px]:grid-cols-1 max-[900px]:gap-5">
           {/* La columna izquierda queda fija al hacer scroll en escritorio (libro de marca, "Cotizador 3D"). */}
           <div className="sticky top-28 flex flex-col gap-4 max-[900px]:static">

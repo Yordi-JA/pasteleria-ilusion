@@ -77,8 +77,9 @@ function itemView(item: PaymentOrderItem, index: number): SummaryItem {
     return { key: `linea-${index}`, name: item.productName ?? 'Pastel según tu referencia', brief, total: price(item.lineTotal) }
   }
   if (item.kind === 'design' || !item.productName || !item.presentation) {
-    const kg = item.design?.kg ? `${item.design.kg} kg` : null
-    const tiers = item.design?.tiers ? `${item.design.tiers} ${item.design.tiers === 1 ? 'piso' : 'pisos'}` : null
+    // La etiqueta del tamaño del servidor (tanda 2): "Pastel mini, ~3 personas" sin kilos ni pisos; por kilos, con sus pisos.
+    const kg = item.design?.sizeLabel ?? (item.design?.kg ? `${item.design.kg} kg` : null)
+    const tiers = item.design?.tiers && !item.design.small ? `${item.design.tiers} ${item.design.tiers === 1 ? 'piso' : 'pisos'}` : null
     return { key: `linea-${index}`, name: 'Pastel de Diseña tu pastel', brief: [kg, tiers].filter(Boolean).join(', ') || pieces, total: price(item.lineTotal) }
   }
   return {

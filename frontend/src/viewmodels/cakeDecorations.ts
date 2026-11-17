@@ -59,11 +59,14 @@ export function chosenDecoration(draft: CakeDesignDraft, options: CakeDesignOpti
 /** Si la decoración elegida lleva color (duya o rosas). */
 export const hasColor = (decoration: DecorationOption | null) => decoration !== null && COLORED_GROUPS.includes(groupOf(decoration.slug))
 
-/** "+$85", "Incluido" o "Por cotizar": lo que va a la derecha de la opción. Sin precio, nada (se dice el motivo). */
-function trailing(option: DecorationOption): string | undefined {
+/**
+ * "+$85", "Incluido" o "Por cotizar": lo que va a la derecha de la opción. Sin precio, nada (se dice el motivo). `sizedPrice` es
+ * lo que cobra el tamaño elegido (el mini cobra su precio de mini), si la API lo manda.
+ */
+function trailing(option: DecorationOption, sizedPrice?: string): string | undefined {
   if (option.pricing === 'included') return 'Incluido'
   if (option.requiresQuote) return 'Por cotizar'
-  const price = formatPrice(option.price)
+  const price = formatPrice(sizedPrice ?? option.price)
   return price ? `+${price}` : undefined
 }
 
@@ -87,17 +90,26 @@ export type DecorationGroupView = {
  * Las opciones agrupadas, en el orden en que la API las trae (el grupo ocupa el lugar de su primer diseño). Una opción
  * sin precio se ve desactivada con el motivo de la API, "Precio por confirmar" (regla 6.1, D39); nunca desaparece.
  */
-export function decorationGroups(draft: CakeDesignDraft, options: CakeDesignOptions): DecorationGroupView[] {
+export function decorationGroups(
+  draft: CakeDesignDraft,
+  options: CakeDesignOptions,
+  /** Las que el tamaño no admite (el mini, tanda 2), con su motivo: se ven desactivadas, nunca desaparecen. */
+  sizeReasons: Readonly<Record<string, string>> = {},
+  /** Lo que cobra el tamaño por cada una (el mini, su precio de mini); sin dato, el precio general. */
+  sizePrices: Readonly<Record<string, string>> = {},
+): DecorationGroupView[] {
   const groups = new Map<DecorationGroup, Choice[]>()
   for (const option of options.decorations) {
+    const sizeReason = sizeReasons[option.slug]
+    const open = option.available && !sizeReason
     const choice: Choice = {
       value: option.slug,
       label: option.name,
       // Las chispas no llevan descripción (tanda 1): el nombre ya dice de cuáles son.
       description: groupOf(option.slug) === 'sprinkles' ? undefined : option.description || undefined,
-      trailing: option.available ? trailing(option) : undefined,
+      trailing: open ? trailing(option, sizePrices[option.slug]) : undefined,
       checked: draft.decoration === option.slug,
-      disabledReason: option.available ? undefined : (option.unavailableReason ?? 'No disponible'),
+      disabledReason: open ? undefined : option.available ? sizeReason : (option.unavailableReason ?? 'No disponible'),
     }
     const key = groupOf(option.slug)
     groups.set(key, [...(groups.get(key) ?? []), choice])

@@ -5,6 +5,7 @@
  * empieza de nuevo.
  */
 
+import type { CakeSizeCode } from './cakeDesign.ts'
 import { normalizeHex } from './color.ts'
 import { defaultMessage, parseMessage, parseWafer } from './cakeDesignLayout.ts'
 import type { MessageLayout, WaferLayout } from './cakeDesignLayout.ts'
@@ -14,8 +15,21 @@ import type { Occasion } from './occasion.ts'
 
 export type CakeForm = 'round' | 'rectangular'
 
+/**
+ * El pastel de vitrina de "Personalizar este pastel" (tanda 2): su `slug`, su nombre y las personas que rinde su completo. Con él,
+ * el tipo, el pan y el relleno son los del producto y no se cambian.
+ */
+export type DesignSource = { slug: string; name: string; servings: number | null }
+
 export type CakeDesignDraft = {
   people: number
+  /**
+   * El tamaño que la persona eligió en el paso 1 (tanda 2). `null` mientras no elige: con las personas basta cuando solo un
+   * tamaño las rinde. El tamaño que vale lo decide `effectiveSize` (`viewmodels/cakeSizes.ts`).
+   */
+  cakeSize: CakeSizeCode | null
+  /** El pastel de vitrina del que parte (`null` si se arma desde cero). */
+  source: DesignSource | null
   form: CakeForm
   tiers: number
   cakeType: string | null
@@ -70,10 +84,15 @@ export const MAX_PEOPLE_INPUT = 9999
 const MAX_STEPS = 8
 const SLUG = /^[-a-zA-Z0-9_]+$/
 const MAX_FLAVORS = 2
+const SIZE_CODES = new Set<unknown>(['by_weight', 'showcase', 'mini'])
+// `max_length` del nombre de un producto.
+const MAX_SOURCE_NAME = 80
 
 export function emptyDraft(): CakeDesignDraft {
   return {
     people: INITIAL_PEOPLE,
+    cakeSize: null,
+    source: null,
     form: 'round',
     tiers: 1,
     cakeType: null,
@@ -109,6 +128,20 @@ function wholeNumber(value: unknown, min: number, max: number): number | null {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= min && value <= max ? value : null
 }
 
+function sizeOrNull(value: unknown): CakeSizeCode | null {
+  return SIZE_CODES.has(value) ? (value as CakeSizeCode) : null
+}
+
+/** El pastel de vitrina de origen, o `null` si lo guardado no tiene la forma esperada. */
+function sourceOrNull(value: unknown): DesignSource | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  const raw = value as Record<string, unknown>
+  const slug = slugOrNull(raw.slug)
+  const name = typeof raw.name === 'string' ? raw.name.trim() : ''
+  if (!slug || !name || name.length > MAX_SOURCE_NAME) return null
+  return { slug, name, servings: wholeNumber(raw.servings, 1, MAX_PEOPLE_INPUT) }
+}
+
 /** Valida un borrador guardado campo por campo; lo que no sirve toma el valor inicial. */
 export function parseDraft(data: unknown): CakeDesignDraft {
   const draft = emptyDraft()
@@ -120,6 +153,8 @@ export function parseDraft(data: unknown): CakeDesignDraft {
     : []
   return {
     people: wholeNumber(raw.people, 1, MAX_PEOPLE_INPUT) ?? draft.people,
+    cakeSize: sizeOrNull(raw.cakeSize),
+    source: sourceOrNull(raw.source),
     form: raw.form === 'rectangular' ? 'rectangular' : 'round',
     tiers: wholeNumber(raw.tiers, 1, 10) ?? draft.tiers,
     cakeType: slugOrNull(raw.cakeType),

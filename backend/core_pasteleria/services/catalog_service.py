@@ -25,6 +25,7 @@ from django.utils import timezone
 from ..models import Presentation, ProductCategory, SalesChannel
 from ..repositories import product_repo
 from ..repositories.records import OfferingRecord, ProductRecord
+from .pricing_service import showcase_product_unavailable
 
 # La portada tiene un pastel grande y tres chicos (mockup `Main`, "Pasteles de la
 # casa"). Es el tamaño del diseño, no una regla del negocio: cambiarlo pide otra
@@ -40,12 +41,25 @@ class Offering:
 
     id: int
     presentation: str
-    price: Decimal
+    # `None`: PENDIENTE ("[Precio por confirmar]"); no se puede pedir.
+    price: Decimal | None
     approx_weight_kg: Decimal | None
     servings: int | None
     photo: str | None
     # `None`: no se cargó hoy. `0`: agotada por hoy.
     stock: int | None
+
+    @property
+    def price_pending(self) -> bool:
+        return self.price is None
+
+
+@dataclass(frozen=True)
+class ShowcaseDesign:
+    """Si "Personalizar este pastel" abre "Diseña tu pastel" como pastel de vitrina de este producto (tanda 2)."""
+
+    available: bool
+    unavailable_reason: str | None
 
 
 @dataclass(frozen=True)
@@ -63,6 +77,7 @@ class ProductCard:
     # "Rebanado hoy": el producto es el rebanado y le quedan rebanadas hoy.
     sliced_today: bool
     offerings: tuple[Offering, ...]
+    showcase_design: ShowcaseDesign
 
 
 @dataclass(frozen=True)
@@ -83,7 +98,7 @@ class StockItem:
     product_name: str
     category: str
     presentation: str
-    price: Decimal
+    price: Decimal | None
     photo: str | None
     stock: int
     sold_out: bool
@@ -147,7 +162,14 @@ def _card_fields(record: ProductRecord) -> dict:
         "in_showcase_today": any(_has_pieces_today(o) for o in record.offerings),
         "sliced_today": any(_has_slices_left_today(o) for o in record.offerings),
         "offerings": tuple(_offering(o) for o in record.offerings),
+        "showcase_design": _showcase_design(record),
     }
+
+
+def _showcase_design(record: ProductRecord) -> ShowcaseDesign:
+    """La misma regla con que el precio acepta o rechaza el producto de origen (`showcase_product_unavailable`)."""
+    reason = showcase_product_unavailable(record)
+    return ShowcaseDesign(available=reason is None, unavailable_reason=reason)
 
 
 def _card(record: ProductRecord) -> ProductCard:
