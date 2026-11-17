@@ -4,10 +4,11 @@
   producto "solo en vitrina". Para hoy exige pan del día (`Inventory` de pan, D30): una pieza de pan por pieza encargada.
 - `showcase`: una pieza de la vitrina de hoy, sin pasar de lo que queda. Lo "solo por encargo" no está en la vitrina y el
   rebanado no se vende completo (D60).
-- `design`: un pastel de "Diseña tu pastel". Todo se vuelve a calcular: los kilos por personas, el precio con
-  `calculate_price` (que también revisa pisos, forma, oblea y mensaje), la base con `get_stand_deposit`, el mensaje con
-  `check_message_layout`, la oblea contra la tapa real y el "parecido a" de los colores. Del cliente no se lee ningún
-  monto, ni si requiere cotización, ni su id del diseño.
+- `design`: un pastel de "Diseña tu pastel" por kilos, de vitrina o mini (tanda 2). Todo se vuelve a calcular: los kilos
+  por personas (solo por kilos), el precio con `calculate_price` (que también revisa el tamaño, pisos, forma, oblea y
+  mensaje), la base con `pricing_service.stand_for` (vitrina y mini no llevan), el mensaje con `check_message_layout`,
+  la oblea contra la tapa real y el "parecido a" de los colores. Del cliente no se lee ningún monto, ni si requiere
+  cotización, ni su id del diseño. Un precio de catálogo vacío (PENDIENTE) no se pide.
 
 Cada estrategia solo revisa y calcula (`prepare`); lo que aparta (existencias, pan e imágenes) lo hace `order_service`
 dentro de la transacción, en un orden fijo.
@@ -17,9 +18,9 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from ...models import CustomerImagePurpose, OrderLineKind, Presentation, SalesChannel
+from ...models import CakeDesignSize, CustomerImagePurpose, OrderLineKind, Presentation, SalesChannel
 from ...repositories.records import NewCakeDesign, NewOrderItem, OfferingRecord
-from .. import cake_lid, color_names, pricing_service, warranty_service
+from .. import cake_lid, color_names, pricing_service
 from ..design_layout import MessageLayout, WaferLayout, check_message_layout, normalize_hex_color
 from ..errors import DomainValidationError, attempt
 
@@ -27,6 +28,7 @@ ZERO = Decimal("0.00")
 CENT = Decimal("0.01")
 
 GONE_MESSAGE = "Ese producto ya no está a la venta."
+PENDING_PRICE_MESSAGE = "Precio por confirmar: este producto todavía no se puede pedir."
 SLICE_ORDER_MESSAGE = "Las rebanadas son solo de la vitrina de hoy: no se encargan."
 SHOWCASE_ONLY_MESSAGE = "Solo en vitrina: no se encarga."
 ORDER_ONLY_MESSAGE = "Solo por encargo: no está en la vitrina."
@@ -69,9 +71,12 @@ class LineError(Exception):
 
 @dataclass(frozen=True)
 class DesignRequest:
-    """Lo que el cliente eligió en "Diseña tu pastel", ya con el formato validado por el serializador."""
+    """Lo que el cliente eligió en "Diseña tu pastel", ya con el formato validado por el serializador.
 
-    people: int
+    Por kilos llegan las personas; el pastel de vitrina y el mini llegan sin ellas, redondos y de 1 piso.
+    """
+
+    people: int | None
     form: str
     tiers: int
     cake_type: str
@@ -87,6 +92,8 @@ class DesignRequest:
     wafer_layout: WaferLayout | None
     wafer_image_id: UUID | None
     occasion: str
+    cake_size: str = CakeDesignSize.BY_WEIGHT.value
+    source_product: str | None = None
 
 
 @dataclass(frozen=True)
@@ -135,6 +142,9 @@ class OfferingLine:
         offering = context.products.get_offering(line.offering_id)
         if offering is None:
             raise LineError({"offering_id": [GONE_MESSAGE]})
+        # Un precio de catálogo vacío es PENDIENTE: nunca se cobra como $0 (tanda 2, la nuez).
+        if offering.price is None:
+            raise LineError({"offering_id": [PENDING_PRICE_MESSAGE]})
         reservation = self.check(offering, line, context)
         item = NewOrderItem(
             kind=self.kind,
@@ -267,9 +277,13 @@ class DesignLine:
 
     def prepare(self, line: LineRequest, context: LineContext) -> PreparedLine:
         design = line.design
-        size = pricing_service.size_for_people(design.people, context.settings, context.cake_options)
+        by_weight = design.cake_size == CakeDesignSize.BY_WEIGHT
+        # Por kilos, los kilos salen de las personas (regla 3.1); el pastel de vitrina y el mini no tienen kilos.
+        kg = pricing_service.size_for_people(design.people, context.settings, context.cake_options).kg if by_weight else None
         choice = pricing_service.CakeDesignChoice(
-            kg=size.kg,
+            cake_size=design.cake_size,
+            source_product=design.source_product,
+            kg=kg,
             cake_type=design.cake_type,
             bread=design.bread,
             filling_base=design.filling_base,
@@ -282,8 +296,10 @@ class DesignLine:
             message_layout=design.message_layout,
         )
         failures: list[DomainValidationError] = []
-        breakdown = attempt(failures, pricing_service.calculate_price, choice, context.cake_options, context.settings)
-        stand = attempt(failures, warranty_service.get_stand_deposit, size.kg, context.settings)
+        breakdown = attempt(
+            failures, pricing_service.calculate_price, choice, context.cake_options, context.settings, context.products
+        )
+        stand = attempt(failures, pricing_service.stand_for, choice, context.settings)
         errors: dict = {}
         for failure in failures:
             for field, messages in remap_kg_to_people(failure.errors).items():
@@ -294,7 +310,7 @@ class DesignLine:
         if design.wafer and design.wafer_layout is None:
             errors.setdefault("wafer_layout", [WAFER_LAYOUT_MISSING])
         if breakdown is not None and design.wafer_layout is not None:
-            lid = cake_lid.lid_for(context.cake_options.list_cake_molds(), design.form, size.kg, design.tiers)
+            lid = pricing_service.lid_for(choice, context.cake_options)
             if not cake_lid.wafer_fits(design.wafer_layout, lid):
                 errors.setdefault("wafer_layout", [WAFER_OUTSIDE_LID_MESSAGE])
         requires_quote = breakdown.requires_quote if breakdown is not None else False
@@ -304,9 +320,16 @@ class DesignLine:
         # Ya validado por el precio: aquí solo se toma el color en minúsculas (auditoría de D55, punto 9).
         message = check_message_layout(design.message_layout) if design.message_layout else None
         references = context.cake_options.list_coverage_colors()
+        people = (
+            design.people
+            if by_weight
+            else pricing_service.servings_for(choice, context.cake_options, context.products)
+        )
         new_design = NewCakeDesign(
-            people=design.people,
-            kg=size.kg,
+            cake_size=design.cake_size,
+            source_product=design.source_product,
+            people=people,
+            kg=kg,
             form=design.form,
             tiers=design.tiers,
             cake_type=design.cake_type,

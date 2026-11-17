@@ -34,6 +34,7 @@ from ..models import (
     OrderLineKind,
     Payment,
     PaymentStatus,
+    Product,
     ReferenceRequest,
 )
 from . import reference_repo
@@ -166,6 +167,7 @@ def _orders():
                 "design__decoration",
                 "design__stand",
                 "design__stand_loan",
+                "design__source_product",
             ).order_by("position"),
         ),
         Prefetch("payments", queryset=Payment.objects.filter(status=PaymentStatus.SUCCEEDED), to_attr="succeeded"),
@@ -199,6 +201,8 @@ def _design_record(design: CakeDesign) -> CakeDesignRecord:
     chosen = tuple(flavor for flavor in (design.first_flavor, design.second_flavor) if flavor is not None)
     flavors = tuple(flavor.slug for flavor in chosen)
     return CakeDesignRecord(
+        cake_size=design.cake_size,
+        source_product=_slug(design.source_product),
         people=design.people,
         kg=design.kg,
         form=design.form,
@@ -361,12 +365,15 @@ def _options_for(designs: list[NewCakeDesign]) -> dict:
         "flavor": _by_key(FillingFlavor, "slug", (slug for d in designs for slug in d.filling_flavors)),
         "decoration": _by_key(DecorationOption, "slug", (d.decoration for d in designs)),
         "stand": _by_key(CakeStand, "max_kg", (d.stand_max_kg for d in designs)),
+        "product": _by_key(Product, "slug", (d.source_product for d in designs)),
     }
 
 
 def _design_row(new: NewCakeDesign, options: dict) -> CakeDesign:
     ordered = [options["flavor"][slug] for slug in new.filling_flavors]
     return CakeDesign(
+        cake_size=new.cake_size,
+        source_product=options["product"][new.source_product] if new.source_product else None,
         people=new.people,
         kg=new.kg,
         form=new.form,

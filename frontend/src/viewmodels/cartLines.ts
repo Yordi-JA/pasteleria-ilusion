@@ -95,8 +95,15 @@ function offeringLine(item: OfferingItem): CartLineView {
   }
 }
 
+/** "Pastel mini, ~3 personas" o "Pastel de vitrina, ~19 personas" (tanda 2): el tamaño que guardó la línea; `null` por kilos. */
+function sizeLabelOf(item: DesignItem): string | null {
+  const label = item.design.sizeLabel
+  return typeof label === 'string' && label.trim() !== '' && label.length <= 80 ? label : null
+}
+
 function designLine(item: DesignItem): CartLineView {
   const kg = kgOf(item)
+  const sizeLabel = sizeLabelOf(item)
   const deposit = item.baseDeposit ? money(toCents(item.baseDeposit)) : null
   return {
     id: `design-${item.designId}`,
@@ -108,7 +115,7 @@ function designLine(item: DesignItem): CartLineView {
     unitNote: 'Estimado',
     slug: null,
     details: item.details,
-    brief: [kg ? `${kg} kg` : 'Diseña tu pastel', item.requiresQuote ? 'decoración por cotizar' : null].filter(Boolean).join(', '),
+    brief: [sizeLabel ?? (kg ? `${kg} kg` : 'Diseña tu pastel'), item.requiresQuote ? 'decoración por cotizar' : null].filter(Boolean).join(', '),
     kg,
     base: deposit ? { kg, deposit } : null,
     requiresQuote: item.requiresQuote,

@@ -135,6 +135,8 @@ test('parseProductCards keeps valid cards and drops malformed cards and offering
       { id: 2, presentation: 'slice', price: '35.00' },
       { id: 3, presentation: 'mini', price: '130.00' },
     ],
+    // Sin `showcase_design` (una respuesta anterior a la tanda 2), no se personaliza como pastel de vitrina.
+    showcaseDesign: null,
   })
   // Una foto que no es un nombre de archivo queda pendiente; un resumen que no es texto queda vacío.
   expect(result.parsed[1]).toMatchObject({

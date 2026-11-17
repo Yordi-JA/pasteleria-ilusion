@@ -25,6 +25,7 @@ from reportlab.pdfgen.canvas import Canvas
 
 from ..models import CakeShape, CakeType, Fulfillment, OrderLineKind, PaymentMethod, Presentation, StandLoanStatus
 from ..repositories.records import OrderItemRecord
+from ..services import pricing_service
 from ..services.orders.note_service import OrderNote, OrderStand
 
 # Tokens de la paleta Fresa y mermelada (`design/tokens.css`).
@@ -162,7 +163,7 @@ def _customer_and_delivery(page: _Page, note: OrderNote) -> None:
 
 def _design_description(item: OrderItemRecord) -> tuple[str, str]:
     design = item.design
-    title = f"Pastel de {design.kg} kg ({design.people} personas)"
+    title = pricing_service.describe_cake_size(design.cake_size, design.kg, design.people)
     tiers = "1 piso" if design.tiers == 1 else f"{design.tiers} pisos"
     if design.filling_base_name:
         flavors = " y ".join(design.filling_flavor_names)

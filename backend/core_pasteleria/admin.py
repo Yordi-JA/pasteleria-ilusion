@@ -31,6 +31,8 @@ from .models import (
     DecorationOption,
     DecorationPricing,
     DeliveryFeeBand,
+    DesignSize,
+    SMALL_DESIGN_SIZES,
     FillingBase,
     FillingFlavor,
     FillingPreviewStyle,
@@ -55,7 +57,7 @@ from .models import (
     User,
     WaferShape,
 )
-from .services import customer_image_service, warranty_service
+from .services import customer_image_service, pricing_service, warranty_service
 from .services.catalog_service import HOME_FEATURED_LIMIT
 from .services.errors import DomainValidationError
 from .services.orders import order_status, quote_service, reference_service
@@ -349,7 +351,9 @@ class BreadAdmin(ReadOnlySlugMixin, CakeTypesMixin, admin.ModelAdmin):
 
 @admin.register(FillingBase)
 class FillingBaseAdmin(ReadOnlySlugMixin, admin.ModelAdmin):
-    list_display = ("name", "max_flavors", "combined_extra_per_kg", "sort_order", "is_active")
+    list_display = (
+        "name", "max_flavors", "combined_extra_per_kg", "showcase_price", "available_in_mini", "sort_order", "is_active",
+    )
     list_editable = ("sort_order", "is_active")
     search_fields = ("name",)
 
@@ -426,10 +430,19 @@ class PendingPriceFilter(admin.SimpleListFilter):
 @admin.register(DecorationOption)
 class DecorationOptionAdmin(ReadOnlySlugMixin, admin.ModelAdmin):
     empty_value_display = "PENDIENTE"
-    list_display = ("name", "pricing", "price_label", "sort_order", "is_active")
+    list_display = ("name", "pricing", "price_label", "available_in_mini", "mini_price_label", "sort_order", "is_active")
     list_editable = ("sort_order", "is_active")
-    list_filter = (PendingPriceFilter, "pricing", "is_active")
+    list_filter = (PendingPriceFilter, "pricing", "available_in_mini", "is_active")
     autocomplete_fields = ("preview_flavor", "preview_bread")
+
+    @admin.display(description="precio en el mini")
+    def mini_price_label(self, obj):
+        """En el mini, una decoración de precio fijo cobra su propio precio; vacío es PENDIENTE (Rosas, tanda 2)."""
+        if not obj.available_in_mini:
+            return "No va en el mini"
+        if obj.pricing != DecorationPricing.FIXED:
+            return obj.get_pricing_display()
+        return f"${obj.mini_price}" if obj.mini_price is not None else self.get_empty_value_display()
 
     @admin.display(description="precio", ordering="price")
     def price_label(self, obj):
@@ -513,9 +526,40 @@ class ProductAdmin(ReadOnlySlugMixin, admin.ModelAdmin):
 
 @admin.register(CatalogPrice)
 class CatalogPriceAdmin(admin.ModelAdmin):
+    # Un precio vacío es PENDIENTE (tanda 2, la nuez): el catálogo dice "[Precio por confirmar]" y no se puede pedir.
+    empty_value_display = "PENDIENTE"
     list_display = ("name", "amount", "approx_weight_kg", "servings", "sort_order")
     list_editable = ("sort_order",)
     search_fields = ("name",)
+
+
+@admin.register(DesignSize)
+class DesignSizeAdmin(admin.ModelAdmin):
+    """El pastel de vitrina y el mini de "Diseña tu pastel": su molde, su precio de catálogo y la referencia."""
+
+    empty_value_display = "PENDIENTE"
+    list_display = ("code", "catalog_price", "price_label", "weight_label", "servings_label", "diameter_cm", "height_cm")
+    list_select_related = ("catalog_price",)
+
+    @admin.display(description="precio")
+    def price_label(self, obj):
+        return f"${obj.catalog_price.amount}" if obj.catalog_price.amount is not None else self.get_empty_value_display()
+
+    @admin.display(description="peso aproximado (kg)")
+    def weight_label(self, obj):
+        return obj.catalog_price.approx_weight_kg
+
+    @admin.display(description="personas")
+    def servings_label(self, obj):
+        return obj.catalog_price.servings
+
+    def has_add_permission(self, request):
+        # Hay una fila por tamaño (vitrina y mini): con las dos, no se agrega otra.
+        return super().has_add_permission(request) and DesignSize.objects.count() < len(SMALL_DESIGN_SIZES)
+
+    def has_delete_permission(self, request, obj=None):
+        # Sin su fila, ese tamaño deja de ofrecerse en "Diseña tu pastel": se edita, no se borra.
+        return False
 
 
 # --- Inventario ---
@@ -735,10 +779,14 @@ def design_lines(design: CakeDesign, show_images: bool = False) -> list[str]:
     filling = f"relleno {design.filling_base.name.lower()}: {flavors}" if design.filling_base else "relleno incluido"
     lines = [
         format_html(
-            "{} kg ({} personas), {}, {} {}",
-            design.kg, design.people, design.get_form_display().lower(), design.tiers,
-            "piso" if design.tiers == 1 else "pisos",
+            "{}, {}, {} {}",
+            pricing_service.describe_cake_size(design.cake_size, design.kg, design.people),
+            design.get_form_display().lower(), design.tiers, "piso" if design.tiers == 1 else "pisos",
         ),
+    ]
+    if design.source_product_id:
+        lines.append(format_html("Pastel de vitrina de origen: {}", design.source_product.name))
+    lines += [
         format_html("{}, pan {}, {}", design.get_cake_type_display(), design.bread.name.lower(), filling),
         format_html("Cobertura: {}", _swatch(design.coverage_color, design.coverage_color_name)),
     ]
@@ -788,7 +836,7 @@ class OrderItemInline(admin.TabularInline):
     def get_queryset(self, request):
         return super().get_queryset(request).select_related(
             "design__bread", "design__filling_base", "design__first_flavor", "design__second_flavor",
-            "design__decoration", "design__stand",
+            "design__decoration", "design__stand", "design__source_product",
         )
 
     def has_add_permission(self, request, obj=None):

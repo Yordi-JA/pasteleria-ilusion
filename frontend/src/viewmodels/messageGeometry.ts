@@ -113,9 +113,12 @@ export function rotatedOutline(outline: Point[], rotation: number): Point[] {
 /**
  * El mensaje con su tamaño, giro y posición permitidos: todo el contorno del texto dentro de la tapa. Si el texto no cabe ni
  * centrado, la letra se achica (un 7% cada vez) hasta que quepa; la posición se corrige al lugar más cercano que cabe.
+ * `minScale` es la letra mínima de la pastelería (tanda 2): la letra nunca baja de ahí; si así no cabe, queda centrada en el
+ * mínimo y `messageFits` lo dice.
  */
-export function fitMessage(layout: MessageLayout, metrics: MessageMetrics, lid: Lid): MessageLayout {
-  const { min, max } = LAYOUT_BOUNDS.messageScale
+export function fitMessage(layout: MessageLayout, metrics: MessageMetrics, lid: Lid, minScale = 0): MessageLayout {
+  const { max } = LAYOUT_BOUNDS.messageScale
+  const min = Math.min(max, Math.max(LAYOUT_BOUNDS.messageScale.min, minScale))
   let scale = clamp(layout.scale, min, max)
   const wanted = { x: layout.x * lid.radius, y: layout.y * lid.radius }
   for (let attempt = 0; attempt < 60; attempt++) {
@@ -128,13 +131,16 @@ export function fitMessage(layout: MessageLayout, metrics: MessageMetrics, lid: 
   return { ...layout, scale, x: 0, y: 0 }
 }
 
+/** Si el mensaje cabe en la tapa, centrado y con su giro, con esa escala de la letra. */
+export function messageFits(layout: MessageLayout, metrics: MessageMetrics, lid: Lid, scale: number): boolean {
+  const outline = rotatedOutline(messageGeometry({ ...layout, scale }, metrics, lid.radius).outline, layout.rotation)
+  return clampCenter({ kind: 'polygon', points: outline }, lid, { x: 0, y: 0 }) !== null
+}
+
 /** El tamaño más grande de la letra (respecto al radio) que cabe en la tapa con el giro de ahora, para el control de tamaño. */
 export function maxMessageScale(layout: MessageLayout, metrics: MessageMetrics, lid: Lid): number {
   const { min, max } = LAYOUT_BOUNDS.messageScale
-  const fits = (scale: number) => {
-    const outline = rotatedOutline(messageGeometry({ ...layout, scale }, metrics, lid.radius).outline, layout.rotation)
-    return clampCenter({ kind: 'polygon', points: outline }, lid, { x: 0, y: 0 }) !== null
-  }
+  const fits = (scale: number) => messageFits(layout, metrics, lid, scale)
   if (fits(max)) return max
   let low: number = min
   let high: number = max

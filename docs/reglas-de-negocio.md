@@ -19,6 +19,7 @@ Vocabulario obligatorio en la interfaz: se dice **"pan"**, nunca "bizcocho"; **"
 | Pastel de vitrina, encargado tal cual | Para cualquier fecha; **para el mismo día, con 2 horas de anticipación** y sujeto a que haya pan |
 
 - La disponibilidad de pan vive en la **base de datos de inventario** (`Inventory`): el sitio consulta ahí si se puede hacer un pastel para hoy. Solo los encargos de vitrina del mismo día consumen esa disponibilidad; un pedido de "Diseña tu pastel" con 2 días de anticipación se hornea aparte y no la descuenta (D30).
+- El pastel de vitrina y el pastel mini de "Diseña tu pastel" (sección 3.4) son pedidos de diseño: llevan los mismos **2 días** de anticipación que cualquier diseño. Lo decidió el usuario el 17 de noviembre de 2026 (tanda 2 de correcciones, D78).
 - Un lapso con 3 pedidos activos se muestra como "Lleno" y no se puede elegir. Un pedido en pausa por cotización no ocupa lapso: el cupo se revisa cuando la pastelería le pone precio (lo decidió el usuario el 14 de noviembre de 2026, D63).
 - Primer horario disponible para un encargo de hoy: hora actual + 2 h, redondeado al siguiente lapso de 30 min.
 - Se reserva hasta **60 días** adelante (`PolicySettings.max_days_ahead`, propuesto; la pastelería puede ajustarlo). Un cliente tiene como mucho **2 pedidos sin pagar** a la vez (`max_unpaid_orders_per_customer`, propuesto). Lo decidió el usuario el 14 de noviembre de 2026 (D63).
@@ -38,15 +39,16 @@ SAME_DAY_SHOWCASE_LEAD_HOURS = 2
 
 ## 2. Catálogo (productos con precio fijo)
 
-Todos los pasteles de vitrina son **tres leches**, excepto el **Choco-pingüino**, que sale **seco**. El catálogo muestra cada pastel como sale a vitrina; **no se listan todas las combinaciones**: la ficha ofrece "Personalizar este pastel", que abre "Diseña tu pastel" con ese sabor ya elegido.
+Todos los pasteles de vitrina son **tres leches**, excepto el **Choco-pingüino**, que sale **seco**. El catálogo muestra cada pastel como sale a vitrina; **no se listan todas las combinaciones**: la ficha ofrece "Personalizar este pastel", que abre "Diseña tu pastel" con ese sabor ya elegido (con los límites de la sección 3.4 para un pastel de vitrina).
 
 | Producto | Precio completo | Rebanada / mini / individual | Notas |
 |---|---|---|---|
-| Pastel de sabor normal (tres leches) | $350 | Rebanada $35 | Sabores normales de la sección 4.4 |
+| Pastel de sabor normal (tres leches) | $350 | Rebanada $35 | Sabores normales de la sección 4.4, incluido Blueberry (D78) |
 | Pastel con queso o con flan (tres leches) | $420 | Rebanada $40 | |
 | Choco-pingüino (seco) | $350 | Rebanada $35 | Relleno: crema de chocolate sabor helado |
 | Red velvet (seco) | $450 | — | **Solo por encargo**, nunca en vitrina. Por pedido: $280/kg |
-| Pastel mini | $130 | — | Cualquier sabor normal; **no hay mini con queso ni con flan**. Rinde ~3 personas |
+| Tres leches de nuez | PENDIENTE (se muestra "[Precio por confirmar]") | — | **Solo por encargo**. No se puede pedir hasta que la pastelería capture el precio en el admin (D78) |
+| Pastel mini | $130 | — | Cualquier sabor normal; **no hay mini con queso ni con flan**. Rinde ~3 personas. La tarjeta del catálogo lleva "Diseña tu pastel mini", que abre el diseñador con el mini elegido (sección 3.4) |
 | Imposible (flan con pan de chocolate) | $350 | Rebanada $35 | |
 | Posible (flan con pan de vainilla) | $350 | Rebanada $35 | |
 | Flan napolitano | $360 grande | $35 individual | |
@@ -57,6 +59,9 @@ Todos los pasteles de vitrina son **tres leches**, excepto el **Choco-pingüino*
 | Gelatina de Duvalín, 3 secciones (vaso) | $25 | — | **Solo en vitrina** |
 
 - Un pastel de vitrina pesa ~2.7 kg (~19 personas).
+- **Pan de cada pastel de vitrina** (lo dijo el usuario el 17 de noviembre de 2026, tanda 2 de correcciones, D78): vainilla en los de sabor normal, en Blueberry, Nuez, "con queso y zarzamora", "con flan y cajeta" y "con flan y zarzamora"; chocolate en "Tres leches de chocolate" y "Tres leches con queso y chocolate"; choco-vainilla en "Tres leches de choco vainilla"; el Choco-pingüino, el suyo. Se guarda en el producto (`Product.bread`). Con el pan registrado, un encargo de vitrina para hoy pide pan del día en el inventario (sección 1, D30).
+- **Blueberry y nuez** (D78): "Tres leches de blueberry" se vende completo ($350), en rebanada ($35) y mini ($130), en la vitrina y por encargo. "Tres leches de nuez" es solo por encargo y su precio es PENDIENTE: un precio vacío en el admin (`CatalogPrice.amount`) se muestra como "[Precio por confirmar]" y esa presentación no se puede pedir. Una presentación de la vitrina o de las rebanadas con el precio vacío no se muestra.
+- **"Personalizar este pastel"** en un pastel de vitrina vendido completo abre "Diseña tu pastel" como pastel de vitrina con su tipo, su pan y su relleno bloqueados (sección 3.4). Red velvet y nuez, que son solo por encargo, abren el pedido normal por kilos, prellenado y editable (D59).
 - Las gelatinas en vaso aparecen en el catálogo con la etiqueta "Solo en vitrina"; no se pueden encargar.
 - Fotos de producto: se resuelven en la etapa de frontend.
 - **Pasteles de la casa (portada):** la pastelería elige en el admin qué productos salen, con "destacado en la portada" en la lista de productos (puede ser un pastel o un postre). Salen hasta 4 de los marcados, en el orden de la lista; si marca menos de 4, salen solo esos. Si no marca ninguno, salen los primeros 4 pasteles activos del catálogo, en el mismo orden. Al inicio no hay ninguno marcado: qué productos son "de la casa" lo decide la pastelería. Ver D45 en [`proyecto/decisiones.md`](proyecto/decisiones.md).
@@ -79,11 +84,13 @@ Todos los pasteles de vitrina son **tres leches**, excepto el **Choco-pingüino*
 
 ## 3. Tamaño y forma (paso 1 de "Diseña tu pastel")
 
+"Diseña tu pastel" tiene tres tamaños: por kilos (desde 4 kg), pastel de vitrina y pastel mini. El paso 1 pregunta primero "¿Para cuántas personas?" y, según el número, muestra solo lo que rinde (sección 3.4). Lo decidió el usuario el 17 de noviembre de 2026 (tanda 2 de correcciones, D78).
+
 ### 3.1 Personas → kilos
 
 - 1 kg rinde para **7 personas**.
 - Redondeo: de .5 hacia arriba, de .4 hacia abajo (half-up).
-- **Mínimo de un pedido: 4 kg (~28 personas).** Si piden menos, se avisa y se ofrecen alternativas: pastel de vitrina (~2.7 kg, puede ser hoy) o pastel mini (~3 personas).
+- **Mínimo de un pedido por kilos: 4 kg (~28 personas).** Con menos personas, el paso 1 ofrece el pastel de vitrina o el mini, según cuál rinde (sección 3.4); ya no solo se avisa.
 - **Cota en línea (PROPUESTA): 350 personas (50 kg)**, lo máximo que ha hecho la pastelería. Más que eso → "escríbenos por WhatsApp".
 
 ```python
@@ -123,6 +130,35 @@ def allowed_tiers(kg: int) -> list[int]:
     return [t for t, k in MIN_KG_BY_TIERS.items() if kg >= k]
 ```
 
+### 3.4 Pastel de vitrina y pastel mini
+
+Lo decidió el usuario el 17 de noviembre de 2026 (tanda 2 de correcciones, D78). El pastel de vitrina y el mini son redondos, de 1 piso y sin base: no se eligen forma ni pisos.
+
+| Tamaño | Molde | Peso | Personas |
+|---|---|---|---|
+| Por kilos | Redondo o rectangular, de 1 a 5 pisos (3.2 y 3.3) | Desde 4 kg | Desde ~28 |
+| Pastel de vitrina | Redondo, 1 piso, 28 cm de diámetro × 6.7 cm de alto | 2.7 kg | ~19 |
+| Pastel mini | Redondo, 1 piso, 14 cm de diámetro × 4.5 cm de alto | PENDIENTE | ~3 |
+
+Las medidas del molde están en el admin ("Tamaños de vitrina y mini", `DesignSize`); el peso y las personas, en los precios de catálogo (`CatalogPrice`). El peso del mini queda PENDIENTE hasta que la pastelería lo capture.
+
+**Qué muestra el paso 1 según las personas.** Los umbrales salen de las personas del admin, no del código:
+
+| Personas | Se ofrece |
+|---|---|
+| Hasta 3 | Pastel mini |
+| De 4 a 19 | Pastel de vitrina |
+| De 20 a 27 | Pastel de vitrina o "Hacerlo de 4 kg" (28 personas) |
+| Desde 28 | Por kilos, con forma y pisos, como antes (3.1 a 3.3) |
+
+Si el tamaño chico que rinde para esas personas no está disponible (por ejemplo, la pastelería dejó su precio vacío), el paso 1 también ofrece "Hacerlo de 4 kg"; la tarjeta no disponible se ve desactivada con su motivo.
+
+**Desde la ficha ("Personalizar este pastel").** El tipo, el pan y el relleno del producto quedan bloqueados: en la barra de pasos aparecen hechos y con candado, con un mensaje flotante, y el recorrido empieza en la cobertura. El precio es el del producto. Funciona en todo pastel de vitrina vendido completo. Red velvet y nuez, que son solo por encargo, abren el pedido normal por kilos, prellenado y editable (D59); se pueden pedir en tamaño de vitrina solo armándolos desde "Diseña tu pastel".
+
+**Desde el catálogo.** La tarjeta del pastel mini lleva "Diseña tu pastel mini", que abre el diseñador con el mini elegido.
+
+**Lo común a los tres.** La decoración y la oblea se cobran aparte en cualquier tamaño (sección 4.6), salvo lo que el mini no admite (secciones 4.7, 6.1 y 6.3). El mini y la vitrina llevan 2 días de anticipación y el anticipo de la sección 10, como cualquier diseño, y no llevan base ni depósito (sección 7). En la revisión, el carrito y los pedidos, el tamaño se dice "Pastel mini, ~3 personas" o "Pastel de vitrina, ~19 personas"; el admin y la nota en PDF dicen "Pastel de 4 kg, 30 personas" en los de por kilos.
+
 ---
 
 ## 4. Tipo de pastel, pan y relleno (pasos 2 a 4)
@@ -152,13 +188,14 @@ Primero el **tipo de pastel**, después el **pan**, después el **relleno**.
 
 | Base | Sabores |
 |---|---|
-| Normal | Durazno, Fresa, Zarzamora, Cajeta, Galleta, Chocolate, Choco vainilla, Capuchino, Fresa con yogurt*, Nuez* |
+| Normal | Durazno, Fresa, Zarzamora, Cajeta, Galleta, Chocolate, Choco vainilla, Capuchino, Blueberry, Fresa con yogurt*, Nuez* |
 | Con queso | Chocolate, Zarzamora |
 | Con flan | Cajeta, Zarzamora |
 
 - Las tres bases existen en los tres tipos de pastel.
 - **Fresa con yogurt**: solo en tres leches y seco (no en envinado). **No se combina.**
 - **Nuez**: en los tres tipos; sí se combina.
+- **Blueberry** (lo decidió el usuario el 17 de noviembre de 2026, tanda 2 de correcciones, D78): solo en la base Normal, en los tres tipos de pastel; sí se combina. Cuesta lo que la zarzamora, que es el precio general de la base Normal (sección 4.5). En la vista previa se dibuja como mermelada, con el color `#3E3A6E`, propuesto por el equipo y editable en el admin (sección 14).
 - **Relleno combinado**: solo con la base Normal, **máximo 2 sabores** (mitad y mitad), **+$5/kg**. Si uno de los dos es Nuez, se cobra el precio de Nuez + $5.
 
 ### 4.5 Precio por kilo del relleno
@@ -208,6 +245,39 @@ def cake_price(kg, **choice):
 
 Ejemplo: 15 kg, tres leches, pan de chocolate, con queso y zarzamora → 15 × ($250 + $5) = **$3,825**.
 
+**Pastel de vitrina y mini** (lo decidió el usuario el 17 de noviembre de 2026, tanda 2 de correcciones, D78). Cada tamaño se cobra con su propia estrategia; la decoración y la oblea se suman aparte en los tres.
+
+- **Vitrina, desde la ficha:** el precio del producto.
+- **Vitrina armada libre, que coincide con un pastel de vitrina:** si el tipo, el pan, la base y un sabor son los de un pastel de vitrina con precio, cuesta lo de ese pastel.
+- **Vitrina armada libre, que no coincide:** el precio del grupo más la diferencia por kilo contra la referencia, por el peso de la vitrina. La referencia es el precio por kilo de tres leches con pan de vainilla y un sabor de esa base (sin precio propio).
+
+| Grupo | Precio del grupo |
+|---|---|
+| Relleno Normal | $350 |
+| Relleno con queso o con flan | $420 |
+| Pan Choco-pingüino | $350 |
+| Pan Red velvet | $450 |
+
+```python
+SHOWCASE_KG = 2.7   # peso de la vitrina, del admin
+
+def showcase_price(group_price, price_per_kg, reference_per_kg):
+    return group_price + max(0, price_per_kg - reference_per_kg) * SHOWCASE_KG
+```
+
+| Pastel de vitrina armado | Cálculo | Precio |
+|---|---|---|
+| Tres leches, durazno, pan de chocolate | $350 + ($185 − $180) × 2.7 | $363.50 |
+| Envinado, durazno, pan de vainilla | $350 + ($200 − $180) × 2.7 | $404 |
+| Tres leches, nuez y fresa combinados, pan de vainilla | $350 + ($195 − $180) × 2.7 | $390.50 |
+| Tres leches, nuez sola, pan de vainilla | $350 + ($190 − $180) × 2.7 | $377 |
+| Tres leches con queso y zarzamora, pan de vainilla | $420 + ($250 − $250) × 2.7 | $420 |
+| Red velvet | Precio del grupo | $450 |
+| Tres leches de chocolate, pan de chocolate | Coincide con el pastel de la vitrina | $350 |
+| Con queso y chocolate, pan de chocolate | Coincide con el pastel de la vitrina | $420 |
+
+- **Mini:** siempre **$130** (el precio de "Pastel mini"), sin recargos por tipo, pan ni combinado.
+
 En la interfaz, todos los precios del paso de pan se muestran **en la misma unidad** (precio por kilo): los panes que combinan con relleno como "Desde $X por kg" (precio general del relleno más barato disponible en el tipo elegido + incremento del pan; con los precios de hoy es el relleno Normal, D39) y Choco-pingüino / Red velvet como precio completo, en un grupo aparte "Con relleno incluido".
 
 ### 4.7 Validaciones y conflictos
@@ -220,8 +290,11 @@ En la interfaz, todos los precios del paso de pan se muestran **en la misma unid
 | Cambiar el tipo invalida el pan elegido | Avisar antes de continuar; el botón dice qué pasará ("Continuar y elegir otro pan"); el pan queda marcado "Hay que cambiarlo" |
 | Base ≠ Normal | No hay combinado |
 | Fresa con yogurt elegida | No se puede agregar un segundo sabor |
+| Tamaño = pastel mini (D78) | Tipo y pan libres, salvo Choco-pingüino y Red velvet (desactivados: ya traen su relleno). Solo la base Normal: con queso y con flan desactivadas. El combinado sí se permite. Sin oblea. El mensaje lleva todo su editor |
+| Tamaño = pastel de vitrina (D78) | Un pan de relleno incluido o una base sin precio de vitrina en el admin no se ofrece; con ese precio vacío sale "Precio por confirmar" |
+| Cambiar de tamaño con algo ya elegido que el nuevo tamaño no admite | Avisar antes de continuar; lo que no se admite queda marcado para cambiarlo y lo demás se conserva |
 
-Las opciones no disponibles **se muestran desactivadas con su motivo; nunca desaparecen**. Una opción que la pastelería retira en el admin no se lista (D39).
+Las opciones no disponibles **se muestran desactivadas con su motivo; nunca desaparecen**. Una opción que la pastelería retira en el admin no se lista (D39). Las filas de la tanda 2 (pastel mini y de vitrina) las decidió el usuario el 17 de noviembre de 2026 (D78).
 
 ---
 
@@ -271,6 +344,8 @@ Se elige **una sola** opción por pedido. La dueña confirmó los precios el 10 
 
 Si la pastelería deja una decoración de precio fijo sin precio en el admin (PENDIENTE), se muestra desactivada con "Precio por confirmar" y no se puede elegir (D39). Se activa sola cuando la pastelería captura el precio en el admin. La pastelería puede desactivar cualquier opción (por ejemplo, un tipo de chispas) o cambiar su cobro y su precio en el admin; puede haber varias opciones "Incluido".
 
+**En el pastel mini** (lo decidió el usuario el 17 de noviembre de 2026, tanda 2 de correcciones, D78) solo van: sin decoración, borde de conchas, festones colgantes, las tres chispas y rosas. Rosetones, olanes y "Otra decoración" no van en el mini y salen desactivados con su motivo. Las rosas del mini tienen precio propio, que es PENDIENTE: el campo `DecorationOption.mini_price` queda vacío y las rosas salen desactivadas con "Precio por confirmar" hasta que la pastelería lo capture; con el precio capturado, se muestran como "+$X" con lo que cobra el mini. En el pastel de vitrina van todas las decoraciones.
+
 **Color (patrón con duya y rosas).** El cliente elige entre dos modos:
 
 - **Automático** (por defecto): la decoración toma el color de la cobertura y usa otros tonos del mismo color, uno más oscuro y otro más claro, para que contraste y quede en armonía (con cobertura lila, flores en lila profundo y lila claro).
@@ -284,12 +359,13 @@ Las hojas de las rosas siempre van en verde. Las chispas no llevan selector: su 
 
 - Opcional, sin costo. La pastelería sugiere **máximo 4 palabras** (ej. "Feliz cumpleaños Ana"). La interfaz muestra un contador que sugiere ese máximo y **no bloquea**: con más palabras dice "Es más largo de lo que recomendamos; puedes dejarlo así.". El texto admite hasta 80 caracteres (límite técnico, `design_layout.py`).
 - La letra es siempre cursiva a mano alzada (Dancing Script). Solo se usa para el texto sobre el pastel, nunca en la interfaz.
+- **Letra mínima** (lo decidió el usuario el 17 de noviembre de 2026, tanda 2 de correcciones, D78): la letra del mensaje mide al menos **1.5 cm** de alto, en los tres tamaños (`CakeDesignSettings.message_min_letter_cm`, editable en el admin). Se mide con el radio real de la parte plana de la tapa de ese pastel. Si con ese alto el mensaje no cabe, el cliente tiene que acortarlo.
 - **Color del texto:** con los mismos modos que la decoración (sección 6.1). "Automático" es negro y va por omisión; "Colores que combinan" son el tono más oscuro y el más claro de la cobertura; "Elegir un color" es cualquier color, con el selector libre de la sección 5. Si el contraste del texto con la cobertura baja de 2:1, la interfaz muestra un aviso informativo que no bloquea el pedido.
 - El texto puede ir **recto o en arco**, con una curva ajustable. Se mueve, escala y gira sobre la tapa.
 
 ### 6.3 Oblea
 
-- **$125** (precio en el admin, `CakeDesignSettings.wafer_price`). Mientras la pastelería no capture el precio (PENDIENTE), la oblea sale desactivada con "Precio por confirmar" y no se puede pedir. Se puede poner en cualquier pastel.
+- **$125** (precio en el admin, `CakeDesignSettings.wafer_price`). Mientras la pastelería no capture el precio (PENDIENTE), la oblea sale desactivada con "Precio por confirmar" y no se puede pedir. Se puede poner en cualquier pastel, salvo el mini, que no lleva oblea (D78).
 - **Forma:** hoja o círculo. La hoja se estira con ancho y alto independientes.
 - **Tamaño máximo:** ninguna forma pasa de **hoja carta (21.6 × 27.9 cm), en cualquier orientación**: el lado mayor no pasa de 27.9 cm y el menor no pasa de 21.6 cm. El círculo tiene un diámetro máximo de 21.6 cm. Ninguna forma sale de la tapa del último piso, contando el giro.
 - Se puede combinar con el mensaje.
@@ -306,7 +382,7 @@ Las hojas de las rosas siempre van en verde. Las chispas no llevan selector: su 
 
 ## 7. Base del pastel (no es un paso: se asigna sola)
 
-- Aplica a pedidos de **4 kg o más**. Se cobra como **depósito**, aparte del pedido.
+- Aplica a pedidos de **4 kg o más**. Se cobra como **depósito**, aparte del pedido. El pastel de vitrina y el mini pesan menos de 4 kg: no llevan base ni depósito (D78).
 - Se devuelve el importe si el cliente regresa la base **hasta 15 días después de la entrega** (el plazo es `PolicySettings.stand_return_days`, configurable en el admin; hoy vale 15), presentando la **nota en PDF** del pedido (sustituye la nota actual de la pastelería).
 - La base de 20–25 kg es de madera forrada en aluminio.
 
@@ -391,7 +467,7 @@ Estados: `in_review` (En revisión) → `quote_ready` (Cotización lista) → (c
 ## 10. Pago
 
 - Métodos: **Mercado Pago**, **tarjeta (Stripe)** y **efectivo en la pastelería**. Sandbox en desarrollo.
-- Se paga un **anticipo** del pedido y el resto el día de la entrega. El porcentaje es `PolicySettings.advance_percent`, configurable en el admin entre 1 y 100; hoy vale **50%**. Aplica también a pasteles de vitrina encargados. Los ejemplos de esta sección usan 50%.
+- Se paga un **anticipo** del pedido y el resto el día de la entrega. El porcentaje es `PolicySettings.advance_percent`, configurable en el admin entre 1 y 100; hoy vale **50%**. Aplica también a pasteles de vitrina encargados y a los pasteles de vitrina y mini de "Diseña tu pastel", que son diseños y no la vitrina de hoy (lo decidió el usuario el 17 de noviembre de 2026, D78). Los ejemplos de esta sección usan 50%.
 - **Lo de la vitrina de hoy se paga completo** (anticipo del 100%); el anticipo de `PolicySettings.advance_percent` es para los encargos y los diseños. Lo decidió el usuario el 14 de noviembre de 2026 (D63).
 - **Lo que dice el carrito y la entrega sobre el pago de hoy** (lo decidió el usuario el 16 de noviembre de 2026, tanda 1 de correcciones, D77). Lo decide el tipo de cada línea (encargo o vitrina de hoy), no la pantalla:
     - Solo vitrina o rebanadas: "Hoy pagas todo: lo de la vitrina de hoy se paga completo." Sin anticipo.
@@ -493,6 +569,10 @@ La pastelería dio la dirección y el WhatsApp el 15 de noviembre de 2026. Viven
 4. Políticas de cambios y qué pasa si la base regresa dañada: el equipo prepara un texto base y la pastelería lo completa. La cancelación por el cliente ya tiene su mecanismo (sección 10, D70): el usuario decidió el 50% retenido y que se cancele en cualquier momento antes de la entrega, sin corte de horas.
 5. Dirección y WhatsApp: resueltos el 15 de noviembre de 2026 (los dio la pastelería y viven en el admin, sección 13). Siguen el aviso de privacidad y los términos: el equipo prepara el texto base y la pastelería lo completa.
 6. Resuelto el 14 de noviembre de 2026 (lo decidió el usuario, D63 ronda 2): con el precio, un pedido `awaiting_quote` pasa a `awaiting_payment`. Sigue PENDIENTE cuánto espera un pedido sin precio antes de cancelarse (`PolicySettings.quote_expiry_hours`, vacío: mientras no tenga valor, no vence).
+7. Peso del pastel mini (D78, sección 3.4): vacío en el precio de catálogo "Pastel mini" hasta que la pastelería lo capture en el admin.
+8. Precio de las rosas en el pastel mini (D78, sección 6.1): `DecorationOption.mini_price`, vacío. En los demás pasteles cuestan $120.
+9. Precio de "Tres leches de nuez" (D78, sección 2): `CatalogPrice.amount` vacío; mientras tanto no se puede pedir.
+10. Color de Blueberry en la vista previa (D78, sección 4.4): `#3E3A6E` es una propuesta del equipo que la pastelería confirma o cambia en el admin.
 
 ---
 

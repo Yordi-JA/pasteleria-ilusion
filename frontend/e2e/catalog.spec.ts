@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { mockCakeDesignOptions } from './support/cake-design.ts'
-import { mockProducts, productCards } from './support/products.ts'
+import { mockCakeDesignOptions, mockCakeDesignPrice } from './support/cake-design.ts'
+import { mockProducts, nuezCard, productCards } from './support/products.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 
 /**
@@ -124,4 +124,30 @@ test.describe('on mobile', () => {
     // Nada se sale de la pantalla.
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
   })
+})
+
+test('the mini card opens "Diseña tu pastel" with the mini already chosen (tanda 2)', async ({ page }) => {
+  await mockProducts(page)
+  await mockCakeDesignPrice(page)
+  await page.goto('/catalogo')
+  const mini = cakes(page).getByRole('article').filter({ has: page.getByRole('heading', { level: 3, name: 'Pastel mini' }) })
+  const link = mini.getByRole('link', { name: 'Diseña tu pastel mini' })
+  await expect(link).toHaveAttribute('href', '/pedido/disena?tamano=mini')
+  // Sin "Elígelo en la ficha del sabor que quieras" (decisión del usuario, ronda de arreglos de la tanda 2): el botón lo dice.
+  await expect(mini).not.toContainText('Elígelo en la ficha')
+  await link.click()
+  await expect(page.locator('#paso-titulo')).toHaveText('1. Tamaño y forma')
+  await expect(page.getByLabel('¿Para cuántas personas?')).toHaveValue('3')
+  await expect(page.getByTestId('tarjeta-paso').getByRole('radio', { name: /Pastel mini/ })).toBeChecked()
+  await expect(page).toHaveURL(/\/pedido\/disena\?paso=1$/)
+})
+
+test('a cake without a price says "[Precio por confirmar]" (tanda 2)', async ({ page }) => {
+  await mockProducts(page, { cards: [...productCards, nuezCard] })
+  await page.goto('/catalogo')
+  const nuez = cakes(page).getByRole('article').filter({ hasText: 'Tres leches de nuez' })
+  await expect(nuez).toContainText('[Precio por confirmar]')
+  await expect(nuez).not.toContainText('$')
+  // El mini sigue con el precio de los demás.
+  await expect(cakes(page).getByRole('article').filter({ has: page.getByRole('heading', { level: 3, name: 'Pastel mini' }) })).toContainText('$130')
 })

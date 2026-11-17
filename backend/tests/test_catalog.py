@@ -230,14 +230,15 @@ def test_empty_photo_is_allowed_and_means_pending():
 # --- Semilla ---
 
 
-def test_seeded_products_are_14_cakes_and_8_desserts():
-    assert Product.objects.filter(category="cake").count() == 14
+def test_seeded_products_are_16_cakes_and_8_desserts():
+    # Los 14 del mockup, más "Tres leches de blueberry" y "Tres leches de nuez" (tanda 2 de correcciones).
+    assert Product.objects.filter(category="cake").count() == 16
     assert Product.objects.filter(category="dessert").count() == 8
 
 
-def test_seeded_catalog_prices_are_the_20_cells_of_section_2():
+def test_seeded_catalog_prices_are_the_20_cells_of_section_2_and_the_pending_walnut():
     prices = {p.name: p.amount for p in CatalogPrice.objects.all()}
-    assert len(prices) == 20
+    assert len(prices) == 21
     assert prices == {
         "Pastel de sabor normal, completo": Decimal("350"),
         "Pastel de sabor normal, rebanada": Decimal("35"),
@@ -259,6 +260,8 @@ def test_seeded_catalog_prices_are_the_20_cells_of_section_2():
         "Gelatina Mosaico con crema (vaso)": Decimal("20"),
         "Gelatina Mosaico con yogurt (vaso)": Decimal("20"),
         "Gelatina de Duvalín (vaso)": Decimal("25"),
+        # PENDIENTE (tanda 2): el catálogo dice "[Precio por confirmar]" y no se puede pedir.
+        "Pastel de nuez, completo": None,
     }
 
 
@@ -278,8 +281,8 @@ def test_seeded_weights_and_servings_match_the_rules_and_pending_ones_are_empty(
     assert info("Red velvet, completo") == (None, None)
 
 
-def test_seeded_offerings_are_47_and_each_priced_by_group():
-    assert ProductOffering.objects.count() == 47
+def test_seeded_offerings_are_51_and_each_priced_by_group():
+    assert ProductOffering.objects.count() == 51
     by_product = {}
     for offering in ProductOffering.objects.select_related("product", "price"):
         by_product.setdefault(offering.product.slug, {})[offering.presentation] = offering.price.amount
@@ -305,6 +308,9 @@ def test_seeded_offerings_are_47_and_each_priced_by_group():
     assert by_product["mosaico-con-crema"] == {"cup": Decimal("20")}
     assert by_product["mosaico-con-yogurt"] == {"cup": Decimal("20")}
     assert by_product["gelatina-de-duvalin"] == {"cup": Decimal("25")}
+    # Tanda 2: blueberry en el grupo de sabor normal, con su mini; la nuez con su precio PENDIENTE.
+    assert by_product["tres-leches-de-blueberry"] == normal
+    assert by_product["tres-leches-de-nuez"] == {"whole": None}
 
 
 def test_there_is_no_mini_with_cheese_or_flan():
@@ -312,7 +318,8 @@ def test_there_is_no_mini_with_cheese_or_flan():
         presentation="mini", product__filling_base__slug__in=["queso", "flan"]
     ).exists()
     mini_cakes = ProductOffering.objects.filter(presentation="mini", product__category="cake")
-    assert mini_cakes.count() == 8
+    # Los 8 sabores normales del mockup y blueberry (tanda 2).
+    assert mini_cakes.count() == 9
     assert all(o.product.filling_base.slug == "normal" for o in mini_cakes)
 
 
@@ -323,26 +330,29 @@ def test_cup_gelatins_are_showcase_only():
     assert Product.objects.filter(sales_channel="showcase_only").count() == 3
 
 
-def test_red_velvet_is_order_only_and_the_only_one():
+def test_red_velvet_and_walnut_are_the_only_order_only_cakes():
     assert Product.objects.get(slug="red-velvet").sales_channel == "order_only"
-    assert list(Product.objects.filter(sales_channel="order_only")) == [Product.objects.get(slug="red-velvet")]
+    order_only = set(Product.objects.filter(sales_channel="order_only").values_list("slug", flat=True))
+    assert order_only == {"red-velvet", "tres-leches-de-nuez"}
 
 
 def test_seeded_cake_definitions_follow_the_menu():
     assert Product.objects.get(slug="choco-pinguino").cake_type == "seco"
     assert Product.objects.get(slug="red-velvet").cake_type == "seco"
     three_milks = Product.objects.filter(category="cake").exclude(slug__in=["choco-pinguino", "red-velvet"])
-    assert three_milks.count() == 12
+    assert three_milks.count() == 14
     assert set(three_milks.values_list("cake_type", flat=True)) == {"tres_leches"}
     flavored = Product.objects.get(slug="tres-leches-con-queso-y-zarzamora")
     assert (flavored.filling_base.slug, flavored.filling_flavor.slug) == ("queso", "zarzamora")
 
 
-def test_only_choco_pinguino_and_red_velvet_have_a_bread_in_the_seed():
-    # Regla 4.3 fija el pan de esos dos. El de los demás pasteles es PENDIENTE.
+def test_every_cake_has_a_bread_and_no_dessert_has_one_in_the_seed():
+    # Regla 4.3 fija el pan de Choco-pingüino y Red velvet; el de los demás lo dio el usuario en la tanda 2
+    # (`0045_seed_design_sizes`, con su detalle en `tests/test_design_sizes.py`).
     with_bread = dict(Product.objects.filter(bread__isnull=False).values_list("slug", "bread__slug"))
-    assert with_bread == {"choco-pinguino": "choco_pinguino", "red-velvet": "red_velvet"}
-    assert Product.objects.filter(bread__isnull=True).count() == 20
+    assert (with_bread["choco-pinguino"], with_bread["red-velvet"]) == ("choco_pinguino", "red_velvet")
+    assert not Product.objects.filter(category="cake", bread__isnull=True).exists()
+    assert Product.objects.filter(bread__isnull=True).count() == Product.objects.filter(category="dessert").count()
 
 
 def test_choco_pinguino_and_red_velvet_keep_their_definition_after_getting_a_bread():
@@ -378,9 +388,10 @@ def test_seed_can_run_again_without_duplicating_or_overwriting():
     Product.objects.filter(slug="imposible").update(summary="Editado por la pastelería.")
     ProductOffering.objects.filter(product__slug="posible", presentation="slice").delete()
     seed_module.seed_catalog(apps, None)
-    assert Product.objects.count() == 22
-    assert CatalogPrice.objects.count() == 20
-    assert ProductOffering.objects.count() == 47
+    # Con los dos pasteles, el precio y las tres presentaciones de la tanda 2 (`0045_seed_design_sizes`).
+    assert Product.objects.count() == 24
+    assert CatalogPrice.objects.count() == 21
+    assert ProductOffering.objects.count() == 51
     assert CatalogPrice.objects.get(name="Pastel mini").amount == Decimal("140.00")
     assert Product.objects.get(slug="imposible").summary == "Editado por la pastelería."
 

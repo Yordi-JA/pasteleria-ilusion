@@ -31,19 +31,35 @@ function cheapest<T>(items: T[], price: (item: T) => string | undefined): T | nu
  * precio general de la base más barata (`estimate`). `null` solo si las opciones no tienen con qué armar uno.
  */
 export function planPrice(draft: CakeDesignDraft, design: DesignDerived, options: CakeDesignOptions): PricePlan | null {
+  // Entre la vitrina y el mínimo por kilos, sin tamaño elegido no hay precio que pedir (tanda 2).
+  const cakeSize = design.cakeSize
+  if (!cakeSize) return null
+  const { sizeConflicts: conflicts, sizeOption } = design
+  // Lo que el tamaño no admite (el mini) no entra en el estimado: el precio lo rechazaría.
+  const breads = options.breads.filter((option) => !sizeOption?.unavailableBreads[option.slug])
+  const bases = options.fillingBases.filter((option) => !sizeOption?.unavailableFillingBases[option.slug])
   const fromPrice = (type: string) => (bread: BreadOption) => bread.pricePerKgFrom[type]
   const cakeType =
     design.cakeType?.value ??
-    cheapest(options.cakeTypes, (type) => cheapest(options.breads, fromPrice(type.value))?.pricePerKgFrom[type.value])?.value
+    cheapest(options.cakeTypes, (type) => cheapest(breads, fromPrice(type.value))?.pricePerKgFrom[type.value])?.value
   if (!cakeType) return null
-  const chosenBread = design.bread && !design.breadIssue ? design.bread : null
-  const bread = chosenBread ?? cheapest(options.breads, fromPrice(cakeType))
+  const chosenBread = design.bread && !design.breadIssue && !conflicts.bread ? design.bread : null
+  const bread = chosenBread ?? cheapest(breads, fromPrice(cakeType))
   if (!bread) return null
-  // Una decoración sin precio (PENDIENTE) no se pide: el precio la rechazaría (D39).
-  const decoration = design.decoration?.available ? design.decoration.slug : null
-  // La oblea sin precio (PENDIENTE) no se pide: el precio la rechazaría y el paso 7 no deja continuar con ella (D39).
-  const wafer = draft.waferEnabled && options.limits.waferPrice !== null
-  const base = { people: draft.people, cakeType, bread: bread.slug, decoration, wafer }
+  // Una decoración sin precio (PENDIENTE) no se pide: el precio la rechazaría (D39); tampoco una que el tamaño no admite.
+  const decoration = design.decoration?.available && !conflicts.decoration ? design.decoration.slug : null
+  // La oblea sin precio (PENDIENTE) no se pide: el precio la rechazaría y el paso 7 no deja continuar con ella (D39). El mini no la lleva.
+  const wafer = draft.waferEnabled && options.limits.waferPrice !== null && !conflicts.wafer
+  const base = {
+    cakeSize,
+    sourceProduct: design.locked ? (draft.source?.slug ?? null) : null,
+    // Por kilos, las personas (la API calcula los kilos); el pastel de vitrina y el mini ya traen su tamaño.
+    people: design.small ? null : draft.people,
+    cakeType,
+    bread: bread.slug,
+    decoration,
+    wafer,
+  }
   const assumedBread = chosenBread ? null : bread
   if (bread.pricingMode === 'full_price_per_kg') {
     return { request: { ...base, fillingBase: null, fillingFlavors: [], estimate: false }, assumedBread, assumedBase: null }
@@ -52,8 +68,8 @@ export function planPrice(draft: CakeDesignDraft, design: DesignDerived, options
     const request = { ...base, fillingBase: design.base.slug, fillingFlavors: design.flavors.map((f) => f.slug), estimate: false }
     return { request, assumedBread: null, assumedBase: null }
   }
-  const chosenBase = design.base && !design.fillingIssue && design.base.pricePerKgByCakeType[cakeType] ? design.base : null
-  const fillingBase = chosenBase ?? cheapest(options.fillingBases, (option) => option.pricePerKgByCakeType[cakeType])
+  const chosenBase = design.base && !design.fillingIssue && !conflicts.base && design.base.pricePerKgByCakeType[cakeType] ? design.base : null
+  const fillingBase = chosenBase ?? cheapest(bases, (option) => option.pricePerKgByCakeType[cakeType])
   if (!fillingBase) return null
   return {
     request: { ...base, fillingBase: fillingBase.slug, fillingFlavors: [], estimate: true },

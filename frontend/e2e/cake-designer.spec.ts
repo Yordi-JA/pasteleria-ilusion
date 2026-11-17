@@ -73,8 +73,10 @@ test('step 1 asks the API for the kilos and the from price, and shows what it an
   await setPeople(page, 47)
   await expect(kilos(page)).toHaveText('Aprox. 7 kg para 47 personas')
   await expect(total(page)).toHaveText('Desde $1,260 MXN')
-  await setPeople(page, 3)
-  await expect(kilos(page)).toHaveText('Menos de 1 kg para 3 personas')
+  // Para 3 personas ya no hay kilos: rinde el pastel mini (tanda 2, `cake-design-sizes.spec.ts`).
+  await people(page).fill('3')
+  await expect(page.getByTestId('tarjeta-paso').getByRole('radio', { name: /Pastel mini/ })).toBeChecked()
+  await expect(kilos(page)).toHaveCount(0)
 })
 
 test('the kilos shown are the ones the backend returns, not a client calculation', async ({ page }) => {
@@ -90,18 +92,14 @@ test('the kilos shown are the ones the backend returns, not a client calculation
   await expect(page.getByText('Para 40 personas, aprox. 9 kg, redondo')).toBeVisible()
 })
 
-test('below the minimum it offers smaller cakes and continues with the minimum', async ({ page }) => {
+test('below the minimum, "Hacerlo de 4 kg" asks the price with the people and continues with the minimum', async ({ page }) => {
+  // Desde la tanda 2, bajo el mínimo se elige entre el pastel de vitrina y hacerlo por kilos (`cake-design-sizes.spec.ts`).
   const prices = await open(page)
-  await setPeople(page, 15)
-  const notice = page.getByRole('status').filter({ hasText: 'Para 15 personas hay opciones más chicas' })
-  await expect(notice).toBeVisible()
-  await expect(notice).toContainText('Los pedidos son desde 4 kg, que alcanzan para unas 28 personas.')
-  await expect(notice).toContainText('aprox. 2.7 kg, unas 19 personas, y puede ser para hoy mismo.')
-  await expect(notice.getByRole('link', { name: 'Ver la vitrina' })).toHaveAttribute('href', '/vitrina')
-  await expect(kilos(page)).toHaveText('Aprox. 2 kg para 15 personas')
+  await people(page).fill('24')
+  await page.getByTestId('tarjeta-paso').getByText('Hacerlo de 4 kg').click()
   await expect(page.getByText('Mínimo 4 kg, para unas 28 personas')).toBeVisible()
   await expect(total(page)).toHaveText('Desde $720 MXN')
-  expect(prices.at(-1)?.people).toBe(15)
+  expect(prices.at(-1)?.people).toBe(24)
 
   await proceed(page, 'Continuar con 4 kg, unas 28 personas')
   await expect(stepTitle(page)).toHaveText('2. Tipo de pastel')
@@ -242,11 +240,11 @@ test('typing the people and pressing Enter right away continues with one press',
 test('clicking Continuar right after typing also waits for the kilos instead of asking twice', async ({ page }) => {
   await open(page)
   await expect(total(page)).toHaveText('Desde $1,080 MXN')
-  await people(page).fill('15')
+  await people(page).fill('30')
   await proceed(page, /^Continuar/)
   await expect(stepTitle(page)).toHaveText('2. Tipo de pastel')
-  // Bajo el mínimo sigue con el mínimo, aunque los kilos llegaran después de la pulsación.
-  await expect(shown(page, '28 personas, 4 kg, redondo')).toBeVisible()
+  // Sigue con los kilos de esas personas, aunque llegaran después de la pulsación.
+  await expect(shown(page, '30 personas, 4 kg, redondo')).toBeVisible()
 })
 
 test('a rejected choice on step 4 shows its reason instead of a retry', async ({ page }) => {

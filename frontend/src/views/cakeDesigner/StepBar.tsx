@@ -10,9 +10,14 @@ export type StepItem = {
   title: string
   status: StepStatus
   reachable: boolean
-  /** Por qué el paso está incluido (el relleno del pan): el mensaje flotante del candado (tanda 1). */
+  /** Por qué el paso está incluido (el relleno del pan, o lo que viene del pastel de vitrina de origen): el mensaje flotante del candado. */
   tip?: string
+  /** El nombre del candado para el lector de pantalla: "Relleno incluido", "Pan del pastel elegido". */
+  tipLabel?: string
 }
+
+/** El candado de la barra móvil, cuando su mensaje no es el de un solo paso (el pastel de vitrina de origen, tanda 2). */
+type MobileTip = { label: string; text: string }
 
 /** El área de toque del candado llega a 44 px sin cambiar el círculo de 30 px, que se alinea con la línea de los pasos. */
 const LOCK_BUTTON = "h-[30px] w-[30px] before:absolute before:-inset-[7px] before:content-['']"
@@ -67,10 +72,12 @@ function Circle({ step }: { step: StepItem }) {
  * incluido, con su mensaje flotante, "!" si hay que cambiarlo, o el número) y la línea que los une; los ya alcanzados son enlaces para
  * regresar (libro de marca, "Cotizador 3D"). En móvil (hasta 600 px), "Paso 3 de 8: Pan" con 8 segmentos.
  */
-export default function StepBar({ steps, current }: { steps: StepItem[]; current: number }) {
+export default function StepBar({ steps, current, mobileTip = null }: { steps: StepItem[]; current: number; mobileTip?: MobileTip | null }) {
   const total = steps.length
   const now = steps[current - 1]
   const included = steps.find((step) => step.tip)
+  // En móvil va un solo candado: el del pastel de origen, que junta tipo, pan y relleno, o el del paso incluido.
+  const lock = mobileTip ?? (included?.tip ? { label: included.tipLabel ?? `${included.short} incluido`, text: included.tip } : null)
   return (
     <nav aria-label="Pasos de Diseña tu pastel">
       <ol className="grid grid-cols-8 max-[600px]:hidden">
@@ -78,7 +85,7 @@ export default function StepBar({ steps, current }: { steps: StepItem[]; current
           const label = (
             <>
               {step.tip ? (
-                <Toggletip label={`${step.short} incluido`} text={step.tip} buttonClassName={LOCK_BUTTON}>
+                <Toggletip label={step.tipLabel ?? `${step.short} incluido`} text={step.tip} buttonClassName={LOCK_BUTTON}>
                   <Circle step={step} />
                 </Toggletip>
               ) : (
@@ -121,8 +128,8 @@ export default function StepBar({ steps, current }: { steps: StepItem[]; current
             Paso {current} de {total}: {now?.title}
           </p>
           {/* En móvil no se ven los círculos: el candado del paso incluido va junto al paso actual. */}
-          {included?.tip && (
-            <Toggletip label={`${included.short} incluido`} text={included.tip}>
+          {lock && (
+            <Toggletip label={lock.label} text={lock.text}>
               <LockSimple size={20} aria-hidden="true" />
             </Toggletip>
           )}

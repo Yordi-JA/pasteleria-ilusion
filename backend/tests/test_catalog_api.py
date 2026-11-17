@@ -39,13 +39,15 @@ PUBLIC_URLS = [PRODUCTS_URL, product_url("tres-leches-de-durazno"), FEATURED_URL
 
 CARD_FIELDS = {
     "slug", "name", "category", "sales_channel", "cake_type", "bread", "filling_base",
-    "summary", "photo", "in_showcase_today", "sliced_today", "offerings",
+    "summary", "photo", "in_showcase_today", "sliced_today", "offerings", "showcase_design",
 }
-CARD_OFFERING_FIELDS = {"id", "presentation", "price"}
+CARD_OFFERING_FIELDS = {"id", "presentation", "price", "price_pending"}
 DETAIL_FIELDS = CARD_FIELDS | {
     "description", "filling_flavor", "storage_notes", "transport_notes", "related",
 }
-DETAIL_OFFERING_FIELDS = {"id", "presentation", "price", "approx_weight_kg", "servings", "photo", "stock"}
+DETAIL_OFFERING_FIELDS = {
+    "id", "presentation", "price", "price_pending", "approx_weight_kg", "servings", "photo", "stock",
+}
 STOCK_ITEM_FIELDS = {
     "offering_id", "product_slug", "product_name", "category", "presentation",
     "price", "photo", "stock", "sold_out",
@@ -115,7 +117,7 @@ def test_catalog_lists_every_active_product_as_a_card_in_admin_order(api):
     assert response.status_code == 200
     cards = response.json()
     assert slugs(cards) == list(Product.objects.order_by("sort_order", "name").values_list("slug", flat=True))
-    assert len(cards) == 22
+    assert len(cards) == 24
     assert all(set(card) == CARD_FIELDS for card in cards)
     assert all(set(offering) == CARD_OFFERING_FIELDS for card in cards for offering in card["offerings"])
 
@@ -128,17 +130,28 @@ def test_catalog_card_carries_what_the_card_shows_with_money_as_a_string(api):
         "category": "cake",
         "sales_channel": "showcase_and_order",
         "cake_type": "tres_leches",
-        "bread": None,
+        "bread": "vainilla",
         "filling_base": "normal",
         "summary": "Relleno de durazno y cobertura de crema pastelera.",
         "photo": None,
         "in_showcase_today": False,
         "sliced_today": False,
         "offerings": [
-            {"id": offering_of("tres-leches-de-durazno", "whole").id, "presentation": "whole", "price": "350.00"},
-            {"id": offering_of("tres-leches-de-durazno", "slice").id, "presentation": "slice", "price": "35.00"},
-            {"id": offering_of("tres-leches-de-durazno", "mini").id, "presentation": "mini", "price": "130.00"},
+            {
+                "id": offering_of("tres-leches-de-durazno", "whole").id, "presentation": "whole", "price": "350.00",
+                "price_pending": False,
+            },
+            {
+                "id": offering_of("tres-leches-de-durazno", "slice").id, "presentation": "slice", "price": "35.00",
+                "price_pending": False,
+            },
+            {
+                "id": offering_of("tres-leches-de-durazno", "mini").id, "presentation": "mini", "price": "130.00",
+                "price_pending": False,
+            },
         ],
+        # Sale en la vitrina, completo con precio y con su pan: "Personalizar este pastel" lo abre como pastel de vitrina.
+        "showcase_design": {"available": True, "unavailable_reason": None},
     }
 
 
@@ -154,7 +167,7 @@ def test_catalog_card_of_a_dessert_has_no_cake_fields(api):
 def test_catalog_filters_by_category(api):
     cakes = api.get(PRODUCTS_URL, {"category": "cake"}).json()
     desserts = api.get(PRODUCTS_URL, {"category": "dessert"}).json()
-    assert (len(cakes), len(desserts)) == (14, 8)
+    assert (len(cakes), len(desserts)) == (16, 8)
     assert {card["category"] for card in cakes} == {"cake"}
     assert {card["category"] for card in desserts} == {"dessert"}
 
@@ -165,7 +178,7 @@ def test_catalog_search_ignores_case_and_spaces_and_combines_with_the_category(a
     flan = slugs(api.get(PRODUCTS_URL, {"category": "dessert", "search": "flan"}).json())
     assert {"flan-napolitano", "imposible", "posible"} <= set(flan)
     assert "tres-leches-con-flan-y-cajeta" not in flan
-    assert len(api.get(PRODUCTS_URL, {"search": "   "}).json()) == 22
+    assert len(api.get(PRODUCTS_URL, {"search": "   "}).json()) == 24
     assert api.get(PRODUCTS_URL, {"search": "no-hay-un-pastel-asi"}).json() == []
 
 
@@ -177,7 +190,7 @@ def test_catalog_rejects_an_unknown_category(api, params):
 
 
 def test_catalog_with_an_empty_category_lists_everything_like_the_all_filter(api):
-    assert len(api.get(PRODUCTS_URL, {"category": ""}).json()) == 22
+    assert len(api.get(PRODUCTS_URL, {"category": ""}).json()) == 24
 
 
 def test_catalog_rejects_a_search_longer_than_a_product_name(api):
@@ -276,20 +289,20 @@ def test_product_detail_has_its_offerings_with_the_stock_of_today_and_its_relate
     detail = response.json()
     assert set(detail) == DETAIL_FIELDS
     assert detail["description"] == ""
-    assert (detail["bread"], detail["filling_base"], detail["filling_flavor"]) == (None, "normal", "durazno")
+    assert (detail["bread"], detail["filling_base"], detail["filling_flavor"]) == ("vainilla", "normal", "durazno")
     assert (detail["storage_notes"], detail["transport_notes"]) == (None, None)
     assert detail["in_showcase_today"] is True
     assert detail["offerings"] == [
         {
-            "id": offering_of("tres-leches-de-durazno", "whole").id, "presentation": "whole", "price": "350.00",
+            "id": offering_of("tres-leches-de-durazno", "whole").id, "presentation": "whole", "price": "350.00", "price_pending": False,
             "approx_weight_kg": "2.7", "servings": 19, "photo": None, "stock": 3,
         },
         {
-            "id": offering_of("tres-leches-de-durazno", "slice").id, "presentation": "slice", "price": "35.00",
+            "id": offering_of("tres-leches-de-durazno", "slice").id, "presentation": "slice", "price": "35.00", "price_pending": False,
             "approx_weight_kg": None, "servings": None, "photo": None, "stock": None,
         },
         {
-            "id": offering_of("tres-leches-de-durazno", "mini").id, "presentation": "mini", "price": "130.00",
+            "id": offering_of("tres-leches-de-durazno", "mini").id, "presentation": "mini", "price": "130.00", "price_pending": False,
             "approx_weight_kg": None, "servings": 3, "photo": None, "stock": None,
         },
     ]
@@ -741,7 +754,7 @@ def test_featured_on_home_is_off_by_default_and_explains_who_picks():
 
 
 def test_the_seed_marks_no_product_as_featured():
-    assert Product.objects.count() == 22
+    assert Product.objects.count() == 24
     assert not Product.objects.filter(featured_on_home=True).exists()
 
 

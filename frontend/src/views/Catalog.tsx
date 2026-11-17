@@ -84,9 +84,10 @@ function SectionTitle({ id, title, count }: { id: string; title: string; count: 
 
 /**
  * El pastel mini como una tarjeta más de la cuadrícula, con la forma de las demás (tanda 1, D77): antes era una franja de
- * aviso bajo los pasteles. No es un producto con ficha: se elige en la ficha de cada sabor normal.
+ * aviso bajo los pasteles. No es un producto con ficha: desde la tanda 2, "Diseña tu pastel mini" abre el diseñador con el mini
+ * ya elegido.
  */
-function MiniCard({ price }: { price: string }) {
+function MiniCard({ price, href }: { price: string; href: string }) {
   return (
     <Card as="article" large className="mt-16 flex h-[calc(100%-4rem)] flex-col gap-2.5 !pt-0">
       {/* Mismo alto que la foto de tres pisos de las demás tarjetas, con el mini más chico y apoyado abajo. */}
@@ -96,10 +97,11 @@ function MiniCard({ price }: { price: string }) {
       </div>
       <p className="flex min-h-[26px] items-center text-nota text-mermelada-suave">Sabores normales</p>
       <h3 className="font-display text-titulo-2">Pastel mini</h3>
-      <p className="flex-1 text-cuerpo text-mermelada-suave">Para unas 3 personas. Elígelo en la ficha del sabor que quieras.</p>
+      <p className="flex-1 text-cuerpo text-mermelada-suave">Para unas 3 personas.</p>
       <p className="text-etiqueta tabular-nums">{price}</p>
-      {/* El alto del botón de las demás tarjetas, para que el precio quede en la misma línea. */}
-      <div aria-hidden="true" className="mt-1.5 h-11" />
+      <ButtonLink to={href} variant="secondary" className="mt-1.5 w-full">
+        Diseña tu pastel mini
+      </ButtonLink>
     </Card>
   )
 }
@@ -117,7 +119,7 @@ function CakesSection({ catalog }: { catalog: CatalogView }) {
           ))}
           {catalog.miniPrice && (
             <li>
-              <MiniCard price={catalog.miniPrice} />
+              <MiniCard price={catalog.miniPrice} href={catalog.miniDesignHref} />
             </li>
           )}
         </ul>

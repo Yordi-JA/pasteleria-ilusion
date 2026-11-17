@@ -1,8 +1,10 @@
 import type {
   BreadOption,
   CakeDesignOptions,
+  CakeSizeCode,
   CakeTypeOption,
   DecorationOption,
+  DesignSizeOption,
   FillingBaseOption,
   FillingFlavorOption,
   PeopleSize,
@@ -10,6 +12,10 @@ import type {
 } from '../models/cakeDesign.ts'
 import type { CakeDesignDraft } from '../models/cakeDesignDraft.ts'
 import { normalizeHex } from '../models/color.ts'
+import { lidFor, messageLetterProblem } from './cakeLid.ts'
+import { effectiveSize, hasConflicts, isSmall, NO_CONFLICTS, sizeConflicts, sizeOption } from './cakeSizes.ts'
+import type { SizeConflicts } from './cakeSizes.ts'
+import type { MessageMetrics } from './messageGeometry.ts'
 
 /**
  * Pasos de "Diseña tu pastel" y lo que se deriva del borrador con las opciones y el tamaño que calculó la API:
@@ -46,6 +52,16 @@ export type Issue = { name: string; reason: string; code: UnavailableCode | null
 export type DesignSize = PeopleSize & { current: boolean }
 
 export type DesignDerived = {
+  /** El tamaño que vale (tanda 2): por kilos, de vitrina o mini; `null` si entre dos todavía no se elige. */
+  cakeSize: CakeSizeCode | null
+  /** Sus datos de la API; `null` sin tamaño o si la API no manda tamaños. */
+  sizeOption: DesignSizeOption | null
+  /** El pastel de vitrina o el mini: redondo, de 1 piso, sin kilos ni base. */
+  small: boolean
+  /** Parte de un pastel de vitrina ("Personalizar este pastel"): su tipo, pan y relleno no se cambian. */
+  locked: boolean
+  /** Lo ya elegido que el tamaño no admite (el mini), con su motivo. */
+  sizeConflicts: SizeConflicts
   /** `null` mientras la API no responde ningún tamaño. */
   size: DesignSize | null
   /** Kilos del pedido según la API; `null` sin tamaño. */
@@ -101,17 +117,34 @@ export function coverageColor(draft: Pick<CakeDesignDraft, 'coverageColor'>, opt
  * guarda (D53): tras recargar, el borrador conserva su nombre pero la imagen se tiene que elegir otra vez. Lo mismo con
  * `waferReady`, la imagen de la oblea (D55).
  */
-export function deriveDesign(draft: CakeDesignDraft, options: CakeDesignOptions, apiSize: PeopleSize | null, imageReady = false, waferReady = false): DesignDerived {
+export function deriveDesign(
+  draft: CakeDesignDraft,
+  options: CakeDesignOptions,
+  apiSize: PeopleSize | null,
+  imageReady = false,
+  waferReady = false,
+  /** Lo que mide el texto del mensaje: con él, el paso 7 revisa que quepa con la letra mínima (tanda 2). */
+  metrics?: MessageMetrics,
+): DesignDerived {
   const { tierMinimums } = options
-  const size = apiSize ? { ...apiSize, current: apiSize.people === draft.people } : null
+  const cakeSize = effectiveSize(draft, options)
+  const small = isSmall(cakeSize)
+  const chosenSize = cakeSize ? sizeOption(options, cakeSize) : null
+  // El pastel de vitrina y el mini no tienen kilos: un tamaño por personas que llegó antes no cuenta.
+  const size = apiSize && !small ? { ...apiSize, current: apiSize.people === draft.people } : null
   const kg = size?.kg ?? null
   const maxTiers = tierMinimums.length
+  const locked = Boolean(draft.source) && cakeSize === 'showcase'
+  const sized = small ? sizeConflicts(draft, chosenSize) : NO_CONFLICTS
+  // El pan y el relleno de un pastel de vitrina de origen no se cambian (sus pasos van bloqueados) y el servidor acepta los del
+  // producto: no se marcan para cambiarlos aunque el tamaño no los tuviera.
+  const conflicts = locked ? { ...sized, bread: null, base: null } : sized
 
   const cakeType = options.cakeTypes.find((type) => type.value === draft.cakeType) ?? null
   const typeValue = cakeType?.value ?? null
   const bread = options.breads.find((option) => option.slug === draft.bread) ?? null
   const breadIssue = bread ? issueIn(bread, typeValue) : null
-  const breadValid = Boolean(cakeType && bread && !breadIssue)
+  const breadValid = Boolean(cakeType && bread && !breadIssue && !conflicts.bread)
   const fillingIncluded = breadValid && bread?.pricingMode === 'full_price_per_kg'
 
   const base = options.fillingBases.find((option) => option.slug === draft.fillingBase) ?? null
@@ -124,6 +157,12 @@ export function deriveDesign(draft: CakeDesignDraft, options: CakeDesignOptions,
   // Arriba del máximo solo cuenta lo que la API dijo de las personas de ahora.
   const aboveMaximum = Boolean(size?.current && size.aboveMaximum)
   const design: DesignDerived = {
+    cakeSize,
+    sizeOption: chosenSize,
+    small,
+    locked,
+    // Con el relleno incluido, la base elegida antes no se usa: no hay conflicto que avisar.
+    sizeConflicts: fillingIncluded ? { ...conflicts, base: null } : conflicts,
     size,
     kg,
     belowMinimum: Boolean(size?.belowMinimum),
@@ -141,17 +180,23 @@ export function deriveDesign(draft: CakeDesignDraft, options: CakeDesignOptions,
     flavorsNeeded,
     coverage,
     decoration,
-    layoutProblem: layoutProblem(draft, options, waferReady),
+    layoutProblem: layoutProblem(draft, options, waferReady, conflicts.wafer),
     valid: [],
   }
+  // La letra mínima del mensaje se revisa con la tapa de este pastel (tanda 2), cuando se sabe lo que mide el texto.
+  if (design.layoutProblem === null && metrics) design.layoutProblem = messageLetterProblem(draft, lidFor(draft, design, options), metrics, options)
   design.valid = [
-    // Regla 3.3 (D50): los pisos no pasan de lo que permiten los kilos de ahora.
-    draft.people >= 1 && !aboveMaximum && draft.tiers >= 1 && draft.tiers <= maxTiers && !(size?.current && draft.tiers > size.maxTiers),
+    cakeSize === null
+      ? false
+      : small
+        ? Boolean(chosenSize?.available)
+        : // Regla 3.3 (D50): los pisos no pasan de lo que permiten los kilos de ahora.
+          draft.people >= 1 && !aboveMaximum && draft.tiers >= 1 && draft.tiers <= maxTiers && !(size?.current && draft.tiers > size.maxTiers),
     Boolean(cakeType),
     breadValid,
     fillingProblem(design, draft) === null,
     Boolean(coverage),
-    decorationProblem(decoration, imageReady, draft) === null,
+    decorationProblem(decoration, imageReady, draft, design.sizeConflicts.decoration) === null,
     design.layoutProblem === null,
     // La revisión no pide nada: se llega a ella con todo lo anterior completo y desde ahí se agrega al pedido.
     true,
@@ -166,7 +211,7 @@ export function deriveDesign(draft: CakeDesignDraft, options: CakeDesignOptions,
 export function fillingProblem(design: DesignDerived, draft: CakeDesignDraft): string | null {
   if (design.fillingIncluded) return null
   if (!design.cakeType || !design.base) return 'Elige la base del relleno.'
-  if (design.fillingIssue?.name === design.base.name) return 'Elige otra base del relleno.'
+  if (design.fillingIssue?.name === design.base.name || design.sizeConflicts.base) return 'Elige otra base del relleno.'
   // Un sabor que ya no existe, que no está en la base o que el tipo no admite se tiene que cambiar.
   if (design.flavors.length !== draft.flavors.length || design.fillingIssue) return 'Elige otro sabor del relleno.'
   if (design.flavors.length < design.flavorsNeeded) return design.flavorsNeeded === 2 ? 'Elige 2 sabores.' : 'Elige el sabor del relleno.'
@@ -179,9 +224,16 @@ export function fillingProblem(design: DesignDerived, draft: CakeDesignDraft): s
  * Qué le falta a la decoración para continuar, o `null` si está completa. Una opción sin precio (PENDIENTE) no se
  * puede elegir (D39); "Otra decoración" nunca sigue sin su imagen (D53).
  */
-export function decorationProblem(decoration: DecorationOption | null, imageReady: boolean, draft: Pick<CakeDesignDraft, 'decorationImageName'>): string | null {
+export function decorationProblem(
+  decoration: DecorationOption | null,
+  imageReady: boolean,
+  draft: Pick<CakeDesignDraft, 'decorationImageName'>,
+  /** Por qué el tamaño no la admite (el mini, tanda 2), o `null`. */
+  sizeReason: string | null = null,
+): string | null {
   if (!decoration) return 'Elige una decoración.'
   if (!decoration.available) return `${decoration.name} todavía no tiene precio. Elige otra decoración.`
+  if (sizeReason) return `${sizeReasonSentence(decoration.name, sizeReason)} Elige otra decoración.`
   if (decoration.requiresQuote && !imageReady) {
     return draft.decorationImageName ? 'Tu imagen no se conservó al recargar. Elígela otra vez.' : 'Elige la imagen de la decoración.'
   }
@@ -193,9 +245,10 @@ export function decorationProblem(decoration: DecorationOption | null, imageRead
  * obligatorio, pero lo que se agrega se completa: el mensaje lleva texto y la oblea, su imagen y su precio. Un mensaje de más
  * de 4 palabras no falta nada: es una sugerencia.
  */
-export function layoutProblem(draft: CakeDesignDraft, options: CakeDesignOptions, waferReady: boolean): string | null {
+export function layoutProblem(draft: CakeDesignDraft, options: CakeDesignOptions, waferReady: boolean, waferRefusal: string | null = null): string | null {
   if (draft.messageEnabled && draft.message.text.trim() === '') return 'Escribe tu mensaje o quítalo.'
   if (!draft.waferEnabled) return null
+  if (waferRefusal) return `${waferRefusal} Quítala para continuar.`
   if (options.limits.waferPrice === null) return 'La oblea todavía no tiene precio. Quítala para continuar.'
   if (waferReady) return null
   return draft.waferImageName ? 'Tu imagen no se conservó al recargar. Elígela otra vez.' : 'Elige la imagen de la oblea.'
@@ -206,9 +259,24 @@ export function tierLimitSentence(kg: number, maxTiers: number) {
   return maxTiers === 1 ? `Con ${kg} kg el pastel va de 1 piso.` : `Con ${kg} kg el pastel va de hasta ${maxTiers} pisos.`
 }
 
-/** El paso 4 no se elige cuando el pan trae su relleno. */
+/**
+ * El motivo de un tamaño como frase: los de la API ya la traen ("Rosetones no va en el pastel mini."); uno corto, como "Precio
+ * por confirmar", lleva el nombre: "Rosas: precio por confirmar.".
+ */
+export function sizeReasonSentence(name: string, reason: string): string {
+  return /[.:]$/.test(reason) || reason.includes(name) ? reason : `${name}: ${reason.charAt(0).toLowerCase()}${reason.slice(1)}.`
+}
+
+/** El tipo, el pan y el relleno del pastel de vitrina de "Personalizar este pastel" (tanda 2): se ven hechos y no se cambian. */
+export const LOCKED_STEPS = [2, 3, FILLING_STEP]
+
+export function isLocked(step: number, design: Pick<DesignDerived, 'locked'>): boolean {
+  return design.locked && LOCKED_STEPS.includes(step)
+}
+
+/** El paso 4 no se elige cuando el pan trae su relleno; el tipo, el pan y el relleno de un pastel de vitrina, tampoco. */
 export function isSkipped(step: number, design: DesignDerived): boolean {
-  return step === FILLING_STEP && design.fillingIncluded
+  return (step === FILLING_STEP && design.fillingIncluded) || isLocked(step, design)
 }
 
 export function isComplete(step: number, design: DesignDerived, draft: CakeDesignDraft): boolean {
@@ -225,13 +293,15 @@ export function firstIncompleteStep(design: DesignDerived, draft: CakeDesignDraf
 }
 
 export function nextStep(step: number, design: DesignDerived): number {
-  const next = step + 1
-  return isSkipped(next, design) ? next + 1 : Math.min(next, STEP_COUNT)
+  let next = step + 1
+  while (next < STEP_COUNT && isSkipped(next, design)) next++
+  return Math.min(next, STEP_COUNT)
 }
 
 export function previousStep(step: number, design: DesignDerived): number {
-  const previous = step - 1
-  return isSkipped(previous, design) ? previous - 1 : Math.max(previous, 1)
+  let previous = step - 1
+  while (previous > 1 && isSkipped(previous, design)) previous--
+  return Math.max(previous, 1)
 }
 
 /**
@@ -246,7 +316,10 @@ export function stepStatus(step: number, current: number, design: DesignDerived,
   if (isSkipped(step, design) || (step === FILLING_STEP && design.breadIssue && design.bread?.pricingMode === 'full_price_per_kg')) {
     return 'included'
   }
-  if ((step === 3 && design.breadIssue) || (step === FILLING_STEP && design.fillingIssue)) return 'attention'
+  const { sizeConflicts: conflicts } = design
+  if ((step === 3 && (design.breadIssue || conflicts.bread)) || (step === FILLING_STEP && (design.fillingIssue || conflicts.base))) return 'attention'
+  // Lo que el tamaño no admite (tanda 2) también se marca, como un pan que el tipo de pastel ya no admite (regla 4.7).
+  if ((step === DECORATION_STEP && conflicts.decoration) || (step === LID_STEP && conflicts.wafer)) return 'attention'
   return isComplete(step, design, draft) ? 'complete' : 'upcoming'
 }
 
@@ -256,6 +329,8 @@ export function stepStatus(step: number, current: number, design: DesignDerived,
 export function missingChoice(step: number, design: DesignDerived, draft: CakeDesignDraft, imageReady = false): string | null {
   switch (step) {
     case 1:
+      if (design.cakeSize === null) return 'Elige el tamaño.'
+      if (design.small) return design.sizeOption?.available ? null : (design.sizeOption?.unavailableReason ?? 'Ese tamaño no está disponible por ahora.')
       if (!design.size || !design.size.current) return 'Todavía calculamos los kilos. Intenta de nuevo en un momento.'
       if (design.aboveMaximum) return 'Para tantas personas, escríbenos por WhatsApp.'
       return draft.tiers > design.size.maxTiers ? tierLimitSentence(design.size.kg, design.size.maxTiers) : null
@@ -304,11 +379,35 @@ export function conflictSentence(target: string, issue: Issue, cakeType: CakeTyp
   }
 }
 
+/**
+ * Lo que el tamaño nuevo no admite, para el aviso del paso 1 (tanda 2, como el cambio de tipo de la regla 4.7): cada motivo de la
+ * API como frase. Vacío si no hay nada que cambiar.
+ */
+export function sizeConflictItems(design: DesignDerived): string[] {
+  const { bread, base, decoration, wafer } = design.sizeConflicts
+  return [
+    bread && design.bread ? sizeReasonSentence(design.bread.name, bread) : null,
+    base && design.base ? sizeReasonSentence(design.base.name, base) : null,
+    decoration && design.decoration ? sizeReasonSentence(design.decoration.name, decoration) : null,
+    wafer,
+  ].filter((item): item is string => Boolean(item))
+}
+
+/** Qué hará "Continuar" con lo que el tamaño no admite: elegir otro pan, otro relleno, otra decoración o quitar la oblea. */
+function sizeConflictAction(conflicts: SizeConflicts): string | null {
+  const found = (['bread', 'base', 'decoration', 'wafer'] as const).filter((key) => conflicts[key])
+  if (found.length === 0) return null
+  if (found.length > 1) return 'Continuar y cambiarlo'
+  return { bread: 'Continuar y elegir otro pan', base: 'Continuar y elegir otro relleno', decoration: 'Continuar y elegir otra decoración', wafer: 'Continuar sin la oblea' }[found[0]]
+}
+
 /** "Continuar", "Continuar con 4 kg, unas 28 personas" o "Continuar y elegir otro pan": el botón dice qué pasará. */
 export function continueLabel(step: number, design: DesignDerived) {
-  if (step === 1 && design.belowMinimum && !design.aboveMaximum && design.size) {
+  if (step === 1 && design.cakeSize === 'by_weight' && design.belowMinimum && !design.aboveMaximum && design.size) {
     return `Continuar con ${design.size.kg} kg, unas ${design.size.minimumPeople} personas`
   }
+  const sizeAction = step === 1 ? sizeConflictAction(design.sizeConflicts) : null
+  if (sizeAction) return sizeAction
   const conflict = step === 2 ? conflictTarget(design) : null
   if (step === REVIEW_STEP) return 'Agregar al pedido'
   return conflict ? `Continuar y elegir otro ${conflict.target}` : 'Continuar'
@@ -322,7 +421,12 @@ export function confirmStep(step: number, design: DesignDerived, draft: CakeDesi
   let next: CakeDesignDraft = { ...draft, confirmed: [...new Set([...draft.confirmed, step])].sort((a, b) => a - b) }
   // El primer color de la lista que se ve en el paso 5 queda elegido al continuar.
   if (step === COVERAGE_STEP) next = { ...next, coverageColor: design.coverage }
-  if (step === 1 && design.belowMinimum && design.size) next = { ...next, people: design.size.minimumPeople }
+  if (step === 1) {
+    // El tamaño que valió queda elegido; por kilos bajo el mínimo, sigue con las personas del mínimo.
+    if (design.cakeSize && !draft.source) next = { ...next, cakeSize: design.cakeSize }
+    if (design.cakeSize === 'by_weight' && design.belowMinimum && design.size) next = { ...next, people: design.size.minimumPeople }
+    next = withoutSizeConflicts(next, design)
+  }
   if (step === 2) {
     const conflict = conflictTarget(design)
     if (conflict?.target === 'pan') next = { ...next, bread: null, confirmed: next.confirmed.filter((n) => n !== 3) }
@@ -333,8 +437,35 @@ export function confirmStep(step: number, design: DesignDerived, draft: CakeDesi
   return next
 }
 
+/**
+ * Quita lo que el tamaño no admite, avisado antes en el paso 1 (tanda 2): el pan, el relleno o la decoración vuelven a pedirse
+ * (sin su confirmación) y la oblea se quita. Lo demás se conserva.
+ */
+function withoutSizeConflicts(draft: CakeDesignDraft, design: DesignDerived): CakeDesignDraft {
+  const { bread, base, decoration, wafer } = design.sizeConflicts
+  const unconfirm = new Set<number>()
+  let next = draft
+  if (bread) {
+    next = { ...next, bread: null }
+    unconfirm.add(3)
+    // Un pan de relleno incluido no dejó relleno elegido: con el pan nuevo hay que elegirlo.
+    if (design.bread?.pricingMode === 'full_price_per_kg') unconfirm.add(FILLING_STEP)
+  }
+  if (base) {
+    next = { ...next, fillingBase: null, flavors: [] }
+    unconfirm.add(FILLING_STEP)
+  }
+  if (decoration) {
+    next = { ...next, decoration: null, decorationImageName: null }
+    unconfirm.add(DECORATION_STEP)
+  }
+  if (wafer) next = { ...next, waferEnabled: false, waferImageName: null }
+  return unconfirm.size ? { ...next, confirmed: next.confirmed.filter((step) => !unconfirm.has(step)) } : next
+}
+
 /** A dónde lleva "Continuar": tras un conflicto, a lo que hay que cambiar; si no, al paso siguiente. */
 export function stepAfter(step: number, before: DesignDerived, after: DesignDerived, draft: CakeDesignDraft) {
   const firstIncomplete = firstIncompleteStep(after, draft)
-  return step === 2 && conflictTarget(before) ? firstIncomplete : Math.min(nextStep(step, after), firstIncomplete)
+  const conflict = (step === 2 && conflictTarget(before)) || (step === 1 && hasConflicts(before.sizeConflicts))
+  return conflict ? firstIncomplete : Math.min(nextStep(step, after), firstIncomplete)
 }

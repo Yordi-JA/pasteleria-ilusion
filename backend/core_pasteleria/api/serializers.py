@@ -7,6 +7,7 @@ from rest_framework.validators import ProhibitSurrogateCharactersValidator
 
 from ..models import (
     Bread,
+    CakeDesignSize,
     CakeShape,
     CakeType,
     CustomerImagePurpose,
@@ -24,7 +25,7 @@ from ..models import (
     StandLoanStatus,
     WaferShape,
 )
-from ..services import design_layout, warranty_service
+from ..services import design_layout, pricing_service, warranty_service
 from ..services.design_layout import MessageLayout, WaferLayout
 from ..services.text_rules import has_forbidden_name_characters
 from ..services.orders import note_service, schedule_service
@@ -195,6 +196,65 @@ class CakeDesignLimitsSerializer(serializers.Serializer):
     wafer_max_width_cm = serializers.DecimalField(max_digits=4, decimal_places=1)
     wafer_max_height_cm = serializers.DecimalField(max_digits=4, decimal_places=1)
     message_suggested_max_words = serializers.IntegerField()
+    message_min_letter_cm = serializers.DecimalField(
+        max_digits=3,
+        decimal_places=1,
+        help_text=(
+            "Alto mínimo de la letra del mensaje, en cm, en todos los tamaños: `scale` por el radio de la parte plana "
+            "de la tapa no puede ser menos. Con un pastel por kilos el radio sale de `cake_molds`; con vitrina y mini, "
+            "de `sizes[].lid_radius_cm`."
+        ),
+    )
+
+
+def _slug_reasons(help_text):
+    return serializers.DictField(child=serializers.CharField(), help_text=help_text)
+
+
+class DesignSizeSerializer(serializers.Serializer):
+    """Un tamaño de "Diseña tu pastel" (tanda 2): `by_weight`, `showcase` o `mini`."""
+
+    code = serializers.ChoiceField(choices=CakeDesignSize.choices)
+    name = serializers.CharField(help_text="\"Por kilos\", \"Pastel de vitrina\" o \"Pastel mini\".")
+    available = serializers.BooleanField()
+    unavailable_reason = serializers.CharField(allow_null=True)
+    price_from = money(
+        allow_null=True,
+        help_text=(
+            "\"Desde $X\" sin decoración ni oblea. Por kilos: el precio por kilo más bajo por los kilos mínimos. "
+            "`null`: PENDIENTE."
+        ),
+    )
+    servings = serializers.IntegerField(allow_null=True, help_text="Personas que rinde (vitrina y mini); `null` si no se define.")
+    approx_weight_kg = serializers.DecimalField(
+        max_digits=4, decimal_places=1, allow_null=True, help_text="Peso (vitrina y mini); `null`: PENDIENTE."
+    )
+    diameter_cm = serializers.DecimalField(max_digits=4, decimal_places=1, allow_null=True, help_text="Molde redondo.")
+    height_cm = serializers.DecimalField(max_digits=4, decimal_places=1, allow_null=True)
+    lid_radius_cm = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        allow_null=True,
+        help_text="Radio de la parte plana de la tapa (sin el canto de unos 0.88 cm), para la oblea y el mensaje.",
+    )
+    form = serializers.CharField(allow_null=True, help_text="`round` fijo en vitrina y mini; `null` por kilos.")
+    tiers = serializers.IntegerField(allow_null=True, help_text="1 fijo en vitrina y mini; `null` por kilos.")
+    min_kg = serializers.IntegerField(allow_null=True, help_text="Solo por kilos.")
+    min_people = serializers.IntegerField(allow_null=True, help_text="Solo por kilos.")
+    wafer_unavailable_reason = serializers.CharField(allow_null=True, help_text="Por qué no lleva oblea; `null` si la lleva.")
+    unavailable_breads = _slug_reasons("Panes que este tamaño no admite: `slug -> motivo`.")
+    unavailable_filling_bases = _slug_reasons("Bases de relleno que este tamaño no admite: `slug -> motivo`.")
+    unavailable_decorations = _slug_reasons(
+        "Decoraciones que se pueden elegir en otros tamaños pero no en este (o con su precio de este tamaño "
+        "PENDIENTE, \"Precio por confirmar\"): `slug -> motivo`."
+    )
+    decoration_prices = serializers.DictField(
+        child=money(),
+        help_text=(
+            "Lo que cobra este tamaño por cada decoración que se puede elegir en él (`slug -> monto`; \"0.00\" si va "
+            "incluida o por cotizar). En el mini, una de precio fijo cobra su precio de mini."
+        ),
+    )
 
 
 class TierMinimumSerializer(serializers.Serializer):
@@ -252,6 +312,9 @@ class CakeDesignOptionsSerializer(serializers.Serializer):
     )
     smaller_alternatives = SmallerAlternativesSerializer(
         help_text="Pastel de vitrina y pastel mini, para quien pide menos del mínimo (regla 3.1)."
+    )
+    sizes = DesignSizeSerializer(
+        many=True, help_text="Los tres tamaños, en orden: por kilos, de vitrina y mini (tanda 2 de correcciones)."
     )
 
 
@@ -355,16 +418,48 @@ class MessageLayoutSerializer(serializers.Serializer):
         return attrs
 
 
+SMALL_SIZE_PEOPLE_MESSAGE = "El pastel de vitrina y el mini ya traen su tamaño: no se indican personas ni kilos."
+
+
+def cake_size_field():
+    return serializers.ChoiceField(
+        choices=CakeDesignSize.choices,
+        required=False,
+        default=CakeDesignSize.BY_WEIGHT,
+        help_text=(
+            "`by_weight` (por kilos, desde el mínimo de pedido; por omisión), `showcase` (pastel de vitrina) o `mini`. "
+            "Vitrina y mini son redondos, de 1 piso y sin base."
+        ),
+        error_messages={"invalid_choice": "Elige un tamaño: por kilos, de vitrina o mini."},
+    )
+
+
+def source_product_field():
+    return serializers.SlugField(
+        max_length=Product._meta.get_field("slug").max_length,
+        required=False,
+        allow_null=True,
+        default=None,
+        help_text=(
+            "Solo con `showcase`: el `slug` del pastel de vitrina de \"Personalizar este pastel\". Su tipo, pan y "
+            "relleno no cambian y el precio es el del producto."
+        ),
+    )
+
+
 class CakeDesignPriceRequestSerializer(serializers.Serializer):
     """Elecciones del cliente. Cualquier monto que mande se ignora: el servidor lo calcula.
 
     Forma (`form`) y pisos (`tiers`) no cambian el precio y son opcionales;
     si llegan, se validan (regla 3.3: los kilos mínimos por pisos bloquean).
 
-    El tamaño llega como `people` (el servidor calcula los kilos, regla 3.1) o
-    como `kg`, nunca los dos.
+    El tamaño (`cake_size`) es `by_weight` (por omisión), `showcase` o `mini`. Por
+    kilos llega como `people` (el servidor calcula los kilos, regla 3.1) o como
+    `kg`, nunca los dos; el pastel de vitrina y el mini no llevan ninguno.
     """
 
+    cake_size = cake_size_field()
+    source_product = source_product_field()
     people = serializers.IntegerField(
         required=False,
         min_value=1,
@@ -437,16 +532,23 @@ class CakeDesignPriceRequestSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         has_people, has_kg = attrs.get("people") is not None, attrs.get("kg") is not None
+        if attrs["cake_size"] != CakeDesignSize.BY_WEIGHT:
+            if has_people or has_kg:
+                field = "people" if has_people else "kg"
+                raise serializers.ValidationError({field: [SMALL_SIZE_PEOPLE_MESSAGE]})
+            return attrs
         if has_people and has_kg:
             raise serializers.ValidationError({"people": ["Indica las personas o los kilos, no los dos."]})
         if not has_people and not has_kg:
             raise serializers.ValidationError({"people": ["Indica para cuántas personas es el pastel."]})
         return attrs
 
-    def to_choice(self, kg: int) -> CakeDesignChoice:
-        """La elección con los kilos ya resueltos (los mandados o los calculados por personas)."""
+    def to_choice(self, kg: int | None) -> CakeDesignChoice:
+        """La elección con los kilos ya resueltos (los mandados o los calculados por personas; `None` sin kilos)."""
         data = self.validated_data
         return CakeDesignChoice(
+            cake_size=data["cake_size"],
+            source_product=data.get("source_product"),
             kg=kg,
             cake_type=data["cake_type"],
             bread=data["bread"],
@@ -498,8 +600,12 @@ class PeopleSizeSerializer(serializers.Serializer):
 
 
 class CakeDesignPriceSerializer(serializers.Serializer):
-    """Desglose del precio. Con `size.above_maximum`, los montos, `kg` y `stand` salen en `null`."""
+    """Desglose del precio. Con `size.above_maximum`, los montos, `kg` y `stand` salen en `null`. El pastel de vitrina
+    y el mini no tienen `kg` ni `price_per_kg` (`null`): `cake_subtotal` es su precio."""
 
+    cake_size = serializers.ChoiceField(
+        choices=CakeDesignSize.choices, source="breakdown.cake_size", allow_null=True, help_text="El tamaño cobrado."
+    )
     price_per_kg = money(source="breakdown.price_per_kg", allow_null=True)
     kg = serializers.IntegerField(source="breakdown.kg", allow_null=True)
     cake_subtotal = money(source="breakdown.cake_subtotal", allow_null=True)
@@ -629,10 +735,18 @@ class CatalogQuerySerializer(serializers.Serializer):
     )
 
 
+def _catalog_price():
+    return money(
+        allow_null=True,
+        help_text="`null`: PENDIENTE; la interfaz muestra \"[Precio por confirmar]\" y la presentación no se puede pedir.",
+    )
+
+
 class CardOfferingSerializer(serializers.Serializer):
     id = serializers.IntegerField(help_text="Id de la presentación; con él se agrega al pedido.")
     presentation = serializers.ChoiceField(choices=Presentation.choices)
-    price = money()
+    price = _catalog_price()
+    price_pending = serializers.BooleanField(help_text="`true` con `price` en `null`: \"[Precio por confirmar]\".")
 
 
 class ProductOfferingSerializer(CardOfferingSerializer):
@@ -645,6 +759,11 @@ class ProductOfferingSerializer(CardOfferingSerializer):
         allow_null=True,
         help_text="Piezas en la vitrina de hoy. `null`: no se cargó hoy (solo por encargo). `0`: agotada por hoy.",
     )
+
+
+class ShowcaseDesignSerializer(serializers.Serializer):
+    available = serializers.BooleanField()
+    unavailable_reason = serializers.CharField(allow_null=True)
 
 
 class ProductCardSerializer(serializers.Serializer):
@@ -680,6 +799,13 @@ class ProductCardSerializer(serializers.Serializer):
         )
     )
     offerings = CardOfferingSerializer(many=True, help_text="Presentaciones activas, en el orden del admin.")
+    showcase_design = ShowcaseDesignSerializer(
+        help_text=(
+            "Si \"Personalizar este pastel\" lo abre en \"Diseña tu pastel\" como pastel de vitrina "
+            "(`cake_size=showcase`, `source_product=<slug>`): sale en la vitrina, con su completo con precio y su pan "
+            "definido. Si no, el motivo."
+        )
+    )
 
 
 class ProductDetailSerializer(ProductCardSerializer):
@@ -701,7 +827,7 @@ class StockItemSerializer(serializers.Serializer):
     product_name = serializers.CharField()
     category = serializers.ChoiceField(choices=ProductCategory.choices)
     presentation = serializers.ChoiceField(choices=Presentation.choices)
-    price = money()
+    price = _catalog_price()
     photo = _photo_field()
     stock = serializers.IntegerField(min_value=0, help_text="\"Quedan [n]\".")
     sold_out = serializers.BooleanField(help_text="`true` con `stock` en 0: \"Agotada por hoy\".")
@@ -867,12 +993,21 @@ class HexColorField(serializers.CharField):
 
 
 class OrderDesignSerializer(serializers.Serializer):
-    """Un pastel de "Diseña tu pastel", campo por campo. Montos, `requiresQuote` y el id del diseño no se leen."""
+    """Un pastel de "Diseña tu pastel", campo por campo. Montos, `requiresQuote` y el id del diseño no se leen.
 
+    Por kilos (`cake_size` `by_weight`, por omisión) llevan `people`, `form` y `tiers`. El pastel de vitrina y el mini
+    van sin personas: son redondos y de 1 piso (`form` y `tiers`, si llegan, se revisan contra eso).
+    """
+
+    cake_size = cake_size_field()
+    source_product = source_product_field()
     people = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        default=None,
         min_value=1,
         max_value=MAX_PEOPLE_IN_REQUEST,
-        help_text="Personas; el servidor calcula los kilos (regla 3.1).",
+        help_text="Personas, solo por kilos; el servidor calcula los kilos (regla 3.1).",
         error_messages={
             "invalid": "Las personas van en números enteros.",
             "min_value": "Indica al menos una persona.",
@@ -880,12 +1015,16 @@ class OrderDesignSerializer(serializers.Serializer):
         },
     )
     form = serializers.ChoiceField(
-        choices=CakeShape.choices, error_messages={"invalid_choice": "Elige una forma: redondo o rectangular."}
+        choices=CakeShape.choices,
+        required=False,
+        help_text="Obligatoria por kilos; vitrina y mini son redondos.",
+        error_messages={"invalid_choice": "Elige una forma: redondo o rectangular."},
     )
     tiers = serializers.IntegerField(
+        required=False,
         min_value=1,
         max_value=MAX_TIERS_IN_REQUEST,
-        help_text="Pisos; se revisan contra los kilos (regla 3.3).",
+        help_text="Pisos; se revisan contra los kilos (regla 3.3). Obligatorios por kilos; vitrina y mini van de 1 piso.",
         error_messages={
             "invalid": "Los pisos van en números enteros.",
             "min_value": "El pastel lleva al menos un piso.",
@@ -914,9 +1053,25 @@ class OrderDesignSerializer(serializers.Serializer):
     )
     occasion = serializers.ChoiceField(choices=Occasion.choices, required=False, allow_null=True, default=None)
 
+    def validate(self, attrs):
+        if attrs["cake_size"] == CakeDesignSize.BY_WEIGHT:
+            required = "Este campo es requerido."
+            missing = {field: [required] for field in ("people", "form", "tiers") if attrs.get(field) is None}
+            if missing:
+                raise serializers.ValidationError(missing)
+            return attrs
+        if attrs["people"] is not None:
+            raise serializers.ValidationError({"people": [SMALL_SIZE_PEOPLE_MESSAGE]})
+        # Vitrina y mini son redondos y de 1 piso: lo que llegue distinto lo rechaza el precio con su motivo.
+        attrs.setdefault("form", CakeShape.ROUND)
+        attrs.setdefault("tiers", 1)
+        return attrs
+
     @staticmethod
     def to_request(data) -> DesignRequest:
         return DesignRequest(
+            cake_size=data["cake_size"],
+            source_product=data["source_product"],
             people=data["people"],
             form=data["form"],
             tiers=data["tiers"],
@@ -1062,8 +1217,17 @@ class OrderStandSerializer(serializers.Serializer):
 
 
 class OrderDesignOutSerializer(serializers.Serializer):
-    people = serializers.IntegerField()
-    kg = serializers.IntegerField(help_text="Calculados por el servidor.")
+    cake_size = serializers.ChoiceField(choices=CakeDesignSize.choices)
+    cake_size_label = serializers.SerializerMethodField(
+        help_text='"Pastel de 4 kg, 30 personas", "Pastel mini, ~3 personas" o "Pastel de vitrina, ~19 personas".'
+    )
+    source_product = serializers.SlugField(
+        allow_null=True, help_text="El pastel de vitrina de \"Personalizar este pastel\"; `null` si se armó desde cero."
+    )
+    people = serializers.IntegerField(
+        allow_null=True, help_text="Por kilos, las del cliente; vitrina y mini, las que rinden (`null` si no se definen)."
+    )
+    kg = serializers.IntegerField(allow_null=True, help_text="Calculados por el servidor; `null` en vitrina y mini.")
     form = serializers.ChoiceField(choices=CakeShape.choices)
     tiers = serializers.IntegerField()
     cake_type = serializers.ChoiceField(choices=CakeType.choices)
@@ -1081,7 +1245,7 @@ class OrderDesignOutSerializer(serializers.Serializer):
     wafer_layout = WaferLayoutSerializer(allow_null=True)
     wafer_image_id = serializers.UUIDField(allow_null=True)
     occasion = BlankAsNullCharField()
-    price_per_kg = money()
+    price_per_kg = money(allow_null=True, help_text="`null` en vitrina y mini: no se cobran por kilo.")
     cake_subtotal = money()
     wafer_price = money()
     decoration_price = money(
@@ -1094,6 +1258,9 @@ class OrderDesignOutSerializer(serializers.Serializer):
     filling_base_name = serializers.CharField(allow_null=True, help_text="`null` con el relleno incluido en el pan.")
     filling_flavor_names = serializers.ListField(child=serializers.CharField())
     decoration_name = serializers.CharField()
+
+    def get_cake_size_label(self, design) -> str:
+        return pricing_service.describe_cake_size(design.cake_size, design.kg, design.people)
 
 
 class ReferenceCakeSerializer(serializers.Serializer):

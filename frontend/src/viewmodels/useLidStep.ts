@@ -6,7 +6,7 @@ import type { MessageColorMode, MessageLayout, WaferLayout, WaferShape } from '.
 import { formatPrice } from '../models/money.ts'
 import { coverageColor } from './cakeDesignSteps.ts'
 import type { DesignDerived } from './cakeDesignSteps.ts'
-import { effectiveMessage, effectiveWafer, lidFor } from './cakeLid.ts'
+import { effectiveMessage, effectiveWafer, lidFor, messageLetterProblem, minLetterScale } from './cakeLid.ts'
 import type { LoadedImage } from './cakeLid.ts'
 import { fitWafer, initialWafer, maxWaferCm, withShape } from './lidGeometry.ts'
 import type { Lid } from './lidGeometry.ts'
@@ -63,7 +63,9 @@ export function useLidStep({ draft, update, options, design, metrics, waferImage
   const lid: Lid | null = useMemo(() => (options && design ? lidFor(draft, design, options) : null), [design, draft, options])
   const limits = options?.limits ?? null
   const wafer = lid && options ? effectiveWafer(draft, lid, options) : null
-  const message = lid ? effectiveMessage(draft, lid, metrics) : null
+  // La letra nunca baja del mínimo de la pastelería en esta tapa (tanda 2): en el mini, 1.5 cm son una cuarta parte del radio.
+  const minScale = lid && options ? minLetterScale(options, lid) : 0
+  const message = lid ? effectiveMessage(draft, lid, metrics, minScale) : null
   // Lo que se acomoda: lo elegido si existe; si no, lo que haya.
   const target: LidTarget = chosenTarget === 'wafer' ? (wafer || !message ? 'wafer' : 'message') : message || !wafer ? 'message' : 'wafer'
 
@@ -175,12 +177,12 @@ export function useLidStep({ draft, update, options, design, metrics, waferImage
       const wanted = { x: layout.x + dx * NUDGE, y: layout.y + dy * NUDGE }
       moveTo(target, wanted.x, wanted.y)
       // Donde va a quedar: el mismo ajuste con que se dibuja.
-      const landed = wafer && target === 'wafer' ? fitWafer({ ...wafer, ...wanted }, lid, limits) : message ? fitMessage({ ...message, ...wanted }, metrics, lid) : null
+      const landed = wafer && target === 'wafer' ? fitWafer({ ...wafer, ...wanted }, lid, limits) : message ? fitMessage({ ...message, ...wanted }, metrics, lid, minScale) : null
       if (!landed) return
       const moved = Math.hypot(landed.x - layout.x, landed.y - layout.y) > 1e-6
       announce(moved ? describePosition(target === 'wafer' ? 'La oblea' : 'El mensaje', landed.x * lid.radius, landed.y * lid.radius) : `Ya no cabe más ${directionWords(dx, dy)}.`)
     },
-    [announce, limits, lid, message, metrics, moveTo, target, wafer],
+    [announce, limits, lid, message, metrics, minScale, moveTo, target, wafer],
   )
   const center = useCallback(() => {
     moveTo(target, 0, 0)
@@ -205,8 +207,13 @@ export function useLidStep({ draft, update, options, design, metrics, waferImage
     const waferSizeStraight = Math.max(MIN_WAFER_UI_CM, maxWaferCm({ ...draftWafer, rotation: 0 }, lid, limits, 'size'))
     const waferSizeValue = Math.max(draftWafer.widthCm, draftWafer.heightCm)
     const waferSizeText = `${waferSizeValue.toFixed(1)} cm${waferSizeMax < waferSizeStraight - 0.05 ? `; con este giro el máximo es ${waferSizeMax.toFixed(1)} cm` : ''}`
-    const draftMessage = message ?? fitMessage(draft.message, metrics, lid)
-    const scaleMax = Math.max(MIN_SCALE_UI, maxMessageScale(draftMessage, metrics, lid))
+    const draftMessage = message ?? fitMessage(draft.message, metrics, lid, minScale)
+    // El control de tamaño no baja de la letra mínima (tanda 2); si con ella el texto no cabe, el tope es el mínimo y se avisa.
+    const scaleMin = Math.max(MIN_SCALE_UI, minScale)
+    const scaleMax = Math.max(scaleMin, maxMessageScale(draftMessage, metrics, lid))
+    const letterProblem = options ? messageLetterProblem(draft, lid, metrics, options) : null
+    const minLetter = limits.messageMinLetterCm
+    const sizeOption = design.small ? design.sizeOption : null
     const words = wordCount(draft.message.text)
     const waferPrice = formatPrice(limits.waferPrice)
     return {
@@ -233,7 +240,9 @@ export function useLidStep({ draft, update, options, design, metrics, waferImage
         arrangement: draftMessage.arrangement,
         curve: draftMessage.curve,
         curveText: `${draftMessage.curve > 0 ? 'Hacia arriba' : 'Hacia abajo'} ${Math.round(Math.abs(draftMessage.curve) * 100)} %`,
-        scale: { value: Math.min(draftMessage.scale, scaleMax), min: MIN_SCALE_UI, max: scaleMax, text: percent(draftMessage.scale, scaleMax) },
+        scale: { value: Math.min(Math.max(draftMessage.scale, scaleMin), scaleMax), min: scaleMin, max: scaleMax, text: percent(draftMessage.scale, scaleMax) },
+        /** El texto no cabe con la letra mínima (tanda 2): qué hacer. `null` si cabe. */
+        tooLong: letterProblem && minLetter ? { title: 'Tu mensaje no cabe en este pastel', body: `La letra mide al menos ${minLetter} cm de alto. Acórtalo para que quepa.` } : null,
         rotation: Math.round(draftMessage.rotation),
         // Lo que se dibuja: las letras ya colocadas.
         geometry: message ? messageGeometry(message, metrics, lid.radius) : null,
@@ -242,7 +251,8 @@ export function useLidStep({ draft, update, options, design, metrics, waferImage
       wafer: {
         enabled: draft.waferEnabled,
         price: waferPrice,
-        unavailableReason: limits.waferPrice === null ? 'Precio por confirmar' : null,
+        // El mini no lleva oblea (tanda 2); sin precio, tampoco se pide (D39).
+        unavailableReason: sizeOption?.waferUnavailableReason ?? (limits.waferPrice === null ? 'Precio por confirmar' : null),
         shape: draftWafer.shape,
         size: { value: waferSizeValue, min: MIN_WAFER_UI_CM, max: waferSizeMax, text: waferSizeText },
         width: { value: draftWafer.widthCm, min: MIN_WAFER_UI_CM, max: Math.max(MIN_WAFER_UI_CM, maxWaferCm(draftWafer, lid, limits, 'width')) },
@@ -260,7 +270,7 @@ export function useLidStep({ draft, update, options, design, metrics, waferImage
         letter: `${limits.waferMaxWidthCm} × ${limits.waferMaxHeightCm} cm`,
       },
     }
-  }, [announcement, design, draft, limits, lid, loadedWafer, message, metrics, options, target, wafer, waferImage.error, waferImage.image])
+  }, [announcement, design, draft, limits, lid, loadedWafer, message, metrics, minScale, options, target, wafer, waferImage.error, waferImage.image])
 
   return {
     view,

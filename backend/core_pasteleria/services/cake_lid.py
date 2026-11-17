@@ -137,6 +137,13 @@ def lid_for(molds: Sequence[CakeMoldRecord], form: str, kg: int, tiers: int) -> 
     return Lid(form, half_x, half_y, half_y)
 
 
+def round_lid(diameter_cm: float) -> Lid:
+    """La parte plana de la tapa de un pastel redondo de 1 piso con ese diámetro (vitrina y mini, tanda 2): sin el
+    acotado de `MIN_CM`, que es para los pisos que salen de los kilos, porque el mini mide 14 cm."""
+    radius = float(diameter_cm) / 2 - EDGE_CM
+    return Lid(CakeShape.ROUND, radius, radius, radius)
+
+
 def _inside(lid: Lid, x: float, y: float) -> bool:
     if lid.form == CakeShape.ROUND:
         return math.hypot(x, y) <= lid.radius + TOLERANCE_CM

@@ -1,4 +1,5 @@
 import type { CakeDesignOptions } from '../models/cakeDesign.ts'
+import { sizeOption } from './cakeSizes.ts'
 import { emptyDraft } from '../models/cakeDesignDraft.ts'
 import type { CakeDesignDraft } from '../models/cakeDesignDraft.ts'
 import type { ProductDetail } from '../models/catalog.ts'
@@ -6,18 +7,34 @@ import type { ProductDetail } from '../models/catalog.ts'
 /**
  * "Personalizar este pastel" (regla 2): la ficha abre "Diseña tu pastel" con `?pastel=<slug>` y el diseñador
  * arranca con el tipo, el pan, la base y el sabor de ese producto ya elegidos (no confirmados: la persona pasa por
- * cada paso, en el orden de la regla 4.1). Funciones puras, sin React.
+ * cada paso, en el orden de la regla 4.1). Desde la tanda 2, un pastel que sale en la vitrina abre con
+ * `&tamano=vitrina`: es un pastel de vitrina con su tipo, pan y relleno fijos, y el recorrido empieza en la cobertura. La
+ * tarjeta del mini del catálogo abre con `?tamano=mini`. Un enlace viejo, solo con `?pastel=`, sigue como en D59. Funciones
+ * puras, sin React.
  */
 
 /** Parámetro de la URL con el `slug` del producto; el diseñador lo lee una vez y lo quita (D59). */
 export const PREFILL_PARAM = 'pastel'
+/** Parámetro del tamaño con que abre el diseñador (tanda 2): `vitrina` (con `pastel`) o `mini`. */
+export const SIZE_PARAM = 'tamano'
 
-export function designPrefillHref(slug: string): string {
-  return `/pedido/disena?${new URLSearchParams({ [PREFILL_PARAM]: slug }).toString()}`
+export type PrefillSize = 'vitrina' | 'mini'
+
+export function prefillSize(value: string | null): PrefillSize | null {
+  return value === 'vitrina' || value === 'mini' ? value : null
 }
 
+/** El enlace de "Personalizar este pastel"; `showcase`, si el producto se personaliza como pastel de vitrina. */
+export function designPrefillHref(slug: string, showcase = false): string {
+  const params = new URLSearchParams({ [PREFILL_PARAM]: slug, ...(showcase ? { [SIZE_PARAM]: 'vitrina' } : {}) })
+  return `/pedido/disena?${params.toString()}`
+}
+
+/** "Diseña tu pastel mini", desde la tarjeta del mini del catálogo. */
+export const MINI_DESIGN_HREF = `/pedido/disena?${new URLSearchParams({ [SIZE_PARAM]: 'mini' }).toString()}`
+
 /** Lo que el diseñador necesita de la ficha. */
-export type PrefillProduct = Pick<ProductDetail, 'name' | 'cakeType' | 'bread' | 'fillingBase' | 'fillingFlavor'>
+export type PrefillProduct = Pick<ProductDetail, 'slug' | 'name' | 'cakeType' | 'bread' | 'fillingBase' | 'fillingFlavor' | 'showcaseDesign' | 'offerings'>
 
 /**
  * Qué parte se eligió y qué parte se ignoró porque ya no está activa o el tipo de pastel no la admite. `relleno` es la
@@ -29,6 +46,11 @@ export type Prefill = {
   draft: CakeDesignDraft
   applied: PrefillPart[]
   ignored: PrefillPart[]
+  /**
+   * Sin aviso de "Empezaste con…": el pastel de vitrina de origen lo dice su candado en la barra de pasos y el mini, su tarjeta
+   * elegida en el paso 1 (tanda 2).
+   */
+  quiet?: boolean
 }
 
 type Restricted = { unavailableReasons: Readonly<Record<string, string>> }
@@ -39,7 +61,7 @@ type Restricted = { unavailableReasons: Readonly<Record<string, string>> }
  * tipo elegido (un pan que el tipo no admite, como Red velvet fuera de seco, se ignora; regla 4.7). Con un pan de
  * relleno incluido (Choco-pingüino, Red velvet) no se elige relleno. Lo que no aplica se ignora sin romper.
  */
-export function prefilledDraft(product: PrefillProduct, options: CakeDesignOptions): Prefill {
+export function prefilledDraft(product: Omit<PrefillProduct, 'slug' | 'showcaseDesign' | 'offerings'>, options: CakeDesignOptions): Prefill {
   const applied: PrefillPart[] = []
   const ignored: PrefillPart[] = []
   const empty: Prefill = { draft: emptyDraft(), applied, ignored }
@@ -80,6 +102,46 @@ export function prefilledDraft(product: PrefillProduct, options: CakeDesignOptio
   }
 }
 
+/** Los pasos que un pastel de vitrina de origen ya trae hechos: el tamaño, el tipo, el pan y el relleno. */
+const SOURCE_CONFIRMED = [1, 2, 3, 4]
+
+/**
+ * El pastel de vitrina de "Personalizar este pastel" (tanda 2): el producto con su tipo, pan y relleno, que no se cambian, ya
+ * confirmados hasta el relleno. `null` si no se puede (la API dice que no, el tamaño de vitrina no está disponible o algo del
+ * producto ya no está activo): entonces se arma como en D59.
+ */
+export function showcasePrefill(product: PrefillProduct, options: CakeDesignOptions): Prefill | null {
+  const showcase = sizeOption(options, 'showcase')
+  if (!product.showcaseDesign?.available || !showcase?.available || !product.bread) return null
+  const prefill = prefilledDraft(product, options)
+  const complete = prefill.ignored.length === 0 && prefill.applied.includes('tipo') && prefill.applied.includes('pan')
+  if (!complete) return null
+  const servings = product.offerings.find((offering) => offering.presentation === 'whole')?.servings ?? showcase.servings
+  return {
+    ...prefill,
+    quiet: true,
+    draft: {
+      ...prefill.draft,
+      people: servings ?? prefill.draft.people,
+      cakeSize: 'showcase',
+      source: { slug: product.slug, name: product.name, servings },
+      confirmed: SOURCE_CONFIRMED,
+    },
+  }
+}
+
+/**
+ * El mini de la tarjeta del catálogo (tanda 2): el tamaño ya elegido, con las personas que rinde. `null` si no se puede: sin mini
+ * en la API, no disponible o sin sus personas (sin ellas no se sabe a cuántas abrirlo). Entonces el diseñador lo avisa y no
+ * abre otro tamaño en silencio.
+ */
+export function miniPrefill(options: CakeDesignOptions): Prefill | null {
+  const mini = sizeOption(options, 'mini')
+  if (!mini?.available || !mini.servings) return null
+  const draft = emptyDraft()
+  return { draft: { ...draft, people: mini.servings, cakeSize: 'mini' }, applied: [], ignored: [], quiet: true }
+}
+
 /** Si el borrador tiene algo hecho: cualquier cosa distinta del borrador vacío (también un paso sin confirmar). */
 export function hasProgress(draft: CakeDesignDraft): boolean {
   return JSON.stringify(draft) !== JSON.stringify(emptyDraft())
@@ -88,6 +150,9 @@ export function hasProgress(draft: CakeDesignDraft): boolean {
 /** Si el borrador ya tiene el tipo, el pan y el relleno del producto: no hay nada que preguntar ni que cambiar. */
 export function matchesPrefill(draft: CakeDesignDraft, prefill: Prefill): boolean {
   const wanted = prefill.draft
+  // El tamaño y el pastel de origen también cuentan (tanda 2): un pastel por kilos del mismo sabor no es el pastel de vitrina.
+  if (draft.cakeSize !== wanted.cakeSize || draft.source?.slug !== wanted.source?.slug) return false
+  if (wanted.cakeSize === 'mini' && wanted.cakeType === null) return draft.people === wanted.people
   return (
     draft.cakeType === wanted.cakeType &&
     draft.bread === wanted.bread &&

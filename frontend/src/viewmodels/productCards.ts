@@ -1,4 +1,4 @@
-import { CAKE_TYPE_LABELS, featuredOffering } from '../models/catalog.ts'
+import { CAKE_TYPE_LABELS, featuredOffering, PENDING_PRICE } from '../models/catalog.ts'
 import type { CardOffering, ProductCard, ProductCategory } from '../models/catalog.ts'
 import { formatPrice } from '../models/money.ts'
 import { PRESENTATION_LABELS } from '../models/presentation.ts'
@@ -39,7 +39,8 @@ function amount(value: string): string {
  * lo da).
  */
 export function offeringPrice(offering: CardOffering): string {
-  const price = amount(offering.price)
+  // Un precio PENDIENTE (tanda 2) lleva su marcador, nunca un monto supuesto.
+  const price = offering.price === null ? PENDING_PRICE : amount(offering.price)
   if (offering.presentation === 'whole') return price
   if (offering.presentation === 'slice') return `${price} la rebanada`
   return `${PRESENTATION_LABELS[offering.presentation]}, ${price}`

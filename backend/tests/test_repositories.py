@@ -58,7 +58,7 @@ def slugs(items):
 
 def test_catalog_lists_every_active_product_in_order():
     catalog = product_repo.list_catalog(on_date=TODAY)
-    assert len(catalog) == 22
+    assert len(catalog) == 24
     assert catalog[0].slug == "tres-leches-de-durazno"
     assert catalog[-1].slug == "gelatina-de-duvalin"
     assert [p.slug for p in catalog] == list(
@@ -67,7 +67,7 @@ def test_catalog_lists_every_active_product_in_order():
 
 
 def test_catalog_filters_by_category():
-    assert len(product_repo.list_catalog(on_date=TODAY, category="cake")) == 14
+    assert len(product_repo.list_catalog(on_date=TODAY, category="cake")) == 16
     assert len(product_repo.list_catalog(on_date=TODAY, category="dessert")) == 8
 
 
@@ -77,7 +77,7 @@ def test_catalog_search_ignores_case_and_looks_in_name_and_summary():
     # "flan" está en el nombre (Flan napolitano) y en la descripción corta (Imposible, Posible).
     flan = set(slugs(product_repo.list_catalog(on_date=TODAY, search="flan")))
     assert {"flan-napolitano", "imposible", "posible", "tres-leches-con-flan-y-cajeta"} <= flan
-    assert len(product_repo.list_catalog(on_date=TODAY, search="   ")) == 22
+    assert len(product_repo.list_catalog(on_date=TODAY, search="   ")) == 24
     assert product_repo.list_catalog(on_date=TODAY, search="no existe") == []
 
 
@@ -118,7 +118,8 @@ def test_catalog_offerings_carry_price_weight_servings_and_order():
     assert (durazno.cake_type, durazno.filling_base_slug, durazno.filling_flavor_slug) == (
         "tres_leches", "normal", "durazno",
     )
-    assert durazno.bread_id is None and durazno.bread_slug is None
+    # Su pan lo siembra la tanda 2 (`0045_seed_design_sizes`).
+    assert durazno.bread_id is not None and durazno.bread_slug == "vainilla"
 
 
 def test_catalog_stock_is_none_without_a_row_and_zero_when_sold_out():
@@ -522,7 +523,8 @@ def test_filling_bases_come_with_their_flavors():
     bases = {b.slug: b for b in cake_option_repo.list_filling_bases_with_flavors()}
     assert list(bases) == ["normal", "queso", "flan"]
     assert (bases["normal"].max_flavors, bases["normal"].combined_extra_per_kg) == (2, Decimal("5.00"))
-    assert len(bases["normal"].flavors) == 10
+    # Con blueberry (tanda 2), solo en la base Normal.
+    assert len(bases["normal"].flavors) == 11
     assert {f.slug for f in bases["queso"].flavors} == {"chocolate", "zarzamora"}
     assert {f.slug for f in bases["flan"].flavors} == {"cajeta", "zarzamora"}
     yogurt = next(f for f in bases["normal"].flavors if f.slug == "fresa_yogurt")

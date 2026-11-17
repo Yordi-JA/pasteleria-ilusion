@@ -157,6 +157,7 @@ class CakeDesignPriceView(PublicReadOnlyView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         size = None
+        # Solo un pastel por kilos llega con personas (el serializador rechaza personas y kilos en vitrina y mini).
         if data.get("people") is not None:
             # Los kilos por personas los calcula el servidor (regla 3.1) antes que el precio, así llegan también
             # cuando el resto de la elección no vale.
@@ -166,13 +167,13 @@ class CakeDesignPriceView(PublicReadOnlyView):
                 return Response(
                     CakeDesignPriceSerializer({"breakdown": None, "stand_deposit": None, "payment": None, "size": size}).data
                 )
-        choice = serializer.to_choice(size.kg if size else data["kg"])
+        choice = serializer.to_choice(size.kg if size else data.get("kg"))
         price = pricing_service.estimate_price if data["estimate"] else pricing_service.calculate_price
         # El precio y la base se revisan los dos, para devolver todos los
         # errores en una sola respuesta.
         failures: list[DomainValidationError] = []
         breakdown = attempt(failures, price, choice)
-        stand_deposit = attempt(failures, warranty_service.get_stand_deposit, choice.kg)
+        stand_deposit = attempt(failures, pricing_service.stand_for, choice)
         try:
             raise_all(failures)
         except DomainValidationError as error:

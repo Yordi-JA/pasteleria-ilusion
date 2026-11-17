@@ -5,7 +5,7 @@ import type { SceneColor } from '../three/palette.ts'
 import { clampCm, tierSizes, UNITS_PER_CM } from './cakeMolds.ts'
 import type { Footprint } from './cakeMolds.ts'
 import { decorationShape } from './cakeDecorations.ts'
-import { cakeLidShape, lidOf, previewSize } from './cakeLid.ts'
+import { cakeLidShape, lidFor, previewSize, smallMold } from './cakeLid.ts'
 import type { LoadedImage } from './cakeLid.ts'
 import { dataColor, piecesFor } from './fillingPieces.ts'
 import type { MessageMetrics } from './messageGeometry.ts'
@@ -177,19 +177,22 @@ export function designPreview({ draft, design, options, current, defaultBread, m
       : null
   const frosting = current >= 5 && design.coverage ? (dataColor(design.coverage) ?? undefined) : undefined
 
+  const sides = layers(breadColors, filling)
+  const look = frosting ? { frosting } : { layers: sides }
+  // El pastel de vitrina y el mini (tanda 2): su molde real, redondo y de 1 piso, sin recortarlo al tamaño de los pisos por kilos.
+  const mold = smallMold(design)
+  const form = mold ? 'round' : draft.form
   // Sin kilos de la API todavía, el pastel se ve como el más chico.
   const { kg, tiers: count } = previewSize(draft, design, options)
-  const sides = layers(breadColors, filling)
-  const tiers: CakeTier[] = tierSizes(options, draft.form, kg, count).map((size) => ({
-    ...tierShape(size, draft.form),
-    ...(frosting ? { frosting } : { layers: sides }),
-  }))
+  const tiers: CakeTier[] = mold
+    ? [{ radius: (mold.diameterCm * UNITS_PER_CM) / 2, height: mold.heightCm ? mold.heightCm * UNITS_PER_CM : TIER_HEIGHT, ...look }]
+    : tierSizes(options, form, kg, count).map((size) => ({ ...tierShape(size, form), ...look }))
   // La decoración va sobre la cobertura: sin ella (pasos 1 a 4) no se dibuja, aunque ya esté elegida.
   const decoration = frosting && current >= DECORATION_STEP ? decorationShape(draft, design, options) : null
   // El mensaje y la oblea (paso 7) van sobre la tapa del último piso, también en la revisión.
   const lid =
     frosting && current >= LID_STEP
-      ? cakeLidShape({ draft, coverage: design.coverage, options, lid: lidOf(options, draft.form, kg, count), metrics, waferImage })
+      ? cakeLidShape({ draft, coverage: design.coverage, options, lid: lidFor(draft, design, options), metrics, waferImage })
       : null
   return {
     tiers,
@@ -198,7 +201,7 @@ export function designPreview({ draft, design, options, current, defaultBread, m
     ...(decoration ? { decoration } : {}),
     ...(lid ? { lid } : {}),
     stand: true,
-    form: draft.form,
+    form,
     // La base mide un poco más que el piso de abajo: crece y se achica con él.
     fitStand: true,
   }

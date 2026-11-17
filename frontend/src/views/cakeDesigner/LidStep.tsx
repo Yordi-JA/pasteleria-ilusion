@@ -25,7 +25,9 @@ function AddOn({ id, label, description, trailing, checked, disabled, disabledRe
   onChange: (checked: boolean) => void
   children?: ReactNode
 }) {
-  const reasonId = disabled && disabledReason ? `${id}-motivo` : undefined
+  // Uno ya agregado que ahora no se admite (la oblea al cambiar a mini, tanda 2) se puede quitar: dice su motivo y no se abre.
+  const blocked = Boolean(disabledReason) && (disabled || checked)
+  const reasonId = blocked ? `${id}-motivo` : undefined
   const state = disabled
     ? 'cursor-not-allowed border-dashed border-relieve bg-nata text-mermelada-suave'
     : checked
@@ -55,7 +57,7 @@ function AddOn({ id, label, description, trailing, checked, disabled, disabledRe
         </p>
       )}
       {/* Sangría en escritorio para alinear con el texto junto a la casilla; en móvil, el mismo margen de 16 px (libro de marca). */}
-      {checked && !disabled && children && <div className="flex flex-col gap-4 px-4 pb-4 pl-[54px] max-[600px]:pl-4">{children}</div>}
+      {checked && !blocked && children && <div className="flex flex-col gap-4 px-4 pb-4 pl-[54px] max-[600px]:pl-4">{children}</div>}
     </div>
   )
 }
@@ -182,6 +184,11 @@ export default function LidStep({ view, actions }: LidStepProps) {
               {message.overSuggestion && <span className="font-normal"> Es más largo de lo que recomendamos; puedes dejarlo así.</span>}
             </p>
           </div>
+          {message.tooLong && (
+            <Notice tone="attention" title={message.tooLong.title}>
+              <p>{message.tooLong.body}</p>
+            </Notice>
+          )}
           <MessageColor view={view} actions={actions} />
         </AddOn>
       </Group>
@@ -193,7 +200,7 @@ export default function LidStep({ view, actions }: LidStepProps) {
           description={`Impresa hasta tamaño carta (${wafer.letter})`}
           trailing={wafer.price ? `+${wafer.price}` : null}
           checked={wafer.enabled}
-          disabled={wafer.unavailableReason !== null}
+          disabled={wafer.unavailableReason !== null && !wafer.enabled}
           disabledReason={wafer.unavailableReason}
           onChange={actions.setWaferEnabled}
         >
@@ -218,7 +225,8 @@ export default function LidStep({ view, actions }: LidStepProps) {
             <span key={view.announcement.id}>{view.announcement.text}</span>
           </p>
           <div className="grid grid-cols-[minmax(0,260px)_1fr] items-start gap-5 max-[900px]:grid-cols-1">
-            <div className="w-full max-w-[300px] justify-self-center">
+            {/* Un mensaje que no cabe con la letra mínima (tanda 2) se dibuja más ancho que la tapa: no sale del editor ni de la pantalla. */}
+            <div className="w-full max-w-[300px] justify-self-center overflow-hidden">
               <LidEditor view={view} actions={actions} describedBy={hintId} />
             </div>
             <div className="flex min-w-0 flex-col gap-4">
