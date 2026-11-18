@@ -11,6 +11,7 @@ import Card from '../components/Card.tsx'
 import ProductCard, { compactGrid, featureGrid } from '../components/ProductCard.tsx'
 import ProductPhoto from '../components/ProductPhoto.tsx'
 import ProductGridSkeleton from '../components/ProductGridSkeleton.tsx'
+import Reveal from '../components/Reveal.tsx'
 import { LoadingRegion } from '../components/Skeleton.tsx'
 import { useCatalog } from '../viewmodels/useCatalog.ts'
 import type { CatalogView } from '../viewmodels/useCatalog.ts'
@@ -89,7 +90,7 @@ function SectionTitle({ id, title, count }: { id: string; title: string; count: 
  */
 function MiniCard({ price, href }: { price: string; href: string }) {
   return (
-    <Card as="article" large className="mt-16 flex h-[calc(100%-4rem)] flex-col gap-2.5 !pt-0">
+    <Card as="article" large className="tarjeta-elevable mt-16 flex h-[calc(100%-4rem)] flex-col gap-2.5 !pt-0">
       {/* Mismo alto que la foto de tres pisos de las demás tarjetas, con el mini más chico y apoyado abajo. */}
       <div className="-mt-16 flex h-[254px] flex-col justify-end">
         <ProductPhoto photo={{ src: null, alt: 'Pastel mini', placeholder: 'Foto del pastel' }} shape="round" className="mx-auto w-full max-w-[200px]" />
@@ -110,8 +111,10 @@ function CakesSection({ catalog }: { catalog: CatalogView }) {
   return (
     <section aria-labelledby="catalogo-pasteles" className="bg-nata">
       <div className={`${column} gap-8 pb-20 pt-16 max-[600px]:pb-14 max-[600px]:pt-12`}>
-        <SectionTitle id="catalogo-pasteles" title="Pasteles" count={catalog.cakeCount} />
-        <ul className={featureGrid}>
+        <Reveal>
+          <SectionTitle id="catalogo-pasteles" title="Pasteles" count={catalog.cakeCount} />
+        </Reveal>
+        <Reveal as="ul" stagger className={featureGrid}>
           {catalog.cakes.map((product) => (
             <li key={product.key}>
               <ProductCard product={product} />
@@ -122,7 +125,7 @@ function CakesSection({ catalog }: { catalog: CatalogView }) {
               <MiniCard price={catalog.miniPrice} href={catalog.miniDesignHref} />
             </li>
           )}
-        </ul>
+        </Reveal>
       </div>
     </section>
   )
@@ -132,17 +135,17 @@ function DessertsSection({ catalog }: { catalog: CatalogView }) {
   return (
     <section aria-labelledby="catalogo-postres" className="bg-nata">
       <div className={`${column} gap-8 pb-20 pt-16 max-[600px]:pb-14 max-[600px]:pt-12`}>
-        <div className="flex flex-col gap-2">
+        <Reveal className="flex flex-col gap-2">
           <SectionTitle id="catalogo-postres" title="Postres y gelatinas" count={catalog.dessertCount} />
           <p className="text-cuerpo text-mermelada-suave">Flanes, tartas y gelatinas. Las gelatinas en vaso solo se venden cuando hay en vitrina.</p>
-        </div>
-        <ul className={compactGrid}>
+        </Reveal>
+        <Reveal as="ul" stagger className={compactGrid}>
           {catalog.desserts.map((product) => (
             <li key={product.key}>
               <ProductCard product={product} variant="compact" />
             </li>
           ))}
-        </ul>
+        </Reveal>
       </div>
     </section>
   )

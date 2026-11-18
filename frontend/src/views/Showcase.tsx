@@ -10,6 +10,7 @@ import LineDrawing from '../components/LineDrawing.tsx'
 import LoadErrorNotice from '../components/LoadErrorNotice.tsx'
 import { ORDER_LINK } from '../components/navigation.ts'
 import ProductGridSkeleton from '../components/ProductGridSkeleton.tsx'
+import Reveal from '../components/Reveal.tsx'
 import ShowcaseShelfItem, { showcaseGrid } from '../components/ShowcaseShelfItem.tsx'
 import Skeleton, { LoadingRegion } from '../components/Skeleton.tsx'
 import { usePageTitle } from '../viewmodels/usePageTitle.ts'
@@ -88,11 +89,12 @@ function Content({ showcase, onRetry }: { showcase: ShowcaseView; onRetry: () =>
   }
   if (showcase.emptyFilter) return <p className="text-cuerpo text-mermelada-suave">{showcase.emptyFilter}</p>
   return (
-    <ul className={`${showcaseGrid} pt-2`}>
+    // Aparece entera, sin escalonar: las repisas de una fila se leen como una sola y no deben quedar a distintas alturas.
+    <Reveal as="ul" className={`${showcaseGrid} pt-2`}>
       {showcase.items.map((item) => (
         <ShowcaseShelfItem key={item.key} item={item} onAdd={showcase.add} field="nata" showRemaining titleAs="h2" />
       ))}
-    </ul>
+    </Reveal>
   )
 }
 
@@ -146,9 +148,9 @@ export default function Showcase() {
           <Content showcase={showcase} onRetry={retry} />
         </LoadingRegion>
         {!loading && (
-          <div className="mt-16 max-[600px]:mt-12">
+          <Reveal className="mt-16 max-[600px]:mt-12">
             <NotHereCard primary={!showcase.empty && !showcase.allSoldOut} />
-          </div>
+          </Reveal>
         )}
       </div>
     </>

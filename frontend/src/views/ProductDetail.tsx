@@ -14,6 +14,7 @@ import PageHeader from '../components/PageHeader.tsx'
 import Pending from '../components/Pending.tsx'
 import ProductPhoto from '../components/ProductPhoto.tsx'
 import QuantityStepper from '../components/QuantityStepper.tsx'
+import Reveal from '../components/Reveal.tsx'
 import Skeleton, { LoadingRegion } from '../components/Skeleton.tsx'
 import TextLink from '../components/TextLink.tsx'
 import type { ProductCardView } from '../viewmodels/productCards.ts'
@@ -180,7 +181,7 @@ function DetailsCard({ view }: { view: Ready }) {
 
 function RelatedCard({ product }: { product: ProductCardView }) {
   return (
-    <Card as="article" large className="flex h-full flex-col gap-2.5 !p-5">
+    <Card as="article" large className="tarjeta-elevable flex h-full flex-col gap-2.5 !p-5">
       <div className="rounded-md bg-harina px-6 py-3">
         <ProductPhoto photo={product.photo} shape="tiers2" className="mx-auto max-w-[200px]" />
       </div>
@@ -196,7 +197,7 @@ function RelatedCard({ product }: { product: ProductCardView }) {
 function Body({ detail, view }: { detail: ProductDetailView; view: Ready }) {
   return (
     <div className={`${column} gap-8 pb-20 pt-14 max-[600px]:pb-14`}>
-      <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-start gap-10 max-[960px]:grid-cols-1">
+      <Reveal className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-start gap-10 max-[960px]:grid-cols-1">
         <section aria-labelledby="ficha-elige" className="flex flex-col gap-4">
           <h2 id="ficha-elige" className="font-display text-titulo-2">
             Elige tu pastel
@@ -210,19 +211,19 @@ function Body({ detail, view }: { detail: ProductDetailView; view: Ready }) {
           </h2>
           <DetailsCard view={view} />
         </section>
-      </div>
+      </Reveal>
       {view.related.length > 0 && (
         <section aria-labelledby="ficha-relacionados" className="flex flex-col gap-6">
           <h2 id="ficha-relacionados" className="font-display text-titulo-2">
             También te puede gustar
           </h2>
-          <ul className="grid grid-cols-3 gap-6 max-[960px]:grid-cols-1">
+          <Reveal as="ul" stagger className="grid grid-cols-3 gap-6 max-[960px]:grid-cols-1">
             {view.related.map((product) => (
               <li key={product.key}>
                 <RelatedCard product={product} />
               </li>
             ))}
-          </ul>
+          </Reveal>
         </section>
       )}
     </div>

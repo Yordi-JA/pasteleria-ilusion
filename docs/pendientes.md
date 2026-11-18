@@ -333,12 +333,23 @@ Menores de la revisión única que no se arreglaron:
 
 Lo construido está en D79 ([`proyecto/decisiones.md`](proyecto/decisiones.md)), en la rama `fix/correcciones-tanda-3`, sin fusionar. Quedan estos menores:
 
-1. El paso 7 conserva cajas con borde oscuro: el mensaje, la oblea y el color del texto.
+1. Resuelto en D80: el paso 7 ya no tiene cajas con borde oscuro.
 2. En ventanas de menos de 820 px de alto la columna izquierda no queda fija: la vista previa y el total se van con la página, como antes de D79.
 3. Una persona con teclado podría salir de la página más allá del diseñador si el navegador centra un control al darle el foco. No se verificó.
 4. `e2e/cake-designer-lid.spec.ts:210` falla de forma intermitente, como en `main`, y `:77` falló una vez con carga y pasó sola.
 5. En el paso 8, la región de estado vacía del aviso deja unos 12 px de más en el pie antes de agregar.
 6. En `/pedido/referencia` no hay línea de cierre entre las filas y el mensaje de error.
+
+## Tanda 3 de correcciones, parte 2 (D80)
+
+Lo construido está en D80 ([`proyecto/decisiones.md`](proyecto/decisiones.md)), en la rama `fix/correcciones-tanda-3b`, sin fusionar. Con ella queda resuelto el punto 1 de la lista de D79 (las cajas del paso 7). Quedan estos menores:
+
+1. Tres textos del paso 7 que la revisión de textos señaló y no se cambiaron: "Elegir un color / Cualquier color" repite la etiqueta (el paso 6 usa el mismo texto); "Qué quieres acomodar" muestra la otra opción desactivada cuando solo existe un elemento; y ", o la que prefieras." en el aviso de la imagen perdida.
+2. En cuadrículas de una columna en móvil solo se animan las primeras tarjetas, porque la aparición es por cuadrícula.
+3. La cuadrícula de horarios de la entrega da estilo a `ChoiceOption` a través de su DOM interno. Una prop `fill` sería más firme.
+4. `useRouteFade` fija la curva `entrada` en el código.
+5. `useCakeScene` y `useCartFlight` mantienen su propia comprobación de `prefers-reduced-motion` en lugar de usar `viewmodels/reducedMotion.ts`.
+6. El resumen de la entrega en escritorio no es fijo, como sí lo es en el mockup.
 
 ## Confirmar el correo y recuperar la contraseña (D76)
 

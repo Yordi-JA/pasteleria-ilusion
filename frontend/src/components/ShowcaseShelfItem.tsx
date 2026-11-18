@@ -81,7 +81,7 @@ export default function ShowcaseShelfItem({ item, onAdd, field, showRemaining = 
               type="button"
               aria-label={`Agregar al pedido: ${item.label}`}
               onClick={() => onAdd(item)}
-              className={`inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-md bg-mermelada text-sobre-color hover:bg-mermelada-profunda motion-safe:transition-colors motion-safe:active:translate-y-px ${focusRing}`}
+              className={`inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-md bg-mermelada text-sobre-color hover:bg-mermelada-profunda motion-safe:transition-[background-color,transform] motion-safe:duration-150 motion-safe:ease-entrada motion-safe:active:scale-95 ${focusRing}`}
             >
               <Handbag size={20} weight="regular" aria-hidden="true" />
             </button>

@@ -3,21 +3,24 @@ import { useId } from 'react'
 import type { ReactNode } from 'react'
 import ChoiceOption from '../../components/ChoiceOption.tsx'
 import ColorPicker from '../../components/ColorPicker.tsx'
-import { focusRing, focusRingWithin } from '../../components/focus.ts'
+import { focusRing } from '../../components/focus.ts'
 import Notice from '../../components/Notice.tsx'
 import { LAYOUT_BOUNDS } from '../../models/cakeDesignLayout.ts'
 import TextField from '../../components/TextField.tsx'
 import type { LidStepActions, LidStepView } from '../../viewmodels/useLidStep.ts'
-import { ColorGrid, Group } from './ChoiceSteps.tsx'
+import { ColorGrid, Group, OptionList } from './ChoiceSteps.tsx'
 import { ImagePicker } from './DecorationStep.tsx'
 import LidEditor from './LidEditor.tsx'
 import RangeField from './RangeField.tsx'
 
-/** Una opción que se agrega (el mensaje, la oblea) con lo que se configura dentro, como `CotizadorDecoracionEditor`. */
+/**
+ * Una opción que se agrega (el mensaje, la oblea): un renglón con casilla de la lista del paso, como las opciones de los pasos
+ * 1 a 6 (D79), y debajo, sin caja, lo que se configura al marcarla.
+ */
 function AddOn({ id, label, description, trailing, checked, disabled, disabledReason, onChange, children }: {
   id: string
   label: string
-  description: string
+  description?: string
   trailing: string | null
   checked: boolean
   disabled?: boolean
@@ -26,38 +29,32 @@ function AddOn({ id, label, description, trailing, checked, disabled, disabledRe
   children?: ReactNode
 }) {
   // Uno ya agregado que ahora no se admite (la oblea al cambiar a mini, tanda 2) se puede quitar: dice su motivo y no se abre.
+  // El renglón desactivado escribe su motivo él mismo; el que sigue marcado y habilitado lo escribe aquí, en el mismo lugar.
   const blocked = Boolean(disabledReason) && (disabled || checked)
-  const reasonId = blocked ? `${id}-motivo` : undefined
-  const state = disabled
-    ? 'cursor-not-allowed border-dashed border-relieve bg-nata text-mermelada-suave'
-    : checked
-      ? 'border-2 border-mermelada bg-betun'
-      : 'border border-mermelada-suave bg-betun'
+  const ownReasonId = blocked && !disabled ? `${id}-motivo` : undefined
   return (
-    <div className={`min-w-0 rounded-md ${state}`}>
-      <label htmlFor={id} className={`flex min-h-11 cursor-pointer items-center gap-3.5 rounded-md px-4 py-3.5 ${disabled ? 'cursor-not-allowed' : ''} ${focusRingWithin}`}>
-        <input
-          id={id}
-          type="checkbox"
-          checked={checked}
-          disabled={disabled}
-          aria-describedby={reasonId}
-          onChange={(event) => onChange(event.target.checked)}
-          className="h-5 w-5 shrink-0 cursor-pointer accent-mermelada outline-none disabled:cursor-not-allowed"
-        />
-        <span className="flex flex-1 flex-col">
-          <span className="text-cuerpo font-semibold">{label}</span>
-          <span className="text-nota text-mermelada-suave">{description}</span>
-        </span>
-        {trailing && <span className="whitespace-nowrap text-cuerpo font-semibold tabular-nums">{trailing}</span>}
-      </label>
-      {reasonId && (
-        <p id={reasonId} className="px-4 pb-3 text-nota text-mermelada-suave">
+    <div className="flex min-w-0 flex-col">
+      <ChoiceOption
+        variant="row"
+        type="checkbox"
+        id={id}
+        label={label}
+        description={description}
+        trailing={trailing}
+        checked={checked}
+        disabled={disabled}
+        disabledReason={disabled ? (disabledReason ?? undefined) : undefined}
+        aria-describedby={ownReasonId}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      {ownReasonId && (
+        <p id={ownReasonId} className="pb-2 pl-[46px] pr-3 text-nota text-mermelada-suave">
           {disabledReason}
         </p>
       )}
-      {/* Sangría en escritorio para alinear con el texto junto a la casilla; en móvil, el mismo margen de 16 px (libro de marca). */}
-      {checked && !blocked && children && <div className="flex flex-col gap-4 px-4 pb-4 pl-[54px] max-[600px]:pl-4">{children}</div>}
+      {/* Sin caja: con sangría bajo el nombre en escritorio y sin ella en móvil, como los grupos de la decoración (libro de
+          marca, "Contenido que se despliega dentro de una opción"); el renglón siguiente cierra con su línea. */}
+      {checked && !blocked && children && <div className="flex flex-col gap-4 pb-4 pl-[46px] max-[600px]:pl-0">{children}</div>}
     </div>
   )
 }
@@ -116,10 +113,11 @@ function MessageColor({ view, actions }: { view: LidStepView; actions: LidStepAc
   return (
     <div className="flex flex-col gap-3">
       <Group legend="Color del texto">
-        <div className="grid grid-cols-1 gap-2">
+        <OptionList>
           {color.modes.map((entry) => (
             <ChoiceOption
               key={entry.mode}
+              variant="row"
               name="color-texto"
               value={entry.mode}
               label={entry.label}
@@ -128,13 +126,13 @@ function MessageColor({ view, actions }: { view: LidStepView; actions: LidStepAc
               onChange={() => actions.setColorMode(entry.mode)}
             />
           ))}
-        </div>
+        </OptionList>
       </Group>
       {color.mode === 'tones' && <ColorGrid legend="Elige el tono" name="tono-texto" colors={color.tones} onChoose={actions.setColorValue} />}
       {color.mode === 'custom' && <ColorPicker legend="Elige el color del texto" value={color.ink} onChange={actions.setColorValue} />}
       {color.lowContrast && (
         <Notice tone="info" title="Se lee poco sobre tu cobertura">
-          <p>Este color tiene poco contraste con el de la cobertura. Con el negro se lee mejor, pero puedes dejarlo así.</p>
+          <p>Con el negro se lee mejor, pero puedes dejarlo así.</p>
         </Notice>
       )}
     </div>
@@ -159,11 +157,11 @@ export default function LidStep({ view, actions }: LidStepProps) {
   const imagePicker = { image: wafer.image, lostName: wafer.lostName, error: wafer.error, onPick: actions.chooseWaferImage, onRemove: actions.removeWaferImage, onUnreadable: actions.unreadableWaferImage }
   return (
     <>
-      <Group legend="Mensaje" hideLegend>
+      {/* Dos renglones de una lista, sin un grupo "Mensaje" ni "Oblea" alrededor de cada uno: el título del paso ya lo dice. */}
+      <OptionList>
         <AddOn
           id={`${id}-mensaje`}
           label="Agregar un mensaje"
-          description="Se escribe sobre el pastel"
           trailing="Incluido"
           checked={message.enabled}
           onChange={actions.setMessageEnabled}
@@ -191,9 +189,6 @@ export default function LidStep({ view, actions }: LidStepProps) {
           )}
           <MessageColor view={view} actions={actions} />
         </AddOn>
-      </Group>
-
-      <Group legend="Oblea" hideLegend>
         <AddOn
           id={`${id}-oblea`}
           label="Agregar una oblea con tu imagen"
@@ -213,7 +208,7 @@ export default function LidStep({ view, actions }: LidStepProps) {
             </div>
           )}
         </AddOn>
-      </Group>
+      </OptionList>
 
       {editing && (
         <section aria-labelledby={`${id}-acomodar`} className="flex flex-col gap-4 border-t border-relieve pt-5">
@@ -282,7 +277,7 @@ export default function LidStep({ view, actions }: LidStepProps) {
             </div>
           </div>
           <p id={hintId} className="text-nota text-mermelada-suave">
-            Arrastra para mover, las esquinas cambian el tamaño y el círculo de arriba gira. Con el teclado, las flechas mueven lo que elegiste.
+            Arrastra para mover, las esquinas cambian el tamaño y el cuadro de arriba gira. Con el teclado, las flechas mueven lo que elegiste.
           </p>
         </section>
       )}

@@ -3,6 +3,7 @@ import { ApiError } from '../models/apiClient.ts'
 import { bakeryToday } from '../models/dates.ts'
 import { getDeliveryCalendar } from '../models/deliveryCalendar.ts'
 import type { CalendarDay, DeliveryCalendar, LineKind } from '../models/deliveryCalendar.ts'
+import type { DeliveryChoice } from '../models/deliveryChoice.ts'
 import { messagesIn } from './orderErrors.ts'
 import { addMonths, monthGrid, monthOf, monthRange, sameMonth, slotPeriods } from './deliverySchedule.ts'
 import type { MonthRef, PeriodId } from './deliverySchedule.ts'
@@ -22,20 +23,30 @@ type Loaded = { key: string } & (
  * (`GET delivery-slots/?start=&end=&kind=`); al cambiar de mes o al recargar, cancela la petición anterior. Si el mes de
  * hoy ya no tiene fechas para el pedido, abre una vez el del primer día posible. Lo elegido que deja de estar disponible
  * (al recargar tras un "Lleno") se suelta solo.
+ *
+ * `initial` es lo elegido antes de recargar (tanda 3): abre en su mes, pero no cuenta (`checking`) hasta que la primera
+ * respuesta lo confirma. Si esa respuesta no es de su mes, se descarta; si su día o su hora ya no se ofrecen, se suelta y
+ * `lost` dice qué se perdió. Un día que ya pasó no se retoma. `choice` es lo elegido ahora, para guardarlo.
  */
-export function useDeliveryCalendar(kinds: LineKind[], enabled: boolean) {
+export function useDeliveryCalendar(kinds: LineKind[], enabled: boolean, initial: DeliveryChoice | null = null) {
   const kindsKey = kinds.join(',')
-  const firstMonth = useMemo(() => monthOf(bakeryToday()), [])
-  const [month, setMonth] = useState<MonthRef>(firstMonth)
+  const today = useMemo(() => bakeryToday(), [])
+  const firstMonth = useMemo(() => monthOf(today), [today])
+  const [restored] = useState(() => (initial && initial.day.date >= today ? initial : null))
+  const [month, setMonth] = useState<MonthRef>(() => (restored ? monthOf(restored.day.date) : firstMonth))
   const [attempt, setAttempt] = useState(0)
   const requestKey = `${month.year}-${month.month}|${kindsKey}|${attempt}`
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   // El último día que se reserva, de la última respuesta buena: "Mes siguiente" sigue sirviendo si un mes no carga.
   const [latestDate, setLatestDate] = useState<string | null>(null)
   // El día elegido tal como estaba al elegirlo: sigue elegido aunque se vea otro mes.
-  const [selected, setSelected] = useState<CalendarDay | null>(null)
-  const [period, setPeriod] = useState<PeriodId | null>(null)
-  const [slot, setSlot] = useState<string | null>(null)
+  const [selected, setSelected] = useState<CalendarDay | null>(restored?.day ?? null)
+  const [period, setPeriod] = useState<PeriodId | null>((restored?.period as PeriodId | null | undefined) ?? null)
+  const [slot, setSlot] = useState<string | null>(restored?.slot ?? null)
+  // Lo traído de una recarga no vale hasta que una respuesta de la API lo confirma.
+  const [checked, setChecked] = useState(restored === null)
+  // Lo restaurado que la API ya no ofrece: su día o su hora. La pantalla lo dice hasta que se elige otra cosa.
+  const [lost, setLost] = useState<'day' | 'slot' | null>(null)
   const jumped = useRef(false)
 
   useEffect(() => {
@@ -65,13 +76,46 @@ export function useDeliveryCalendar(kinds: LineKind[], enabled: boolean) {
 
   const status: 'loading' | 'ready' | 'error' = !loaded || loaded.key !== requestKey ? 'loading' : loaded.status
   const calendar = loaded?.status === 'ready' ? loaded.data : null
-  // Lo elegido vale mientras la API lo siga ofreciendo: con datos nuevos de su mes, se vuelve a buscar (y se suelta si ya
-  // no se puede elegir, por ejemplo tras un "Lleno"); viendo otro mes, se conserva.
-  const fresh = calendar !== null && selected !== null && calendar.days.some((candidate) => candidate.date === selected.date)
-  const day = fresh ? (calendar.days.find((candidate) => candidate.date === selected.date && candidate.available) ?? null) : selected
+
+  // Lo elegido vale mientras la API lo siga ofreciendo. Cada respuesta que trae su día lo reemplaza por el de la respuesta;
+  // si el día ya no se elige, se suelta de verdad (no vuelve al ver otro mes), y si su hora ya no se elige, se suelta la
+  // hora. Se ajusta durante el render, así ningún efecto ni el salto de mes alcanza a usar lo de antes. Lo restaurado que la
+  // primera respuesta no trae (otro mes) se descarta: nunca se usa sin revisar.
+  if (calendar && selected) {
+    const fresh = calendar.days.find((candidate) => candidate.date === selected.date)
+    if (!fresh) {
+      if (!checked) {
+        setSelected(null)
+        setPeriod(null)
+        setSlot(null)
+        setChecked(true)
+      }
+    } else if (!fresh.available) {
+      setSelected(null)
+      setPeriod(null)
+      setSlot(null)
+      if (!checked) {
+        setLost('day')
+        setChecked(true)
+      }
+    } else if (fresh !== selected || !checked) {
+      setSelected(fresh)
+      if (slot !== null && !fresh.slots.some((candidate) => candidate.startsAt === slot && candidate.available)) {
+        setSlot(null)
+        if (!checked) setLost('slot')
+      }
+      setChecked(true)
+    }
+  }
+  const day = checked ? selected : null
   const periods = useMemo(() => (day ? slotPeriods(day.slots) : []), [day])
   const shownPeriod = periods.find((candidate) => candidate.id === period && candidate.available) ?? periods.find((candidate) => candidate.available) ?? null
   const chosenSlot = shownPeriod?.slots.find((candidate) => candidate.startsAt === slot && candidate.available) ?? null
+  // Lo restaurado sin revisar se guarda tal cual: una recarga mientras llega la respuesta no lo pierde.
+  const choice = useMemo<DeliveryChoice | null>(() => {
+    if (!checked) return selected ? { day: selected, period, slot } : null
+    return day ? { day, period: shownPeriod?.id ?? null, slot: chosenSlot?.startsAt ?? null } : null
+  }, [checked, chosenSlot?.startsAt, day, period, selected, shownPeriod?.id, slot])
   const grid = useMemo(() => monthGrid(month, calendar && sameMonth(monthOf(calendar.start), month) ? calendar : null, day?.date ?? null), [calendar, day, month])
 
   const selectDay = useCallback(
@@ -79,14 +123,20 @@ export function useDeliveryCalendar(kinds: LineKind[], enabled: boolean) {
       setSelected(calendar?.days.find((candidate) => candidate.date === date && candidate.available) ?? null)
       setPeriod(null)
       setSlot(null)
+      setChecked(true)
+      setLost(null)
     },
     [calendar],
   )
   const selectPeriod = useCallback((id: PeriodId) => {
     setPeriod(id)
     setSlot(null)
+    setLost(null)
   }, [])
-  const selectSlot = useCallback((startsAt: string) => setSlot(startsAt), [])
+  const selectSlot = useCallback((startsAt: string) => {
+    setSlot(startsAt)
+    setLost(null)
+  }, [])
   const reload = useCallback(() => setAttempt((count) => count + 1), [])
   const showMonth = useCallback((change: number) => setMonth((current) => addMonths(current, change)), [])
 
@@ -103,6 +153,10 @@ export function useDeliveryCalendar(kinds: LineKind[], enabled: boolean) {
     nextMonth: () => showMonth(1),
     calendar,
     selectedDate: day?.date ?? null,
+    choice,
+    /** Hay una elección restaurada esperando la respuesta de la API: todavía no se puede usar. */
+    checking: !checked && selected !== null && status !== 'error',
+    lost,
     periods,
     period: shownPeriod,
     slot: chosenSlot,

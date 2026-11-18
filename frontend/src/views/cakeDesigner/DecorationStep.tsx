@@ -60,8 +60,10 @@ export function ImagePicker({ image, lostName, error, onPick, onRemove, onUnread
         <>
           {lostName && (
             <Notice tone="attention" title="Tu imagen ya no está">
+              {/* El nombre completo, cortado donde haga falta: uno largo sin espacios no se sale de la tarjeta, y con puntos
+                  suspensivos no se sabría cuál volver a elegir. */}
               <p>
-                Se perdió al recargar la página. Elige otra vez {lostName}, o la que prefieras.
+                Se perdió al recargar la página. Elige otra vez <span className="break-all">{lostName}</span>, o la que prefieras.
               </p>
             </Notice>
           )}

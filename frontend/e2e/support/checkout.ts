@@ -169,6 +169,32 @@ export function calendarBody(start: string, end: string, rule: (date: string) =>
   return { start, end, earliest_date: '2026-11-15', latest_date: LATEST, days }
 }
 
+/** La clave de la fecha y la hora elegidas en la entrega (tanda 3). */
+export const DELIVERY_CHOICE_KEY = 'ilusion.deliveryChoice.v1'
+
+/**
+ * Deja guardada una elección de entrega antes de que cargue la página, como si la persona la hubiera hecho antes de
+ * recargar: el día con todos sus lapsos libres, el periodo y la hora. Solo la primera carga de la pestaña.
+ */
+export async function seedDeliveryChoice(page: Page, date: string, slot: string, period = 'afternoon') {
+  const day = {
+    date,
+    available: true,
+    reason: null,
+    slots: GRID.map((entry) => ({ startsAt: entry.starts_at, endsAt: entry.ends_at, available: true, reason: null })),
+  }
+  await page.addInitScript(({ key, raw }) => {
+    if (!sessionStorage.getItem('__choiceSeeded')) {
+      sessionStorage.setItem(key, raw)
+      sessionStorage.setItem('__choiceSeeded', '1')
+    }
+  }, { key: DELIVERY_CHOICE_KEY, raw: JSON.stringify({ day, period, slot }) })
+}
+
+export function storedDeliveryChoice(page: Page) {
+  return page.evaluate((key) => sessionStorage.getItem(key), DELIVERY_CHOICE_KEY)
+}
+
 export type CalendarMock = { requests: Request[]; setRule: (rule: (date: string) => DayRule) => void }
 
 /** Responde el calendario con el rango que se pidió; `setRule` cambia los días para las peticiones siguientes. */

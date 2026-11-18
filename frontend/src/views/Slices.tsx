@@ -10,6 +10,7 @@ import LoadErrorNotice from '../components/LoadErrorNotice.tsx'
 import { ORDER_LINK } from '../components/navigation.ts'
 import ProductPhoto from '../components/ProductPhoto.tsx'
 import QuantityStepper from '../components/QuantityStepper.tsx'
+import Reveal from '../components/Reveal.tsx'
 import Skeleton, { LoadingRegion } from '../components/Skeleton.tsx'
 import { usePageTitle } from '../viewmodels/usePageTitle.ts'
 import { useSlices } from '../viewmodels/useSlices.ts'
@@ -74,7 +75,7 @@ function AddControls({ item, slices }: { item: SlicePageItem; slices: SlicesView
 function SliceCard({ item, slices }: { item: SlicePageItem; slices: SlicesView }) {
   return (
     <li>
-      <Card as="article" className="flex h-full flex-col gap-2.5 !p-4 max-[600px]:!p-3">
+      <Card as="article" className="tarjeta-elevable flex h-full flex-col gap-2.5 !p-4 max-[600px]:!p-3">
         <ProductPhoto photo={item.photo} shape="slice" />
         <h2 className="font-display text-titulo-3 max-[600px]:text-cuerpo max-[600px]:font-semibold max-[600px]:leading-snug">{item.name}</h2>
         <p className="text-etiqueta tabular-nums">{item.price}</p>
@@ -94,7 +95,7 @@ function SliceCard({ item, slices }: { item: SlicePageItem; slices: SlicesView }
  */
 function SingleSlice({ item, slices }: { item: SlicePageItem; slices: SlicesView }) {
   return (
-    <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-start gap-6 max-[960px]:grid-cols-1">
+    <Reveal stagger className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-start gap-6 max-[960px]:grid-cols-1">
       <Card as="article" large className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-8 max-[600px]:grid-cols-1 max-[600px]:gap-4">
         <ProductPhoto photo={item.photo} shape="slice" />
         <div className="flex flex-col gap-2.5">
@@ -115,7 +116,7 @@ function SingleSlice({ item, slices }: { item: SlicePageItem; slices: SlicesView
           Encargarlo completo
         </ButtonLink>
       </aside>
-    </div>
+    </Reveal>
   )
 }
 
@@ -160,11 +161,11 @@ function Content({ slices, onRetry }: { slices: SlicesView; onRetry: () => void 
   if (slices.layout === 'empty') return <NoSlices leadDays={slices.leadDays} />
   if (slices.layout === 'single') return <SingleSlice item={slices.items[0]} slices={slices} />
   return (
-    <ul className={gridClass}>
+    <Reveal as="ul" stagger className={gridClass}>
       {slices.items.map((item) => (
         <SliceCard key={item.key} item={item} slices={slices} />
       ))}
-    </ul>
+    </Reveal>
   )
 }
 

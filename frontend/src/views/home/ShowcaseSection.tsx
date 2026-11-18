@@ -6,6 +6,7 @@ import ChoiceOption from '../../components/ChoiceOption.tsx'
 import LeadDays from '../../components/LeadDays.tsx'
 import LineDrawing from '../../components/LineDrawing.tsx'
 import { ORDER_LINK } from '../../components/navigation.ts'
+import Reveal from '../../components/Reveal.tsx'
 import ShowcaseShelfItem, { Shelf, showcaseGrid } from '../../components/ShowcaseShelfItem.tsx'
 import Skeleton, { LoadingRegion } from '../../components/Skeleton.tsx'
 import TextLink from '../../components/TextLink.tsx'
@@ -57,11 +58,12 @@ function ShowcaseContent({ section, heading }: { section: ShowcaseState; heading
   if (section.allSoldOut) return <SoldOut leadDays={section.leadDays} />
   if (section.emptyFilter) return <p className="pt-4 text-cuerpo text-sobre-color-suave">{section.emptyFilter}</p>
   return (
-    <ul className={gridClass}>
+    // Aparece entera, sin escalonar: las repisas de una fila se leen como una sola y no deben quedar a distintas alturas.
+    <Reveal as="ul" className={gridClass}>
       {section.items.map((item) => (
         <ShowcaseShelfItem key={item.key} item={item} onAdd={section.add} field="mermelada" />
       ))}
-    </ul>
+    </Reveal>
   )
 }
 
@@ -71,7 +73,7 @@ export default function ShowcaseSection({ section }: { section: ShowcaseState })
   return (
     <Field field="mermelada" labelledBy="vitrina-titulo" className="bg-mermelada text-sobre-color">
       <div className={`${sectionColumn} pb-[88px] pt-20 max-[600px]:pb-14 max-[600px]:pt-14`}>
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <Reveal className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div className="flex flex-col gap-2">
             <h2 id="vitrina-titulo" ref={heading} tabIndex={-1} className={sectionHeadingOnColor}>
               Vitrina
@@ -97,7 +99,7 @@ export default function ShowcaseSection({ section }: { section: ShowcaseState })
               </div>
             </fieldset>
           )}
-        </div>
+        </Reveal>
         <AddToCartNotice feedback={section.feedback} className={addNoticeSpacing} />
         <LoadingRegion loading={section.status === 'loading'} label="Cargando la vitrina…" skeleton={<ShowcaseSkeleton />}>
           <ShowcaseContent section={section} heading={heading} />
