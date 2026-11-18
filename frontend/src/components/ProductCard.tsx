@@ -46,7 +46,7 @@ function ViewLink({ product, className }: { product: ProductCardView; className:
 export default function ProductCard({ product, variant = 'feature', action }: ProductCardProps) {
   if (variant === 'compact') {
     return (
-      <Card as="article" className="flex h-full flex-col gap-2 !p-4">
+      <Card as="article" className="tarjeta-elevable flex h-full flex-col gap-2 !p-4">
         <ProductPhoto photo={product.photo} shape="round" />
         <Tags kind={product.kind} statuses={product.statuses} />
         <h3 className="font-display text-titulo-3">{product.name}</h3>
@@ -59,7 +59,7 @@ export default function ProductCard({ product, variant = 'feature', action }: Pr
     )
   }
   return (
-    <Card as="article" large className="mt-16 flex h-[calc(100%-4rem)] flex-col gap-2.5 !pt-0">
+    <Card as="article" large className="tarjeta-elevable mt-16 flex h-[calc(100%-4rem)] flex-col gap-2.5 !pt-0">
       <div className="-mt-16">
         <ProductPhoto photo={product.photo} shape="tiers3" className="mx-auto w-full max-w-[300px]" />
         <div aria-hidden="true" className="mx-auto -mt-2.5 h-3.5 w-[56%] rounded-[50%] bg-mermelada/[.16] blur-[10px]" />

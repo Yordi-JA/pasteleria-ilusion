@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useId, useMemo, useRef } from 'react'
 import Button from '../../components/Button.tsx'
 import ButtonLink from '../../components/ButtonLink.tsx'
 import Card from '../../components/Card.tsx'
@@ -13,6 +13,7 @@ import { usePageTitle } from '../../viewmodels/usePageTitle.ts'
 import { useQuoteDelivery } from '../../viewmodels/useQuoteDelivery.ts'
 import { StateCard } from '../payment/PaymentStates.tsx'
 import { SlotPicker } from './DateAndTime.tsx'
+import DeliveryBar from './DeliveryBar.tsx'
 import { Fulfillment, Pickup } from './DeliveryParts.tsx'
 
 const column = 'mx-auto w-full max-w-[1200px] px-6 max-[600px]:px-4'
@@ -31,7 +32,8 @@ function SlotsSkeleton() {
 /**
  * `/pedido/entrega?cotizacion=<id>` (D70): la entrega de una cotización aceptada. El día es el del evento y no se cambia;
  * se eligen la hora y quién recoge, y "Continuar al pago" crea el pedido con `accept/` y lleva al pago (D68). Reutiliza
- * las partes de la entrega del carrito (D66) sin tocar su flujo.
+ * las partes de la entrega del carrito (D66) sin tocar su flujo. Es una sola página (decisión del usuario, tanda 3): de la
+ * entrega en dos partes solo toma los horarios en tres columnas, los periodos como control de tres y la barra de móvil.
  */
 export default function QuoteDelivery({ title, rawId }: { title: string; rawId: string }) {
   usePageTitle(title)
@@ -42,6 +44,7 @@ export default function QuoteDelivery({ title, rawId }: { title: string; rawId: 
   const placedRef = useRef<HTMLHeadingElement>(null)
   const focus = useMemo(() => ({ alert: alertRef, name: nameRef, phone: phoneRef, schedule: scheduleRef, placed: placedRef }), [])
   const page = useQuoteDelivery(parseRequestId(rawId), focus)
+  const formId = useId()
   const { load, block, slots } = page
 
   let body
@@ -83,6 +86,7 @@ export default function QuoteDelivery({ title, rawId }: { title: string; rawId: 
     body = (
       <div className={grid}>
         <form
+          id={formId}
           noValidate
           className="flex min-w-0 flex-col gap-12"
           onSubmit={(event) => {
@@ -140,7 +144,8 @@ export default function QuoteDelivery({ title, rawId }: { title: string; rawId: 
                 </Notice>
               </div>
             )}
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            {/* En móvil el botón va en la barra de abajo. */}
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 max-[900px]:hidden">
               <Button type="submit" disabled={busy}>
                 Continuar al pago
               </Button>
@@ -184,6 +189,9 @@ export default function QuoteDelivery({ title, rawId }: { title: string; rawId: 
       <LoadingRegion loading={body === undefined} label="Cargando tu cotización…" skeleton={<div className={`${column} py-12`}><Skeleton radius="md" className="h-96 w-full" /></div>}>
         {body}
       </LoadingRegion>
+      {page.summary && !page.block && load.status === 'ready' && (
+        <DeliveryBar label="Total del pedido" value={page.summary.rows.total} action="Continuar al pago" form={formId} busy={page.status !== 'idle'} />
+      )}
     </>
   )
 }

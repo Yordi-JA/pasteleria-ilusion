@@ -183,7 +183,9 @@ export function ColorGrid({ legend, name, colors, onChoose }: { legend: string; 
         {colors.map((color) => (
           <label
             key={color.value}
-            className={`relative flex min-h-11 cursor-pointer flex-col items-center gap-2 rounded-md border px-1 py-3 text-center text-nota font-semibold hover:bg-harina has-[:checked]:border-2 has-[:checked]:border-mermelada has-[:checked]:px-[3px] has-[:checked]:py-[11px] ${color.checked ? '' : 'border-relieve'} ${focusRingWithin}`}
+            // El tono elegido se llena de `harina` y lleva la palomita, como los renglones elegidos (D79): el borde sigue suave y
+            // el hover subraya el nombre, sin el fondo del elegido.
+            className={`relative flex min-h-11 cursor-pointer flex-col items-center gap-2 rounded-md border border-relieve px-1 py-3 text-center text-nota font-semibold hover:underline hover:underline-offset-4 has-[:checked]:bg-harina ${focusRingWithin}`}
           >
             <input
               type="radio"

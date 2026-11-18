@@ -87,3 +87,49 @@
     }
   }
 }
+
+/* Movimiento sutil del sitio (tanda 3). Solo `opacity` y `transform`, con la curva `entrada`; nada se mueve con
+   "reducir movimiento": ahí el contenido aparece tal cual y las tarjetas no suben. */
+
+/* Aparición al llegar a la vista (`components/Reveal.tsx`, `viewmodels/useReveal.ts`). El estado oculto solo existe sin
+   "reducir movimiento"; la transición se declara solo en `visible`, así ocultar es inmediato y aparecer dura 250 ms.
+   Con `data-escalonada` (cuadrículas de tarjetas) aparecen los hijos, 40 ms entre cada uno y como máximo 240 ms. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-aparicion='oculta']:not([data-escalonada]),
+  [data-aparicion='oculta'][data-escalonada] > * {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  [data-aparicion='visible']:not([data-escalonada]),
+  [data-aparicion='visible'][data-escalonada] > * {
+    transition:
+      opacity 250ms theme('transitionTimingFunction.entrada'),
+      transform 250ms theme('transitionTimingFunction.entrada');
+  }
+  [data-aparicion='visible'][data-escalonada] > :nth-child(2) { transition-delay: 40ms; }
+  [data-aparicion='visible'][data-escalonada] > :nth-child(3) { transition-delay: 80ms; }
+  [data-aparicion='visible'][data-escalonada] > :nth-child(4) { transition-delay: 120ms; }
+  [data-aparicion='visible'][data-escalonada] > :nth-child(5) { transition-delay: 160ms; }
+  [data-aparicion='visible'][data-escalonada] > :nth-child(6) { transition-delay: 200ms; }
+  [data-aparicion='visible'][data-escalonada] > :nth-child(n + 7) { transition-delay: 240ms; }
+}
+
+/* Al imprimir, todo se ve aunque nunca haya llegado a la pantalla. */
+@media print {
+  [data-aparicion],
+  [data-aparicion] > * {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* Tarjeta de producto que sube 2 px con el mouse encima. Solo en equipos con mouse (en táctil, tocar dejaría la tarjeta
+   arriba) y sin "reducir movimiento". Sin sombra: el libro de marca la reserva para lo que flota sobre la página. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .tarjeta-elevable {
+    transition: transform 200ms theme('transitionTimingFunction.entrada');
+  }
+  .tarjeta-elevable:hover {
+    transform: translateY(-2px);
+  }
+}

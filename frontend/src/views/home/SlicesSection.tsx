@@ -6,6 +6,7 @@ import ButtonLink from '../../components/ButtonLink.tsx'
 import Card from '../../components/Card.tsx'
 import { focusRing } from '../../components/focus.ts'
 import ProductPhoto from '../../components/ProductPhoto.tsx'
+import Reveal from '../../components/Reveal.tsx'
 import Skeleton, { LoadingRegion } from '../../components/Skeleton.tsx'
 import TextLink from '../../components/TextLink.tsx'
 import type { SliceItemView } from '../../viewmodels/todayItems.ts'
@@ -20,7 +21,7 @@ const scrollerClass = `rounded-md max-[960px]:overflow-x-auto max-[960px]:pb-2 $
 function SliceCard({ item, onAdd }: { item: SliceItemView; onAdd: SlicesState['add'] }) {
   return (
     <li>
-      <Card as="article" className="flex h-full flex-col gap-2.5">
+      <Card as="article" className="tarjeta-elevable flex h-full flex-col gap-2.5">
         <ProductPhoto photo={item.photo} shape="slice" />
         <h3 className="font-display text-titulo-3">{item.name}</h3>
         <p className="text-etiqueta tabular-nums">{item.price}</p>
@@ -56,7 +57,7 @@ function SliceCard({ item, onAdd }: { item: SliceItemView; onAdd: SlicesState['a
  */
 function SingleSlice({ item, onAdd }: { item: SliceItemView; onAdd: SlicesState['add'] }) {
   return (
-    <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-start gap-6 max-[960px]:grid-cols-1">
+    <Reveal stagger className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-start gap-6 max-[960px]:grid-cols-1">
       <Card as="article" className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-6 max-[600px]:grid-cols-1 max-[600px]:gap-3">
         <ProductPhoto photo={item.photo} shape="slice" />
         <div className="flex flex-col gap-2.5">
@@ -89,7 +90,7 @@ function SingleSlice({ item, onAdd }: { item: SliceItemView; onAdd: SlicesState[
           Encargarlo completo
         </ButtonLink>
       </aside>
-    </div>
+    </Reveal>
   )
 }
 
@@ -129,7 +130,7 @@ export default function SlicesSection({ section }: { section: SlicesState }) {
   return (
     <Field field="nata" labelledBy="rebanadas-titulo" className="bg-nata">
       <div className={`${sectionColumn} py-20 max-[600px]:py-14`}>
-        <div className="mb-8 flex items-center gap-5">
+        <Reveal className="mb-8 flex items-center gap-5">
           <img src={symbol} alt="" width={88} height={88} className="h-[88px] w-[88px] shrink-0 -rotate-[8deg]" />
           <div className="flex flex-col gap-1.5">
             <h2 id="rebanadas-titulo" ref={heading} tabIndex={-1} className={sectionHeading}>
@@ -139,7 +140,7 @@ export default function SlicesSection({ section }: { section: SlicesState }) {
               <DateLine section={section} />
             </p>
           </div>
-        </div>
+        </Reveal>
         <AddToCartNotice feedback={section.feedback} className={addNoticeSpacing} />
         <LoadingRegion loading={section.status === 'loading'} label="Cargando las rebanadas de hoy…" skeleton={<SlicesSkeleton />}>
           {section.status === 'error' ? (
@@ -150,11 +151,11 @@ export default function SlicesSection({ section }: { section: SlicesState }) {
             <SingleSlice item={section.items[0]} onAdd={section.add} />
           ) : (
             <div role="region" aria-label="Tarjetas de las rebanadas de hoy" tabIndex={0} className={scrollerClass}>
-              <ul className={rowClass}>
+              <Reveal as="ul" stagger className={rowClass}>
                 {section.items.map((item) => (
                   <SliceCard key={item.key} item={item} onAdd={section.add} />
                 ))}
-              </ul>
+              </Reveal>
             </div>
           )}
         </LoadingRegion>

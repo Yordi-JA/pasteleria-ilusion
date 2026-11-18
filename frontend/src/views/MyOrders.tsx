@@ -3,6 +3,7 @@ import ButtonLink from '../components/ButtonLink.tsx'
 import Card from '../components/Card.tsx'
 import LineDrawing from '../components/LineDrawing.tsx'
 import LoadErrorNotice from '../components/LoadErrorNotice.tsx'
+import Reveal from '../components/Reveal.tsx'
 import Skeleton, { LoadingRegion } from '../components/Skeleton.tsx'
 import { useMyOrders } from '../viewmodels/useMyOrders.ts'
 import { useMyQuoteRequests } from '../viewmodels/useMyQuoteRequests.ts'
@@ -179,11 +180,11 @@ export default function MyOrders() {
                 <h2 id="pedidos-en-curso" className="font-display text-titulo-2">
                   {list.current.length === 1 ? 'Pedido en curso' : 'Pedidos en curso'}
                 </h2>
-                <div className="flex flex-col gap-4">
+                <Reveal stagger className="flex flex-col gap-4">
                   {list.current.map((order) => (
                     <CurrentOrderCard key={order.id} order={order} />
                   ))}
-                </div>
+                </Reveal>
               </section>
             )}
             {quoteSection}
@@ -195,13 +196,13 @@ export default function MyOrders() {
               Pedidos anteriores
             </h2>
             {list.previous.length > 0 ? (
-              <ul className="flex flex-col border-t border-relieve">
+              <Reveal as="ul" stagger className="flex flex-col border-t border-relieve">
                 {list.previous.map((order) => (
                   <li key={order.id}>
                     <PreviousOrderRow order={order} />
                   </li>
                 ))}
-              </ul>
+              </Reveal>
             ) : (
               <p className="text-cuerpo text-mermelada-suave">Tus pedidos entregados aparecerán aquí.</p>
             )}

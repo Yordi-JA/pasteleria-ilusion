@@ -87,6 +87,27 @@ export function earliestSentence(calendar: DeliveryCalendar | null): string | nu
   return text ? `La fecha más cercana para tu pedido es el ${text}.` : null
 }
 
+const SHORT_MONTHS = ['ene.', 'feb.', 'mar.', 'abr.', 'may.', 'jun.', 'jul.', 'ago.', 'sep.', 'oct.', 'nov.', 'dic.']
+
+/** "lunes 16 nov.": la fecha corta de la barra de móvil de la entrega (tanda 3). */
+export function shortDate(isoDate: string): string | null {
+  const parsed = parseIsoDate(isoDate)
+  const sentence = formatDateInSentence(isoDate)
+  if (!parsed || !sentence) return null
+  return `${sentence.split(' ')[0]} ${parsed.day} ${SHORT_MONTHS[parsed.month - 1]}`
+}
+
+/** "lunes 16": el día de "Horario del lunes 16". */
+export function dayName(isoDate: string): string | null {
+  const sentence = formatDateInSentence(isoDate)
+  return sentence ? sentence.split(' ').slice(0, 2).join(' ') : null
+}
+
+/** "Lunes 16 de noviembre, 3:30 pm": la fecha y la hora elegidas, en el resumen y al volver a "Fecha y hora". */
+export function scheduleText(isoDate: string, startsAt: string): string {
+  return `${formatTodayDate(isoDate) ?? isoDate}, ${formatTime(startsAt)}`
+}
+
 /** "15:00" en la forma del mockup: "3:00 pm", "10:30 am", "12:00 pm". */
 export function formatTime(hhmm: string): string {
   const [hours, minutes] = hhmm.split(':').map(Number)

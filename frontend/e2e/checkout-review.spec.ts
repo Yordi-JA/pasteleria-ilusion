@@ -22,11 +22,21 @@ test.beforeEach(async ({ page }) => {
 const day = (page: Page, label: string) => page.getByRole('button', { name: label })
 const continueButton = (page: Page) => page.getByRole('button', { name: 'Continuar al pago' })
 const slot = (page: Page, time: string) => page.locator('label').filter({ hasText: new RegExp(`^${time}$`) })
+const period = (page: Page, name: string) => page.locator('label').filter({ hasText: new RegExp(`^${name}`) })
+const changeSchedule = (page: Page) => page.getByTestId('entrega-elegida').getByRole('button', { name: 'Cambiar fecha y hora' })
+const PART_TWO = /\/pedido\/entrega\?paso=2$/
 
+async function toPickup(page: Page) {
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click()
+  await expect(page).toHaveURL(PART_TWO)
+}
+
+/** Elige el lunes 16 a esa hora y pasa a "¿Quién recoge?", la segunda parte de la entrega. */
 async function chooseMonday(page: Page, time = '3:30 pm') {
   await day(page, 'Lunes 16 de noviembre').click()
-  await page.getByRole('radio', { name: /^Tarde/ }).check()
+  await period(page, 'Tarde').click()
   await slot(page, time).click()
+  await toPickup(page)
 }
 
 test('changing the time after a lost answer asks for a new order with another key', async ({ page }) => {
@@ -38,7 +48,10 @@ test('changing the time after a lost answer asks for a new order with another ke
   await chooseMonday(page)
   await continueButton(page).click()
   await expect(page.getByRole('alert')).toContainText('No pudimos conectar con la pastelería')
+  // Cambiar la hora es volver a "Fecha y hora".
+  await changeSchedule(page).click()
   await slot(page, '4:00 pm').click()
+  await toPickup(page)
   await continueButton(page).click()
   await expect(page).toHaveURL(/\/pedido\/pago\?pedido=57$/)
   expect(orders).toHaveLength(2)
@@ -75,7 +88,7 @@ test('an answer with an expired order is not a new order: the cart stays and the
   await chooseMonday(page)
   await continueButton(page).click()
   await expect(page.getByRole('alert')).toContainText('Ese pedido ya venció. Vuelve a intentarlo para hacer uno nuevo.')
-  await expect(page).toHaveURL(/\/pedido\/entrega$/)
+  await expect(page).toHaveURL(PART_TWO)
   expect((await storedCart(page)).items).toHaveLength(1)
   await continueButton(page).click()
   await expect(page).toHaveURL(/\/pedido\/pago\?pedido=57$/)

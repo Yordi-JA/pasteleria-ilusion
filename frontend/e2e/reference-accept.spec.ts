@@ -21,8 +21,11 @@ test.beforeEach(async ({ page }) => {
 const slot = (page: Page, time: string) => page.locator('label').filter({ hasText: new RegExp(`^${time}$`) })
 const continueButton = (page: Page) => page.getByRole('button', { name: 'Continuar al pago' })
 
+/** El chip de un periodo (mañana, tarde o noche): el radio va oculto, como en los horarios. */
+const period = (page: Page, name: string) => page.locator('label').filter({ hasText: new RegExp(`^${name}`) })
+
 async function chooseFour(page: Page) {
-  await page.getByRole('radio', { name: /^Tarde/ }).check()
+  await period(page, 'Tarde').click()
   await slot(page, '4:00 pm').click()
 }
 
@@ -206,6 +209,37 @@ test('mobile at 390 px and keyboard: no horizontal scroll and the slot is chosen
   await page.keyboard.press('Space')
   await continueButton(page).focus()
   await page.keyboard.press('Enter')
+  await expect(page).toHaveURL('/pedido/pago?pedido=57')
+  expect(references.accepts).toHaveLength(1)
+})
+
+test('the quote stays on one page: no parts, the time and who picks up together, with the sticky bar at 390 px', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await signedIn(page)
+  await mockCalendar(page)
+  const references = await mockReferences(page, { detail: { status: 200, body: quoteReadyRequest() } })
+  await mockPayment(page, { states: [{ status: 200, body: paymentState({ order: acceptedOrder() }) }] })
+  await page.goto(ACCEPT)
+  await expect(page.getByTestId('dia-del-evento')).toBeVisible()
+  // Una sola página: sin partes ni "Continuar", con la hora y quién recoge juntos.
+  await expect(page.getByRole('list', { name: 'Partes de la entrega' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Continuar', exact: true })).toHaveCount(0)
+  await expect(page.getByLabel('Nombre')).toHaveValue('Ana López García')
+  // Los periodos en un control de tres y los horarios en tres columnas.
+  const periods = await Promise.all(['Mañana', 'Tarde', 'Noche'].map(async (name) => (await period(page, name).boundingBox())!))
+  expect(new Set(periods.map((box) => Math.round(box.y))).size).toBe(1)
+  const slots = await Promise.all(['10:30 am', '11:00 am', '11:30 am', '12:00 pm'].map(async (time) => (await slot(page, time).boundingBox())!))
+  expect(Math.round(slots[0].y)).toBe(Math.round(slots[2].y))
+  expect(slots[3].y).toBeGreaterThan(slots[0].y)
+  // La barra fija con el total y el único "Continuar al pago".
+  const bar = page.getByTestId('barra-entrega')
+  await expect(bar).toBeVisible()
+  await expect(bar).toContainText('Total del pedido')
+  await expect(bar).toContainText('$1,800 MXN')
+  await expect(continueButton(page)).toHaveCount(1)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  await chooseFour(page)
+  await bar.getByRole('button', { name: 'Continuar al pago' }).click()
   await expect(page).toHaveURL('/pedido/pago?pedido=57')
   expect(references.accepts).toHaveLength(1)
 })

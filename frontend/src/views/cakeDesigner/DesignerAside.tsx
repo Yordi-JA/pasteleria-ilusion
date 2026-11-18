@@ -1,11 +1,11 @@
 import { CaretDown } from '@phosphor-icons/react'
-import { useEffect, useRef } from 'react'
-import type { RefObject } from 'react'
+import { useRef } from 'react'
 import { Link } from 'react-router'
 import Button from '../../components/Button.tsx'
 import ColorSwatches from '../../components/ColorSwatches.tsx'
 import { focusRing } from '../../components/focus.ts'
 import type { PriceView, SummaryRow } from '../../viewmodels/cakeDesignSummary.ts'
+import { useBarClearance } from '../../viewmodels/useBarClearance.ts'
 import { useScrollOverflow } from '../../viewmodels/useScrollOverflow.ts'
 import { INNER_FOCUS, SCROLLBAR, SUMMARY_LIST, SUMMARY_SECTION } from './scrollStyles.ts'
 
@@ -128,33 +128,6 @@ type MobileBarProps = {
   disabled: boolean
   busy: boolean
   onRetry: () => void
-}
-
-/** Aire entre lo enfocado y la barra, como el del aviso fijo del carrito. */
-const BAR_GAP_PX = 12
-
-/**
- * Mientras la barra se ve (hasta 900 px), el documento reserva abajo su alto (`scroll-padding-bottom`): lo que el teclado
- * enfoca, y el título del paso nuevo, que recibe el foco al cambiar de paso, no quedan debajo de ella (tanda 3). Se mide
- * con cada cambio de tamaño, porque en escritorio la barra no se muestra y mide 0. Al irse, vuelve el valor de antes.
- */
-function useBarClearance(bar: RefObject<HTMLDivElement | null>) {
-  useEffect(() => {
-    const element = bar.current
-    if (!element) return
-    const root = document.documentElement
-    const previous = root.style.scrollPaddingBottom
-    const measure = () => {
-      root.style.scrollPaddingBottom = element.offsetHeight > 0 ? `${element.offsetHeight + BAR_GAP_PX}px` : previous
-    }
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(element)
-    return () => {
-      observer.disconnect()
-      root.style.scrollPaddingBottom = previous
-    }
-  }, [bar])
 }
 
 /** Barra inferior fija en móvil: el total y el botón para continuar (libro de marca, "Cotizador 3D"). */

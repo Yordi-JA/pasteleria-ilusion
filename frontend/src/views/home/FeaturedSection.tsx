@@ -3,6 +3,7 @@ import AddToCartNotice from '../../components/AddToCartNotice.tsx'
 import Button from '../../components/Button.tsx'
 import Card from '../../components/Card.tsx'
 import ProductPhoto from '../../components/ProductPhoto.tsx'
+import Reveal from '../../components/Reveal.tsx'
 import Skeleton, { LoadingRegion } from '../../components/Skeleton.tsx'
 import TextLink from '../../components/TextLink.tsx'
 import type { FeaturedItemView, FeaturedSection as FeaturedState } from '../../viewmodels/useHome.ts'
@@ -95,12 +96,12 @@ export default function FeaturedSection({ section }: { section: FeaturedState })
   return (
     <Field field="nata" labelledBy="casa-titulo" className="bg-nata">
       <div className={`${sectionColumn} py-20 max-[600px]:py-14`}>
-        <div className="mb-10 flex flex-col gap-2 max-[600px]:mb-8">
+        <Reveal className="mb-10 flex flex-col gap-2 max-[600px]:mb-8">
           <h2 id="casa-titulo" ref={heading} tabIndex={-1} className={sectionHeading}>
             Pasteles de la casa
           </h2>
           <p className="text-cuerpo text-mermelada-suave">Combinaciones de la casa. Pídelas así o cambia lo que quieras al realizar tu pedido.</p>
-        </div>
+        </Reveal>
         <AddToCartNotice feedback={section.feedback} className={addNoticeSpacing} />
         <LoadingRegion loading={section.status === 'loading'} label="Cargando los pasteles de la casa…" skeleton={<FeaturedSkeleton />}>
           {section.status === 'error' ? (
@@ -114,7 +115,7 @@ export default function FeaturedSection({ section }: { section: FeaturedState })
               <TextLink to="/catalogo">Ver el catálogo completo</TextLink>
             </div>
           ) : (
-            <div className={grid}>
+            <Reveal stagger className={grid}>
               {first && <LargeCard item={first} onAdd={section.add} />}
               <div className="flex flex-col">
                 {rest.length > 0 && (
@@ -128,7 +129,7 @@ export default function FeaturedSection({ section }: { section: FeaturedState })
                   Ver el catálogo completo
                 </TextLink>
               </div>
-            </div>
+            </Reveal>
           )}
         </LoadingRegion>
       </div>

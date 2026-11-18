@@ -9,7 +9,7 @@ import Notice from '../../components/Notice.tsx'
 import Skeleton, { LoadingRegion } from '../../components/Skeleton.tsx'
 import { formatMonth } from '../../models/dates.ts'
 import type { DayCell } from '../../viewmodels/deliverySchedule.ts'
-import { earliestSentence, formatTime, nextFocus } from '../../viewmodels/deliverySchedule.ts'
+import { dayName, earliestSentence, formatTime, nextFocus } from '../../viewmodels/deliverySchedule.ts'
 import type { useDeliveryCalendar } from '../../viewmodels/useDeliveryCalendar.ts'
 
 type Calendar = ReturnType<typeof useDeliveryCalendar>
@@ -157,13 +157,14 @@ type DateAndTimeProps = {
 
 /**
  * "Fecha y hora" (mockup de Entrega): el calendario del mes con "Lleno" y "No disponible", la fecha más cercana y los
- * horarios por mañana, tarde y noche, como chips; un horario lleno se ve y no se elige.
+ * horarios por mañana, tarde y noche, como chips; un horario lleno se ve y no se elige. Desde la tanda 3 el calendario y los
+ * horarios van lado a lado (en una sola columna hasta 600 px), y el título deja aire para la barra fija de arriba.
  */
 export default function DateAndTime({ calendar, onChooseDay, onChooseSlot, error, headingRef }: DateAndTimeProps) {
   const loading = calendar.status === 'loading'
   return (
     <section aria-labelledby="fecha-hora" className="flex flex-col gap-4">
-      <h2 id="fecha-hora" ref={headingRef} tabIndex={-1} className={`self-start rounded-sm font-display text-titulo-2 ${focusRing}`}>
+      <h2 id="fecha-hora" ref={headingRef} tabIndex={-1} className={`scroll-mt-28 self-start rounded-sm font-display text-titulo-2 ${focusRing}`}>
         Fecha y hora
       </h2>
       <Card large className="flex flex-col gap-5">
@@ -178,8 +179,8 @@ export default function DateAndTime({ calendar, onChooseDay, onChooseSlot, error
             {calendar.errorMessage}
           </Notice>
         ) : (
-          <>
-            <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-[minmax(0,330px)_minmax(0,1fr)] gap-8 max-[600px]:grid-cols-1 max-[600px]:gap-6">
+            <div className="flex min-w-0 flex-col gap-3">
               <h3 className="text-etiqueta">Fecha</h3>
               {/* Los controles del mes quedan aunque ese mes no cargue: se puede volver al anterior. */}
               <div className="flex max-w-[350px] items-center justify-between gap-3">
@@ -211,16 +212,48 @@ export default function DateAndTime({ calendar, onChooseDay, onChooseSlot, error
                 </>
               )}
             </div>
-            {calendar.status !== 'error' && <SlotPicker calendar={calendar} onChooseSlot={onChooseSlot} />}
-          </>
+            {calendar.status !== 'error' && <SlotPicker calendar={calendar} onChooseSlot={onChooseSlot} layout="beside" />}
+          </div>
         )}
       </Card>
     </section>
   )
 }
 
-/** "Horario": mañana, tarde y noche como tarjetas con radio, y las horas del periodo elegido como chips. */
-export function SlotPicker({ calendar, onChooseSlot }: { calendar: SlotChoices; onChooseSlot: (startsAt: string) => void }) {
+/**
+ * Cómo se acomodan los horarios: `beside`, junto al calendario (una columna angosta en escritorio); `full`, a todo lo ancho
+ * de la tarjeta (el día fijo de una cotización). En los dos, hasta 900 px los periodos son un control de tres y los horarios
+ * van en tres columnas (tanda 3).
+ */
+type SlotLayout = 'beside' | 'full'
+
+const PERIOD_GRID: Record<SlotLayout, string> = {
+  beside: 'grid-cols-1 max-[900px]:grid-cols-3',
+  full: 'grid-cols-3',
+}
+const SLOT_GRID: Record<SlotLayout, string> = {
+  beside: 'grid-cols-2 max-[900px]:grid-cols-3',
+  full: 'grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] max-[600px]:grid-cols-3',
+}
+/**
+ * Los chips llenan su celda, centrados y del mismo alto: `ChoiceOption` deja el chip de una línea a su ancho (`items-start`),
+ * así que la cuadrícula estira su contenedor y su etiqueta.
+ */
+const CELLS = '[&>div>label]:flex-1 [&>div>label]:justify-center [&>div]:items-stretch'
+
+/**
+ * "Horario": mañana, tarde y noche como un control de chips de dos líneas (el periodo y su rango), y las horas del periodo
+ * elegido como chips en cuadrícula. El título dice de qué día: "Horario del lunes 16".
+ */
+export function SlotPicker({
+  calendar,
+  onChooseSlot,
+  layout = 'full',
+}: {
+  calendar: SlotChoices
+  onChooseSlot: (startsAt: string) => void
+  layout?: SlotLayout
+}) {
   if (!calendar.selectedDate) {
     return (
       <div className="flex flex-col gap-2">
@@ -230,14 +263,16 @@ export function SlotPicker({ calendar, onChooseSlot }: { calendar: SlotChoices; 
     )
   }
   const period = calendar.period
+  const day = layout === 'beside' ? dayName(calendar.selectedDate) : null
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       <fieldset className="flex flex-col gap-3">
-        <legend className="mb-3 text-etiqueta">Horario</legend>
-        <div className="grid grid-cols-3 gap-3 max-[600px]:grid-cols-1">
+        <legend className="mb-3 text-etiqueta">{day ? `Horario del ${day}` : 'Horario'}</legend>
+        <div className={`grid gap-2 ${PERIOD_GRID[layout]} ${CELLS}`}>
           {calendar.periods.map((option) => (
             <ChoiceOption
               key={option.id}
+              variant="chip"
               name="periodo"
               label={option.label}
               description={option.range}
@@ -252,7 +287,7 @@ export function SlotPicker({ calendar, onChooseSlot }: { calendar: SlotChoices; 
       {period && (
         <fieldset>
           <legend className="sr-only">Hora en la {period.label.toLocaleLowerCase('es-MX')}</legend>
-          <div className="flex flex-wrap gap-3 max-[600px]:grid max-[600px]:w-1/2 max-[600px]:grid-cols-1">
+          <div className={`grid gap-2 ${SLOT_GRID[layout]} ${CELLS}`}>
             {period.slots.map((slot) => (
               <ChoiceOption
                 key={slot.startsAt}

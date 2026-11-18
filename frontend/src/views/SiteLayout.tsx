@@ -10,7 +10,9 @@ import { CartContext, useCartState } from '../viewmodels/useCart.ts'
 import { CartFlightContext, useCartFlightState } from '../viewmodels/useCartFlight.ts'
 import { ClosingFieldContext, useClosingFieldState } from '../viewmodels/useClosingField.ts'
 import { checkoutBack } from '../viewmodels/referenceView.ts'
+import { useRouteFade } from '../viewmodels/useRouteFade.ts'
 import { useRouteFocus } from '../viewmodels/useRouteFocus.ts'
+import { forgetDeliveryChoice } from '../viewmodels/useDelivery.ts'
 import { useRestoreSession, useSession, useSignOut, useSignOutAcknowledgement, useSignOutEffect } from '../viewmodels/useSession.ts'
 import { useSiteMenu } from '../viewmodels/useSiteMenu.ts'
 import { useStoreInfo } from '../viewmodels/useStoreInfo.ts'
@@ -35,10 +37,13 @@ export default function SiteLayout() {
   const { flight, pearls, arrive, iconRef, shownCount } = useCartFlightState(cart.count)
   const main = useRef<HTMLElement>(null)
   useRouteFocus(main)
+  useRouteFade(main)
   useRestoreSession()
   useSignOutAcknowledgement()
   // Cerrar sesión vacía el carrito (D77): lo que se eligió con la cuenta no queda para quien use el navegador después.
   useSignOutEffect(cart.clear)
+  // Con el carrito se olvidan la fecha y la hora elegidas en la entrega de esta pestaña (D77, D80).
+  useSignOutEffect(forgetDeliveryChoice)
   const session = useSession()
   const signOut = useSignOut()
   const [closingField, setClosingField] = useClosingFieldState()
