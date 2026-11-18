@@ -77,9 +77,10 @@ class BreadRecord:
     preview_color: str
     # Solo en un pan de dos colores: la mitad de abajo de cada capa.
     preview_color_bottom: str = ""
-    # Solo en un pan con relleno incluido: cómo se ve (siempre sobre crema pastelera blanca) y el color de sus trozos.
+    # Solo en un pan con relleno incluido: cómo se ve, el color de sus trozos y el de su crema (vacío: blanca).
     included_filling_preview_style: str = "smooth"
     included_filling_preview_color_secondary: str = ""
+    included_filling_preview_color: str = ""
     # Pastel de vitrina (tanda 2): un pan con relleno incluido se cobra con el precio de catálogo de su pastel.
     showcase_price: "GroupPrice | None" = None
 
@@ -374,6 +375,8 @@ class NewCakeDesign:
     # Tanda 2: por kilos, de vitrina o mini; el pastel de vitrina de origen por su `slug`.
     cake_size: str = "by_weight"
     source_product: str | None = None
+    # Tanda 4: el peinado lateral de la cobertura.
+    side_comb: bool = True
 
 
 @dataclass(frozen=True)

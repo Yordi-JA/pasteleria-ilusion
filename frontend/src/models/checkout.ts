@@ -5,10 +5,13 @@
  *   mandan la misma llave y el servidor devuelve el mismo pedido. Con otra huella (cambió el carrito, la fecha, el lapso
  *   o quién recoge) es otro intento y lleva otra llave: si no, el servidor devolvería el pedido viejo;
  * - los ids de las imágenes ya subidas en este intento, en memoria, para no volver a subirlas en un reintento;
- * - el pedido creado, solo en memoria: es un dato de la cuenta y no va a ningún almacenamiento del navegador.
- * Al crear el pedido o al cerrar la sesión (`resetPurchase`), la llave, la huella y las imágenes se olvidan.
+ * - el pedido creado, solo en memoria: es un dato de la cuenta y no va a ningún almacenamiento del navegador;
+ * - las miniaturas de los pasteles del pedido creado, por línea y con su id, en `sessionStorage` (tanda 4).
+ * Al crear el pedido o al cerrar la sesión (`resetPurchase`), la llave, la huella y las imágenes se olvidan; al cerrar la
+ * sesión, también las miniaturas.
  */
 import { fingerprintOf } from './attempts.ts'
+import { isThumbnail, MAX_LINES } from './cart.ts'
 import type { CartItem } from './cart.ts'
 import type { PlacedOrder } from './orders.ts'
 
@@ -97,6 +100,7 @@ export function resetPurchase() {
   uploads.clear()
   placed = null
   forgetPaymentKeys()
+  forgetOrderThumbnails()
 }
 
 /** El pedido ya existe: el intento se olvida y el pedido se guarda en memoria para el pago. */
@@ -173,4 +177,57 @@ export function forgetPaymentKey(orderId: number, method: PaymentMethod) {
 function forgetPaymentKeys() {
   paymentKeys = null
   storePaymentKeys(null)
+}
+
+// --- Miniaturas del pedido creado (tanda 4) ---
+
+const THUMBNAILS_STORAGE_KEY = 'ilusion.orderThumbnails.v1'
+
+/** La miniatura de cada línea del pedido, en el orden de sus líneas (`null` en las que no la llevan). */
+type OrderThumbnails = { orderId: number; thumbnails: (string | null)[] }
+
+let orderThumbnailsMemory: OrderThumbnails | null = null
+
+function readOrderThumbnails(): OrderThumbnails | null {
+  try {
+    const raw: unknown = JSON.parse(window.sessionStorage.getItem(THUMBNAILS_STORAGE_KEY) ?? 'null')
+    if (typeof raw !== 'object' || raw === null) return null
+    const { orderId, thumbnails } = raw as Record<string, unknown>
+    if (typeof orderId !== 'number' || !Number.isSafeInteger(orderId) || !Array.isArray(thumbnails) || thumbnails.length > MAX_LINES) return null
+    return { orderId, thumbnails: thumbnails.map((value) => (isThumbnail(value) ? value : null)) }
+  } catch {
+    return null
+  }
+}
+
+function storeOrderThumbnails(value: OrderThumbnails | null) {
+  try {
+    if (value) window.sessionStorage.setItem(THUMBNAILS_STORAGE_KEY, JSON.stringify(value))
+    else window.sessionStorage.removeItem(THUMBNAILS_STORAGE_KEY)
+  } catch {
+    // Sin almacenamiento (o sin espacio), las miniaturas viven en memoria durante la visita.
+  }
+}
+
+/**
+ * Guarda las miniaturas de los pasteles del pedido recién creado, una por línea en el orden del carrito, que es el orden de
+ * las líneas del pedido en el servidor (`OrderItem.position`). El carrito se vacía al crear el pedido, y así el pago, el
+ * apartado y la confirmación siguen mostrando el pastel, también al volver de Mercado Pago en la misma pestaña. Va en
+ * `sessionStorage` con el id del pedido y las imágenes, nada de la cuenta, y solo el pedido de ahora.
+ */
+export function rememberOrderThumbnails(orderId: number, items: CartItem[]) {
+  const thumbnails = items.map((item) => (item.kind === 'design' ? (item.thumbnail ?? null) : null))
+  orderThumbnailsMemory = thumbnails.some(Boolean) ? { orderId, thumbnails } : null
+  storeOrderThumbnails(orderThumbnailsMemory)
+}
+
+/** Las miniaturas por línea del pedido, si es el que se creó en esta pestaña; si no, ninguna. */
+export function orderThumbnails(orderId: number): (string | null)[] {
+  orderThumbnailsMemory ??= readOrderThumbnails()
+  return orderThumbnailsMemory?.orderId === orderId ? orderThumbnailsMemory.thumbnails : []
+}
+
+function forgetOrderThumbnails() {
+  orderThumbnailsMemory = null
+  storeOrderThumbnails(null)
 }

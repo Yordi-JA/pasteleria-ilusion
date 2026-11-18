@@ -171,3 +171,15 @@ def wafer_fits(layout: WaferLayout, lid: Lid) -> bool:
         return abs(cx) + r <= lid.half_x + TOLERANCE_CM and abs(cy) + r <= lid.half_y + TOLERANCE_CM
     corners = _sheet_corners(layout.width_cm, layout.height_cm, layout.rotation_deg)
     return all(_inside(lid, cx + px, cy + py) for px, py in corners)
+
+
+def message_room_cm(lid: Lid, rotation_deg: float) -> float:
+    """Lo más largo que cabe en la tapa en la dirección que apilan los renglones del mensaje (de arriba abajo del texto,
+    con su giro hacia la derecha): en redondo, el diámetro; en rectangular, la cuerda más corta entre las dos paredes que
+    cruza esa dirección. El bloque de renglones no puede medir más que esto (`design_layout.check_message_block`)."""
+    if lid.form == CakeShape.ROUND:
+        return 2 * lid.radius
+    angle = math.radians(rotation_deg)
+    across, along = abs(math.sin(angle)), abs(math.cos(angle))
+    chords = [2 * half / part for half, part in ((lid.half_x, across), (lid.half_y, along)) if part > 1e-9]
+    return min(chords)

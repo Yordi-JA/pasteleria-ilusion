@@ -58,6 +58,7 @@ export function designSnapshot({ draft, design, options, metrics }: Omit<OrderIn
     fillingBase: design.fillingIncluded ? null : draft.fillingBase,
     flavors: design.fillingIncluded ? [] : draft.flavors,
     coverageColor: design.coverage,
+    sideComb: draft.sideComb,
     decoration: draft.decoration,
     decorationColor: pickedColor(draft),
     decorationImageName: design.decoration?.requiresQuote ? draft.decorationImageName : null,

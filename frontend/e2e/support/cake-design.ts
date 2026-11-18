@@ -102,6 +102,7 @@ export const cakeDesignOptions = {
       "preview_color_bottom": "",
       "included_filling_preview_style": "smooth",
       "included_filling_preview_color_secondary": "",
+      "included_filling_preview_color": "",
       "allowed_cake_types": [
         "tres_leches",
         "seco",
@@ -126,6 +127,7 @@ export const cakeDesignOptions = {
       "preview_color_bottom": "",
       "included_filling_preview_style": "smooth",
       "included_filling_preview_color_secondary": "",
+      "included_filling_preview_color": "",
       "allowed_cake_types": [
         "tres_leches",
         "seco",
@@ -150,6 +152,7 @@ export const cakeDesignOptions = {
       "preview_color_bottom": "#F0CE8A",
       "included_filling_preview_style": "smooth",
       "included_filling_preview_color_secondary": "",
+      "included_filling_preview_color": "",
       "allowed_cake_types": [
         "tres_leches",
         "seco",
@@ -174,6 +177,7 @@ export const cakeDesignOptions = {
       "preview_color_bottom": "",
       "included_filling_preview_style": "round_chips",
       "included_filling_preview_color_secondary": "#3A2218",
+      "included_filling_preview_color": "#B5876B",
       "allowed_cake_types": [
         "tres_leches",
         "seco"
@@ -200,6 +204,7 @@ export const cakeDesignOptions = {
       "preview_color_bottom": "",
       "included_filling_preview_style": "sprinkles",
       "included_filling_preview_color_secondary": "#C8283A",
+      "included_filling_preview_color": "",
       "allowed_cake_types": [
         "seco"
       ],
@@ -273,7 +278,7 @@ export const cakeDesignOptions = {
           "slug": "zarzamora",
           "name": "Zarzamora",
           "preview_color": "#702C5A",
-          "preview_style": "smooth",
+          "preview_style": "jam",
           "preview_color_secondary": "",
           "is_combinable": true,
           "allowed_cake_types": [
@@ -289,7 +294,7 @@ export const cakeDesignOptions = {
           "slug": "cajeta",
           "name": "Cajeta",
           "preview_color": "#BC7630",
-          "preview_style": "smooth",
+          "preview_style": "caramel",
           "preview_color_secondary": "",
           "is_combinable": true,
           "allowed_cake_types": [
@@ -433,7 +438,7 @@ export const cakeDesignOptions = {
           "slug": "zarzamora",
           "name": "Zarzamora",
           "preview_color": "#702C5A",
-          "preview_style": "smooth",
+          "preview_style": "jam",
           "preview_color_secondary": "",
           "is_combinable": true,
           "allowed_cake_types": [
@@ -487,7 +492,7 @@ export const cakeDesignOptions = {
           "slug": "zarzamora",
           "name": "Zarzamora",
           "preview_color": "#702C5A",
-          "preview_style": "smooth",
+          "preview_style": "jam",
           "preview_color_secondary": "",
           "is_combinable": true,
           "allowed_cake_types": [
@@ -503,7 +508,7 @@ export const cakeDesignOptions = {
           "slug": "cajeta",
           "name": "Cajeta",
           "preview_color": "#BC7630",
-          "preview_style": "smooth",
+          "preview_style": "caramel",
           "preview_color_secondary": "",
           "is_combinable": true,
           "allowed_cake_types": [

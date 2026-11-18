@@ -44,6 +44,11 @@ export type CakeDesignDraft = {
    * código al cargar las opciones.
    */
   coverageColor: string | null
+  /**
+   * El peinado lateral de la cobertura (tanda 4): surcos horizontales en los costados. Va por omisión; un borrador de antes, sin
+   * este campo, lo lleva.
+   */
+  sideComb: boolean
   /** La decoración o el diseño elegido en el paso 6 (su identificador). */
   decoration: string | null
   /** Color de la decoración con duya o de rosas: `#rrggbb` en minúsculas, o `null` si es automático. */
@@ -101,6 +106,7 @@ export function emptyDraft(): CakeDesignDraft {
     flavorCount: 1,
     flavors: [],
     coverageColor: null,
+    sideComb: true,
     decoration: null,
     decorationColor: null,
     decorationImageName: null,
@@ -163,6 +169,7 @@ export function parseDraft(data: unknown): CakeDesignDraft {
     flavorCount: raw.flavorCount === 2 ? 2 : 1,
     flavors: [...new Set(flavors)].slice(0, MAX_FLAVORS),
     coverageColor: colorOrLegacy(raw.coverageColor),
+    sideComb: raw.sideComb !== false,
     decoration: slugOrNull(raw.decoration),
     decorationColor: colorOrLegacy(raw.decorationColor),
     decorationImageName: displayFileName(raw.decorationImageName),

@@ -1,7 +1,7 @@
 import type { CakeDesignOptions, CakeSizeCode, DesignSizeOption } from '../models/cakeDesign.ts'
 import type { CakeDesignDraft, CakeForm } from '../models/cakeDesignDraft.ts'
 import { formatPrice } from '../models/money.ts'
-import { reviewView } from './cakeDesignReview.ts'
+import { reviewView, sideCombPhrase } from './cakeDesignReview.ts'
 import { lidSummary } from './cakeLid.ts'
 import { decorationColorView, decorationGroups, decorationSummary, decorationSwatches } from './cakeDecorations.ts'
 import { colorPhrase } from './colors.ts'
@@ -109,7 +109,8 @@ export function summaryRows(draft: CakeDesignDraft, design: DesignDerived, curre
     })
   }
   if (shown(5) && design.coverage) {
-    rows.push({ step: 5, label: DESIGN_STEPS[4].title, value: ['Crema pastelera', colorPhrase(design.coverage, options.coverageColors)].filter(Boolean).join(', '), canChange: true, swatches: [design.coverage] })
+    const value = ['Crema pastelera', colorPhrase(design.coverage, options.coverageColors), sideCombPhrase(draft.sideComb)].filter(Boolean).join(', ')
+    rows.push({ step: 5, label: DESIGN_STEPS[4].title, value, canChange: true, swatches: [design.coverage] })
   }
   const decoration = shown(DECORATION_STEP) ? decorationSummary(draft, design, options) : null
   if (decoration) {
@@ -341,6 +342,7 @@ export function designerView({ draft, design, options, current, price, plan, tie
       breads: breadChoices(draft, design, options),
       filling: fillingChoices(draft, design, options),
       coverage: design.coverage,
+      sideComb: draft.sideComb,
       decorations: decorationGroups(
         draft,
         options,

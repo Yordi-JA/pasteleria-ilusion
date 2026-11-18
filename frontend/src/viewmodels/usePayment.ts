@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { ApiError } from '../models/apiClient.ts'
-import { forgetPaymentKey, paymentKey } from '../models/checkout.ts'
+import { forgetPaymentKey, orderThumbnails, paymentKey } from '../models/checkout.ts'
 import { getPaymentState, safeCheckoutUrl, startPayment, stripePublishableKey } from '../models/payments.ts'
 import type { PaymentAttempt, PaymentMethod, PaymentState } from '../models/payments.ts'
 import {
@@ -276,7 +276,7 @@ export function usePayment(focus: PaymentFocus) {
       data && payable
         ? {
             sentence: paymentSentence(payable),
-            summary: orderSummary(data.order, payable),
+            summary: orderSummary(data.order, payable, { thumbnails: orderThumbnails(data.order.id) }),
             available: { ...data.available, stripe: data.available.stripe && stripeKey !== '' },
             /** El último intento rechazado (por el webhook), si no hay un aviso más reciente. */
             rejected: data.latest?.status === 'failed' && data.latest.method !== 'cash' ? declinedAlert(data.latest.method) : null,

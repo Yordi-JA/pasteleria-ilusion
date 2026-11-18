@@ -61,9 +61,10 @@ class BreadInfo:
     preview_color: str
     # Solo en un pan de dos colores: la mitad de abajo de cada capa; vacío si es de un color.
     preview_color_bottom: str
-    # Solo en un pan con relleno incluido: cómo se ve (siempre sobre crema pastelera blanca) y el color de sus trozos.
+    # Solo en un pan con relleno incluido: cómo se ve, el color de sus trozos y el de su crema (vacío: blanca).
     included_filling_preview_style: str
     included_filling_preview_color_secondary: str
+    included_filling_preview_color: str
     # Tipos en que se puede elegir y, para los demás, el motivo.
     allowed_cake_types: tuple[str, ...]
     unavailable_reasons: Mapping[str, str]
@@ -205,6 +206,7 @@ def _bread_info(bread: BreadRecord, filling_by_type: dict[str, FillingPricing]) 
         preview_color_bottom=bread.preview_color_bottom,
         included_filling_preview_style=bread.included_filling_preview_style,
         included_filling_preview_color_secondary=bread.included_filling_preview_color_secondary,
+        included_filling_preview_color=bread.included_filling_preview_color,
         allowed_cake_types=allowed,
         unavailable_reasons=reasons,
         unavailable_codes=codes,

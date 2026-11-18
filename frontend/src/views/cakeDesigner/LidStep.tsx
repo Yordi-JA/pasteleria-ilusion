@@ -6,11 +6,11 @@ import ColorPicker from '../../components/ColorPicker.tsx'
 import { focusRing } from '../../components/focus.ts'
 import Notice from '../../components/Notice.tsx'
 import { LAYOUT_BOUNDS } from '../../models/cakeDesignLayout.ts'
-import TextField from '../../components/TextField.tsx'
 import type { LidStepActions, LidStepView } from '../../viewmodels/useLidStep.ts'
 import { ColorGrid, Group, OptionList } from './ChoiceSteps.tsx'
 import { ImagePicker } from './DecorationStep.tsx'
 import LidEditor from './LidEditor.tsx'
+import MessageField from './MessageField.tsx'
 import RangeField from './RangeField.tsx'
 
 /**
@@ -167,15 +167,17 @@ export default function LidStep({ view, actions }: LidStepProps) {
           onChange={actions.setMessageEnabled}
         >
           <div className="flex flex-col gap-1.5">
-            <TextField
+            <MessageField
               label="Tu mensaje"
               placeholder="Ej. Feliz cumpleaños Ana"
               value={message.text}
               maxLength={message.maxLength}
-              autoComplete="off"
+              rows={message.maxLines}
               help={message.hint}
-              aria-describedby={countId}
-              onChange={(event) => actions.setMessageText(event.target.value)}
+              describedBy={countId}
+              lineLimit={message.lineLimit}
+              onChange={actions.setMessageText}
+              onKeyDown={actions.messageKeyDown}
             />
             <p id={countId} className={`text-nota font-semibold tabular-nums ${message.overSuggestion ? '' : 'text-mermelada-suave'}`}>
               {message.wordsLine}

@@ -6,6 +6,7 @@ import Card from '../../components/Card.tsx'
 import ChoiceOption from '../../components/ChoiceOption.tsx'
 import { focusRing, inlineLink } from '../../components/focus.ts'
 import DirectionsLink from '../../components/DirectionsLink.tsx'
+import LinePhoto from '../../components/LinePhoto.tsx'
 import Pending from '../../components/Pending.tsx'
 import Skeleton from '../../components/Skeleton.tsx'
 import TextField from '../../components/TextField.tsx'
@@ -280,9 +281,7 @@ function SummaryContent({ lines, summary, paymentNote, delivery }: SummaryProps)
       <ul className="flex flex-col border-t border-relieve">
         {lines.map((line) => (
           <li key={line.id} className="flex items-center gap-3 border-b border-relieve py-3">
-            <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-harina text-nota text-mermelada-suave">
-              Foto
-            </span>
+            <LinePhoto thumbnail={line.thumbnail} placeholder="Foto" className="h-12 w-12" />
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="text-cuerpo font-semibold">{line.name}</span>
               <span className="text-nota text-mermelada-suave">{line.brief}</span>

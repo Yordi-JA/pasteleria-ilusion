@@ -66,10 +66,10 @@ export function reservedPaymentSentence(payment: OrderPayment): string {
 
 export type SummaryRow = { label: string; amount: string; strong?: boolean }
 
-/** Una línea del resumen: nombre, detalle corto e importe. */
-export type SummaryItem = { key: string; name: string; brief: string; total: string }
+/** Una línea del resumen: nombre, detalle corto, importe y la miniatura del pastel diseñado, si la hay (tanda 4). */
+export type SummaryItem = { key: string; name: string; brief: string; total: string; thumbnail: string | null }
 
-function itemView(item: PaymentOrderItem, index: number): SummaryItem {
+function itemView(item: PaymentOrderItem, index: number): Omit<SummaryItem, 'thumbnail'> {
   const pieces = `${item.quantity} ${item.quantity === 1 ? 'pieza' : 'piezas'}`
   // El pastel de una cotización aceptada (D70): el servidor lo nombra ("Pastel según tu referencia").
   if (item.kind === 'reference') {
@@ -111,7 +111,11 @@ export type OrderSummaryView = {
  * El resumen del pago (libro de marca, "Pago y entrega"): "Total del pedido" (sin la base), el anticipo, el depósito, el
  * envío solo si cuesta algo, "Pagas hoy" y el resto. `reserved` usa las etiquetas del apartado ("por pagar hoy").
  */
-export function orderSummary(order: PaymentOrder, payment: OrderPayment, { reserved = false } = {}): OrderSummaryView {
+export function orderSummary(
+  order: PaymentOrder,
+  payment: OrderPayment,
+  { reserved = false, thumbnails = [] }: { reserved?: boolean; thumbnails?: (string | null)[] } = {},
+): OrderSummaryView {
   const suffix = reserved ? ' por pagar hoy' : ''
   const rows: SummaryRow[] = [{ label: advanceLabel(payment, suffix), amount: price(payment.advance) }]
   if (!isZero(payment.baseDeposit)) rows.push({ label: `Depósito de la base${suffix}`, amount: price(payment.baseDeposit) })
@@ -119,13 +123,21 @@ export function orderSummary(order: PaymentOrder, payment: OrderPayment, { reser
   if (!reserved) rows.push({ label: 'Pagas hoy', amount: price(payment.payToday), strong: true })
   if (!isZero(payment.payOnDelivery)) rows.push({ label: 'Resto, el día de la entrega', amount: price(payment.payOnDelivery) })
   return {
-    items: order.items.map(itemView),
+    items: order.items.map((item, index) => ({ ...itemView(item, index), thumbnail: designThumbnail(thumbnails, order.items, index) })),
     delivery: `Recoger en la pastelería ${whenText(order)}`,
     hasDeposit: !isZero(payment.baseDeposit),
     total: `${price(order.subtotal)} MXN`,
     rows,
     payToday: price(payment.payToday),
   }
+}
+
+/**
+ * La miniatura que guardó el carrito para la línea `index` (`orderThumbnails` de `checkout.ts`), solo en un pastel diseñado y
+ * solo si la lista es de estas líneas (el mismo largo); si no, `null` y se ve el hueco de la foto.
+ */
+export function designThumbnail(thumbnails: (string | null)[], items: { kind: string }[], index: number): string | null {
+  return thumbnails.length === items.length && items[index].kind === 'design' ? (thumbnails[index] ?? null) : null
 }
 
 /** "el lunes 16 de noviembre a las 3:30 pm", como la entrega. */

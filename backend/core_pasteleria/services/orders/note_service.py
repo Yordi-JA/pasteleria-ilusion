@@ -109,7 +109,12 @@ def public_name(full_name: str) -> str:
 def get_note(customer_id: int, order_id: int, *, orders=order_repo, settings=settings_repo) -> OrderNote | None:
     """La nota de un pedido del cliente; `None` si es ajeno, no existe o todavía no tiene nota."""
     order = orders.get_customer_order(customer_id, order_id)
-    if order is None or not has_note(order.status):
+    return note_for_order(order, settings=settings) if order is not None else None
+
+
+def note_for_order(order: OrderRecord, *, settings=settings_repo) -> OrderNote | None:
+    """La nota de un pedido ya leído; `None` si todavía no tiene nota. Sin filtrar por dueño: quien llama ya lo hizo."""
+    if not has_note(order.status):
         return None
     return OrderNote(
         order=order,

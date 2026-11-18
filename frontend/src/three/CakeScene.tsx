@@ -10,6 +10,7 @@ import type { CakeShape, Viewpoint } from './cakeShape.ts'
 import { contentOf, fitScale, lookAtHeight, referenceContent, standScale } from './cakeMetrics.ts'
 import type { Content } from './cakeMetrics.ts'
 import { brandColor } from './palette.ts'
+import { encodeThumbnail } from './snapshot.ts'
 import {
   aimTilt,
   approach,
@@ -72,6 +73,15 @@ const IN_BOX_FRAMING: SceneFraming = { ...FRAME, overflowTop: 0 }
 /** Constante de tiempo (s) con la que la cámara de la vista libre se acerca a su encuadre cuando cambia el pastel. */
 const FREE_FRAMING_RESPONSE = 0.1
 
+/**
+ * Desde dónde se toma la miniatura del carrito (tanda 4), sin importar cómo lo dejó la persona: un poco de lado, para que se
+ * vea su volumen, y desde arriba lo justo para ver la tapa y el mensaje sin perder los pisos.
+ */
+const SNAPSHOT_VIEW = { angle: -20, elevation: 30 }
+
+/** Toma la miniatura del pastel como dirección `data:`, o `null` si no se puede. */
+export type TakeSnapshot = () => string | null
+
 export type CakeSceneProps = {
   shape: CakeShape
   /** Nombre accesible de la escena. */
@@ -101,6 +111,8 @@ export type CakeSceneProps = {
   viewpoint?: Viewpoint
   /** Sobre un campo `mermelada` (el bloque "¿No encuentras el pastel que imaginas?"): el anillo de foco va en `betun`. */
   onColor?: boolean
+  /** Solo con `freeLook`: recibe la función que toma la miniatura del carrito (y `null` al desmontarse la escena). */
+  onSnapshot?: (take: TakeSnapshot | null) => void
 }
 
 /** Lo que leen las pruebas en desarrollo, sin acoplarlas a three: cuadros dibujados, ángulo y separación. */
@@ -227,9 +239,10 @@ type RigProps = {
   freeLook: boolean
   /** Si el pastel gira solo; con `false` se queda donde está (la vista superior del paso 7). */
   autoSpin: boolean
+  onSnapshot?: (take: TakeSnapshot | null) => void
 }
 
-function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnScroll, onReady, framing, freeLook, autoSpin }: RigProps) {
+function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnScroll, onReady, framing, freeLook, autoSpin, onSnapshot }: RigProps) {
   const cake = useRef<Group>(null)
   const motion = useRef<CakeMotion>({ separation: 0 })
   const probe = useRef<Probe>({ frames: 0, angle: NaN, separation: NaN, elevation: NaN, scale: NaN })
@@ -257,6 +270,7 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnS
     }
   }, [running, reducedMotion, invalidate])
   useFraming(freeLook ? null : framing)
+  useSnapshot(onSnapshot, cake, content)
 
   useFrame((state, delta) => {
     lastFrameAt.current = performance.now()
@@ -319,6 +333,56 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnS
 }
 
 /**
+ * Da a `onSnapshot` la función que toma la miniatura (tanda 4). Dibuja un cuadro aparte, en un recuadro de la esquina de abajo
+ * del lienzo, con el pastel de frente al ángulo fijo de `SNAPSHOT_VIEW` y la cámara encuadrada a ese recuadro, lo copia en la
+ * misma tarea y vuelve a dibujar la vista de la persona antes de que el navegador muestre nada: no se ve ningún salto. No
+ * depende de `frameloop` (con "reducir movimiento" o fuera de pantalla no hay cuadros pedidos) ni de `preserveDrawingBuffer`.
+ */
+function useSnapshot(onSnapshot: RigProps['onSnapshot'], cake: RefObject<Group | null>, content: Content) {
+  const get = useThree((state) => state.get)
+  useEffect(() => {
+    if (!onSnapshot) return
+    onSnapshot(() => {
+      const { gl, scene, camera, size } = get()
+      const group = cake.current
+      const lens = camera as PerspectiveCamera
+      const side = Math.floor(Math.min(size.width, size.height))
+      if (!group || side < 32) return null
+      const saved = { rotation: group.rotation.clone(), position: lens.position.clone(), quaternion: lens.quaternion.clone(), fov: lens.fov, aspect: lens.aspect }
+      try {
+        group.rotation.set(0, (SNAPSHOT_VIEW.angle * Math.PI) / 180, 0)
+        lens.aspect = 1
+        // Encuadrado al pastel mismo, no a la escala de un pastel grande: en 100 px, uno chico también se ve completo y grande.
+        stepFreeCamera(lens, { width: side, height: side }, { scale: 0, centerY: 0 }, content, content, SNAPSHOT_VIEW.elevation, 0, false)
+        gl.setViewport(0, 0, side, side)
+        gl.render(scene, lens)
+        const ratio = gl.getPixelRatio()
+        // El recuadro de WebGL empieza abajo a la izquierda; el de `drawImage`, arriba.
+        return encodeThumbnail(gl.domElement, { x: 0, y: (size.height - side) * ratio, side: side * ratio }, brandColor('harina'))
+      } catch (error) {
+        console.warn('No se pudo tomar la miniatura del pastel; entra al pedido sin ella.', error)
+        return null
+      } finally {
+        group.rotation.copy(saved.rotation)
+        lens.position.copy(saved.position)
+        lens.quaternion.copy(saved.quaternion)
+        lens.fov = saved.fov
+        lens.aspect = saved.aspect
+        lens.updateProjectionMatrix()
+        gl.setViewport(0, 0, size.width, size.height)
+        try {
+          gl.render(scene, lens)
+        } catch (error) {
+          // El contexto se perdió a media captura: la escena ya lo avisa con `webglcontextlost`.
+          console.warn('No se pudo volver a dibujar la vista previa tras la miniatura.', error)
+        }
+      }
+    })
+    return () => onSnapshot(null)
+  }, [onSnapshot, get, cake, content])
+}
+
+/**
  * La escena del pastel: un contenedor enfocable con el lienzo de react-three-fiber. El contenedor recibe el
  * puntero y el teclado; el lienzo no (no hay objetos con eventos, así no hay raycasting en cada movimiento).
  */
@@ -337,6 +401,7 @@ export default function CakeScene({
   freeLook = false,
   viewpoint,
   onColor = false,
+  onSnapshot,
 }: CakeSceneProps) {
   const framing = framingProp ?? (separateOnScroll ? HERO_FRAMING : IN_BOX_FRAMING)
   const container = useRef<HTMLDivElement>(null)
@@ -478,6 +543,7 @@ export default function CakeScene({
           framing={framing}
           freeLook={freeLook}
           autoSpin={viewpoint?.autoSpin ?? true}
+          onSnapshot={freeLook ? onSnapshot : undefined}
         />
       </Canvas>
     </div>

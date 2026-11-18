@@ -30,7 +30,8 @@ def test_the_seed_gives_the_new_fillings_their_style_and_color():
 
 def test_the_seed_leaves_the_other_fillings_and_breads_as_they_are():
     assert flavor_look("durazno")[0] == "fruit_chunks"
-    assert flavor_look("zarzamora") == ("smooth", "")
+    # La `0021` no toca la zarzamora; después la `0047` le da su acabado de mermelada, sin color de trozos.
+    assert flavor_look("zarzamora") == ("jam", "")
     for slug in ("vainilla", "chocolate", "choco_vainilla"):
         assert bread_look(slug) == ("smooth", "")
 

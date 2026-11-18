@@ -323,7 +323,7 @@ test('with an empty list of names the picker starts neutral and "Continuar" asks
   await proceed(page)
   await expect(page.locator('#paso-titulo')).toHaveText('6. Decoración')
   // Sin nombre parecido, "Tu pastel" dice la cobertura con su muestra, sin el código.
-  await expect(page.getByText('Crema pastelera', { exact: true }).filter({ visible: true })).toBeVisible()
+  await expect(page.getByText('Crema pastelera, con peinado lateral', { exact: true }).filter({ visible: true })).toBeVisible()
   await expect(page.getByText(/#[0-9A-F]{6}/i).filter({ visible: true })).toHaveCount(0)
   await expect(page.getByText(/parecido a/)).toHaveCount(0)
 })
@@ -378,7 +378,7 @@ test('the three uses share the picker; the review shows swatch and "parecido a" 
   expect(line.design).toMatchObject({ coverageColor: coverage, decorationColor: decoration, message: { color: { mode: 'custom', value: ink } } })
   expect(line.details).toEqual(
     expect.arrayContaining([
-      'Cobertura: Crema pastelera, parecido a rojo',
+      'Cobertura: Crema pastelera, parecido a rojo, con peinado lateral',
       expect.stringContaining('Rosas, color parecido a verde'),
       expect.stringContaining('Mensaje: Feliz cumple, color parecido a turquesa'),
     ]),

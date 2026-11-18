@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { ApiError } from '../models/apiClient.ts'
+import { orderThumbnails } from '../models/checkout.ts'
 import { getPaymentState } from '../models/payments.ts'
 import type { PaymentState } from '../models/payments.ts'
 import { createdText, dueClock, isReservedInCash, orderSummary, paymentStage, reservedPaymentSentence, whenText } from './paymentView.ts'
@@ -62,7 +63,7 @@ export function useOrderReserved() {
           paymentSentence: reservedPaymentSentence(reserved.payment),
           created: createdText(reserved.data.order),
           pickup: `${whenText(reserved.data.order).replace(/^el /, '')}, en la pastelería`,
-          summary: orderSummary(reserved.data.order, reserved.payment, { reserved: true }),
+          summary: orderSummary(reserved.data.order, reserved.payment, { reserved: true, thumbnails: orderThumbnails(reserved.data.order.id) }),
         }
       : null,
   }

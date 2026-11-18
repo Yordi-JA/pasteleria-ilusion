@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
+import { messageLines } from '../models/cakeDesignLayout.ts'
 import { estimatedMetrics } from './messageGeometry.ts'
-import type { MessageMetrics } from './messageGeometry.ts'
+import type { LineMetrics, MessageMetrics } from './messageGeometry.ts'
 
 /**
  * La letra del mensaje sobre el pastel (D55): siempre cursiva a mano alzada, Dancing Script (OFL, `assets/fuentes/`). Solo
@@ -22,27 +23,32 @@ function context(): CanvasRenderingContext2D | null {
 }
 
 /**
- * Lo que mide el texto con la letra del mensaje: el ancho de cada letra y el total, en em. Es el único lugar donde se mide.
- * Sin lienzo (un navegador sin canvas 2D), media letra por carácter. Con la letra sin cargar (`fontReady` falso) mide con la de
- * respaldo y no recuerda nada: una medida de la letra de respaldo nunca se guarda como si fuera la de la letra del mensaje.
+ * Lo que mide el texto con la letra del mensaje: renglón por renglón (`messageLines`), el ancho de cada letra y el total, en em.
+ * Es el único lugar donde se mide. Sin lienzo (un navegador sin canvas 2D), media letra por carácter. Con la letra sin cargar
+ * (`fontReady` falso) mide con la de respaldo y no recuerda nada: una medida de la letra de respaldo nunca se guarda como si fuera
+ * la de la letra del mensaje.
  */
 export function measureMessage(text: string, fontReady: boolean): MessageMetrics {
-  if (!fontReady) return measure(text)
+  const canvas = context()
+  if (!canvas) return estimatedMetrics(text)
+  return { lines: messageLines(text).map((line) => measureLine(canvas, line, fontReady)) }
+}
+
+function measureLine(canvas: CanvasRenderingContext2D, text: string, fontReady: boolean): LineMetrics {
+  if (!fontReady) return measure(canvas, text)
   const cached = measured.get(text)
   if (cached) return cached
-  const result = measure(text)
-  // Medir cuesta un lienzo y una llamada por letra: se recuerda lo medido con la letra ya cargada.
+  const result = measure(canvas, text)
+  // Medir cuesta un lienzo y una llamada por letra: se recuerda lo medido con la letra ya cargada, renglón por renglón.
   if (measured.size >= MAX_MEASURED) measured.clear()
   measured.set(text, result)
   return result
 }
 
-const measured = new Map<string, MessageMetrics>()
+const measured = new Map<string, LineMetrics>()
 const MAX_MEASURED = 200
 
-function measure(text: string): MessageMetrics {
-  const canvas = context()
-  if (!canvas) return estimatedMetrics(text)
+function measure(canvas: CanvasRenderingContext2D, text: string): LineMetrics {
   const widths = [...text].map((char) => canvas.measureText(char).width / MEASURE_PX)
   const total = canvas.measureText(text).width / MEASURE_PX
   const sum = widths.reduce((accumulated, width) => accumulated + width, 0)

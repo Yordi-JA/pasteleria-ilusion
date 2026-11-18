@@ -33,7 +33,7 @@ type Input = {
   options?: unknown
 }
 
-type Layer = { height: number; colors: unknown[]; crumb?: boolean; pieces?: ({ style: string; colors: unknown[] } | null)[] }
+type Layer = { height: number; colors: unknown[]; crumb?: boolean; pieces?: ({ style: string; colors: unknown[] } | null)[]; finishes?: (string | null)[]; spread?: string }
 
 type PreviewTier = { radius: number; halfWidth?: number; halfDepth?: number; height: number; layers: Layer[]; frosting?: unknown }
 
@@ -464,6 +464,8 @@ test('seen from above the camera moves away a little so the base does not leave 
 // --- Relleno: crema pastelera arriba y abajo, y los estilos nuevos (D52) ---
 
 const CREAM = 'betun'
+/** La crema de Choco-pingüino que siembra la `0047` (tanda 4), en minúsculas como la deja el modelo. */
+const PINGUINO_CREAM = '#b5876b'
 
 /** Índice de la franja del sabor y las capas de crema que la rodean. */
 function fillingAround(layers: Layer[]) {
@@ -517,12 +519,16 @@ test('with two flavors the cream layers stay whole and each half keeps its own f
   expect(tiers[0][flavor].pieces?.map((pieces) => pieces?.style)).toEqual(['fruit_chunks', 'cookie_chunks'])
 })
 
-test('with queso or flan the cream of the base sits below the pastry cream and the flavor goes on top', async ({ page }) => {
+test('with queso or flan the pastry cream stays against the bread, the cream of the base inside it and the flavor on top', async ({ page }) => {
+  // El usuario (tanda 4): "aunque sea flan o queso, la crema va en los extremos de las bases". Dentro, la crema de la base
+  // abajo y el sabor arriba, como decidió la dueña en D50.
   for (const [base, flavor, baseColor] of [['queso', 'zarzamora', '#faf4e2'], ['flan', 'cajeta', '#f2c860']] as const) {
     const { tiers } = await previewTiers(page, { bread: 'vainilla', base, flavors: [flavor] })
     const layers = tiers[0]
     const at = fillingAround(layers).flavor
-    expect(layers.slice(at - 2, at + 2).map((layer) => layer.colors[0])).toEqual([baseColor, CREAM, layers[at].colors[0], CREAM])
+    expect(layers.slice(at - 2, at + 2).map((layer) => layer.colors[0])).toEqual([CREAM, baseColor, layers[at].colors[0], CREAM])
+    expect(layers[at - 3].crumb).toBe(true)
+    expect(layers[at + 2].crumb).toBe(true)
     expect(layers.reduce((sum, layer) => sum + layer.height, 0)).toBeCloseTo(1, 9)
   }
   // Un relleno que ya es crema, sobre la crema de la base: sin las capas delgadas.
@@ -561,7 +567,7 @@ test('the rest of the flavors keep the look the owner approved', async ({ page }
   expect((await look('choco_vainilla'))!.style).toBe('sprinkles')
 })
 
-test('choco-pingüino shows its filling from the bread step: white pastry cream with round chocolate chips', async ({ page }) => {
+test('choco-pingüino shows its filling from the bread step: its light coffee cream with round chocolate chips', async ({ page }) => {
   for (const step of [3, 4, 5]) {
     const { tiers, shape } = await previewTiers(page, { cakeType: 'seco', bread: 'choco_pinguino', base: '', flavors: [], step, coverage: 'rosa' })
     if (step === 5) {
@@ -571,7 +577,8 @@ test('choco-pingüino shows its filling from the bread step: white pastry cream 
     }
     const filling = tiers[0].filter((layer) => !layer.crumb)
     expect(filling).toHaveLength(1)
-    expect(filling[0].colors).toEqual([CREAM])
+    // La crema de chocolate sabor helado: el color que la pastelería guarda en el admin (tanda 4), no la crema blanca.
+    expect(filling[0].colors).toEqual([PINGUINO_CREAM])
     expect(filling[0].pieces).toEqual([{ style: 'round_chips', colors: ['#3a2218'] }])
   }
 })
@@ -597,13 +604,159 @@ test('an included filling that lacks a color or names a style this version does 
   noColor.breads.find((bread) => bread.slug === 'choco_pinguino')!.included_filling_preview_color_secondary = ''
   const unknown = structuredClone(cakeDesignOptions)
   unknown.breads.find((bread) => bread.slug === 'red_velvet')!.included_filling_preview_style = 'sparkles'
-  for (const [bread, options] of [['choco_pinguino', noColor], ['red_velvet', unknown]] as const) {
+  for (const [bread, options, cream] of [['choco_pinguino', noColor, PINGUINO_CREAM], ['red_velvet', unknown, CREAM]] as const) {
     const { tiers } = await previewTiers(page, { cakeType: 'seco', bread, base: '', flavors: [], step: 3, options })
     const filling = tiers[0].filter((layer) => !layer.crumb)
     expect(filling).toHaveLength(1)
-    expect(filling[0].colors).toEqual([CREAM])
+    expect(filling[0].colors).toEqual([cream])
     expect(filling[0].pieces).toEqual([null])
   }
+})
+
+test('an included filling without a cream color in the admin is white pastry cream', async ({ page }) => {
+  const white = structuredClone(cakeDesignOptions)
+  white.breads.find((bread) => bread.slug === 'choco_pinguino')!.included_filling_preview_color = ''
+  const { tiers } = await previewTiers(page, { cakeType: 'seco', bread: 'choco_pinguino', base: '', flavors: [], step: 3, options: white })
+  expect(tiers[0].filter((layer) => !layer.crumb)[0].colors).toEqual([CREAM])
+})
+
+// --- Mermelada y cajeta (tanda 4) ---
+
+/** Las opciones de la semilla con Blueberry en la base Normal, como la siembra la `0045` y la deja la `0047`. */
+function withBlueberry() {
+  const options = structuredClone(cakeDesignOptions)
+  const normal = options.filling_bases.find((base) => base.slug === 'normal')!
+  const zarzamora = normal.flavors.find((flavor) => flavor.slug === 'zarzamora')!
+  normal.flavors.push({ ...zarzamora, slug: 'blueberry', name: 'Blueberry', preview_color: '#3E3A6E' })
+  return options
+}
+
+test('zarzamora and blueberry read as jam and cajeta as caramel from the options', async ({ page }) => {
+  const styles = await page.evaluate(
+    async ({ urls, options }) => {
+      const { parseCakeDesignOptions } = await import(urls.models)
+      const flavors = parseCakeDesignOptions(options).fillingBases[0].flavors
+      return Object.fromEntries(flavors.map((flavor: { slug: string; previewStyle: string }) => [flavor.slug, flavor.previewStyle]))
+    },
+    { urls: { models: MODELS }, options: withBlueberry() },
+  )
+  expect([styles.zarzamora, styles.blueberry, styles.cajeta]).toEqual(['jam', 'jam', 'caramel'])
+})
+
+test('a jam or a caramel filling carries its finish in its own color, with no pieces and with the thin cream layers', async ({ page }) => {
+  for (const [flavor, finish, color] of [['zarzamora', 'jam', '#702c5a'], ['blueberry', 'jam', '#3e3a6e'], ['cajeta', 'caramel', '#bc7630']] as const) {
+    const { tiers } = await previewTiers(page, { bread: 'vainilla', base: 'normal', flavors: [flavor], options: withBlueberry() })
+    const { flavor: at, below, above } = fillingAround(tiers[0])
+    expect(tiers[0][at].colors, flavor).toEqual([color])
+    expect(tiers[0][at].finishes, flavor).toEqual([finish])
+    expect(tiers[0][at].pieces, flavor).toEqual([null])
+    expect([below.colors, above.colors]).toEqual([[CREAM], [CREAM]])
+    // Solo el relleno lleva el acabado: ni el pan ni la crema.
+    expect(tiers[0].filter((layer) => layer.finishes).length).toBe(1)
+  }
+  // Con dos sabores, cada mitad lleva el suyo; la de trozos no lleva acabado.
+  const mixed = await previewTiers(page, { bread: 'vainilla', base: 'normal', flavors: ['zarzamora', 'durazno'] })
+  const half = mixed.tiers[0][fillingAround(mixed.tiers[0]).flavor]
+  expect(half.finishes).toEqual(['jam', null])
+  expect(half.pieces?.map((pieces) => pieces?.style ?? null)).toEqual([null, 'fruit_chunks'])
+  // Con flan, la cajeta sigue siendo cajeta encima de la crema de la base.
+  const flan = await previewTiers(page, { bread: 'vainilla', base: 'flan', flavors: ['cajeta'] })
+  expect(flan.tiers[0][fillingAround(flan.tiers[0]).flavor].finishes).toEqual(['caramel'])
+  // Un relleno liso o con trozos no lleva acabado.
+  for (const flavor of ['durazno', 'galleta']) {
+    const { tiers } = await previewTiers(page, { bread: 'vainilla', base: 'normal', flavors: [flavor] })
+    expect(tiers[0].some((layer) => layer.finishes?.some(Boolean)), flavor).toBe(false)
+  }
+})
+
+test('the pastry cream always touches the bread on both ends of the filling, in every base, flavor count, tier and mold', async ({ page }) => {
+  const cases = [
+    { bread: 'vainilla', base: 'normal', flavors: ['zarzamora'] },
+    { bread: 'vainilla', base: 'normal', flavors: ['zarzamora', 'durazno'] },
+    { bread: 'vainilla', base: 'queso', flavors: ['zarzamora'], tiers: 3, kg: 18 },
+    { bread: 'choco_vainilla', base: 'flan', flavors: ['cajeta'], form: 'rectangular' as const, tiers: 2, kg: 15 },
+    { bread: 'chocolate', base: 'flan', flavors: ['zarzamora'], tiers: 2, kg: 15 },
+  ]
+  for (const input of cases) {
+    const { tiers } = await previewTiers(page, input)
+    expect(tiers.length).toBe(input.tiers ?? 1)
+    for (const layers of tiers) {
+      // El relleno es todo lo que no es pan; sus dos extremos son la crema pastelera, untada a mano, junto al pan.
+      const first = layers.findIndex((layer) => !layer.crumb)
+      const last = layers.length - 1 - [...layers].reverse().findIndex((layer) => !layer.crumb)
+      for (const end of [layers[first], layers[last]]) {
+        expect(end.colors, JSON.stringify(input)).toEqual([CREAM])
+        expect(end.spread).toBe('cream')
+      }
+      expect(layers[first - 1].crumb).toBe(true)
+      expect(layers[last + 1].crumb).toBe(true)
+      // Y no hay más crema pastelera dentro: la de la base y el sabor van entre las dos.
+      expect(layers.slice(first + 1, last).some((layer) => layer.colors.length === 1 && layer.colors[0] === CREAM)).toBe(false)
+    }
+  }
+})
+
+// --- La crema untada a mano (tanda 4, parte 2) ---
+
+test('the pastry cream and the base cream are spread by hand; jam, cajeta and creams with pieces only a little', async ({ page }) => {
+  const spreadOf = (layers: Layer[]) => layers.map((layer) => layer.spread ?? null)
+  // Pan, crema, sabor, crema, pan: las dos capas delgadas de crema van untadas; la mermelada, apenas.
+  const jam = await previewTiers(page, { bread: 'vainilla', base: 'normal', flavors: ['zarzamora'] })
+  expect(spreadOf(jam.tiers[0])).toEqual([null, null, 'cream', 'mild', 'cream', null, null])
+  const cajeta = await previewTiers(page, { bread: 'vainilla', base: 'flan', flavors: ['cajeta'] })
+  // Con flan, la crema de la base también va untada.
+  expect(spreadOf(cajeta.tiers[0])).toEqual([null, null, 'cream', 'cream', 'mild', 'cream', null, null])
+  // Un relleno con trozos de fruta no es crema: queda recto, y sus trozos en su franja.
+  const fruit = await previewTiers(page, { bread: 'vainilla', base: 'normal', flavors: ['durazno'] })
+  expect(spreadOf(fruit.tiers[0])).toEqual([null, null, 'cream', null, 'cream', null, null])
+  // Las cremas con trozos encima (galleta, Choco-pingüino) se untan apenas, para que los trozos sigan asomando.
+  const cookie = await previewTiers(page, { bread: 'vainilla', base: 'normal', flavors: ['galleta'] })
+  expect(spreadOf(cookie.tiers[0])).toEqual([null, null, 'mild', null, null])
+  const pinguino = await previewTiers(page, { cakeType: 'seco', bread: 'choco_pinguino', base: '', flavors: [], step: 3 })
+  expect(spreadOf(pinguino.tiers[0])).toEqual([null, null, 'mild', null, null])
+  // Dos sabores, mitad y mitad: la franja partida queda recta; la crema de arriba y de abajo, untada.
+  const halves = await previewTiers(page, { bread: 'vainilla', base: 'normal', flavors: ['zarzamora', 'durazno'] })
+  expect(spreadOf(halves.tiers[0])).toEqual([null, null, 'cream', null, 'cream', null, null])
+  // Sin relleno, nada se unta.
+  const plain = await previewTiers(page, { bread: 'vainilla', base: '', flavors: [], step: 3 })
+  expect(spreadOf(plain.tiers[0]).every((spread) => spread === null)).toBe(true)
+})
+
+test('the spread cream never reaches the top or the bottom of its tier, so the cake keeps its height and stacking', async ({ page }) => {
+  const reach = await page.evaluate(async (url) => {
+    const { SPREAD_LEVELS } = await import(url)
+    return Math.max(SPREAD_LEVELS.cream.edge[1], SPREAD_LEVELS.mild.edge[1])
+  }, '/src/three/creamSpread.ts')
+  for (const input of [
+    { bread: 'vainilla', base: 'normal', flavors: ['zarzamora'] },
+    { bread: 'vainilla', base: 'flan', flavors: ['cajeta'], form: 'rectangular' as const, tiers: 2, kg: 15 },
+    { cakeType: 'seco', bread: 'choco_pinguino', base: '', flavors: [], step: 3 },
+  ]) {
+    const { shape } = await previewTiers(page, input)
+    for (const tier of shape) {
+      expect(tier.layers.reduce((sum, layer) => sum + layer.height, 0)).toBeCloseTo(1, 9)
+      let bottom = 0
+      for (const layer of tier.layers) {
+        const height = layer.height * tier.height
+        if (layer.spread) {
+          expect(bottom - reach).toBeGreaterThan(0)
+          expect(bottom + height + reach).toBeLessThan(tier.height)
+        }
+        bottom += height
+      }
+    }
+  }
+})
+
+test('an included filling can also be a jam: its cream takes the finish and no pieces', async ({ page }) => {
+  const jam = structuredClone(cakeDesignOptions)
+  const velvet = jam.breads.find((bread) => bread.slug === 'red_velvet')!
+  velvet.included_filling_preview_style = 'jam'
+  velvet.included_filling_preview_color_secondary = ''
+  const { tiers } = await previewTiers(page, { cakeType: 'seco', bread: 'red_velvet', base: '', flavors: [], step: 3, options: jam })
+  const filling = tiers[0].filter((layer) => !layer.crumb)[0]
+  expect(filling.finishes).toEqual(['jam'])
+  expect(filling.pieces).toEqual([null])
 })
 
 test('fresa con yogurt and nuez read their new styles from the options', async ({ page }) => {

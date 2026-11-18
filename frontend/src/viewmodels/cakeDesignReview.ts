@@ -1,5 +1,6 @@
 import type { CakeDesignOptions, CakeDesignQuote } from '../models/cakeDesign.ts'
 import type { CakeDesignDraft } from '../models/cakeDesignDraft.ts'
+import { messageText } from '../models/cakeDesignLayout.ts'
 import { formatPrice } from '../models/money.ts'
 import { OCCASIONS } from '../models/occasion.ts'
 import { decorationSummary, decorationSwatches, groupOf } from './cakeDecorations.ts'
@@ -11,6 +12,11 @@ import { smallSizeLabel } from './cakeSizes.ts'
 import { colorPhrase } from './colors.ts'
 import { messageInk } from './messageColors.ts'
 import type { PriceState } from './useCakeDesignPrice.ts'
+
+/** El peinado lateral en palabras (tanda 4), para "Tu pastel", la revisión y el carrito. */
+export function sideCombPhrase(sideComb: boolean): string {
+  return sideComb ? 'con peinado lateral' : 'sin peinado lateral'
+}
 
 /**
  * La revisión del pedido (paso 8, reglas 6.4, 7 y 10): el desglose con los montos que dio la API, el anticipo y lo que se paga
@@ -121,7 +127,7 @@ export function reviewView({ draft, design, options, price, leadDays }: ReviewIn
     view.lines.push({
       key: 'coverage',
       title: 'Cobertura de crema pastelera',
-      detail: `Color ${colorPhrase(design.coverage, options.coverageColors) ?? 'elegido'}`,
+      detail: `Color ${colorPhrase(design.coverage, options.coverageColors) ?? 'elegido'}, ${sideCombPhrase(draft.sideComb)}`,
       swatches: [design.coverage],
       amount: 'Incluido',
       change: { step: COVERAGE_STEP, label: 'la cobertura' },
@@ -139,10 +145,12 @@ export function reviewView({ draft, design, options, price, leadDays }: ReviewIn
       change: { step: DECORATION_STEP, label: 'la decoración' },
     })
   }
-  if (draft.messageEnabled && draft.message.text.trim() !== '') {
+  const message = messageText(draft.message.text)
+  if (draft.messageEnabled && message !== '') {
     view.lines.push({
       key: 'message',
-      title: `Mensaje: ${draft.message.text.trim()}`,
+      // Con sus saltos de renglón: la vista los muestra con `whitespace-pre-line`.
+      title: `Mensaje: ${message}`,
       detail: upperFirst(messageColorPhrase(draft, design.coverage, options.coverageColors) ?? 'color negro'),
       swatches: [messageInk(draft.message.color, design.coverage)],
       amount: 'Incluido',

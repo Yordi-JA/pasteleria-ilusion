@@ -566,13 +566,14 @@ def test_options_carry_the_seeded_preview_styles(api):
     flavors = by_slug(by_slug(body["filling_bases"])["normal"]["flavors"])
     styles = {slug: flavor["preview_style"] for slug, flavor in flavors.items()}
     assert styles == {
-        "durazno": "fruit_chunks", "fresa": "fruit_chunks", "zarzamora": "smooth", "cajeta": "smooth",
+        "durazno": "fruit_chunks", "fresa": "fruit_chunks", "zarzamora": "jam", "cajeta": "caramel",
         "galleta": "cookie_chunks", "chocolate": "sprinkles", "choco_vainilla": "sprinkles",
         "capuchino": "sprinkles", "fresa_yogurt": "crumbles", "nuez": "nut_pieces",
-        # Tanda 2: blueberry es mermelada lisa, como la zarzamora.
-        "blueberry": "smooth",
+        # Tanda 2: blueberry es mermelada, como la zarzamora (tanda 4: con su acabado brillante y sus semillas).
+        "blueberry": "jam",
     }
-    assert all(flavor["preview_color_secondary"] for flavor in flavors.values() if flavor["preview_style"] != "smooth")
+    pieceless = {"smooth", "jam", "caramel"}
+    assert all(flavor["preview_color_secondary"] for flavor in flavors.values() if flavor["preview_style"] not in pieceless)
     # Choco-pingüino y Red velvet traen cómo se ve su relleno incluido (crema pastelera con chispas o granillo rojo).
     assert (
         breads["choco_pinguino"]["included_filling_preview_style"],
@@ -584,6 +585,10 @@ def test_options_carry_the_seeded_preview_styles(api):
     ) == ("sprinkles", "#C8283A")
     # Los panes sin relleno incluido quedan lisos y sin color.
     assert (breads["vainilla"]["included_filling_preview_style"], breads["vainilla"]["included_filling_preview_color_secondary"]) == ("smooth", "")
+    # Tanda 4: la crema de Choco-pingüino es café claro; la de Red velvet sigue blanca (vacío).
+    assert breads["choco_pinguino"]["included_filling_preview_color"] == "#B5876B"
+    assert breads["red_velvet"]["included_filling_preview_color"] == ""
+    assert breads["vainilla"]["included_filling_preview_color"] == ""
 
 
 def test_options_carry_the_cake_molds_for_the_preview(api):
@@ -714,7 +719,8 @@ def _unsafe_texts():
     ch = chr
     return [
         "hola" + ch(0x202E) + "Ana",  # invierte el texto (Cf)
-        "dos\nlíneas",  # control (Cc)
+        # `\n` es el salto de renglón del mensaje (tanda 4); el tabulador vertical sigue siendo un control (Cc).
+        "dos" + ch(0x000B) + "líneas",  # control (Cc)
         "a" + ch(0x061C) + "b",  # marca de letra árabe (Cf)
         "a" + ch(0x00AD) + "b",  # guion suave (Cf)
         "a" + ch(0x180E) + "b",  # separador mongol (Cf)

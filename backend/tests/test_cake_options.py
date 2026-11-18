@@ -456,6 +456,57 @@ def test_a_smooth_flavor_needs_no_color_for_pieces_in_the_admin(superuser_client
     assert superuser_client.post(url, flavor_change_data(flavor)).status_code == 302
 
 
+@pytest.mark.parametrize("style", ["jam", "caramel"])
+def test_a_jam_or_caramel_flavor_has_no_pieces_and_needs_no_color_for_them(superuser_client, style):
+    flavor = FillingFlavor.objects.get(slug="zarzamora")
+    url = reverse("admin:core_pasteleria_fillingflavor_change", args=[flavor.pk])
+    assert superuser_client.post(url, flavor_change_data(flavor, preview_style=style)).status_code == 302
+    flavor.refresh_from_db()
+    assert (flavor.preview_style, flavor.preview_color_secondary) == (style, "")
+
+
+BREAD_CREAM_COLOR_ERROR = 'Este pan no lleva relleno incluido: borra el color de la crema o escribe su relleno incluido.'
+
+
+def test_the_cream_of_an_included_filling_takes_a_color_and_empty_is_white(superuser_client):
+    bread = Bread.objects.get(slug="choco_pinguino")
+    url = reverse("admin:core_pasteleria_bread_change", args=[bread.pk])
+    data = bread_change_data(
+        bread, pricing_mode="full_price_per_kg", price_per_kg="250.00", included_filling="Crema",
+        included_filling_preview_style="round_chips", included_filling_preview_color_secondary="#3A2218",
+    )
+    assert superuser_client.post(url, {**data, "included_filling_preview_color": "#B08060"}).status_code == 302
+    bread.refresh_from_db()
+    assert bread.included_filling_preview_color == "#B08060"
+    assert superuser_client.post(url, {**data, "included_filling_preview_color": ""}).status_code == 302
+    bread.refresh_from_db()
+    assert bread.included_filling_preview_color == ""
+    rejected = superuser_client.post(url, {**data, "included_filling_preview_color": "café"})
+    assert "included_filling_preview_color" in rejected.context["adminform"].form.errors
+
+
+def test_a_bread_without_an_included_filling_cannot_have_a_cream_color(superuser_client):
+    bread = Bread.objects.get(slug="vainilla")
+    url = reverse("admin:core_pasteleria_bread_change", args=[bread.pk])
+    response = superuser_client.post(url, bread_change_data(bread, included_filling_preview_color="#B5876B"))
+    assert response.status_code == 200
+    assert response.context["adminform"].form.errors == {"included_filling_preview_color": [BREAD_CREAM_COLOR_ERROR]}
+
+
+@pytest.mark.parametrize("style", ["jam", "caramel"])
+def test_an_included_filling_can_be_jam_or_caramel_without_a_color_for_pieces(superuser_client, style):
+    bread = Bread.objects.get(slug="choco_pinguino")
+    url = reverse("admin:core_pasteleria_bread_change", args=[bread.pk])
+    data = bread_change_data(bread, pricing_mode="full_price_per_kg", price_per_kg="250.00", included_filling="Crema")
+    saved = superuser_client.post(
+        url, {**data, "included_filling_preview_style": style, "included_filling_preview_color_secondary": "#3A2218"}
+    )
+    assert saved.status_code == 302
+    bread.refresh_from_db()
+    # Sin trozos, su color no se usa: se borra al guardar, como con el estilo liso.
+    assert (bread.included_filling_preview_style, bread.included_filling_preview_color_secondary) == (style, "")
+
+
 def changelist_save(client, model_name, row, **fields):
     """Guarda una fila desde la lista, como el botón "Guardar" con `list_editable` (sort_order e is_active)."""
     data = {

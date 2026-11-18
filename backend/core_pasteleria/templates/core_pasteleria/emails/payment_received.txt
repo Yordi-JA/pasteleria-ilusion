@@ -7,5 +7,5 @@ Pagaste: {{ pay_today }}{% if stand_deposit %}
 Incluye el depósito de la base: {{ stand_deposit }}{% endif %}
 Resto, el día de la entrega: {{ pay_on_delivery }}
 {% endblock %}
-{% block next %}Te escribimos cuando tu pedido esté listo para recoger. Tu nota ya está en tu cuenta: la descargas desde el detalle del pedido.{% endblock %}
+{% block next %}Te escribimos cuando tu pedido esté listo para recoger. Tu nota ya está en tu cuenta: la descargas desde el detalle del pedido.{% if note_attached %} {% if stand_deposit %}Tu nota va adjunta en PDF y la presentas al devolver la base para recuperar tu depósito.{% else %}Tu nota va adjunta en PDF.{% endif %}{% endif %}{% endblock %}
 {% block button %}Ver mi pedido{% endblock %}

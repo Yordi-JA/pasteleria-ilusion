@@ -3,7 +3,7 @@
  * crea el pedido (`POST orders/`, con `Idempotency-Key`). El servidor recalcula todo: del carrito solo viajan las
  * elecciones, nunca un monto, `requiresQuote` ni la huella del diseño.
  */
-import { boundMessage, boundWafer, parseMessage, parseWafer } from './cakeDesignLayout.ts'
+import { boundMessage, boundWafer, messageText, parseMessage, parseWafer } from './cakeDesignLayout.ts'
 import type { MessageLayout, WaferLayout } from './cakeDesignLayout.ts'
 import { normalizeHex } from './color.ts'
 import type { CartItem, DesignItem } from './cart.ts'
@@ -57,6 +57,8 @@ export type OrderDesignRequest = {
   filling_base: string | null
   filling_flavors: string[]
   coverage_color: string
+  /** El peinado lateral (tanda 4); no cambia el precio. */
+  side_comb: boolean
   decoration: string
   decoration_color: string | null
   decoration_image_id: string | null
@@ -102,7 +104,8 @@ function whole(value: unknown): number | null {
 function messageRequest(message: MessageLayout): MessageLayoutRequest {
   const bounded = boundMessage(message)
   return {
-    text: bounded.text,
+    // Sin renglones vacíos ni espacios junto a un salto: lo que el servidor guarda (`design_layout.normalize_message_text`).
+    text: messageText(bounded.text),
     color_mode: bounded.color.mode,
     color: bounded.color.mode === 'auto' ? null : bounded.color.value,
     arrangement: bounded.arrangement,
@@ -174,10 +177,12 @@ export function designRequest(snapshot: Record<string, unknown>, imageIds: Parti
     filling_base: fillingBase,
     filling_flavors: flavors as string[],
     coverage_color: coverage,
+    // Un pastel guardado antes del peinado lateral no lo trae: va peinado, como el borrador.
+    side_comb: snapshot.sideComb !== false,
     decoration,
     decoration_color: decorationColor,
     decoration_image_id: decorationImage,
-    message_layout: message && message.text.trim() !== '' ? messageRequest(message) : null,
+    message_layout: message && messageText(message.text) !== '' ? messageRequest(message) : null,
     wafer: wafer !== null,
     wafer_layout: wafer ? waferRequest(wafer) : null,
     wafer_image_id: waferImage,

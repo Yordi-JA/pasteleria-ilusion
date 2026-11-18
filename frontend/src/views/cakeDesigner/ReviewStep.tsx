@@ -14,7 +14,8 @@ function Line({ line, strong = false, muted = false }: { line: ReviewLine; stron
   return (
     <li className="flex items-start justify-between gap-4 border-t border-relieve py-3 first:border-t-0 first:pt-0">
       <div className="flex min-w-0 flex-col gap-0.5">
-        <p className={strong ? 'text-cuerpo font-bold' : muted ? 'text-cuerpo text-mermelada-suave' : 'text-cuerpo font-semibold'}>{line.title}</p>
+        {/* `whitespace-pre-line`: el mensaje del pastel conserva sus renglones. */}
+        <p className={`whitespace-pre-line ${strong ? 'text-cuerpo font-bold' : muted ? 'text-cuerpo text-mermelada-suave' : 'text-cuerpo font-semibold'}`}>{line.title}</p>
         {line.detail && <p className="text-nota text-mermelada-suave">{line.detail}</p>}
         {line.swatches && <ColorSwatches colors={line.swatches} className="mt-1" />}
       </div>

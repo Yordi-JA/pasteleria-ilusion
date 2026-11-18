@@ -158,7 +158,8 @@ function SummaryList({ rows }: { rows: SummaryRow[] }) {
         <li key={row.step} className="flex items-center justify-between gap-4 border-t border-relieve py-3">
           <div className="flex min-w-0 flex-col">
             <p className="text-nota text-mermelada-suave">{row.label}</p>
-            <p className="text-cuerpo font-semibold">{row.value}</p>
+            {/* `whitespace-pre-line`: el mensaje del pastel conserva sus renglones. */}
+            <p className="whitespace-pre-line text-cuerpo font-semibold">{row.value}</p>
             {row.swatches && <ColorSwatches colors={row.swatches} className="mt-1" />}
             {row.note && <p className="text-nota font-semibold text-mermelada">{row.note}</p>}
           </div>

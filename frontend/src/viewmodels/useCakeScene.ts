@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import type { TakeSnapshot } from '../three/CakeScene.tsx'
 import type { CakeShape, Viewpoint } from '../three/cakeShape.ts'
 
 /** `loading`: se ve el pastel fijo mientras llega la escena; `ready`: ya se dibujó; `fallback`: queda el pastel fijo. */
@@ -84,6 +85,15 @@ export function useCakeScene(shape: CakeShape, visibleMargin = '0px', viewpoint?
   }, [])
   const onChunkError = useCallback(() => setCake({ status: 'fallback', retryable: false }), [])
 
+  // La miniatura del carrito (tanda 4): la escena da la función que la toma mientras está montada.
+  const takeSnapshot = useRef<TakeSnapshot | null>(null)
+  const onSnapshot = useCallback((take: TakeSnapshot | null) => {
+    takeSnapshot.current = take
+  }, [])
+  const ready = cake.status === 'ready'
+  /** La miniatura del pastel tal como se ve ahora, o `null` sin escena lista (sin WebGL, cargando o tras perder el contexto). */
+  const snapshot = useCallback((): string | null => (ready ? (takeSnapshot.current?.() ?? null) : null), [ready])
+
   return {
     observeBox,
     status: cake.status,
@@ -96,6 +106,8 @@ export function useCakeScene(shape: CakeShape, visibleMargin = '0px', viewpoint?
     onReady,
     onContextLost,
     onChunkError,
+    onSnapshot,
+    snapshot,
   }
 }
 

@@ -222,7 +222,9 @@ class Presentation(models.TextChoices):
 class FillingPreviewStyle(models.TextChoices):
     """Cómo se ve un sabor de relleno en la vista previa de "Diseña tu pastel"."""
 
-    SMOOTH = "smooth", "Liso (mermelada o crema)"
+    SMOOTH = "smooth", "Liso (crema)"
+    JAM = "jam", "Mermelada (brillante, con semillas)"
+    CARAMEL = "caramel", "Cajeta o caramelo (brillante y lisa)"
     FRUIT_SLICES = "fruit_slices", "Rebanadas de fruta"
     FRUIT_CHUNKS = "fruit_chunks", "Trozos de fruta"
     COOKIE_CHUNKS = "cookie_chunks", "Trozos de galleta"
@@ -230,6 +232,12 @@ class FillingPreviewStyle(models.TextChoices):
     CRUMBLES = "crumbles", "Grumitos"
     NUT_PIECES = "nut_pieces", "Trozos de nuez"
     ROUND_CHIPS = "round_chips", "Chispas redondas"
+
+
+# Los estilos sin trozos: no piden el color de los trozos (liso, mermelada y cajeta).
+PIECELESS_PREVIEW_STYLES = frozenset(
+    {FillingPreviewStyle.SMOOTH, FillingPreviewStyle.JAM, FillingPreviewStyle.CARAMEL}
+)
 
 
 class BreadPricingMode(models.TextChoices):
@@ -892,7 +900,17 @@ class Bread(OrderedOption):
         default=FillingPreviewStyle.SMOOTH,
         help_text=(
             "Solo para un pan con relleno incluido (Choco-pingüino, Red velvet): se ve desde que se elige el pan. "
-            "Siempre es crema pastelera blanca; aquí se elige lo que lleva encima."
+            "Es crema (blanca o del color que se elige abajo); aquí se elige lo que lleva encima."
+        ),
+    )
+    included_filling_preview_color = models.CharField(
+        "color de la crema del relleno incluido en la vista previa",
+        max_length=7,
+        blank=True,
+        validators=[hex_color_validator],
+        help_text=(
+            "Solo para un pan con relleno incluido: el color de su crema (por ejemplo, café claro en Choco-pingüino). "
+            "Vacío: crema pastelera blanca."
         ),
     )
     included_filling_preview_color_secondary = models.CharField(
@@ -1059,7 +1077,7 @@ class FillingFlavor(OrderedOption):
         choices=FillingPreviewStyle.choices,
         default=FillingPreviewStyle.SMOOTH,
         help_text=(
-            "Liso, con rebanadas de fruta, con trozos de fruta, con trozos de galleta, con granillo, con grumitos, "
+            "Liso, mermelada (brillante, con semillas), cajeta (brillante y lisa), con rebanadas de fruta, con trozos de fruta, con trozos de galleta, con granillo, con grumitos, "
             "con trozos de nuez o con chispas redondas."
         ),
     )
@@ -2357,6 +2375,14 @@ class CakeDesign(models.Model):
     coverage_color = models.CharField("color de la cobertura", max_length=7)
     coverage_color_name = models.CharField(
         "parecido a", max_length=60, blank=True, help_text="Lo calcula el servidor; vacío si ningún nombre se parece."
+    )
+    # Tanda 4: surcos horizontales en los costados de la cobertura. Va por omisión; los diseños de antes quedan peinados,
+    # que es como la pastelería termina sus pasteles.
+    side_comb = models.BooleanField(
+        "peinado lateral",
+        default=True,
+        db_default=True,
+        help_text="Surcos horizontales en los costados de la cobertura. Sin él, los costados van lisos.",
     )
     decoration = models.ForeignKey(
         DecorationOption, on_delete=models.PROTECT, related_name="+", verbose_name="decoración"

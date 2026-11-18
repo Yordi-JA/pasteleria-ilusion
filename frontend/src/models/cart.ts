@@ -73,6 +73,12 @@ export type DesignItem = {
    * de hasta 5 MB no cabe en `localStorage`; aquí solo va la clave de cada una.
    */
   images: { decoration?: string; wafer?: string }
+  /**
+   * La vista previa al agregarlo (tanda 4): una imagen chica (`data:` en WebP o JPEG, unos 20 KB) que el carrito, la entrega,
+   * el pago y la confirmación muestran en lugar del hueco de la foto. Falta si no se pudo tomar (sin WebGL, el lienzo falló o
+   * no cupo al guardar) y en las líneas de antes: entonces se ve el hueco. No va al servidor.
+   */
+  thumbnail?: string
 }
 
 /** Una línea del carrito: del catálogo o un pastel diseñado. */
@@ -196,6 +202,15 @@ const MAX_DESIGN_DETAILS = 12
 const MAX_DESIGN_DETAIL = 400
 const MAX_DESIGN_JSON = 8000
 const MAX_DESIGN_ID = 40
+/** Largo de la miniatura en texto: unos 30 KB en base64 (la de 180 px pesa unos 10 KB). */
+export const MAX_THUMBNAIL_LENGTH = 40_000
+// Solo una imagen WebP o JPEG en base64: nunca otra clase de dirección (ni SVG, que puede llevar código).
+const THUMBNAIL = /^data:image\/(?:webp|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/
+
+/** Si el valor es una miniatura que el carrito acepta mostrar. */
+export function isThumbnail(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= MAX_THUMBNAIL_LENGTH && THUMBNAIL.test(value)
+}
 
 /**
  * Si el diseño guardado trae sus colores como el `slug` de la lista vieja (cobertura, decoración o mensaje en modo `list`) en lugar
@@ -230,7 +245,16 @@ function parseDesign(data: Record<string, unknown>): DesignItem | null {
     if (!clean) return null
     images[slot] = clean
   }
-  return { kind: 'design', designId, name, details: details as string[], total, baseDeposit, requiresQuote: data.requiresQuote, quantity: 1, design: data.design, images }
+  const line: DesignItem = { kind: 'design', designId, name, details: details as string[], total, baseDeposit, requiresQuote: data.requiresQuote, quantity: 1, design: data.design, images }
+  // Una miniatura dudosa no daña el pastel: se ignora y se ve el hueco de la foto.
+  return isThumbnail(data.thumbnail) ? { ...line, thumbnail: data.thumbnail } : line
+}
+
+/** La línea sin su miniatura (las demás, tal cual). */
+function withoutThumbnail(item: CartItem): CartItem {
+  if (item.kind !== 'design' || item.thumbnail === undefined) return item
+  const { thumbnail: _dropped, ...rest } = item
+  return rest
 }
 
 function parseItem(data: unknown): CartItem | null {
@@ -322,17 +346,31 @@ export function readCart(): StoredCart | null {
 
 /**
  * Guarda el carrito con las líneas de una versión más nueva al final, sin pasar de `MAX_LINES` en total (las
- * propias van primero). Si no se puede (almacenamiento bloqueado o lleno), el carrito sigue en memoria durante
- * la visita y devuelve `false`.
+ * propias van primero). Si no cabe con las miniaturas de los pasteles, se guarda sin ellas: el pastel importa más que su
+ * imagen, y al leerlo se ve el hueco de la foto. Si aun así no se puede (almacenamiento bloqueado o lleno), el carrito
+ * sigue en memoria durante la visita y devuelve `false`.
  */
 export function writeCart(items: CartItem[], unknown: OpaqueLine[] = []): boolean {
+  const save = (lines: CartItem[]) => window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ items: [...lines, ...unknown].slice(0, MAX_LINES) }))
+  let failure: unknown
   try {
-    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ items: [...items, ...unknown].slice(0, MAX_LINES) }))
+    save(items)
     return true
   } catch (error) {
-    console.warn('No se pudo guardar el carrito; se conserva solo en esta pestaña.', error)
-    return false
+    failure = error
   }
+  const bare = items.map(withoutThumbnail)
+  if (bare.some((item, index) => item !== items[index])) {
+    try {
+      save(bare)
+      console.warn('No cupieron las miniaturas de los pasteles; el carrito se guardó sin ellas.', failure)
+      return true
+    } catch (error) {
+      failure = error
+    }
+  }
+  console.warn('No se pudo guardar el carrito; se conserva solo en esta pestaña.', failure)
+  return false
 }
 
 function assertQuantity(quantity: number) {

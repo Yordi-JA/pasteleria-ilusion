@@ -49,6 +49,7 @@ from .audit import audit_operation
 from .design_layout import (
     MessageLayout,
     WaferLayout,
+    check_message_block,
     check_message_layout,
     check_message_letter,
     check_wafer_layout,
@@ -518,16 +519,21 @@ def _wafer_charge(wafer: bool, limits: CakeDesignSettingsRecord, size) -> Decima
 
 
 def _check_layouts(choice: CakeDesignChoice, limits: CakeDesignSettingsRecord, cake_options, size) -> None:
-    """Acomodo de la oblea y del mensaje, si llegan: cotas del paso 7 (`design_layout`) y la letra mínima del mensaje,
-    con el radio de la tapa de ese pastel (si con lo que llegó no se sabe, otra revisión ya lo rechaza)."""
+    """Acomodo de la oblea y del mensaje, si llegan: cotas del paso 7 (`design_layout`), la letra mínima del mensaje y
+    que su bloque de renglones quepa, con la tapa de ese pastel (si con lo que llegó no se sabe, otra revisión ya lo
+    rechaza)."""
     failures: list[DomainValidationError] = []
     if choice.wafer_layout is not None:
         attempt(failures, check_wafer_layout, choice.wafer_layout, choice.wafer, limits)
     if choice.message_layout is not None:
-        attempt(failures, check_message_layout, choice.message_layout)
+        message = choice.message_layout
+        attempt(failures, check_message_layout, message)
         lid = attempt([], size.lid, choice, cake_options)
         if lid is not None and limits.message_min_letter_cm is not None and not failures:
-            attempt(failures, check_message_letter, choice.message_layout, lid.radius, limits.message_min_letter_cm)
+            attempt(failures, check_message_letter, message, lid.radius, limits.message_min_letter_cm)
+        if lid is not None and not failures:
+            room = cake_lid.message_room_cm(lid, message.rotation_deg)
+            attempt(failures, check_message_block, message, lid.radius, room, limits.message_min_letter_cm)
     try:
         raise_all(failures)
     except DomainValidationError as error:

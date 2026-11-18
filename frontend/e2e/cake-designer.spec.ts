@@ -350,7 +350,7 @@ test('choco-pingüino skips the filling step and envinado asks to choose another
   await expect(page.getByText('No se combina con pastel envinado').first()).toBeVisible()
   await expect(page.getByText('Para usar Choco-pingüino, cambia el tipo de pastel a Tres leches o Seco.')).toBeVisible()
   // Lo demás se conserva: la cobertura lila sigue en "Tu pastel".
-  await expect(shown(page, 'Crema pastelera, parecido a lila')).toBeVisible()
+  await expect(shown(page, 'Crema pastelera, parecido a lila, con peinado lateral')).toBeVisible()
 })
 
 test('the steps do not repeat their titles nor explain the obvious', async ({ page }) => {

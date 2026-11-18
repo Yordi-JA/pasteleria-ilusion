@@ -19,15 +19,13 @@ from ..services import (
     cake_options_service,
     catalog_service,
     customer_image_service,
-    email_service,
     payment_summary,
     pricing_service,
     store_info_service,
     warranty_service,
 )
 from ..services.errors import DomainValidationError, attempt, raise_all
-from ..services.orders import note_service, order_service, schedule_service
-from . import note_pdf
+from ..services.orders import note_document, note_service, order_service, schedule_service
 from .parsers import MULTIPART_OVERHEAD_BYTES, BoundedImageUploadParser, declared_length
 from .serializers import (
     CakeDesignOptionsSerializer,
@@ -749,9 +747,8 @@ class OrderNoteView(APIView):
         note = note_service.get_note(request.user.pk, order_id)
         if note is None:
             raise NotFound("No encontrado.")
-        url = email_service.site_url(f"/nota/{note.order.note_token}")
-        response = HttpResponse(note_pdf.render_note(note, url), content_type="application/pdf")
-        response["Content-Disposition"] = f'attachment; filename="nota-pedido-{note.order.id}.pdf"'
+        response = HttpResponse(note_document.render_pdf(note), content_type=note_document.CONTENT_TYPE)
+        response["Content-Disposition"] = f'attachment; filename="{note_document.filename(note.order.id)}"'
         response["Cache-Control"] = "private, no-store"
         response["X-Content-Type-Options"] = "nosniff"
         return response

@@ -94,6 +94,8 @@ class DesignRequest:
     occasion: str
     cake_size: str = CakeDesignSize.BY_WEIGHT.value
     source_product: str | None = None
+    # Tanda 4: el peinado lateral; no cambia el precio.
+    side_comb: bool = True
 
 
 @dataclass(frozen=True)
@@ -338,6 +340,7 @@ class DesignLine:
             filling_flavors=design.filling_flavors,
             coverage_color=coverage,
             coverage_color_name=color_names.nearest_color_name(coverage, references) or "",
+            side_comb=design.side_comb,
             decoration=design.decoration,
             decoration_color=decoration_color,
             decoration_color_name=(

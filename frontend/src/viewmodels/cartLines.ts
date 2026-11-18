@@ -31,6 +31,8 @@ export type CartLineView = {
   /** La base que lleva un pastel diseñado y su depósito ya con formato. */
   base: { kg: number | null; deposit: string } | null
   requiresQuote: boolean
+  /** La miniatura del pastel diseñado (tanda 4); `null` en el catálogo y en un pastel sin ella: se ve el hueco de la foto. */
+  thumbnail: string | null
   /** Para cambiar o quitar la línea. */
   key: { kind: 'offering'; line: LineKey } | { kind: 'design'; designId: string }
 }
@@ -91,6 +93,7 @@ function offeringLine(item: OfferingItem): CartLineView {
     kg: null,
     base: null,
     requiresQuote: false,
+    thumbnail: null,
     key: { kind: 'offering', line: { offeringId: item.offeringId, fulfillment: item.fulfillment } },
   }
 }
@@ -119,6 +122,7 @@ function designLine(item: DesignItem): CartLineView {
     kg,
     base: deposit ? { kg, deposit } : null,
     requiresQuote: item.requiresQuote,
+    thumbnail: item.thumbnail ?? null,
     key: { kind: 'design', designId: item.designId },
   }
 }

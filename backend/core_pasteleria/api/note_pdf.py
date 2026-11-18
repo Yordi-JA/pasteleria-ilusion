@@ -21,6 +21,7 @@ from reportlab.lib.colors import HexColor
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.lib.utils import simpleSplit
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen.canvas import Canvas
 
 from ..models import CakeShape, CakeType, Fulfillment, OrderLineKind, PaymentMethod, Presentation, StandLoanStatus
@@ -43,6 +44,11 @@ PAGE_WIDTH, PAGE_HEIGHT = letter
 MARGIN = 0.75 * inch
 CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN
 QR_SIZE = 1.15 * inch
+# Relleno interior del recuadro de la base, a cada lado.
+STAND_PADDING = 14
+STAND_TOP_SPACE = 16
+# Lo que separa un texto del que tiene al lado en el mismo renglón (las columnas, una etiqueta y su importe).
+GAP = 12
 
 STORE_NAME = "Pastelería Ilusión"
 TAGLINE = "Pide un deseo. Del pastel nos encargamos."
@@ -59,6 +65,32 @@ MONTHS = (
 def _drawable(text: str) -> str:
     """Solo lo que las fuentes base dibujan (Windows-1252): lo demás, como un emoji, sale como "?"."""
     return text.encode("cp1252", errors="replace").decode("cp1252")
+
+
+def _break_word(line: str, font: str, size: float, width: float) -> list[str]:
+    """Un renglón que sigue sin caber (un correo o una palabra sin espacios), partido letra por letra."""
+    pieces: list[str] = []
+    current = ""
+    for letter in line:
+        # Cada pedazo lleva al menos una letra, aunque la caja sea más angosta que ella.
+        if current and stringWidth(current + letter, font, size) > width:
+            pieces.append(current)
+            current = ""
+        current += letter
+    pieces.append(current)
+    return pieces
+
+
+def fit_lines(text: str, font: str, size: float, width: float) -> list[str]:
+    """Los renglones en que se dibuja `text` (ya limpio para las fuentes base) dentro de una caja de `width` puntos.
+
+    Parte en los espacios (`simpleSplit`) y en cada `\\n`; lo que aun así no cabe se parte letra por letra. Ningún
+    renglón mide más que `width` con `stringWidth`.
+    """
+    lines: list[str] = []
+    for line in simpleSplit(_drawable(text), font, size, width):
+        lines.extend([line] if stringWidth(line, font, size) <= width else _break_word(line, font, size, width))
+    return lines
 
 
 def _money(amount: Decimal) -> str:
@@ -101,7 +133,7 @@ class _Page:
         draw(x, self.y, _drawable(value))
 
     def lines(self, x: float, value: str, width: float, *, font=BODY_FONT, size=10, color=MERMELADA) -> None:
-        for line in simpleSplit(_drawable(value), font, size, width):
+        for line in fit_lines(value, font, size, width):
             self.ensure(size + 4)
             self.text(x, line, font=font, size=size, color=color)
             self.y -= size + 4
@@ -133,31 +165,34 @@ def _header(page: _Page, note: OrderNote) -> None:
     page.y -= 26
 
 
-def _field(page: _Page, x: float, label: str, value: str) -> None:
+def _field(page: _Page, x: float, width: float, label: str, value: str) -> None:
+    """Una etiqueta y su valor; un valor que no cabe en su columna sigue en otro renglón."""
     page.text(x, label, size=8, color=MERMELADA_SUAVE)
     page.y -= 13
-    page.text(x, value, font=BOLD_FONT, size=10)
-    page.y -= 18
+    page.lines(x, value, width, font=BOLD_FONT, size=10)
+    page.y -= 4
 
 
 def _customer_and_delivery(page: _Page, note: OrderNote) -> None:
     order = note.order
     column = MARGIN + CONTENT_WIDTH / 2
+    left_width = CONTENT_WIDTH / 2 - GAP
+    right_width = CONTENT_WIDTH / 2
     top = page.y
     page.text(MARGIN, "Cliente", font=TITLE_FONT, size=13)
     page.y -= 20
-    _field(page, MARGIN, "Nombre", order.customer_name or order.pickup_name)
-    _field(page, MARGIN, "Teléfono", order.pickup_phone)
-    _field(page, MARGIN, "Correo", order.customer_email)
+    _field(page, MARGIN, left_width, "Nombre", order.customer_name or order.pickup_name)
+    _field(page, MARGIN, left_width, "Teléfono", order.pickup_phone)
+    _field(page, MARGIN, left_width, "Correo", order.customer_email)
     left_bottom = page.y
     page.y = top
     page.text(column, "Entrega", font=TITLE_FONT, size=13)
     page.y -= 20
     when = f"{_long_date(order.delivery_date).capitalize()}, de {_hh_mm(order.slot_starts_at)} a {_hh_mm(order.slot_ends_at)}"
-    _field(page, column, "Fecha y hora", when)
-    _field(page, column, "Forma", Fulfillment(order.fulfillment).label)
+    _field(page, column, right_width, "Fecha y hora", when)
+    _field(page, column, right_width, "Forma", Fulfillment(order.fulfillment).label)
     if order.fulfillment == Fulfillment.PICKUP:
-        _field(page, column, "Recoge", order.pickup_name)
+        _field(page, column, right_width, "Recoge", order.pickup_name)
     page.y = min(page.y, left_bottom) - 4
 
 
@@ -174,12 +209,18 @@ def _design_description(item: OrderItemRecord) -> tuple[str, str]:
         f"{CakeShape(design.form).label} de {tiers}.",
         f"{CakeType(design.cake_type).label}, pan {design.bread_name.lower()}, {filling}.",
         f"Decoración: {design.decoration_name}.",
+        # Tanda 4: la pastelería tiene que saber si peina los costados de la cobertura.
+        "Con peinado lateral." if design.side_comb else "Sin peinado lateral.",
     ]
-    if design.message and design.message.get("text"):
-        parts.append(f"Mensaje: «{design.message['text']}».")
-    if design.wafer:
-        parts.append("Con oblea.")
-    return title, " ".join(parts)
+    message = design.message.get("text") if design.message else None
+    wafer = ["Con oblea."] if design.wafer else []
+    if message and "\n" in message:
+        # Un mensaje de varios renglones empieza en su propio renglón de la nota y cada uno de sus renglones va en el
+        # suyo (`_Page.lines` parte en cada `\n`); lo que sigue, en otro.
+        return title, "\n".join([" ".join(parts), f"Mensaje: «{message}».", *wafer])
+    if message:
+        parts.append(f"Mensaje: «{message}».")
+    return title, " ".join([*parts, *wafer])
 
 
 def _item_description(item: OrderItemRecord) -> tuple[str, str]:
@@ -225,44 +266,65 @@ def _totals(page: _Page, note: OrderNote) -> None:
         rows.append(("Envío pagado", order.delivery_fee, False))
     if order.pay_on_delivery is not None:
         rows.append(("Resto, el día de la entrega", order.pay_on_delivery, True))
+    column_width = PAGE_WIDTH - MARGIN - label_x
     page.ensure(20 * len(rows) + 30)
     for label, amount, strong in rows:
         font = BOLD_FONT if strong else BODY_FONT
-        page.text(label_x, label, font=font, size=11 if strong else 10)
-        page.text(PAGE_WIDTH - MARGIN, _money(amount), font=font, size=11 if strong else 10, right=True)
-        page.y -= 18
+        size = 11 if strong else 10
+        shown = _money(amount)
+        # El importe va en el primer renglón; la etiqueta se parte antes de llegar a él.
+        page.text(PAGE_WIDTH - MARGIN, shown, font=font, size=size, right=True)
+        page.lines(label_x, label, column_width - stringWidth(shown, font, size) - GAP, font=font, size=size)
+        page.y -= 18 - (size + 4)
     if order.paid_with and order.paid_at:
         paid_on = _short_date(_local(order.paid_at).date())
-        page.text(label_x, f"Pagado con {PaymentMethod(order.paid_with).label} el {paid_on}.", size=8)
-        page.y -= 14
+        page.lines(label_x, f"Pagado con {PaymentMethod(order.paid_with).label} el {paid_on}.", column_width, size=8)
+        page.y -= 2
     page.y -= 10
 
 
 def _stand(page: _Page, stand: OrderStand) -> None:
-    height = 78
+    """El recuadro de la base. Su texto se parte dentro del relleno y el recuadro crece con los renglones que lleva."""
+    inner = MARGIN + STAND_PADDING
+    inner_width = CONTENT_WIDTH - 2 * STAND_PADDING
+    deposit = f"Depósito pagado: {_money(stand.deposit)}"
+    title = fit_lines(f"Base para {stand.kg} kg", TITLE_FONT, 13, inner_width - stringWidth(deposit, BOLD_FONT, 10) - GAP)
+    returned = stand.status == StandLoanStatus.RETURNED
+    if returned:
+        returned_on = _short_date(_local(stand.returned_at).date())
+        body_size = 10
+        body_text = f"Devuelta el {returned_on}. El depósito ya se reembolsó."
+    else:
+        body_size = 9
+        body_text = (
+            f"Regrésala antes del {_short_date(stand.return_by)} ({stand.return_days} días después de la entrega) "
+            "junto con esta nota y te devolvemos el importe."
+        )
+    body = fit_lines(body_text, BODY_FONT, body_size, inner_width)
+    height = 78 + (len(title) - 1) * 17 + (len(body) - 1) * (body_size + 4)
+    # Aire sobre el recuadro, para que no quede pegado a la línea "Pagado con…" de los totales; si con ese aire ya
+    # no cabe en la hoja, se queda sin él antes que mandar el recuadro solo a otra hoja.
+    if page.y - (STAND_TOP_SPACE + height + 12) >= MARGIN + page.footer_height:
+        page.y -= STAND_TOP_SPACE
     page.ensure(height + 12)
     top = page.y
     page.canvas.setStrokeColor(CAJETA)
     page.canvas.setLineWidth(0.75)
     page.canvas.roundRect(MARGIN, top - height + 12, CONTENT_WIDTH, height, 8, stroke=1, fill=0)
-    inner = MARGIN + 14
     page.y = top - 6
-    page.text(inner, f"Base para {stand.kg} kg", font=TITLE_FONT, size=13)
-    page.text(PAGE_WIDTH - MARGIN - 14, f"Depósito pagado: {_money(stand.deposit)}", font=BOLD_FONT, size=10, right=True)
-    page.y -= 20
-    if stand.status == StandLoanStatus.RETURNED:
-        returned_on = _short_date(_local(stand.returned_at).date())
-        page.text(inner, f"Devuelta el {returned_on}. El depósito ya se reembolsó.", size=10)
+    page.text(PAGE_WIDTH - MARGIN - STAND_PADDING, deposit, font=BOLD_FONT, size=10, right=True)
+    for line in title:
+        page.text(inner, line, font=TITLE_FONT, size=13)
+        page.y -= 17
+    page.y -= 3
+    for line in body:
+        page.text(inner, line, size=body_size)
+        page.y -= body_size + 4
+    if returned:
         page.y = top - height - 4
         return
-    page.text(
-        inner,
-        f"Regrésala antes del {_short_date(stand.return_by)} ({stand.return_days} días después de la entrega) junto "
-        "con esta nota y te devolvemos el importe.",
-        size=9,
-    )
-    page.y -= 26
-    third = (CONTENT_WIDTH - 28) / 3
+    page.y -= 26 - (body_size + 4)
+    third = (CONTENT_WIDTH - 2 * STAND_PADDING) / 3
     for index, label in enumerate(("Base recibida el", "Recibió", "Importe devuelto")):
         x = inner + index * third
         page.text(x, label, size=8, color=MERMELADA_SUAVE)
@@ -272,22 +334,17 @@ def _stand(page: _Page, stand: OrderStand) -> None:
     page.y = top - height - 4
 
 
-def _footer(canvas: Canvas, note: OrderNote, verification_url: str) -> None:
-    """El QR y los datos de la pastelería, al pie de la última página."""
-    bottom = MARGIN
-    canvas.setStrokeColor(FRESA)
-    canvas.setLineWidth(1)
-    canvas.line(MARGIN, bottom + QR_SIZE + 12, PAGE_WIDTH - MARGIN, bottom + QR_SIZE + 12)
-    widget = QrCodeWidget(verification_url, barLevel="M")
-    widget.barFillColor = MERMELADA
-    x0, y0, x1, y1 = widget.getBounds()
-    drawing = Drawing(QR_SIZE, QR_SIZE, transform=[QR_SIZE / (x1 - x0), 0, 0, QR_SIZE / (y1 - y0), 0, 0])
-    drawing.add(widget)
-    renderPDF.draw(drawing, canvas, MARGIN, bottom)
-    canvas.linkURL(verification_url, (MARGIN, bottom, MARGIN + QR_SIZE, bottom + QR_SIZE), relative=0)
+FOOTER_TEXT_X = MARGIN + QR_SIZE + 16
+
+# Un renglón del pie: fuente, tamaño, color y texto.
+FooterLine = tuple[str, int, HexColor, str]
+
+
+def _footer_lines(note: OrderNote, verification_url: str) -> list[FooterLine]:
+    """Los datos de la pastelería junto al QR, ya partidos al ancho que les queda."""
     store = note.store
     whatsapp = f"WhatsApp +{store.whatsapp}" if store.whatsapp else WHATSAPP_PENDING
-    lines = [
+    values = [
         (BOLD_FONT, 10, MERMELADA, STORE_NAME),
         (BODY_FONT, 9, MERMELADA_SUAVE, store.address or ADDRESS_PENDING),
         (
@@ -297,12 +354,41 @@ def _footer(canvas: Canvas, note: OrderNote, verification_url: str) -> None:
         (BODY_FONT, 9, MERMELADA_SUAVE, "Escanea el código para verificar esta nota."),
         (BODY_FONT, 6, MERMELADA_SUAVE, verification_url),
     ]
-    x = MARGIN + QR_SIZE + 16
-    y = bottom + QR_SIZE - 12
+    width = PAGE_WIDTH - MARGIN - FOOTER_TEXT_X
+    return [(font, size, color, line) for font, size, color, value in values for line in fit_lines(value, font, size, width)]
+
+
+def _footer_text_top(lines: list[FooterLine]) -> float:
+    """La altura del primer renglón del pie: junto al borde de arriba del QR o, si los renglones son más, lo bastante
+    alto para que el último no baje del margen."""
+    drop = sum(size + 6 for _, size, _, _ in lines[:-1])
+    return MARGIN + max(QR_SIZE - 12, drop)
+
+
+def _footer_height(lines: list[FooterLine]) -> float:
+    """Lo que ocupa el pie sobre el margen de abajo, con su raya."""
+    return _footer_text_top(lines) + 36 - MARGIN
+
+
+def _footer(canvas: Canvas, verification_url: str, lines: list[FooterLine]) -> None:
+    """El QR y los datos de la pastelería, al pie de la última página."""
+    bottom = MARGIN
+    rule = _footer_text_top(lines) + 24
+    canvas.setStrokeColor(FRESA)
+    canvas.setLineWidth(1)
+    canvas.line(MARGIN, rule, PAGE_WIDTH - MARGIN, rule)
+    widget = QrCodeWidget(verification_url, barLevel="M")
+    widget.barFillColor = MERMELADA
+    x0, y0, x1, y1 = widget.getBounds()
+    drawing = Drawing(QR_SIZE, QR_SIZE, transform=[QR_SIZE / (x1 - x0), 0, 0, QR_SIZE / (y1 - y0), 0, 0])
+    drawing.add(widget)
+    renderPDF.draw(drawing, canvas, MARGIN, bottom)
+    canvas.linkURL(verification_url, (MARGIN, bottom, MARGIN + QR_SIZE, bottom + QR_SIZE), relative=0)
+    y = _footer_text_top(lines)
     for font, size, color, value in lines:
         canvas.setFont(font, size)
         canvas.setFillColor(color)
-        canvas.drawString(x, y, _drawable(value))
+        canvas.drawString(FOOTER_TEXT_X, y, value)
         y -= size + 6
 
 
@@ -312,14 +398,15 @@ def render_note(note: OrderNote, verification_url: str) -> bytes:
     canvas = Canvas(buffer, pagesize=letter, pageCompression=1)
     canvas.setTitle(f"Nota del pedido {note.order.id}")
     canvas.setAuthor(STORE_NAME)
-    page = _Page(canvas, footer_height=QR_SIZE + 24)
+    footer = _footer_lines(note, verification_url)
+    page = _Page(canvas, footer_height=_footer_height(footer))
     _header(page, note)
     _customer_and_delivery(page, note)
     _items(page, note)
     _totals(page, note)
     for stand in note.stands:
         _stand(page, stand)
-    _footer(canvas, note, verification_url)
+    _footer(canvas, verification_url, footer)
     canvas.showPage()
     canvas.save()
     return buffer.getvalue()
