@@ -1,5 +1,5 @@
 import type { FillingPreviewStyle } from '../models/cakeDesign.ts'
-import type { CakePieces } from '../three/cakeShape.ts'
+import type { CakeFinish, CakePieces } from '../three/cakeShape.ts'
 import type { DataColor } from '../three/palette.ts'
 
 /** Los colores de la API ya llegan validados como `#rrggbb` (`models/cakeDesign.ts`). */
@@ -23,6 +23,13 @@ export function piecesFor(style: FillingPreviewStyle, color: DataColor | null, a
     case 'crumbles':
       return { style, colors: color ? [color, color, accent] : [accent] }
     case 'smooth':
+    case 'jam':
+    case 'caramel':
       return null
   }
+}
+
+/** El acabado de la superficie según el estilo: la mermelada y la cajeta brillan (tanda 4); los demás, ninguno. */
+export function finishFor(style: FillingPreviewStyle): CakeFinish | null {
+  return style === 'jam' || style === 'caramel' ? style : null
 }

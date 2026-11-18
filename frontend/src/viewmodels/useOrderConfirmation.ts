@@ -1,4 +1,5 @@
 import { useSearchParams } from 'react-router'
+import { orderThumbnails } from '../models/checkout.ts'
 import { isPaid, paidSummary, pearlStep, timelineSteps } from './orderView.ts'
 import { createdText } from './paymentView.ts'
 import { parseOrderId, useAccountOrder } from './useAccountOrder.ts'
@@ -32,7 +33,7 @@ export function useOrderConfirmation() {
             created: createdText(order),
             pearl: pearlStep(order.status) ?? 1,
             steps: timelineSteps(order, 'confirmation'),
-            summary: paidSummary(order),
+            summary: paidSummary(order, orderThumbnails(order.id)),
             noteAvailable: order.noteAvailable,
             pickup: order.fulfillment === 'pickup',
           }

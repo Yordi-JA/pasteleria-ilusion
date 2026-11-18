@@ -6,6 +6,8 @@ import type { CakePieces } from './cakeShape.ts'
 import { seededRandom } from './seededRandom.ts'
 import { resolveColor } from './palette.ts'
 import { MAX_PIECES, wantedPieces } from './pieceBudget.ts'
+import { spreadOffset } from './creamSpread.ts'
+import type { SpreadShape } from './creamSpread.ts'
 
 /**
  * Los trozos del relleno de "Diseña tu pastel" (D50, D51, D52): rebanadas o trozos de fruta, trozos de galleta, granillo,
@@ -102,6 +104,8 @@ type PiecesProps = {
   seed: number
   /** Cuánto se multiplica la densidad para que toda la escena quepa en el presupuesto (`pieceBudget.ts`). */
   densityScale: number
+  /** La crema untada de la franja (tanda 4): los trozos siguen su superficie. Sin ella, la franja es recta. */
+  spread?: SpreadShape | null
 }
 
 /** Lo que decide dónde cae un punto del costado. */
@@ -128,7 +132,7 @@ function surfacePoint(random: () => number, props: SurfaceProps): [number, numbe
 
 /** Los trozos de un relleno en el costado de su franja, con posiciones fijas por semilla. */
 export default function FillingPieces(props: PiecesProps) {
-  const { pieces, radius, form, halfWidth, halfDepth, height, half, seed, densityScale } = props
+  const { pieces, radius, form, halfWidth, halfDepth, height, half, seed, densityScale, spread = null } = props
   const ref = useRef<InstancedMesh>(null)
   const invalidate = useThree((state) => state.invalidate)
   const spec = PIECE_SPECS[pieces.style]
@@ -153,7 +157,9 @@ export default function FillingPieces(props: PiecesProps) {
       const scale = form === 'round' ? radius : 1
       const [low, high] = spec.band ?? DEFAULT_BAND
       const y = height * (low + random() * (high - low))
-      dummy.position.set(px * scale + nx * spec.offset, y, pz * scale + nz * spec.offset)
+      // Sobre la crema untada, el trozo se apoya donde está su superficie, no en el contorno del pan.
+      const lift = spec.offset + (spread ? spreadOffset(spread, Math.atan2(px * scale, pz * scale), y, height) : 0)
+      dummy.position.set(px * scale + nx * lift, y, pz * scale + nz * lift)
       dummy.rotation.set(0, 0, 0)
       dummy.lookAt(target.set(dummy.position.x + nx, y, dummy.position.z + nz))
       if (spec.spin === 'face') dummy.rotateZ(random() * Math.PI * 2)
@@ -169,7 +175,7 @@ export default function FillingPieces(props: PiecesProps) {
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
     // Con `frameloop="demand"` un cambio de color o de semilla no dibuja solo: se pide el cuadro.
     invalidate()
-  }, [colorKey, count, form, half, halfDepth, halfWidth, height, invalidate, radius, seed, spec])
+  }, [colorKey, count, form, half, halfDepth, halfWidth, height, invalidate, radius, seed, spec, spread])
 
   // El número de instancias es fijo al crear la malla: con otro número de trozos, se crea otra.
   return (

@@ -47,6 +47,8 @@ export type MessageLayout = {
 /** Cotas técnicas (las mismas del servidor) contra datos alterados; no son reglas de negocio. */
 export const LAYOUT_BOUNDS = {
   messageMaxLength: 80,
+  /** Renglones del mensaje (tanda 4), separados por `\n`: `MAX_MESSAGE_LINES` de `design_layout.py`. */
+  messageMaxLines: 3,
   waferMinCm: 2,
   waferMaxCm: 100,
   position: 10,
@@ -88,14 +90,56 @@ function finite(value: unknown, min: number, max: number): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max ? value : null
 }
 
+const LINE_BREAK = '\n'
+
+/** El texto con `\r\n` y `\r` cambiados por `\n`, el único salto que acepta el servidor. */
+function unifyBreaks(text: string): string {
+  return text.replace(/\r\n?/g, LINE_BREAK)
+}
+
+/** Cuántos renglones tiene el campo tal como se ve, contando los vacíos y el que se empieza tras un salto. */
+export function rawLineCount(text: string): number {
+  return unifyBreaks(text).split(LINE_BREAK).length
+}
+
 /**
- * El texto del mensaje sin lo que no se puede imprimir (ver `UNSAFE_CHAR`), con a lo más dos marcas combinantes seguidas y
- * recortado a 80 caracteres. Quita casi todo lo que el servidor rechazaría (con la salvedad de `UNSAFE_CHAR` sobre Cn).
+ * El texto del mensaje sin lo que no se puede imprimir (ver `UNSAFE_CHAR`; el salto `\n` sí pasa), con a lo más dos marcas
+ * combinantes seguidas, con hasta `messageMaxLines` renglones (lo que pasa de ahí se junta al último con un espacio) y recortado
+ * a 80 caracteres, con el salto contando como 1. Es lo que guarda el campo: mientras se escribe puede llevar un renglón vacío o
+ * un salto al final; `messageLines` los quita al dibujar y al guardar. Quita casi todo lo que el servidor rechazaría (con la
+ * salvedad de `UNSAFE_CHAR` sobre Cn).
  */
 export function cleanMessageText(value: unknown): string {
   if (typeof value !== 'string') return ''
-  const printable = value.replace(UNSAFE_CHAR, '').replace(COMBINING_EXCESS, '$1')
-  return [...printable].slice(0, LAYOUT_BOUNDS.messageMaxLength).join('')
+  const printable = unifyBreaks(value)
+    .replace(UNSAFE_CHAR, (char) => (char === LINE_BREAK ? char : ''))
+    .replace(COMBINING_EXCESS, '$1')
+  const lines = printable.split(LINE_BREAK)
+  const max = LAYOUT_BOUNDS.messageMaxLines
+  const kept = lines.length > max ? [...lines.slice(0, max - 1), lines.slice(max - 1).join(' ')] : lines
+  return [...kept.join(LINE_BREAK)].slice(0, LAYOUT_BOUNDS.messageMaxLength).join('')
+}
+
+/**
+ * Los renglones que se dibujan y se guardan: sin los espacios de sus orillas y sin los vacíos (los del principio, los del final
+ * y los de en medio). Un texto de un renglón da `[texto.trim()]`, como antes. El servidor acepta justo esto: recorta los saltos
+ * y los espacios de las orillas de cada renglón y rechaza un renglón vacío (`design_layout.normalize_message_text`).
+ */
+export function messageLines(text: string): string[] {
+  return unifyBreaks(text)
+    .split(LINE_BREAK)
+    .map((line) => line.trim())
+    .filter((line) => line !== '')
+}
+
+/** El texto que se dibuja, se guarda en el carrito y va al servidor: `messageLines` unidos con `\n`. */
+export function messageText(text: string): string {
+  return messageLines(text).join(LINE_BREAK)
+}
+
+/** Si un salto en la selección `[start, end)` del campo deja el texto en `messageMaxLines` renglones o menos. */
+export function canBreakLine(text: string, start: number, end: number): boolean {
+  return rawLineCount(text.slice(0, start) + LINE_BREAK + text.slice(end)) <= LAYOUT_BOUNDS.messageMaxLines
 }
 
 /**

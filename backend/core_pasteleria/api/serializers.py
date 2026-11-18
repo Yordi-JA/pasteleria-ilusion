@@ -104,12 +104,15 @@ class BreadOptionSerializer(serializers.Serializer):
     )
     included_filling_preview_style = serializers.CharField(
         help_text=(
-            "Solo en un pan con relleno incluido: lo que lleva encima la crema pastelera blanca en la vista previa. "
+            "Solo en un pan con relleno incluido: lo que lleva encima su crema en la vista previa. "
             "Mismos valores que `preview_style` de los sabores; `smooth` si es liso."
         )
     )
     included_filling_preview_color_secondary = serializers.CharField(
         help_text="Color de los trozos del relleno incluido; vacío si es liso."
+    )
+    included_filling_preview_color = serializers.CharField(
+        help_text="Solo en un pan con relleno incluido: el color de su crema; vacío si es crema pastelera blanca."
     )
     allowed_cake_types = cake_types()
     unavailable_reasons = reasons_by_cake_type()
@@ -126,7 +129,8 @@ class FillingFlavorOptionSerializer(serializers.Serializer):
     preview_color = serializers.CharField()
     preview_style = serializers.CharField(
         help_text=(
-            "`smooth` (liso), `fruit_slices` (rebanadas de fruta), `fruit_chunks` (trozos de fruta), "
+            "`smooth` (liso), `jam` (mermelada: brillante, con semillas), `caramel` (cajeta: brillante y lisa), "
+            "`fruit_slices` (rebanadas de fruta), `fruit_chunks` (trozos de fruta), "
             "`cookie_chunks` (trozos de galleta), `sprinkles` (granillo), `crumbles` (grumitos), "
             "`nut_pieces` (trozos de nuez) o `round_chips` (chispas redondas). Un cliente que no conozca un valor "
             "lo dibuja liso."
@@ -338,6 +342,32 @@ class StrictFloatField(serializers.FloatField):
         return super().to_internal_value(data)
 
 
+class StrictBooleanField(serializers.BooleanField):
+    """Un `true` o un `false` de JSON, nada más: DRF acepta también `"true"`, `"no"`, `1` o `0`."""
+
+    def __init__(self, *, message: str, **kwargs):
+        super().__init__(**kwargs)
+        self.error_messages["invalid"] = message
+        self.error_messages["null"] = message
+
+    def to_internal_value(self, data):
+        if not isinstance(data, bool):
+            self.fail("invalid")
+        return data
+
+
+SIDE_COMB_MESSAGE = "Indica si lleva peinado lateral: true o false."
+
+
+def side_comb_field():
+    return StrictBooleanField(
+        message=SIDE_COMB_MESSAGE,
+        required=False,
+        default=True,
+        help_text="Peinado lateral: surcos horizontales en los costados de la cobertura (`true` por omisión). No cambia el precio.",
+    )
+
+
 def _relative_position():
     limit = design_layout.MAX_RELATIVE_POSITION
     return StrictFloatField(min_value=-limit, max_value=limit)
@@ -356,6 +386,11 @@ class MessageTextField(serializers.CharField):
         for validator in self.validators:
             if isinstance(validator, ProhibitSurrogateCharactersValidator):
                 validator.message = UNSAFE_TEXT_MESSAGE
+
+    def to_internal_value(self, data):
+        # Antes de medir los 80 caracteres: `\r\n` y `\r` pasan a `\n` (cuenta 1) y se recortan los espacios de cada renglón.
+        return design_layout.normalize_message_text(super().to_internal_value(data))
+
 
 class WaferLayoutSerializer(serializers.Serializer):
     """Cómo acomoda el cliente la oblea sobre la tapa del último piso (paso 7). No cambia el precio."""
@@ -381,7 +416,10 @@ class MessageLayoutSerializer(serializers.Serializer):
 
     text = MessageTextField(
         max_length=design_layout.MAX_MESSAGE_LENGTH,
-        help_text="La pastelería sugiere hasta 4 palabras; no se bloquea.",
+        help_text=(
+            "La pastelería sugiere hasta 4 palabras; no se bloquea. Hasta 3 renglones separados con `\\n` (`\\r\\n` y "
+            "`\\r` se cambian por `\\n`, que cuenta como 1 carácter); sin renglones vacíos."
+        ),
     )
     color_mode = serializers.ChoiceField(
         choices=MessageColorMode.choices,
@@ -409,6 +447,9 @@ class MessageLayoutSerializer(serializers.Serializer):
     def validate_text(self, value):
         if design_layout.has_unsafe_characters(value):
             raise serializers.ValidationError(UNSAFE_TEXT_MESSAGE)
+        problem = design_layout.message_text_problem(value)
+        if problem:
+            raise serializers.ValidationError(problem)
         return value
 
     def validate(self, attrs):
@@ -520,6 +561,7 @@ class CakeDesignPriceRequestSerializer(serializers.Serializer):
     message_layout = MessageLayoutSerializer(
         required=False, help_text="Acomodo del mensaje; si llega, se valida. No cambia el precio."
     )
+    side_comb = side_comb_field()
     estimate = serializers.BooleanField(
         required=False,
         default=False,
@@ -1038,6 +1080,7 @@ class OrderDesignSerializer(serializers.Serializer):
         child=serializers.SlugField(max_length=SLUG_MAX_LENGTH), max_length=MAX_FLAVORS_IN_REQUEST, required=False, default=list
     )
     coverage_color = HexColorField(help_text="Color de la cobertura, `#RRGGBB`; se guarda en minúsculas.")
+    side_comb = side_comb_field()
     decoration = serializers.SlugField(max_length=SLUG_MAX_LENGTH, help_text="La decoración elegida, también \"Sin decoración\".")
     decoration_color = HexColorField(
         required=False, allow_null=True, default=None, help_text="`#RRGGBB`, o `null` para el color automático."
@@ -1088,6 +1131,7 @@ class OrderDesignSerializer(serializers.Serializer):
             wafer_layout=WaferLayout(**data["wafer_layout"]) if data["wafer_layout"] else None,
             wafer_image_id=data["wafer_image_id"],
             occasion=data["occasion"] or "",
+            side_comb=data["side_comb"],
         )
 
 
@@ -1236,6 +1280,7 @@ class OrderDesignOutSerializer(serializers.Serializer):
     filling_flavors = serializers.ListField(child=serializers.SlugField())
     coverage_color = serializers.CharField(help_text="`#rrggbb`.")
     coverage_color_name = BlankAsNullCharField(help_text="\"Parecido a\", calculado por el servidor; `null` si ninguno.")
+    side_comb = serializers.BooleanField(help_text="Peinado lateral de la cobertura; sin él, los costados van lisos.")
     decoration = serializers.SlugField()
     decoration_color = serializers.CharField(allow_null=True, help_text="`null`: automático.")
     decoration_color_name = BlankAsNullCharField()

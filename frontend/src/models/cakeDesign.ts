@@ -39,6 +39,8 @@ export type BreadOption = {
   includedFillingStyle: FillingPreviewStyle
   /** Color de las chispas, los trozos o el granillo del relleno incluido; `null` si es liso. */
   includedFillingColorSecondary: string | null
+  /** Color de la crema del relleno incluido (Choco-pingüino: café claro); `null` es la crema pastelera blanca. */
+  includedFillingColor: string | null
   allowedCakeTypes: string[]
   unavailableReasons: ReasonsByCakeType
   unavailableCodes: CodesByCakeType
@@ -46,9 +48,14 @@ export type BreadOption = {
   pricePerKgFrom: PriceByCakeType
 }
 
-/** Cómo se ve un sabor en la vista previa; lo elige la pastelería en el admin (D50). */
+/**
+ * Cómo se ve un sabor en la vista previa; lo elige la pastelería en el admin (D50). `jam` (mermelada) y `caramel` (cajeta)
+ * son lisos, sin trozos, con su acabado brillante (tanda 4).
+ */
 export type FillingPreviewStyle =
   | 'smooth'
+  | 'jam'
+  | 'caramel'
   | 'fruit_slices'
   | 'fruit_chunks'
   | 'cookie_chunks'
@@ -311,6 +318,8 @@ const CODES = new Set<string>(['not_offered', 'not_combinable', 'only_in'])
 // Un estilo que esta versión no conoce se ve liso.
 const PREVIEW_STYLES = new Set<string>([
   'smooth',
+  'jam',
+  'caramel',
   'fruit_slices',
   'fruit_chunks',
   'cookie_chunks',
@@ -401,6 +410,7 @@ function parseBread(data: unknown): BreadOption | null {
     previewColorBottom: color(data.preview_color_bottom),
     includedFillingStyle: previewStyle(data.included_filling_preview_style),
     includedFillingColorSecondary: color(data.included_filling_preview_color_secondary),
+    includedFillingColor: color(data.included_filling_preview_color),
     allowedCakeTypes: slugList(data.allowed_cake_types),
     unavailableReasons: textByType(data.unavailable_reasons, name),
     unavailableCodes: textByType(data.unavailable_codes, code) as CodesByCakeType,

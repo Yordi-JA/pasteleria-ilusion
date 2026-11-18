@@ -24,7 +24,10 @@ def test_the_seed_gives_durazno_and_fresa_fruit_chunks_and_keeps_their_colors():
 def test_the_seed_leaves_the_other_flavors_as_they_are():
     assert look("galleta")[0] == "cookie_chunks"
     assert look("chocolate")[0] == "sprinkles"
-    assert look("zarzamora")[0] == "smooth"
+    # La `0017` no toca la zarzamora: la deja sin trozos. Después la `0047` le da su acabado de mermelada (tanda 4).
+    assert look("zarzamora") == ("jam", "")
+    migration.seed(apps, None)
+    assert look("zarzamora") == ("jam", "")
 
 
 def test_it_moves_the_rows_still_seeded_by_0015():

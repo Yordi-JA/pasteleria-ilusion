@@ -304,6 +304,7 @@ Las opciones no disponibles **se muestran desactivadas con su motivo; nunca desa
 - **El código del color no se muestra** (lo decidió el usuario el 16 de noviembre de 2026, tanda 1 de correcciones, D77): ni el cliente lo escribe ni la pastelería lo recibe. El cliente, la revisión, el carrito y el admin ven el círculo del color y su "parecido a" cuando hay un nombre parecido. El color se sigue guardando como `#rrggbb` y la API no cambia.
 - Al entrar al paso, la cobertura arranca en el primer color activo de la lista de nombres de referencia (abajo). Si esa lista está vacía, nada queda elegido hasta que el cliente elija un color.
 - Se recomienda **un solo color**. Para varios colores o diseños específicos → envío de referencia.
+- **Peinado lateral** (lo pidió el usuario el 18 de noviembre de 2026, tanda 4, D84): surcos horizontales y parejos en los costados de la cobertura, en todos los pisos y en las dos formas. Va **por omisión** y el cliente lo puede quitar en el paso 5 ("Peinado lateral", una casilla). No cuesta extra. Se guarda con el pedido (`CakeDesign.side_comb`) y lo ven la revisión, "Tu pastel", el carrito, el admin y la nota en PDF. Los pedidos de antes quedaron con peinado.
 
 La pastelería edita la lista de nombres de referencia en el admin ("nombres de color de referencia"). La lista no limita lo que se elige: sirve para decir "parecido a <nombre>" en la revisión y en el carrito. Los nombres desactivados no se usan. La semilla trae estos:
 
@@ -362,6 +363,7 @@ Las hojas de las rosas siempre van en verde. Las chispas no llevan selector: su 
 - **Letra mínima** (lo decidió el usuario el 17 de noviembre de 2026, tanda 2 de correcciones, D78): la letra del mensaje mide al menos **1.5 cm** de alto, en los tres tamaños (`CakeDesignSettings.message_min_letter_cm`, editable en el admin). Se mide con el radio real de la parte plana de la tapa de ese pastel. Si con ese alto el mensaje no cabe, el cliente tiene que acortarlo.
 - **Color del texto:** con los mismos modos que la decoración (sección 6.1). "Automático" es negro y va por omisión; "Colores que combinan" son el tono más oscuro y el más claro de la cobertura; "Elegir un color" es cualquier color, con el selector libre de la sección 5. Si el contraste del texto con la cobertura baja de 2:1, la interfaz muestra un aviso informativo que no bloquea el pedido.
 - El texto puede ir **recto o en arco**, con una curva ajustable. Se mueve, escala y gira sobre la tapa.
+- **Renglones** (lo decidió el usuario el 18 de noviembre de 2026, D83): el mensaje puede llevar hasta **3 renglones**, con Enter. Van centrados. En arco, cada renglón sigue su propio arco paralelo a los demás. No se admiten renglones vacíos entre otros, y el salto de línea cuenta como 1 de los 80 caracteres. El bloque de renglones tiene que caber en la altura de la tapa; si no cabe, el cliente acorta el mensaje o achica la letra. La letra mínima de 1.5 cm aplica a cada renglón. Los saltos de línea no cuentan como palabras.
 
 ### 6.3 Oblea
 
@@ -515,9 +517,10 @@ Ejemplo: pedido $1,000 + base $150, pagado hoy $650 → se retienen $500 y se de
 
 ## 11. Nota en PDF y su código QR
 
-- Cada pedido genera una nota en PDF tamaño carta que sustituye la nota de papel; se descarga desde la confirmación y desde el detalle del pedido.
+- Cada pedido genera una nota en PDF tamaño carta que sustituye la nota de papel; se descarga desde la confirmación y desde el detalle del pedido, y también va adjunta en el correo "Recibimos tu pago" (D82).
 - El QR abre una página de verificación con un enlace firmado (token no adivinable): "Nota válida", número de pedido, fecha, cliente (nombre e inicial del apellido), entrega, estado de la base (prestada o devuelta, con su fecha límite) y depósito. No muestra teléfono, correo ni dirección.
 - Si quien escanea es personal de la pastelería con sesión iniciada, ahí mismo puede registrar "Base devuelta", y el depósito queda marcado como reembolsado. En este proyecto, la devolución se registra desde el admin (D64); la página de verificación no lleva el botón.
+- El texto de la nota siempre cabe en sus cajas: se parte en renglones y las cajas crecen con ellos (D85).
 
 ---
 

@@ -27,6 +27,29 @@ export type CakePieces = {
   colors: readonly ShapeColor[]
 }
 
+/**
+ * El acabado de un relleno sin trozos (tanda 4): `jam`, mermelada brillante con semillas y la superficie un poco
+ * despareja; `caramel`, cajeta brillante y lisa, con el color que varía apenas. El color sigue siendo el de la capa.
+ */
+export type CakeFinish = 'jam' | 'caramel'
+
+/**
+ * Cómo se unta una capa de crema (tanda 4, parte 2): `cream`, la crema pastelera untada a mano, con orillas onduladas y
+ * abombada; `mild`, lo mismo apenas (mermelada, cajeta y cremas con trozos encima). Ver `creamSpread.ts`.
+ */
+export type CakeSpread = 'cream' | 'mild'
+
+/**
+ * La crema pastelera teñida por el relleno que toca (tanda 4): la mermelada y la cajeta se mezclan con la crema de junto. La crema
+ * sigue siendo crema (su color es el de la capa); el tinte es el color del relleno, que la escena mezcla poco, más junto a él.
+ */
+export type CakeTint = {
+  /** El color del relleno que tiñe cada mitad, en el orden de las mitades del relleno; `null` en una mitad sin tinte. */
+  colors: readonly [ShapeColor | null] | readonly [ShapeColor | null, ShapeColor | null]
+  /** De qué lado de la capa está el relleno: ahí la crema toma más color. */
+  toward: 'above' | 'below'
+}
+
 /** Una capa del costado de un piso sin cobertura. */
 export type CakeLayer = {
   /** Fracción del alto del piso, de abajo hacia arriba; las capas de un piso suman 1. */
@@ -37,7 +60,19 @@ export type CakeLayer = {
   crumb?: boolean
   /** Trozos de cada mitad, en el orden de `colors`; `null` en una mitad lisa. */
   pieces?: readonly (CakePieces | null)[]
+  /** Acabado de cada mitad, en el orden de `colors`; `null` en una mitad sin acabado. Sin él, ninguna lo lleva. */
+  finishes?: readonly (CakeFinish | null)[]
+  /** Solo en una capa de un color: se ve untada a mano. Sin él, es una franja recta. */
+  spread?: CakeSpread
+  /** Solo en una capa untada: el relleno que la tiñe. Sin él, conserva su color. */
+  tint?: CakeTint
 }
+
+/**
+ * El peinado lateral (tanda 4): surcos horizontales y parejos en los costados de la cobertura, en unidades de escena. `pitch` es
+ * la distancia entre surcos y `depth`, lo que se hunden. Ver `comb.ts`.
+ */
+export type CakeComb = { pitch: number; depth: number }
 
 export type CakeTier = {
   /** Radio del piso redondo; en un rectangular, un radio de referencia (la mitad del ancho). */
@@ -53,6 +88,8 @@ export type CakeTier = {
   frosting?: ShapeColor
   /** Capas del costado, de abajo hacia arriba, cuando no hay cobertura. */
   layers?: readonly CakeLayer[]
+  /** Solo con cobertura: los costados peinados. Sin él, lisos. */
+  comb?: CakeComb
 }
 
 /**

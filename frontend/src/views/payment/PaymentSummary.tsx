@@ -1,5 +1,6 @@
 import symbol from '../../../../assets/logos/ilusion-simbolo.svg'
 import Card from '../../components/Card.tsx'
+import LinePhoto from '../../components/LinePhoto.tsx'
 import type { OrderSummaryView } from '../../viewmodels/paymentView.ts'
 
 type PaymentSummaryProps = {
@@ -34,9 +35,7 @@ export default function PaymentSummary({ summary, variant = 'payment', className
         <ul className="flex flex-col border-t border-relieve">
           {summary.items.map((item) => (
             <li key={item.key} className="flex items-center gap-3 border-b border-relieve py-3">
-              <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-harina text-nota text-mermelada-suave">
-                Foto
-              </span>
+              <LinePhoto thumbnail={item.thumbnail} placeholder="Foto" className="h-12 w-12" />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="text-cuerpo font-semibold">{item.name}</span>
                 <span className="text-nota text-mermelada-suave">{item.brief}</span>

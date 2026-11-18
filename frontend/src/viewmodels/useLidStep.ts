@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
+import type { KeyboardEvent } from 'react'
 import type { CakeDesignOptions } from '../models/cakeDesign.ts'
 import type { CakeDesignDraft } from '../models/cakeDesignDraft.ts'
-import { boundMessage, boundWafer, cleanMessageText, LAYOUT_BOUNDS } from '../models/cakeDesignLayout.ts'
+import { boundMessage, boundWafer, canBreakLine, cleanMessageText, LAYOUT_BOUNDS, rawLineCount } from '../models/cakeDesignLayout.ts'
 import type { MessageColorMode, MessageLayout, WaferLayout, WaferShape } from '../models/cakeDesignLayout.ts'
 import { formatPrice } from '../models/money.ts'
 import { coverageColor } from './cakeDesignSteps.ts'
@@ -80,7 +81,30 @@ export function useLidStep({ draft, update, options, design, metrics, waferImage
 
   // --- Mensaje ---
   const setMessageEnabled = useCallback((enabled: boolean) => update((d) => ({ ...d, messageEnabled: enabled })), [update])
-  const setMessageText = useCallback((text: string) => commitMessage({ text: cleanMessageText(text) }), [commitMessage])
+  // "Hasta 3 renglones" (tanda 4): sale al intentar un renglón de más (Enter o pegar) y se va con el siguiente cambio que sí cabe.
+  // Cada aviso lleva un número nuevo para que el lector de pantalla lo lea aunque se repita; 0 es sin aviso.
+  const [lineLimit, setLineLimit] = useState(0)
+  const showLineLimit = useCallback(() => setLineLimit((count) => count + 1), [])
+  const setMessageText = useCallback(
+    (text: string) => {
+      // Lo pegado con más renglones se junta en el último (`cleanMessageText`) y se dice por qué.
+      if (rawLineCount(text) > LAYOUT_BOUNDS.messageMaxLines) showLineLimit()
+      else setLineLimit(0)
+      commitMessage({ text: cleanMessageText(text) })
+    },
+    [commitMessage, showLineLimit],
+  )
+  /** Enter y Mayús+Enter ponen un salto de renglón (lo hace el campo); uno que daría un cuarto renglón no entra y se dice por qué. */
+  const messageKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLTextAreaElement>) => {
+      if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.ctrlKey || event.metaKey || event.altKey) return
+      const { value, selectionStart, selectionEnd } = event.currentTarget
+      if (canBreakLine(value, selectionStart, selectionEnd)) return
+      event.preventDefault()
+      showLineLimit()
+    },
+    [showLineLimit],
+  )
   const setColorMode = useCallback(
     (mode: MessageColorMode) => {
       if (!options) return
@@ -225,9 +249,12 @@ export function useLidStep({ draft, update, options, design, metrics, waferImage
         enabled: draft.messageEnabled,
         text: draft.message.text,
         maxLength: LAYOUT_BOUNDS.messageMaxLength,
+        maxLines: LAYOUT_BOUNDS.messageMaxLines,
         wordsLine: `${words} de ${limits.messageSuggestedMaxWords} palabras`,
         overSuggestion: words > limits.messageSuggestedMaxWords,
         hint: `Las frases cortas se leen mejor: hasta ${limits.messageSuggestedMaxWords} palabras.`,
+        /** Por qué no entró un renglón más; `id` cambia en cada intento para que se vuelva a anunciar. */
+        lineLimit: lineLimit ? { id: lineLimit, text: `Hasta ${LAYOUT_BOUNDS.messageMaxLines} renglones.` } : null,
         color: {
           mode: draft.message.color.mode,
           modes: MESSAGE_COLOR_MODES.map((entry) => ({ ...entry, checked: entry.mode === draft.message.color.mode })),
@@ -270,7 +297,7 @@ export function useLidStep({ draft, update, options, design, metrics, waferImage
         letter: `${limits.waferMaxWidthCm} × ${limits.waferMaxHeightCm} cm`,
       },
     }
-  }, [announcement, design, draft, limits, lid, loadedWafer, message, metrics, minScale, options, target, wafer, waferImage.error, waferImage.image])
+  }, [announcement, design, draft, limits, lid, lineLimit, loadedWafer, message, metrics, minScale, options, target, wafer, waferImage.error, waferImage.image])
 
   return {
     view,
@@ -278,6 +305,7 @@ export function useLidStep({ draft, update, options, design, metrics, waferImage
       setTarget,
       setMessageEnabled,
       setMessageText,
+      messageKeyDown,
       setColorMode,
       setColorValue,
       setArrangement,

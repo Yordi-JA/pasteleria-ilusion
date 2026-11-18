@@ -36,6 +36,7 @@ from .models import (
     FillingBase,
     FillingFlavor,
     FillingPreviewStyle,
+    PIECELESS_PREVIEW_STYLES,
     FillingPrice,
     Inventory,
     Order,
@@ -313,11 +314,18 @@ class BreadForm(forms.ModelForm):
                     "included_filling_preview_style",
                     'Este pan no lleva relleno incluido: deja el estilo en "Liso" o escribe su relleno incluido.',
                 )
-        if style == FillingPreviewStyle.SMOOTH and cleaned.get("included_filling_preview_color_secondary"):
+        # Lo mismo con el color de la crema: sin relleno incluido no hay crema que pintar.
+        if "included_filling" in cleaned and not cleaned["included_filling"] and cleaned.get("included_filling_preview_color"):
+            self.add_error(
+                "included_filling_preview_color",
+                "Este pan no lleva relleno incluido: borra el color de la crema o escribe su relleno incluido.",
+            )
+        # Liso, mermelada y cajeta no llevan trozos: su color no se usa.
+        if style in PIECELESS_PREVIEW_STYLES and cleaned.get("included_filling_preview_color_secondary"):
             cleaned["included_filling_preview_color_secondary"] = ""
         if (
             style
-            and style != FillingPreviewStyle.SMOOTH
+            and style not in PIECELESS_PREVIEW_STYLES
             and not cleaned.get("included_filling_preview_color_secondary")
             and "included_filling_preview_color_secondary" not in self.errors
         ):
@@ -335,7 +343,7 @@ class FillingFlavorForm(forms.ModelForm):
         cleaned = super().clean()
         # Un estilo con trozos sin su color no dibuja nada: se ve liso aunque el admin diga otra cosa.
         style = cleaned.get("preview_style")
-        if style and style != FillingPreviewStyle.SMOOTH and not cleaned.get("preview_color_secondary") and "preview_color_secondary" not in self.errors:
+        if style and style not in PIECELESS_PREVIEW_STYLES and not cleaned.get("preview_color_secondary") and "preview_color_secondary" not in self.errors:
             self.add_error("preview_color_secondary", 'Escribe el color de los trozos o elige el estilo "Liso".')
         return cleaned
 
@@ -770,6 +778,14 @@ def _image_link(image_id) -> str:
     return format_html('<a href="{}" target="_blank" rel="noopener">ver imagen</a>', reverse("customer-image", args=[image_id]))
 
 
+def message_line(message: dict) -> str:
+    """El mensaje del pastel con su color: cada renglón escapado y separado con `<br>`, como lo escribió el cliente."""
+    color = message.get("color")
+    ink = _swatch(color, "") if color and color.startswith("#") else message.get("color_mode", "")
+    text = format_html_join(mark_safe("<br>"), "{}", ((line,) for line in message.get("text", "").split("\n")))
+    return format_html("Mensaje: «{}», {}", text, ink)
+
+
 def design_lines(design: CakeDesign, show_images: bool = False) -> list[str]:
     """El diseño en renglones para el personal, armado por el servidor (nunca con el texto del cliente).
 
@@ -788,7 +804,11 @@ def design_lines(design: CakeDesign, show_images: bool = False) -> list[str]:
         lines.append(format_html("Pastel de vitrina de origen: {}", design.source_product.name))
     lines += [
         format_html("{}, pan {}, {}", design.get_cake_type_display(), design.bread.name.lower(), filling),
-        format_html("Cobertura: {}", _swatch(design.coverage_color, design.coverage_color_name)),
+        format_html(
+            "Cobertura: {}, {}",
+            _swatch(design.coverage_color, design.coverage_color_name),
+            "con peinado lateral" if design.side_comb else "sin peinado lateral",
+        ),
     ]
     decoration_color = (
         _swatch(design.decoration_color, design.decoration_color_name) if design.decoration_color else "color automático"
@@ -798,9 +818,7 @@ def design_lines(design: CakeDesign, show_images: bool = False) -> list[str]:
         image = _image_link(design.decoration_image_id) if show_images else "subida por el cliente"
         lines.append(format_html("Imagen de la decoración: {}", image))
     if design.message:
-        color = design.message.get("color")
-        ink = _swatch(color, "") if color and color.startswith("#") else design.message.get("color_mode", "")
-        lines.append(format_html("Mensaje: «{}», {}", design.message.get("text", ""), ink))
+        lines.append(message_line(design.message))
     if design.wafer:
         shape = (design.wafer_layout or {}).get("shape", "")
         image = _image_link(design.wafer_image_id) if design.wafer_image_id and show_images else ""

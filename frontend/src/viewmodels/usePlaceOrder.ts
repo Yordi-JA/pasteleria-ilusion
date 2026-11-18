@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import type { CartItem, DesignItem } from '../models/cart.ts'
-import { finishPurchase, purchaseFingerprint, purchaseKey, rememberUpload, resetPurchase, uploadedImageId } from '../models/checkout.ts'
+import { finishPurchase, purchaseFingerprint, purchaseKey, rememberOrderThumbnails, rememberUpload, resetPurchase, uploadedImageId } from '../models/checkout.ts'
 import { readDesignImage } from '../models/designImages.ts'
 import { createOrder, designImageNeeds, orderLines, uploadCustomerImage } from '../models/orders.ts'
 import type { ImagePurpose, PlacedOrder } from '../models/orders.ts'
@@ -112,6 +112,7 @@ export function usePlaceOrder() {
         return { ok: false, errors: plainError(EXPIRED) }
       }
       finishPurchase(order)
+      rememberOrderThumbnails(order.id, input.items)
       return { ok: true, order }
     } catch (error) {
       if (error instanceof LineProblem) return { ok: false, errors: error.view }

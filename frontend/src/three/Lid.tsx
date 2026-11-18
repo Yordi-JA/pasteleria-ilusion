@@ -4,11 +4,13 @@ import { CanvasTexture, ClampToEdgeWrapping, LinearMipmapLinearFilter, SRGBColor
 import { imagePlacement } from '../models/cakeDesignLayout.ts'
 import type { LidMessage, LidWafer } from './cakeShape.ts'
 import type { CakeLid } from './cakeShape.ts'
+import { pipeRelief, RELIEF_PAD_CM, RELIEF_RADIUS_CM } from './messageRelief.ts'
 
 /**
  * La oblea y el mensaje sobre la tapa del último piso (paso 7, D55). Se dibujan planos, apenas sobre la cobertura, con los
  * mismos números del editor de vista superior: en cm de la tapa, con la `y` hacia arriba y el giro hacia la derecha. Con
- * `MeshBasicMaterial` y sin tono: la oblea y la tinta se ven del color que se imprime, no iluminadas.
+ * `MeshBasicMaterial` y sin tono: la oblea y la tinta se ven del color que se imprime, no iluminadas. El mensaje lleva su
+ * relieve de betún ya calculado en la textura (`messageRelief.ts`, tanda 4): no cuesta nada por cuadro.
  */
 
 /** Lo que flotan sobre la tapa, en unidades de escena (menos de un milímetro de pastel): la oblea y, encima, el mensaje. */
@@ -71,16 +73,19 @@ function Wafer({ wafer, unitsPerCm }: { wafer: LidWafer; unitsPerCm: number }) {
   )
 }
 
-/** Dibuja el texto en un lienzo con la letra del mensaje, letra por letra, como el editor. */
-function drawMessage(message: LidMessage, widthPx: number, heightPx: number, pxPerCm: number): HTMLCanvasElement {
+/**
+ * Dibuja el texto en un lienzo con la letra del mensaje, letra por letra, como el editor, con `padPx` libres en cada lado para
+ * la sombra del relieve, y le aplica el relieve.
+ */
+function drawMessage(message: LidMessage, widthPx: number, heightPx: number, pxPerCm: number, padPx: number): HTMLCanvasElement {
   const canvas = document.createElement('canvas')
   canvas.width = widthPx
   canvas.height = heightPx
   const context = canvas.getContext('2d')
   if (!context) return canvas
   const { bounds } = message
-  const originX = -bounds.minX * pxPerCm
-  const originY = bounds.maxY * pxPerCm
+  const originX = padPx - bounds.minX * pxPerCm
+  const originY = padPx + bounds.maxY * pxPerCm
   context.fillStyle = message.color
   context.textAlign = 'center'
   context.textBaseline = 'alphabetic'
@@ -92,6 +97,9 @@ function drawMessage(message: LidMessage, widthPx: number, heightPx: number, pxP
     context.fillText(glyph.text, 0, message.baselineCm * pxPerCm)
     context.restore()
   }
+  const image = context.getImageData(0, 0, widthPx, heightPx)
+  pipeRelief(image, RELIEF_RADIUS_CM * pxPerCm)
+  context.putImageData(image, 0, 0)
   return canvas
 }
 
@@ -102,7 +110,8 @@ function Message({ message, unitsPerCm }: { message: LidMessage; unitsPerCm: num
   const invalidate = useThree((state) => state.invalidate)
   const { bounds } = message
   const [widthCm, heightCm] = [bounds.maxX - bounds.minX, bounds.maxY - bounds.minY]
-  const pxPerCm = Math.min(TEXT_PX_PER_CM, MAX_TEXT_SIDE / Math.max(widthCm, heightCm, 1))
+  // El lado mayor, con el margen de la sombra, no pasa de `MAX_TEXT_SIDE`.
+  const pxPerCm = Math.min(TEXT_PX_PER_CM, (MAX_TEXT_SIDE - 4) / Math.max(widthCm + 2 * RELIEF_PAD_CM, heightCm + 2 * RELIEF_PAD_CM, 1))
   // La textura depende de lo que se ve de las letras, no de dónde está el mensaje: moverlo o girarlo no la vuelve a dibujar.
   const key = JSON.stringify([message.glyphs, message.fontSizeCm, message.color, message.fontFamily, message.fontWeight, bounds])
   const latest = useRef({ message, widthCm, heightCm, pxPerCm })
@@ -119,9 +128,12 @@ function Message({ message, unitsPerCm }: { message: LidMessage; unitsPerCm: num
     const { message: now, widthCm: width, heightCm: height, pxPerCm: density } = latest.current
     const make = () => {
       if (!alive) return
-      const texture = new CanvasTexture(drawMessage(now, Math.max(1, Math.ceil(width * density)), Math.max(1, Math.ceil(height * density)), density))
+      // El margen de la sombra crece el lienzo y el plano por igual: las letras quedan donde estaban.
+      const padPx = Math.ceil(RELIEF_PAD_CM * density)
+      const [widthPx, heightPx] = [Math.max(1, Math.ceil(width * density)) + 2 * padPx, Math.max(1, Math.ceil(height * density)) + 2 * padPx]
+      const texture = new CanvasTexture(drawMessage(now, widthPx, heightPx, density, padPx))
       texture.colorSpace = SRGBColorSpace
-      setShown({ texture, widthCm: width, heightCm: height, bounds: now.bounds })
+      setShown({ texture, widthCm: width + (2 * padPx) / density, heightCm: height + (2 * padPx) / density, bounds: now.bounds })
       invalidate()
     }
     // Si la letra no llega, se dibuja con la de respaldo: es mejor que no mostrar el mensaje.

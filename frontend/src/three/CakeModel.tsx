@@ -1,11 +1,15 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
-import { Color, ExtrudeGeometry, Object3D, Shape, Vector2 } from 'three'
+import { Color, ExtrudeGeometry, Object3D } from 'three'
 import type { Group, InstancedMesh, MeshStandardMaterial, Texture } from 'three'
 import { TIER_EDGE_UNITS } from '../models/cakeDesignLayout.ts'
-import type { CakeLayer, CakeShape, CakeTier } from './cakeShape.ts'
+import type { CakeComb, CakeLayer, CakeShape, CakeSpread, CakeTier } from './cakeShape.ts'
+import { rectOutline, rectShape, roundOutline, spreadGeometry, spreadShape } from './creamSpread.ts'
+import type { SpreadShape, SpreadTint } from './creamSpread.ts'
+import { combedProfile, combedSide, roundedProfile, slabOutline, SLAB_CORNER_SEGMENTS } from './comb.ts'
 import { CRUMB_TILE, useCrumbTexture } from './crumb.ts'
+import { FINISH_LOOKS, FINISH_TILE, finishEnvironment, useFinishTexture } from './finish.ts'
 import FillingPieces from './FillingPieces.tsx'
 import { halfExtents, PLATE_GAP, standScale } from './cakeMetrics.ts'
 import Decoration from './Decoration.tsx'
@@ -37,25 +41,10 @@ const PEARL_RADIUS = 0.085
 const PEARL_SPACING = 0.22
 /** Tope de perlas por fila (por lado en rectangular: la cuarta parte): un piso de muchos kilos no pide miles de instancias. */
 const MAX_PEARLS_PER_ROW = 300
-/** Esquinas redondeadas del molde rectangular. */
-const RECT_CORNER = 0.08
+/** Relieve de la miga del pan. */
+const CRUMB_BUMP = 1.4
 /** Cambio de color de una capa o de la cobertura (libro de marca, "Cotizador 3D"). */
 const COLOR_TRANSITION_S = 0.3
-/** Perfil de un cilindro con los cantos redondeados, para girarlo con `LatheGeometry`. */
-function roundedProfile(radius: number, height: number, edge: number, steps = 4) {
-  const points = [new Vector2(0, 0)]
-  for (let i = 0; i <= steps; i++) {
-    const a = -Math.PI / 2 + (i / steps) * (Math.PI / 2)
-    points.push(new Vector2(radius - edge + edge * Math.cos(a), edge + edge * Math.sin(a)))
-  }
-  for (let i = 0; i <= steps; i++) {
-    const a = (i / steps) * (Math.PI / 2)
-    points.push(new Vector2(radius - edge + edge * Math.cos(a), height - edge + edge * Math.sin(a)))
-  }
-  points.push(new Vector2(0, height))
-  return points
-}
-
 type Form = NonNullable<CakeShape['form']>
 
 /** Puntos de una fila de perlas alrededor del piso, a `offset` pasos del inicio (la de abajo va a medio paso). */
@@ -125,11 +114,18 @@ type FoodMaterialProps = {
   color: ShapeColor
   roughness: number
   animate: boolean
-  /** La miga del pan (color y relieve); el color del pan la tiñe. */
-  crumb?: Texture | null
+  /** La miga del pan o el acabado del relleno (color y relieve); el color de la capa la tiñe. */
+  texture?: Texture | null
+  /** Cuánto relieve da la textura. */
+  bumpScale?: number
+  /** El entorno que refleja un relleno brillante (mermelada, cajeta) y con qué fuerza. */
+  envMap?: Texture | null
+  envMapIntensity?: number
+  /** La geometría trae colores por vértice que multiplican el color (la crema teñida por el relleno). */
+  vertexColors?: boolean
 }
 
-function FoodMaterial({ attach, color, roughness, animate, crumb = null }: FoodMaterialProps) {
+function FoodMaterial({ attach, color, roughness, animate, texture = null, bumpScale = 1, envMap = null, envMapIntensity = 1, vertexColors = false }: FoodMaterialProps) {
   const material = useRef<MeshStandardMaterial>(null)
   const invalidate = useThree((state) => state.invalidate)
   const transition = useRef<{ from: Color; to: Color; elapsed: number } | null>(null)
@@ -149,11 +145,11 @@ function FoodMaterial({ attach, color, roughness, animate, crumb = null }: FoodM
     }
     invalidate()
   }, [animate, hex, invalidate])
-  // Con o sin miga es otro programa de sombreado: el material se recompila cuando cambia.
+  // Con o sin textura es otro programa de sombreado: el material se recompila cuando cambia.
   useEffect(() => {
     if (material.current) material.current.needsUpdate = true
     invalidate()
-  }, [crumb, invalidate])
+  }, [texture, envMap, vertexColors, invalidate])
   useFrame((_, delta) => {
     const step = transition.current
     const target = material.current
@@ -170,9 +166,12 @@ function FoodMaterial({ attach, color, roughness, animate, crumb = null }: FoodM
       ref={material}
       color={initial}
       roughness={roughness}
-      map={crumb}
-      bumpMap={crumb}
-      bumpScale={crumb ? 1.4 : 1}
+      map={texture}
+      bumpMap={texture}
+      bumpScale={bumpScale}
+      envMap={envMap}
+      envMapIntensity={envMapIntensity}
+      vertexColors={vertexColors}
     />
   )
 }
@@ -181,21 +180,7 @@ type Split = 'whole' | 'left' | 'right'
 
 /** Losa rectangular con las esquinas de afuera redondeadas; `split` dice qué mitad (o toda). */
 function rectSlab(halfW: number, halfD: number, height: number, split: Split) {
-  const x0 = split === 'right' ? 0 : -halfW
-  const x1 = split === 'left' ? 0 : halfW
-  const left = split === 'right' ? 0 : RECT_CORNER
-  const right = split === 'left' ? 0 : RECT_CORNER
-  const shape = new Shape()
-  shape.moveTo(x0 + left, -halfD)
-  shape.lineTo(x1 - right, -halfD)
-  shape.quadraticCurveTo(x1, -halfD, x1, -halfD + right)
-  shape.lineTo(x1, halfD - right)
-  shape.quadraticCurveTo(x1, halfD, x1 - right, halfD)
-  shape.lineTo(x0 + left, halfD)
-  shape.quadraticCurveTo(x0, halfD, x0, halfD - left)
-  shape.lineTo(x0, -halfD + left)
-  shape.quadraticCurveTo(x0, -halfD, x0 + left, -halfD)
-  const geometry = new ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, curveSegments: 6 })
+  const geometry = new ExtrudeGeometry(rectShape(halfW, halfD, split), { depth: height, bevelEnabled: false, curveSegments: SLAB_CORNER_SEGMENTS })
   // La extrusión sale a lo largo de z: se gira para que la losa crezca hacia arriba.
   geometry.rotateX(-Math.PI / 2)
   return geometry
@@ -208,6 +193,37 @@ function RectSlab({ tier, height, split }: { tier: CakeTier; height: number; spl
   return <primitive object={geometry} attach="geometry" />
 }
 
+/** El costado peinado de un piso rectangular (`comb.ts`); la losa pone las tapas. Se arma una vez por medida y peine. */
+function CombedSide({ tier, comb }: { tier: CakeTier; comb: CakeComb }) {
+  const { x, z } = halfExtents(tier, 'rectangular')
+  const { height } = tier
+  const { pitch, depth } = comb
+  const geometry = useMemo(() => combedSide(slabOutline(x, z), height, { pitch, depth }), [depth, height, pitch, x, z])
+  useEffect(() => () => geometry.dispose(), [geometry])
+  return <primitive object={geometry} attach="geometry" />
+}
+
+/**
+ * El costado untado de una capa de crema (`creamSpread.ts`): se arma una vez por medida, forma, semilla y tinte. El tinte llega como
+ * texto (`tintKey`) para no rearmar la malla con cada objeto nuevo de la misma elección.
+ */
+function SpreadSide({ tier, form, height, shape, tintKey }: { tier: CakeTier; form: Form; height: number; shape: SpreadShape; tintKey: string | null }) {
+  const { x, z } = halfExtents(tier, form)
+  const { radius } = tier
+  const geometry = useMemo(
+    () =>
+      spreadGeometry(
+        form === 'round' ? roundOutline(radius) : rectOutline(x, z),
+        height,
+        shape,
+        tintKey ? (JSON.parse(tintKey) as SpreadTint) : undefined,
+      ),
+    [form, height, radius, shape, tintKey, x, z],
+  )
+  useEffect(() => () => geometry.dispose(), [geometry])
+  return <primitive object={geometry} attach="geometry" />
+}
+
 type LayerProps = { tier: CakeTier; form: Form; layer: CakeLayer; bottom: number; animate: boolean; seed: number; densityScale: number }
 
 /** Una mitad (o toda) la capa: su forma, su material y, si el relleno los lleva, sus trozos. */
@@ -215,22 +231,41 @@ function LayerPart({ tier, form, layer, index, height, animate, seed, densitySca
   const halves = layer.colors.length === 2
   const color = layer.colors[index] ?? layer.colors[0]
   const pieces = layer.pieces?.[index] ?? null
-  // La miga se repite cada `CRUMB_TILE`: en redondo, el ancho de la textura es el arco de la pieza; en rectangular, la
-  // extrusión ya usa coordenadas de escena.
+  const finish = layer.finishes?.[index] ?? null
+  // La crema untada a mano (tanda 4): solo en una capa de un color. Su forma sale de la semilla de la capa.
+  const level: CakeSpread | null = !halves && layer.spread ? layer.spread : null
+  const spread = useMemo(() => (level ? spreadShape(level, seed) : null), [level, seed])
+  // La crema teñida por la mermelada o la cajeta de junto (tanda 4), con los colores ya resueltos. La primera mitad del relleno es
+  // la de x positiva en el cilindro y la de x negativa en la losa (`'left'`).
+  const tint = spread && layer.tint ? layer.tint : null
+  const tintKey = tint
+    ? JSON.stringify({
+        cream: resolveColor(color),
+        colors: tint.colors.map((value) => (value ? resolveColor(value) : null)),
+        firstHalf: form === 'round' ? 1 : -1,
+        toward: tint.toward,
+      } satisfies SpreadTint)
+    : null
+  // La miga y el acabado se repiten cada `tile`: en redondo, el ancho de la textura es el arco de la pieza; en rectangular
+  // y en la crema untada, la malla ya usa coordenadas de escena.
   const arc = (halves ? Math.PI : Math.PI * 2) * tier.radius
-  const crumb = useCrumbTexture(
-    Boolean(layer.crumb),
-    form === 'round' ? Math.max(1, Math.round(arc / CRUMB_TILE)) : 1 / CRUMB_TILE,
-    form === 'round' ? Math.max(height / CRUMB_TILE, 0.05) : 1 / CRUMB_TILE,
-  )
+  const sceneUv = form !== 'round' || spread !== null
+  const repeatX = (tile: number) => (sceneUv ? 1 / tile : Math.max(1, Math.round(arc / tile)))
+  const repeatY = (tile: number) => (sceneUv ? 1 / tile : Math.max(height / tile, 0.05))
+  const crumb = useCrumbTexture(Boolean(layer.crumb), repeatX(CRUMB_TILE), repeatY(CRUMB_TILE))
   // Las tapas del cilindro (que ahora se ven desde arriba) reparten la textura por el diámetro, no como el costado.
   const capRepeat = (2 * tier.radius) / CRUMB_TILE
   const cap = useCrumbTexture(Boolean(layer.crumb) && form === 'round', capRepeat, capRepeat)
-  const roughness = layer.crumb ? 0.95 : 0.85
+  // La mermelada y la cajeta: su textura, brillo y relieve (tanda 4). Sus tapas quedan entre las capas de crema.
+  const surface = useFinishTexture(finish, repeatX(FINISH_TILE), repeatY(FINISH_TILE))
+  const look = finish ? FINISH_LOOKS[finish] : null
+  const roughness = look ? look.roughness : layer.crumb ? 0.95 : 0.85
   return (
     <>
-      <mesh position-y={form === 'round' ? height / 2 : 0}>
-        {form === 'round' ? (
+      <mesh position-y={form === 'round' && !spread ? height / 2 : 0}>
+        {spread ? (
+          <SpreadSide tier={tier} form={form} height={height} shape={spread} tintKey={tintKey} />
+        ) : form === 'round' ? (
           <cylinderGeometry
             args={[tier.radius, tier.radius, height, 64, 1, false, halves ? index * Math.PI : 0, halves ? Math.PI : Math.PI * 2]}
           />
@@ -239,12 +274,22 @@ function LayerPart({ tier, form, layer, index, height, animate, seed, densitySca
         )}
         {form === 'round' && crumb ? (
           <>
-            <FoodMaterial attach="material-0" color={color} roughness={roughness} animate={animate} crumb={crumb} />
-            <FoodMaterial attach="material-1" color={color} roughness={roughness} animate={animate} crumb={cap} />
-            <FoodMaterial attach="material-2" color={color} roughness={roughness} animate={animate} crumb={cap} />
+            <FoodMaterial attach="material-0" color={color} roughness={roughness} animate={animate} texture={crumb} bumpScale={CRUMB_BUMP} />
+            <FoodMaterial attach="material-1" color={color} roughness={roughness} animate={animate} texture={cap} bumpScale={CRUMB_BUMP} />
+            <FoodMaterial attach="material-2" color={color} roughness={roughness} animate={animate} texture={cap} bumpScale={CRUMB_BUMP} />
           </>
+        ) : look ? (
+          <FoodMaterial
+            color={color}
+            roughness={roughness}
+            animate={animate}
+            texture={surface}
+            bumpScale={look.bumpScale}
+            envMap={finishEnvironment()}
+            envMapIntensity={look.envMapIntensity}
+          />
         ) : (
-          <FoodMaterial color={color} roughness={roughness} animate={animate} crumb={crumb} />
+          <FoodMaterial color={color} roughness={roughness} animate={animate} texture={crumb} bumpScale={crumb ? CRUMB_BUMP : 1} vertexColors={tintKey !== null} />
         )}
       </mesh>
       {pieces && (
@@ -258,6 +303,7 @@ function LayerPart({ tier, form, layer, index, height, animate, seed, densitySca
           half={halves ? (index as 0 | 1) : 'whole'}
           seed={seed * 2 + index}
           densityScale={densityScale}
+          spread={spread}
         />
       )}
     </>
@@ -279,16 +325,36 @@ function Layer({ tier, form, layer, bottom, animate, seed, densityScale }: Layer
 type TierProps = { tier: CakeTier; festoons: CakeShape['festoons']; form: Form; animate: boolean; index: number; densityScale: number; decoration: TierDecoration }
 
 function Tier({ tier, festoons, form, animate, index, densityScale, decoration }: TierProps) {
-  const profile = useMemo(() => roundedProfile(tier.radius, tier.height, EDGE), [tier.height, tier.radius])
+  // El peinado lateral (tanda 4) se arma con el perfil, una vez por medida y peine.
+  const pitch = tier.comb?.pitch ?? 0
+  const depth = tier.comb?.depth ?? 0
+  const profile = useMemo(
+    () => (pitch > 0 ? combedProfile(tier.radius, tier.height, EDGE, { pitch, depth }) : roundedProfile(tier.radius, tier.height, EDGE)),
+    [depth, pitch, tier.height, tier.radius],
+  )
   const layers = tier.frosting ? [] : (tier.layers ?? [])
   const bottoms = layers.map((_, i) => layers.slice(0, i).reduce((sum, layer) => sum + layer.height * tier.height, 0))
   return (
     <>
-      {tier.frosting && (
+      {tier.frosting && (form === 'round' || !tier.comb) && (
         <mesh>
           {form === 'round' ? <latheGeometry args={[profile, 64]} /> : <RectSlab tier={tier} height={tier.height} split="whole" />}
           <FoodMaterial color={tier.frosting} roughness={0.8} animate={animate} />
         </mesh>
+      )}
+      {tier.frosting && form !== 'round' && tier.comb && (
+        // Rectangular peinado: la losa pone solo sus tapas (el grupo 0 de la extrusión) y el costado es el peinado.
+        <>
+          <mesh>
+            <RectSlab tier={tier} height={tier.height} split="whole" />
+            <FoodMaterial attach="material-0" color={tier.frosting} roughness={0.8} animate={animate} />
+            <meshBasicMaterial attach="material-1" visible={false} />
+          </mesh>
+          <mesh>
+            <CombedSide tier={tier} comb={tier.comb} />
+            <FoodMaterial color={tier.frosting} roughness={0.8} animate={animate} />
+          </mesh>
+        </>
       )}
       {layers.map((layer, i) => (
         <Layer key={i} tier={tier} form={form} layer={layer} bottom={bottoms[i]} animate={animate} seed={index * 101 + i * 13 + 7} densityScale={densityScale} />

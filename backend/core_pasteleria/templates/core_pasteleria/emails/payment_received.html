@@ -9,5 +9,5 @@
 {% if stand_deposit %}{% include "core_pasteleria/emails/_detail.html" with label="Incluye el depósito de la base" value=stand_deposit money=True %}{% endif %}
 {% include "core_pasteleria/emails/_detail.html" with label="Resto, el día de la entrega" value=pay_on_delivery money=True %}
 {% endblock %}
-{% block next %}Te escribimos cuando tu pedido esté listo para recoger. Tu nota ya está en tu cuenta: la descargas desde el detalle del pedido.{% endblock %}
+{% block next %}Te escribimos cuando tu pedido esté listo para recoger. Tu nota ya está en tu cuenta: la descargas desde el detalle del pedido.{% if note_attached %} {% if stand_deposit %}Tu nota va adjunta en PDF y la presentas al devolver la base para recuperar tu depósito.{% else %}Tu nota va adjunta en PDF.{% endif %}{% endif %}{% endblock %}
 {% block button %}Ver mi pedido{% endblock %}

@@ -56,6 +56,8 @@ export function useAddDesignToCart() {
       images: { decoration: LocalImage | null; wafer: LocalImage | null },
       /** La huella del pastel del carrito que este reemplaza ("Editar pedido", D66), o `null`. */
       replaces: string | null = null,
+      /** La miniatura de la vista previa (tanda 4), o `null` si no se pudo tomar: el pastel entra igual, con el hueco. */
+      thumbnail: string | null = null,
     ) => {
       if (adding.current) return
       adding.current = true
@@ -81,7 +83,7 @@ export function useAddDesignToCart() {
         }
         let outcome: ReturnType<typeof addDesign>
         try {
-          outcome = addDesign({ ...line, images: keys })
+          outcome = addDesign({ ...line, images: keys, ...(thumbnail ? { thumbnail } : {}) })
         } catch (error) {
           // Una línea con otra forma o un carrito que no se puede escribir: no se pierde nada y las imágenes no quedan sueltas.
           console.warn('No se pudo agregar el pastel al pedido.', error)

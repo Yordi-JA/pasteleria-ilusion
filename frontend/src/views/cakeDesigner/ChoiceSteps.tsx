@@ -216,10 +216,15 @@ export function ColorGrid({ legend, name, colors, onChoose }: { legend: string; 
 export function CoverageStep({
   color,
   onChoose,
+  sideComb,
+  onSideComb,
 }: {
   /** El color de la cobertura (`#rrggbb`); `null` si la pastelería no tiene lista y todavía no se elige. */
   color: string | null
   onChoose: (value: string) => void
+  /** El peinado lateral (tanda 4): va por omisión y se puede quitar. No cuesta. */
+  sideComb: boolean
+  onSideComb: (on: boolean) => void
 }) {
   return (
     <>
@@ -228,6 +233,17 @@ export function CoverageStep({
         <span className="text-cuerpo font-semibold">Crema pastelera</span>
       </p>
       <ColorPicker legend="Elige el color de la cobertura" value={color} onChange={onChoose} />
+      {/* Un renglón con casilla, como los del paso 7 (D79): la línea de arriba la lleva el renglón. */}
+      <OptionList>
+        <ChoiceOption
+          variant="row"
+          type="checkbox"
+          label="Peinado lateral"
+          description="Surcos horizontales en los costados del pastel."
+          checked={sideComb}
+          onChange={(event) => onSideComb(event.target.checked)}
+        />
+      </OptionList>
       <p className="text-nota">
         ¿Varios colores o un diseño específico?{' '}
         <Link to="/pedido/referencia" className={inlineLink}>

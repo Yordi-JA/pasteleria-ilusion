@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 import symbol from '../../../../assets/logos/ilusion-simbolo.svg'
 import Button from '../../components/Button.tsx'
 import { focusRing } from '../../components/focus.ts'
+import LinePhoto from '../../components/LinePhoto.tsx'
 import Notice from '../../components/Notice.tsx'
 import QuantityStepper from '../../components/QuantityStepper.tsx'
 import { MAX_LINE_QUANTITY } from '../../models/cart.ts'
@@ -23,18 +24,6 @@ type CartLineItemProps = {
   onCancelEdit: () => void
 }
 
-/** El hueco de la foto: el carrito no guarda fotos, y el nombre de la línea ya dice qué es (decorativo). */
-function PhotoSlot() {
-  return (
-    <div
-      aria-hidden="true"
-      className="flex h-[100px] w-[100px] shrink-0 items-center justify-center rounded-md bg-harina px-2 text-center text-nota text-mermelada-suave max-[600px]:h-[72px] max-[600px]:w-[72px]"
-    >
-      Foto del pastel
-    </div>
-  )
-}
-
 /**
  * Una línea del carrito (mockup de Carrito): de dónde sale ("En vitrina hoy", "Por encargo"), el nombre, la cantidad con
  * "−" y "+", "Quitar" y el importe. Un pastel diseñado lleva lo elegido, "Editar pedido" y, con base, su depósito.
@@ -43,7 +32,8 @@ export default function CartLineItem({ line, stamp, askingEdit, onQuantity, onRe
   const isDesign = line.key.kind === 'design'
   return (
     <li className="flex gap-4 border-b border-relieve py-6 first:pt-0 last:border-b-0 last:pb-0 max-[600px]:gap-3">
-      <PhotoSlot />
+      {/* El carrito no guarda fotos del catálogo; un pastel diseñado lleva la miniatura de su vista previa (tanda 4). */}
+      <LinePhoto thumbnail={line.thumbnail} placeholder="Foto del pastel" className="h-[100px] w-[100px] px-2 max-[600px]:h-[72px] max-[600px]:w-[72px]" />
       <div className="grid min-w-0 flex-1 grid-cols-[1fr_auto] gap-x-4 gap-y-3 max-[600px]:grid-cols-1">
         <div className="flex min-w-0 flex-col gap-1.5">
           <p className="text-nota font-semibold text-mermelada-suave">{line.origin}</p>
@@ -59,7 +49,10 @@ export default function CartLineItem({ line, stamp, askingEdit, onQuantity, onRe
           {line.details.length > 0 && (
             <ul className="flex flex-col gap-0.5 text-nota text-mermelada-suave">
               {line.details.map((detail) => (
-                <li key={detail}>{detail}</li>
+                // `whitespace-pre-line`: el mensaje del pastel conserva sus renglones.
+                <li key={detail} className="whitespace-pre-line">
+                  {detail}
+                </li>
               ))}
             </ul>
           )}

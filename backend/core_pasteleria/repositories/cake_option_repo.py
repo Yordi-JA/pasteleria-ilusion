@@ -45,6 +45,7 @@ def list_breads() -> list[BreadRecord]:
             preview_color_bottom=bread.preview_color_bottom,
             included_filling_preview_style=bread.included_filling_preview_style,
             included_filling_preview_color_secondary=bread.included_filling_preview_color_secondary,
+            included_filling_preview_color=bread.included_filling_preview_color,
             showcase_price=_group_price(bread.showcase_price),
         )
         for bread in Bread.objects.filter(is_active=True).select_related("showcase_price")

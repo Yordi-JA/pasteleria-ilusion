@@ -220,6 +220,8 @@ export function useCakeDesigner() {
   /** Elegir un sabor (`withFlavor`): con uno, lo reemplaza; con dos, lo agrega o lo quita. */
   const chooseFlavor = useCallback((slug: string) => update((d) => (options ? withFlavor(d, options, slug) : d)), [options, update])
   const setCoverage = useCallback((coverageColor: string) => update((d) => ({ ...d, coverageColor })), [update])
+  /** El peinado lateral (tanda 4): con él, surcos horizontales en los costados; sin él, lisos. */
+  const setSideComb = useCallback((sideComb: boolean) => update((d) => ({ ...d, sideComb })), [update])
 
   // --- Paso 6 ---
   const clearImage = decorationImage.clear
@@ -321,6 +323,14 @@ export function useCakeDesigner() {
   // --- Paso 7: mensaje y oblea ---
   const lidStep = useLidStep({ draft, update, options, design, metrics, waferImage, loadedWafer })
 
+  // --- Vista previa (antes del paso 8, que toma su miniatura) ---
+  const defaultBread = plan?.assumedBread ?? null
+  const shape = useMemo(
+    () => (design && options ? designPreview({ draft, design, options, current, defaultBread, metrics, waferImage: loadedWafer }) : EMPTY_SHAPE),
+    [current, defaultBread, design, draft, loadedWafer, metrics, options],
+  )
+  const scene = useCakeScene(shape, '0px', viewpointFor(current))
+
   // --- Paso 8: revisión ---
   const setOccasion = useCallback((occasion: Occasion | null) => update((d) => ({ ...d, occasion })), [update])
   const order = useAddDesignToCart()
@@ -330,10 +340,12 @@ export function useCakeDesigner() {
   )
   const decorationLocal = decorationImage.image && design?.decoration?.requiresQuote ? decorationImage.image : null
   const waferLocal = waferImage.image && draft.waferEnabled ? waferImage.image : null
+  const takeSnapshot = scene.snapshot
   const addToOrder = useCallback(async () => {
     if (!orderLine) return
-    await order.add(orderLine, { decoration: decorationLocal, wafer: waferLocal }, draft.replaces)
-  }, [decorationLocal, draft.replaces, order, orderLine, waferLocal])
+    // La miniatura se toma al hacer clic, antes de guardar las imágenes: es el pastel que la persona está viendo.
+    await order.add(orderLine, { decoration: decorationLocal, wafer: waferLocal }, draft.replaces, takeSnapshot())
+  }, [decorationLocal, draft.replaces, order, orderLine, takeSnapshot, waferLocal])
   /** Empieza con `fresh` en `step` (por omisión, el paso 1), sin las imágenes del diseño anterior. */
   // El paso al que lleva `restart`: se navega cuando el borrador nuevo ya está en pantalla. Si la URL cambiara antes, el paso
   // pedido (el 5 de un pastel de vitrina de origen) se mediría con el borrador viejo y se corregiría al primero sin completar.
@@ -363,14 +375,6 @@ export function useCakeDesigner() {
   // Un pastel de vitrina de origen ya trae tamaño, tipo, pan y relleno: el recorrido empieza en la cobertura (tanda 2).
   const restartWithProduct = useCallback((fresh: CakeDesignDraft) => restart(fresh, true, fresh.source ? COVERAGE_STEP : 1), [restart])
   const prefill = useDesignPrefill({ options, draft, restart: restartWithProduct })
-
-  // --- Vista previa ---
-  const defaultBread = plan?.assumedBread ?? null
-  const shape = useMemo(
-    () => (design && options ? designPreview({ draft, design, options, current, defaultBread, metrics, waferImage: loadedWafer }) : EMPTY_SHAPE),
-    [current, defaultBread, design, draft, loadedWafer, metrics, options],
-  )
-  const scene = useCakeScene(shape, '0px', viewpointFor(current))
 
   return {
     // Con `?pastel=`, el diseñador espera la ficha en su esqueleto: no se ve un paso 1 vacío que luego cambia.
@@ -410,6 +414,7 @@ export function useCakeDesigner() {
       setFlavorCount,
       chooseFlavor,
       setCoverage,
+      setSideComb,
       setDecoration,
       setDecorationColor,
       chooseOwnColor,

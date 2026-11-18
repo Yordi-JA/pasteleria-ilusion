@@ -3,7 +3,8 @@
 Cuatro correos, cada uno en texto plano y en HTML de correo (tablas, CSS en línea y los colores de la marca, D71):
 - "Recibimos tu solicitud": el envío de referencia entra `in_review`.
 - "Tu cotización está lista": la pastelería le pone precio (`quote_ready`).
-- "Recibimos tu pago": el pedido entra en `received` (webhook verificado o efectivo en el admin).
+- "Recibimos tu pago": el pedido entra en `received` (webhook verificado o efectivo en el admin). Lleva la nota en PDF
+  adjunta (`note_document`); si no se puede armar, sale sin ella y queda un WARNING con el id del pedido.
 - "Tu pedido está listo": el pedido entra en `ready_for_delivery`.
 
 Los dispara `order_observer.CustomerEmailObserver` después de confirmarse la transacción. Nunca deshacen nada: si el
@@ -71,6 +72,7 @@ class EmailKind:
     subject: str
     card: str
     status: str
+    attach_note: bool = False
 
 
 REFERENCE_RECEIVED = EmailKind(
@@ -80,7 +82,11 @@ QUOTE_READY = EmailKind(
     "quote_ready", "Tu cotización #{number} está lista", "Cotización #{number}", ReferenceRequestStatus.QUOTE_READY.label
 )
 PAYMENT_RECEIVED = EmailKind(
-    "payment_received", "Recibimos tu pago del pedido #{number}", "Pedido #{number}", OrderStatus.RECEIVED.label
+    "payment_received",
+    "Recibimos tu pago del pedido #{number}",
+    "Pedido #{number}",
+    OrderStatus.RECEIVED.label,
+    attach_note=True,
 )
 ORDER_READY = EmailKind(
     "order_ready", "Tu pedido #{number} está listo", "Pedido #{number}", OrderStatus.READY_FOR_DELIVERY.label
@@ -114,6 +120,8 @@ class Email:
     to: str
     number: int
     context: dict
+    # Archivos adjuntos: (nombre, contenido, tipo MIME).
+    attachments: tuple[tuple[str, bytes, str], ...] = ()
 
 
 def _money(amount: Decimal | None) -> str:
@@ -161,10 +169,37 @@ def _store_context(settings) -> dict:
     }
 
 
-def _order_email(order_id: int, orders, settings) -> Email | None:
+def _note_attachment(order, settings) -> tuple[tuple[str, bytes, str], ...]:
+    """La nota del pedido en PDF, la misma que descarga el cliente; vacío si aún no hay nota o si no se pudo armar.
+
+    El adjunto es un extra: si armar el PDF falla, el correo sale sin él y queda un WARNING con el id del pedido (nunca
+    el mensaje del error, que podría citar datos del cliente).
+    """
+    try:
+        # Importado aquí: `note_document` depende de este módulo (`site_url`) y de `note_service`, que llega a
+        # `order_observer`, que a su vez importa este módulo al cargarse. Dentro del `try`, para que ni un fallo al
+        # importar cueste el correo.
+        from .orders import note_document, note_service
+
+        note = note_service.note_for_order(order, settings=settings)
+        if note is None:
+            return ()
+        return ((note_document.filename(order.id), note_document.render_pdf(note), note_document.CONTENT_TYPE),)
+    except Exception as error:
+        logger.warning(
+            "No se pudo adjuntar la nota del pedido %s: %s",
+            order.id,
+            type(error).__name__,
+            extra={"email_kind": PAYMENT_RECEIVED.template, "subject_id": order.id},
+        )
+        return ()
+
+
+def _order_email(order_id: int, orders, settings, *, with_note: bool = False) -> Email | None:
     order = orders.get_order(order_id)
     if order is None:
         return None
+    attachments = _note_attachment(order, settings) if with_note else ()
     context = {
         "order": order,
         "pickup_day": _long_date(order.delivery_date),
@@ -174,9 +209,11 @@ def _order_email(order_id: int, orders, settings) -> Email | None:
         "owes_on_delivery": bool(order.pay_on_delivery),
         "stand_deposit": _money(order.stand_deposit) if order.stand_deposit else "",
         "url": site_url(f"/cuenta/pedidos/{order.id}"),
+        # Las plantillas solo dicen "va adjunta" si el PDF de verdad sale con el correo.
+        "note_attached": bool(attachments),
         **_store_context(settings),
     }
-    return Email(order.customer_email, order.id, context)
+    return Email(order.customer_email, order.id, context, attachments)
 
 
 def _reference_email(request_id: int, references, settings) -> Email | None:
@@ -225,6 +262,8 @@ def _send(kind: EmailKind, what: str, subject_id: int, build: Callable[[], Email
             to=[email.to],
         )
         message.attach_alternative(render_to_string(f"{TEMPLATE_DIR}/{kind.template}.html", context), "text/html")
+        for name, content, mimetype in email.attachments:
+            message.attach(name, content, mimetype)
         message.send()
     except Exception as error:
         # Después del commit nada se puede deshacer: el correo es un aviso, no parte de la operación (D70).
@@ -353,7 +392,9 @@ def _deliver_account_email(kind: AccountEmailKind, *, user_id: int, to: str, url
 
 
 def send_order_email(kind: EmailKind, order_id: int, *, orders=order_repo, settings=settings_repo) -> bool:
-    return _send(kind, "pedido", order_id, lambda: _order_email(order_id, orders, settings))
+    return _send(
+        kind, "pedido", order_id, lambda: _order_email(order_id, orders, settings, with_note=kind.attach_note)
+    )
 
 
 def send_reference_email(

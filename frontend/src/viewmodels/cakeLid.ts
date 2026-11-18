@@ -1,7 +1,7 @@
 import type { CakeDesignOptions } from '../models/cakeDesign.ts'
 import type { MessageLayout, WaferLayout, WaferShape } from '../models/cakeDesignLayout.ts'
 import type { CakeDesignDraft } from '../models/cakeDesignDraft.ts'
-import { LAYOUT_BOUNDS, TIER_EDGE_UNITS } from '../models/cakeDesignLayout.ts'
+import { LAYOUT_BOUNDS, messageText, TIER_EDGE_UNITS } from '../models/cakeDesignLayout.ts'
 import type { CakeLid } from '../three/cakeShape.ts'
 import { clampCm, tierSizes, UNITS_PER_CM } from './cakeMolds.ts'
 import { colorPhrase } from './colors.ts'
@@ -76,7 +76,7 @@ const cm = (value: number) => String(Number(value.toFixed(2)))
  */
 export function messageLetterProblem(draft: CakeDesignDraft, lid: Lid, metrics: MessageMetrics, options: CakeDesignOptions): string | null {
   const minimum = options.limits.messageMinLetterCm
-  if (!minimum || !draft.messageEnabled || draft.message.text.trim() === '') return null
+  if (!minimum || !draft.messageEnabled || messageText(draft.message.text) === '') return null
   const scale = minLetterScale(options, lid)
   if (scale > LAYOUT_BOUNDS.messageScale.max) return `En este pastel no cabe un mensaje con letra de al menos ${cm(minimum)} cm.`
   return messageFits(draft.message, metrics, lid, scale) ? null : `Acorta tu mensaje: con letra de al menos ${cm(minimum)} cm no cabe en el pastel.`
@@ -87,9 +87,13 @@ export function effectiveWafer(draft: CakeDesignDraft, lid: Lid, options: CakeDe
   return draft.waferEnabled ? fitWafer(draft.wafer ?? initialWafer(lid, options.limits), lid, options.limits) : null
 }
 
-/** El acomodo del mensaje que se dibuja y se guarda, ajustado a la tapa y a la letra mínima. `null` sin mensaje (o sin texto). */
+/**
+ * El acomodo del mensaje que se dibuja y se guarda, ajustado a la tapa y a la letra mínima, con el texto sin renglones vacíos ni
+ * espacios en las orillas de cada renglón (`messageText`). `null` sin mensaje (o sin texto).
+ */
 export function effectiveMessage(draft: CakeDesignDraft, lid: Lid, metrics: MessageMetrics, minScale = 0): MessageLayout | null {
-  return draft.messageEnabled && draft.message.text.trim() !== '' ? fitMessage(draft.message, metrics, lid, minScale) : null
+  const text = messageText(draft.message.text)
+  return draft.messageEnabled && text !== '' ? fitMessage({ ...draft.message, text }, metrics, lid, minScale) : null
 }
 
 /** La imagen de la oblea ya cargada, con su tamaño en píxeles. */
@@ -163,11 +167,16 @@ export function messageColorPhrase(draft: CakeDesignDraft, coverage: string | nu
   return null
 }
 
-/** El texto de "Tu pastel" para el paso 7: "Mensaje: Feliz cumpleaños Ana, color parecido a rosa. Oblea: círculo, foto.jpg", o que no lleva ninguno. */
+/**
+ * El texto de "Tu pastel" para el paso 7: "Mensaje: Feliz cumpleaños Ana, color parecido a rosa. Oblea: círculo, foto.jpg", o que
+ * no lleva ninguno. Un mensaje de varios renglones conserva sus saltos (`
+`): la vista los muestra con `whitespace-pre-line`.
+ */
 export function lidSummary(draft: CakeDesignDraft, coverage: string | null, references: CakeDesignOptions['coverageColors']): string {
   const parts: string[] = []
-  if (draft.messageEnabled && draft.message.text.trim() !== '') {
-    parts.push(['Mensaje: ' + draft.message.text.trim(), messageColorPhrase(draft, coverage, references)].filter(Boolean).join(', '))
+  const text = messageText(draft.message.text)
+  if (draft.messageEnabled && text !== '') {
+    parts.push(['Mensaje: ' + text, messageColorPhrase(draft, coverage, references)].filter(Boolean).join(', '))
   }
   if (draft.waferEnabled) parts.push(`Oblea: ${[draft.wafer ? shapeLabel(draft.wafer.shape) : null, draft.waferImageName].filter(Boolean).join(', ')}`.replace(/: $/, ''))
   return parts.length ? parts.join('. ') : 'Sin mensaje ni oblea'

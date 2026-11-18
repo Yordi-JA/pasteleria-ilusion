@@ -9,7 +9,7 @@ import { bakeryMoment, formatDateInSentence } from '../models/dates.ts'
 import { formatPrice } from '../models/money.ts'
 import type { OrderPayment } from '../models/orders.ts'
 import { offeringLabel, PRESENTATION_LABELS } from '../models/presentation.ts'
-import { whenText } from './paymentView.ts'
+import { designThumbnail, whenText } from './paymentView.ts'
 import { flavorSentence } from './referenceFlavorView.ts'
 
 /** Las perlas del pedido (libro de marca): un paso por estado desde que se paga. */
@@ -74,10 +74,13 @@ function itemName(item: AccountOrderItem): string {
   return offeringLabel(item.productName, item.presentation)
 }
 
-/** Una partida del pedido: nombre, detalle corto, los nombres del diseño (si es uno) e importe. */
-export type OrderItemView = { key: string; name: string; brief: string; detail: string | null; total: string }
+/**
+ * Una partida del pedido: nombre, detalle corto, los nombres del diseño (si es uno), importe y la miniatura del pastel
+ * diseñado si se acaba de pedir en esta pestaña (tanda 4).
+ */
+export type OrderItemView = { key: string; name: string; brief: string; detail: string | null; total: string; thumbnail: string | null }
 
-function itemView(item: AccountOrderItem, index: number): OrderItemView {
+function itemView(item: AccountOrderItem, index: number): Omit<OrderItemView, 'thumbnail'> {
   const pieces = `${item.quantity} ${item.quantity === 1 ? 'pieza' : 'piezas'}`
   // El pastel de una cotización aceptada (D70): su nombre es el del servidor y su sabor, el de la solicitud.
   if (item.kind === 'reference') {
@@ -137,10 +140,11 @@ function firstReturnBy(stands: OrderStand[]): string | null {
   return dates.length > 0 ? [...dates].sort()[0] : null
 }
 
-export function paidSummary(order: AccountOrder): PaidSummaryView {
+/** `thumbnails`: las miniaturas por línea del pedido recién creado (la confirmación); el detalle del pedido no las lleva. */
+export function paidSummary(order: AccountOrder, thumbnails: (string | null)[] = []): PaidSummaryView {
   const returnBy = firstReturnBy(order.stands)
   return {
-    items: order.items.map(itemView),
+    items: order.items.map((item, index) => ({ ...itemView(item, index), thumbnail: designThumbnail(thumbnails, order.items, index) })),
     total: `${price(order.subtotal)} MXN`,
     rows: summaryRows(order.payment, isPaid(order.status)),
     depositNote: returnBy ? `Te lo devolvemos si regresas la base antes del ${dateOf(returnBy)} con tu nota.` : null,

@@ -18,7 +18,7 @@ Lo construido está en D50 ([`proyecto/decisiones.md`](proyecto/decisiones.md)) 
 10. Revisión en el sitio desplegado. El 9 de noviembre de 2026, con `curl`, la API de producción ya trae `tier_minimums`, los estilos de relleno y el choco-vainilla en dos colores. Falta abrir https://pasteleriailusion.me/pedido/disena en el navegador y comprobar que la vista previa se ve igual; el despliegue de D51 necesitará además la migración `0016` y la `0017`, y el de D52, de la `0018` a la `0022`.
 11. La descripción de los 5 panes sigue vacía en producción (D49). La pastelería la escribe en el admin (`Bread.description`); el paso 3 la muestra cuando existe.
 12. Resuelto el 11 de noviembre de 2026 (D56). `npm run build` comprime `dist/` con `frontend/scripts/compress-dist.mjs` (brotli y gzip) y WhiteNoise sirve las variantes. El chunk de la escena pasa de 940 757 bytes a 204 894 con brotli.
-13. Colores nuevos que esperan el visto bueno de la dueña (D52). Se editan en el admin (`FillingFlavor.preview_color_secondary` y `Bread.included_filling_preview_color_secondary`), no son colores de interfaz: los grumitos más rojos de la fresa con yogurt (`#D95F76`, propuesto) y los trozos de nuez (`#7A5230`, propuesto); y dos que reutilizan colores ya aprobados en un uso nuevo: las chispas redondas de chocolate del Choco-pingüino (`#3A2218`, el del chocolate) y el granillo rojo del Red velvet (`#C8283A`, el de la fresa).
+13. Colores nuevos que esperan el visto bueno de la dueña (D52). Se editan en el admin (`FillingFlavor.preview_color_secondary` y `Bread.included_filling_preview_color_secondary`), no son colores de interfaz: los grumitos más rojos de la fresa con yogurt (`#D95F76`, propuesto) y los trozos de nuez (`#7A5230`, propuesto); y dos que reutilizan colores ya aprobados en un uso nuevo: las chispas redondas de chocolate del Choco-pingüino (`#3A2218`, el del chocolate) y el granillo rojo del Red velvet (`#C8283A`, el de la fresa). Con D81 se suma la crema de chocolate con leche claro del Choco-pingüino (`#B5876B`, propuesto, en `Bread.included_filling_preview_color`).
 14. Tamaños de la vista previa. Los moldes que sembró la `0019` son las medidas que dio la dueña el 10 de noviembre de 2026; si compra uno, lo agrega en el admin ("Moldes") y la vista previa lo toma sin un despliegue. Falta que la dueña confirme que el tamaño que se ve con 4, 8 y 12 kg, con varios pisos y en rectangular le parece fiel.
 
 ## Decoración del paso 6 de "Diseña tu pastel" (D53)
@@ -350,6 +350,32 @@ Lo construido está en D80 ([`proyecto/decisiones.md`](proyecto/decisiones.md)),
 4. `useRouteFade` fija la curva `entrada` en el código.
 5. `useCakeScene` y `useCartFlight` mantienen su propia comprobación de `prefers-reduced-motion` en lugar de usar `viewmodels/reducedMotion.ts`.
 6. El resumen de la entrega en escritorio no es fijo, como sí lo es en el mockup.
+
+## Tanda 4 de correcciones, parte 1 (D81 a D85)
+
+Lo construido está en D81 a D85 ([`proyecto/decisiones.md`](proyecto/decisiones.md)), en la rama `fix/correcciones-tanda-4`, sin fusionar. Quedan estos menores:
+
+1. `services/orders/note_document.py` importa `api/note_pdf.py`, así que la capa de servicios depende de `api/`. Mover `note_pdf.py` a `services/orders/` lo arreglaría.
+2. El relieve del mensaje recalcula todo el lienzo en cada tecla, en el hilo principal. Puede trabarse en teléfonos de gama baja; un retraso de 150 ms o limitar el cálculo a la caja de la tinta lo aliviaría.
+3. El primer relleno brillante construye el entorno de reflejos una sola vez, con un tirón breve la primera vez.
+4. Con tinta negra el relieve casi no se nota.
+5. El editor 2D de vista superior no muestra el relieve.
+6. No se revisó la sombra del mensaje en el borde mismo de la tapa con el tamaño máximo.
+7. Los moldes rectangulares solo se revisaron leyendo el código.
+8. `ruff` no está instalado en el venv.
+9. `cake-designer-lid.spec.ts:210` falla en `main` y necesita su propio arreglo.
+10. El límite de 3 renglones del mensaje vive en el código, como el de 80 caracteres. Si la pastelería quiere editarlo, hay que agregar `CakeDesignSettings.message_max_lines`.
+11. El teclado de iOS con el `textarea` del mensaje solo se revisó en Chromium a 390 x 844.
+12. "Mis pedidos" y el detalle del pedido no muestran el mensaje, así que no muestran sus renglones.
+13. Resuelto en D85: en la nota en PDF, el texto de la caja del depósito se salía por el borde derecho. Se encontró al probar los renglones, pero venía de antes de D83.
+14. `cake-design-sizes.spec.ts:140` es intermitente con la máquina cargada: falló una vez bajo carga y pasó sola 2 de 2.
+15. La miniatura del carrito (D85) vive solo en la pestaña que creó el pedido. Otras pestañas, otros dispositivos y "Mis pedidos" muestran el hueco "Foto".
+16. Si el almacenamiento está lleno, el carrito se guarda sin miniaturas y la línea muestra su imagen hasta la siguiente recarga.
+17. La miniatura se encuadra al pastel, así que un pastel chico se ve tan grande como uno grande.
+18. El paso entre surcos del peinado (6 mm), su hondo (1.2 mm) y el tinte de la crema (del 12 al 34 %) viven en el código, no en el admin.
+19. El detalle del pedido y la confirmación no muestran la cobertura, así que tampoco muestran el peinado.
+20. El despliegue necesita la migración `0048` (`CakeDesign.side_comb`).
+21. `e2e/site-frame.spec.ts:301` (el primer Tab enfoca "Saltar al contenido") falla seguido aun corriendo sola: 2 de 3 el 18 de noviembre. Esta rama no toca el marco del sitio; hay que revisarla por separado.
 
 ## Confirmar el correo y recuperar la contraseña (D76)
 

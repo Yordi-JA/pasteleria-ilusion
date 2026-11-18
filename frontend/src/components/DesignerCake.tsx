@@ -36,7 +36,13 @@ export default function DesignerCake({ scene, hintId }: { scene: CakeSceneView; 
   const { observeBox, ...view } = scene
   const ready = view.status === 'ready'
   return (
-    <div ref={observeBox} data-testid="vista-previa" data-state={view.status} className="relative h-full w-full">
+    <div
+      ref={observeBox}
+      data-testid="vista-previa"
+      data-state={view.status}
+      data-combed={import.meta.env.DEV ? view.shape.tiers.filter((tier) => tier.comb).length : undefined}
+      className="relative h-full w-full"
+    >
       <div
         aria-hidden={ready}
         className={`absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center transition-opacity duration-150 motion-reduce:transition-none ${ready ? 'invisible opacity-0' : ''}`}
@@ -68,6 +74,7 @@ export default function DesignerCake({ scene, hintId }: { scene: CakeSceneView; 
                 onKeyboardFocusChange={view.onKeyboardFocusChange}
                 freeLook
                 viewpoint={view.viewpoint}
+                onSnapshot={view.onSnapshot}
               />
             </div>
           </Suspense>
