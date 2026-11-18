@@ -329,6 +329,17 @@ Menores de la revisión única que no se arreglaron:
 14. `POST cake-designs/price/` de una vitrina armada lee todo el catálogo para buscar el producto que coincide, y `get_cake_design_options` llama dos veces a `list_design_sizes()`. Se puede cachear por petición.
 15. `pricing_service.py` pasa de 1000 líneas e incluye reglas del catálogo (`showcase_product_unavailable`, `_matching_showcase_product`). Conviene separarlo después del congelamiento para que no se vuelva un Objeto Dios.
 
+## Tanda 3 de correcciones (D79)
+
+Lo construido está en D79 ([`proyecto/decisiones.md`](proyecto/decisiones.md)), en la rama `fix/correcciones-tanda-3`, sin fusionar. Quedan estos menores:
+
+1. El paso 7 conserva cajas con borde oscuro: el mensaje, la oblea y el color del texto.
+2. En ventanas de menos de 820 px de alto la columna izquierda no queda fija: la vista previa y el total se van con la página, como antes de D79.
+3. Una persona con teclado podría salir de la página más allá del diseñador si el navegador centra un control al darle el foco. No se verificó.
+4. `e2e/cake-designer-lid.spec.ts:210` falla de forma intermitente, como en `main`, y `:77` falló una vez con carga y pasó sola.
+5. En el paso 8, la región de estado vacía del aviso deja unos 12 px de más en el pie antes de agregar.
+6. En `/pedido/referencia` no hay línea de cierre entre las filas y el mensaje de error.
+
 ## Confirmar el correo y recuperar la contraseña (D76)
 
 Lo construido está en D76 ([`proyecto/decisiones.md`](proyecto/decisiones.md)), en la rama `feat/verificar-recuperar`, sin desplegar. Quedan estos puntos:

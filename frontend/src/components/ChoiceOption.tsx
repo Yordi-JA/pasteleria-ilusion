@@ -3,8 +3,12 @@ import type { InputHTMLAttributes, ReactNode } from 'react'
 import { focusRingWithin, focusRingWithinOnColor } from './focus.ts'
 
 type ChoiceOptionProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'children'> & {
-  /** `card` es una tarjeta con radio visible; `chip` oculta el radio y se llena al elegirse. */
-  variant?: 'card' | 'chip'
+  /**
+   * `card` es una tarjeta con radio visible; `chip` oculta el radio y se llena al elegirse; `row` es un renglón de una
+   * lista con líneas (`OptionList`), con el radio visible y sin borde propio, para no poner tarjetas dentro de la tarjeta
+   * del paso de "Diseña tu pastel" (tanda 3).
+   */
+  variant?: 'card' | 'chip' | 'row'
   label: string
   description?: string
   /** Texto a la derecha de la tarjeta, por ejemplo un precio que viene del backend. */
@@ -41,6 +45,17 @@ const chipOnColorEnabled =
   'has-[:checked]:text-mermelada has-[:checked]:hover:bg-fresa-claro ' +
   'motion-safe:transition-colors motion-safe:active:translate-y-px'
 
+// El renglón: la línea de arriba la lleva su contenedor (`rowWrapper`); el renglón elegido se llena de `harina` y el punto
+// del radio marca la selección. El hover subraya el nombre, como en los botones, sin cambiar el fondo: así no se confunde
+// con el elegido.
+const rowBase = 'group flex min-h-11 items-center gap-3.5 rounded-sm px-3 py-3'
+const rowEnabled = 'cursor-pointer has-[:checked]:bg-harina motion-safe:transition-colors motion-safe:active:translate-y-px'
+// Desactivado: texto apagado, el radio gris del navegador y el motivo escrito debajo (nunca solo el color).
+const rowDisabled = 'cursor-not-allowed text-mermelada-suave has-[:checked]:bg-harina'
+const rowWrapper = 'border-t border-relieve py-1'
+// El motivo se alinea con el nombre: 12 px de relleno, 20 del radio y 14 de separación.
+const rowReason = 'pb-2 pl-[46px] pr-3'
+
 const cardDisabled = 'cursor-not-allowed border-dashed border-relieve bg-nata text-mermelada-suave'
 // Un chip deshabilitado y elegido (por un estado controlado) no se ve disponible: borde sólido, fondo suave y texto apagado.
 const chipDisabled =
@@ -64,16 +79,20 @@ export default function ChoiceOption({
   const reasonId = disabled && disabledReason ? `${inputId}-motivo` : undefined
   const describedBy = [reasonId, rest['aria-describedby']].filter(Boolean).join(' ') || undefined
   const isChip = variant === 'chip'
+  const isRow = variant === 'row'
   const chipOnColor = isChip && onColor
   const chipState = chipOnColor ? chipOnColorEnabled : chipEnabled
-  const state = disabled ? (isChip ? chipDisabled : cardDisabled) : isChip ? chipState : cardEnabled
+  const enabledState = isRow ? rowEnabled : isChip ? chipState : cardEnabled
+  const disabledState = isRow ? rowDisabled : isChip ? chipDisabled : cardDisabled
+  const state = disabled ? disabledState : enabledState
   // Un chip de dos líneas (los pisos) llena su celda: todos los de la cuadrícula miden lo mismo.
   const twoLineChip = isChip && Boolean(description)
-  const style = `${isChip ? chipBase : cardBase} ${twoLineChip ? 'justify-center' : ''} ${state} ${chipOnColor ? focusRingWithinOnColor : focusRingWithin}`
+  const base = isChip ? chipBase : isRow ? rowBase : cardBase
+  const style = `${base} ${twoLineChip ? 'justify-center' : ''} ${state} ${chipOnColor ? focusRingWithinOnColor : focusRingWithin}`
   const titleStyle = disabled ? '' : 'group-hover:underline group-hover:underline-offset-4'
 
   return (
-    <div className={`flex flex-col gap-1 ${isChip && !twoLineChip ? 'items-start' : ''}`}>
+    <div className={`flex flex-col ${isRow ? rowWrapper : 'gap-1'} ${isChip && !twoLineChip ? 'items-start' : ''}`}>
       <label htmlFor={inputId} className={style}>
         <input
           {...rest}
@@ -108,7 +127,7 @@ export default function ChoiceOption({
         )}
       </label>
       {reasonId && (
-        <p id={reasonId} className="text-nota text-mermelada-suave">
+        <p id={reasonId} className={`text-nota text-mermelada-suave ${isRow ? rowReason : ''}`}>
           {disabledReason}
         </p>
       )}

@@ -13,10 +13,11 @@ import DecorationStep from './cakeDesigner/DecorationStep.tsx'
 import { MobileBar, MobileHint, PreviewHint, PriceCard, SummaryCard, SummaryDisclosure } from './cakeDesigner/DesignerAside.tsx'
 import LidStep from './cakeDesigner/LidStep.tsx'
 import PrefillNotice from './cakeDesigner/PrefillNotice.tsx'
-import ReviewStep from './cakeDesigner/ReviewStep.tsx'
+import ReviewStep, { ReviewFeedback } from './cakeDesigner/ReviewStep.tsx'
 import SizeStep from './cakeDesigner/SizeStep.tsx'
 import StepBar from './cakeDesigner/StepBar.tsx'
 import StepCard from './cakeDesigner/StepCard.tsx'
+import { PREVIEW_COLUMN } from './cakeDesigner/scrollStyles.ts'
 
 const TITLE = 'Diseña tu pastel'
 
@@ -117,7 +118,7 @@ function CurrentStep({ designer }: { designer: CakeDesignerView }) {
     default:
       return (
         view.review && (
-          <ReviewStep review={view.review} onOccasion={actions.setOccasion} feedback={designer.order.feedback} added={designer.order.added} onStartOver={actions.startOver} onRetry={designer.retryPrice} />
+          <ReviewStep review={view.review} onOccasion={actions.setOccasion} onRetry={designer.retryPrice} />
         )
       )
   }
@@ -146,10 +147,13 @@ function Designer({ designer, hintId }: { designer: CakeDesignerView; hintId: st
         )}
         <StepBar steps={view.steps} current={current} mobileTip={view.mobileTip} />
         <div className="grid grid-cols-2 items-start gap-9 max-[900px]:grid-cols-1 max-[900px]:gap-5">
-          {/* La columna izquierda queda fija al hacer scroll en escritorio (libro de marca, "Cotizador 3D"). */}
-          <div className="sticky top-28 flex flex-col gap-4 max-[900px]:static">
+          {/* La columna izquierda queda fija al hacer scroll en escritorio (libro de marca, "Cotizador 3D") cuando la ventana es
+              lo bastante alta, con el mismo alto máximo que la tarjeta del paso: la vista previa y el total no cambian de
+              tamaño y, si "Tu pastel" es largo, solo su lista se desplaza (tanda 3). En una ventana baja va en el flujo
+              normal (`PREVIEW_COLUMN`). */}
+          <div className={`flex flex-col gap-4 ${PREVIEW_COLUMN}`}>
             {!review && <SummaryDisclosure rows={view.summary} />}
-            <div className="h-[350px] overflow-hidden rounded-lg border border-relieve bg-betun max-[600px]:h-[220px]">
+            <div className="h-[350px] shrink-0 overflow-hidden rounded-lg border border-relieve bg-betun max-[600px]:h-[220px]">
               <DesignerCake scene={designer.scene} hintId={hintId} />
             </div>
             {review ? (
@@ -179,6 +183,7 @@ function Designer({ designer, hintId }: { designer: CakeDesignerView; hintId: st
             titleRef={designer.stepTitle}
             direction={designer.direction}
             error={designer.stepError}
+            notice={review ? <ReviewFeedback feedback={designer.order.feedback} added={designer.order.added} onStartOver={actions.startOver} /> : undefined}
             continueLabel={view.continueLabel}
             continueDisabled={view.continueDisabled}
             busy={view.proceeding || (review && designer.order.busy)}

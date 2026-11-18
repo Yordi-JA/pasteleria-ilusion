@@ -37,10 +37,6 @@ function Line({ line, strong = false, muted = false }: { line: ReviewLine; stron
 type ReviewStepProps = {
   review: ReviewView
   onOccasion: (value: Occasion | null) => void
-  /** Aviso de "Agregar al pedido" y lo que sigue: agregado, o diseñar otro. */
-  feedback: DesignFeedback | null
-  added: boolean
-  onStartOver: () => void
   /** Vuelve a pedir el precio cuando la petición falló. */
   onRetry: () => void
 }
@@ -50,7 +46,7 @@ type ReviewStepProps = {
  * pastel, la cobertura, la decoración, el mensaje y la oblea, la base como depósito aparte, el total, el anticipo y lo que se paga
  * hoy. Con una decoración por cotizar no se cobra nada: el pedido queda en pausa. Sin montos todavía, solo dice que calcula.
  */
-export default function ReviewStep({ review, onOccasion, feedback, added, onStartOver, onRetry }: ReviewStepProps) {
+export default function ReviewStep({ review, onOccasion, onRetry }: ReviewStepProps) {
   const id = useId()
   return (
     <>
@@ -122,7 +118,25 @@ export default function ReviewStep({ review, onOccasion, feedback, added, onStar
           {review.footnote && <p className="text-nota text-mermelada-suave">{review.footnote}</p>}
         </div>
       )}
+    </>
+  )
+}
 
+type ReviewFeedbackProps = {
+  /** Aviso de "Agregar al pedido" y lo que sigue: agregado, o diseñar otro. */
+  feedback: DesignFeedback | null
+  added: boolean
+  onStartOver: () => void
+}
+
+/**
+ * El aviso de "Agregar al pedido" ("Agregado al pedido" o el error) con "Ir a mi pedido" y "Diseñar otro pastel". Va en el pie
+ * de la tarjeta del paso, junto al botón que lo provoca (`notice` de `StepCard`), no al final del contenido que se desplaza:
+ * ahí quedaría fuera de la vista al hacer clic (tanda 3).
+ */
+export function ReviewFeedback({ feedback, added, onStartOver }: ReviewFeedbackProps) {
+  return (
+    <>
       <AddToCartNotice feedback={feedback} />
       {added && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">

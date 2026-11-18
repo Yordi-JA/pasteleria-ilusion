@@ -140,8 +140,9 @@ export default function ColorPicker({ legend, value, onChange }: ColorPickerProp
   const picker = useColorPicker(value, onChange)
   const color = picker.hsl
   const hex = hslToHex(color)
+  // Sin caja propia (tanda 3): va dentro de la tarjeta del paso y la leyenda basta para agruparlo.
   return (
-    <fieldset className="flex flex-col gap-4 rounded-md border border-relieve p-4" data-testid="selector-de-color">
+    <fieldset className="flex min-w-0 flex-col gap-4" data-testid="selector-de-color">
       <legend className="float-left text-etiqueta">{legend}</legend>
       <span
         aria-hidden="true"

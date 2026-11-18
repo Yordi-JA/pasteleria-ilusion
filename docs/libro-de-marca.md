@@ -145,7 +145,7 @@ Seis dibujos propios, cada uno tomado de algo real de la pastelería: la vela de
 - Al cambiar un color o agregar una capa, la transición dura 300 ms; con "reducir movimiento", cambia sin animación.
 - Una opción que no aplica se muestra desactivada y dice por qué ("No se combina con pastel envinado"); nunca desaparece. Si un cambio invalida algo ya elegido, se avisa antes de continuar y el botón dice qué va a pasar ("Continuar y elegir otro pan").
 - La cámara del cotizador usa el mismo ángulo que las fotos del catálogo (unos 15° desde arriba, de frente) para que el pastel 3D y los reales se vean del mismo modo.
-- Las opciones (pisos, tamaño, sabor, relleno, decoración) son chips en `radio-sm`; la elegida se llena de `mermelada` con texto `betun`, como en el resto de los chips (ver "Componentes").
+- Las opciones de los pasos 1 a 6 (tamaño, tipo de pastel, pan, relleno, cobertura y decoración) son filas separadas por líneas `relieve`, con radio visible y alto mínimo de 44 px; la elegida se llena de `harina`, y la desactivada se atenúa con su motivo escrito debajo. Los grupos de la decoración y el selector de color no llevan caja: los separan sus encabezados (D79). Los chips en `radio-sm` quedan para pisos y horarios; el elegido se llena de `mermelada` con texto `betun` (ver "Componentes").
 - El precio estimado se actualiza en `titulo-3` con cifras tabulares, junto al botón "Agregar al pedido".
 
 ## Estados
@@ -199,6 +199,7 @@ Seis dibujos propios, cada uno tomado de algo real de la pastelería: la vela de
 ## Componentes
 
 - Opción elegida en tarjetas con radio o casilla visible: fondo `betun` y borde de 2 px `mermelada`; el punto del radio marca la selección. Nunca fondo `fresa-claro`, que compite con los campos de adentro.
+- Opción elegida en filas (`ChoiceOption variant="row"`, pasos 1 a 6 de "Diseña tu pastel"): radio visible y fondo `harina`, sin borde propio; las filas se separan con líneas `relieve` (D79).
 - Opción elegida en chips sin radio visible (horarios, pisos): fondo `mermelada` con texto `betun`. Sobre un campo `mermelada` (los filtros de la vitrina de la portada), como en el mockup: sin elegir, borde `fresa` y texto `betun`; elegido, fondo `fresa-claro`, borde de 2 px `betun` y texto `mermelada`, con el anillo de foco en `betun` (D47).
 - Botones: el principal (uno por pantalla) es `mermelada` con texto `betun`; el secundario es `betun` con borde de 2 px `mermelada` y texto `mermelada`, para acciones que acompañan al principal ("Ver la vitrina" junto a "Realizar pedido"); sobre campos `mermelada`, `betun` con texto `mermelada`. Texto en `etiqueta` y alto mínimo de 44 px. En hover se subraya el texto, y deshabilitado lleva borde discontinuo `relieve` y fondo `harina`: ningún estado depende solo del color.
 - Avisos: llevan un ícono Phosphor de 22 px en el color del borde (salvo el de información, que va en `mermelada`, porque `relieve` no tiene contraste suficiente), un título en negritas que nombra el estado y, si hace falta, un texto en `nota`. El de información (sin urgencia, como el aviso de los pisos que bajaron solos en "Diseña tu pastel", D50) lleva borde de 1 px `relieve`; el de atención, borde de 2 px `cajeta`; el de algo confirmado, borde de 2 px `exito` con palomita; el de falla, borde de 2 px `error` y `role="alert"`. Los demás usan `role="status"`.
