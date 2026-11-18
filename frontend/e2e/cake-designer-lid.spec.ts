@@ -770,6 +770,8 @@ test('the cart model keeps designs apart from offerings, rejects duplicates and 
 
 /** Los píxeles de la vista previa cercanos a un color: cuántos son, dónde está su centro y qué tan ancha es la mancha. */
 async function inkStats(page: Page, hex: string) {
+  // Los clics centran su control y bajan la página más allá del diseñador: la barra superior taparía la vista previa.
+  await page.evaluate(() => window.scrollTo(0, 0))
   const png = (await page.getByTestId('vista-previa').screenshot()).toString('base64')
   return page.evaluate(
     async ({ png, hex }) => {

@@ -5,7 +5,7 @@ Complementan el [`AGENTS.md`](../AGENTS.md) de la raíz. React + Tailwind CSS + 
 ## Reglas de interfaz
 
 - Tailwind con el preset `design/tailwind.preset.js`; las fuentes vienen de `assets/fuentes/` (Fraunces con eje SOFT=100 ya fijado e Instrument Sans). No cargues fuentes de Google.
-- Componentes base antes que pantallas: botón (uno principal por pantalla), campo con etiqueta y error, tarjeta con borde `relieve`, opción elegible (tarjeta con radio o chip), borde de duya, perlas de avance, esqueleto de carga, aviso, barra superior con toldo y pie.
+- Componentes base antes que pantallas: botón (uno principal por pantalla), campo con etiqueta y error, tarjeta con borde `relieve`, opción elegible (tarjeta con radio, chip o fila con `ChoiceOption variant="row"`), borde de duya, perlas de avance, esqueleto de carga, aviso, barra superior con toldo y pie.
 - **Bordes de duya** (`design/referencia/duya.css`): una sola forma, la guirnalda, en todo cambio de color (bajo el encabezado, entre campos y antes del pie, D73); ninguno entre secciones del mismo fondo. Nunca márgenes negativos en el borde.
 - **Estados:** perlas de avance para el pedido; texto en `mermelada` para los demás estados; datos de producto como texto pequeño en `mermelada-suave`. Sin pastillas de color. Excepción: "Apartado, falta tu pago" va como aviso con borde `cajeta` (libro de marca, "Pago y entrega"), nunca en `exito`.
 - **Esqueletos de carga** con la misma estructura que la pantalla real (encabezado y bordes incluidos), `aria-busy` y texto para lectores de pantalla.

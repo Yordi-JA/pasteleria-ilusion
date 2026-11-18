@@ -8,7 +8,7 @@ import Notice from '../../components/Notice.tsx'
 import { DECORATION_IMAGE_MAX_MB, DECORATION_IMAGE_TYPES } from '../../models/decorationImage.ts'
 import type { DecorationColorView, DecorationGroupView } from '../../viewmodels/cakeDecorations.ts'
 import type { DecorationImage } from '../../viewmodels/useDecorationImage.ts'
-import { Group, Options } from './ChoiceSteps.tsx'
+import { Group, OptionList, OptionRows, Options } from './ChoiceSteps.tsx'
 
 /** Lo que el paso necesita de una imagen que sube la persona (la de "Otra decoración" o la de la oblea): vive solo en la memoria de la pestaña (D53, D55). */
 export type ImageProps = {
@@ -122,47 +122,53 @@ export default function DecorationStep({ groups, color, quote, imagePicker, onCh
         {open ? `Se muestran ${open.choices.length} diseños de ${open.title}` : ''}
       </p>
       <Group legend="Elige la decoración" hideLegend>
-        {groups.map((group) =>
-          group.title ? (
-            <div key={group.key} className="flex flex-col gap-2">
-              {/* El grupo es un radio más de la lista: sus diseños se despliegan debajo solo al elegirlo. */}
-              <ChoiceOption
-                name="decoracion"
-                value={`grupo-${group.key}`}
-                label={group.title}
-                trailing={group.trailing}
-                checked={group.checked}
-                disabled={group.first === null}
-                disabledReason={group.disabledReason}
-                aria-controls={group.checked ? `${titleId}-${group.key}` : undefined}
-                onChange={() => group.first && onChoose(group.first)}
-              />
-              {group.checked && (
-                <div
-                  id={`${titleId}-${group.key}`}
-                  role="group"
-                  aria-label={group.title}
-                  aria-describedby={group.hint ? `${titleId}-${group.key}-ayuda` : undefined}
-                  className="flex flex-col gap-2.5 rounded-md border border-relieve p-3 max-[600px]:p-4"
-                >
-                  {group.hint && (
-                    <p id={`${titleId}-${group.key}-ayuda`} className="text-nota text-mermelada-suave">
-                      {group.hint}
-                    </p>
-                  )}
-                  <Options name={`decoracion-${group.key}`} choices={group.choices} onChoose={onChoose} />
-                </div>
-              )}
-            </div>
-          ) : (
-            <Options key={group.key} name="decoracion" choices={group.choices} onChoose={onChoose} />
-          ),
-        )}
+        <OptionList>
+          {groups.map((group) =>
+            group.title ? (
+              <div key={group.key} className="flex flex-col">
+                {/* El grupo es un renglón más de la lista: sus diseños se despliegan debajo solo al elegirlo. */}
+                <ChoiceOption
+                  variant="row"
+                  name="decoracion"
+                  value={`grupo-${group.key}`}
+                  label={group.title}
+                  trailing={group.trailing}
+                  checked={group.checked}
+                  disabled={group.first === null}
+                  disabledReason={group.disabledReason}
+                  aria-controls={group.checked ? `${titleId}-${group.key}` : undefined}
+                  onChange={() => group.first && onChoose(group.first)}
+                />
+                {/* Sin caja: los diseños van con sangría bajo el nombre del grupo en escritorio y sin ella en móvil (libro de
+                    marca, "Contenido que se despliega dentro de una opción"); la siguiente opción de afuera cierra con su línea. */}
+                {group.checked && (
+                  <div
+                    id={`${titleId}-${group.key}`}
+                    role="group"
+                    aria-label={group.title}
+                    aria-describedby={group.hint ? `${titleId}-${group.key}-ayuda` : undefined}
+                    className="flex flex-col gap-2 pb-3 pl-[46px] max-[600px]:pl-0"
+                  >
+                    {group.hint && (
+                      <p id={`${titleId}-${group.key}-ayuda`} className="px-3 pt-1 text-nota text-mermelada-suave">
+                        {group.hint}
+                      </p>
+                    )}
+                    <Options name={`decoracion-${group.key}`} choices={group.choices} onChoose={onChoose} />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <OptionRows key={group.key} name="decoracion" choices={group.choices} onChoose={onChoose} />
+            ),
+          )}
+        </OptionList>
       </Group>
       {color && (
         <Group legend="Color de la decoración">
-          <div className="grid grid-cols-2 gap-2 max-[600px]:grid-cols-1">
+          <OptionList columns="grid-cols-2 max-[600px]:grid-cols-1">
             <ChoiceOption
+              variant="row"
               name="modo-color"
               value="automatico"
               label="Automático"
@@ -172,6 +178,7 @@ export default function DecorationStep({ groups, color, quote, imagePicker, onCh
               onChange={onAutomatic}
             />
             <ChoiceOption
+              variant="row"
               name="modo-color"
               value="elegir"
               label="Elegir un color"
@@ -179,7 +186,7 @@ export default function DecorationStep({ groups, color, quote, imagePicker, onCh
               checked={color.pick.checked}
               onChange={onOwnColor}
             />
-          </div>
+          </OptionList>
           {color.pick.checked && <ColorPicker legend="Elige el color de la decoración" value={color.value} onChange={onColor} />}
           {color.note && <p className="text-nota">{color.note}</p>}
         </Group>

@@ -8,6 +8,7 @@ import type { CakeSizeCode } from '../../models/cakeDesign.ts'
 import type { CakeForm } from '../../models/cakeDesignDraft.ts'
 import type { DesignerView } from '../../viewmodels/cakeDesignSummary.ts'
 import type { StoreDetails } from '../../viewmodels/useStoreInfo.ts'
+import { OptionList } from './ChoiceSteps.tsx'
 
 const FORMS: { value: CakeForm; label: string; description: string }[] = [
   { value: 'round', label: 'Redondo', description: 'Molde redondo' },
@@ -39,15 +40,16 @@ type SizeStepProps = {
 
 type View = DesignerView['sizeStep']
 
-/** Los tamaños que rinden para las personas (tanda 2): tarjetas con nombre, personas y "Desde $X"; uno no disponible, desactivado. */
+/** Los tamaños que rinden para las personas (tanda 2): renglones con nombre, personas y "Desde $X"; uno no disponible, desactivado. */
 function Sizes({ sizes, onSize }: { sizes: NonNullable<View['sizes']>; onSize: (size: CakeSizeCode) => void }) {
   return (
     <fieldset className="flex flex-col gap-2.5">
       <legend className="float-left mb-2.5 text-etiqueta">Tamaño</legend>
-      <div className="clear-both grid grid-cols-1 gap-2">
+      <OptionList>
         {sizes.map((size) => (
           <ChoiceOption
             key={size.value}
+            variant="row"
             name="tamano"
             value={size.value}
             label={size.label}
@@ -59,7 +61,7 @@ function Sizes({ sizes, onSize }: { sizes: NonNullable<View['sizes']>; onSize: (
             onChange={() => onSize(size.value)}
           />
         ))}
-      </div>
+      </OptionList>
     </fieldset>
   )
 }
@@ -176,12 +178,13 @@ export default function SizeStep({
 
       {view.showShape && (
         <>
-          <fieldset className="flex flex-col gap-2.5 border-t border-relieve pt-5">
+          <fieldset className="flex flex-col gap-2.5">
             <legend className="float-left mb-2.5 text-etiqueta">Forma</legend>
-            <div className="clear-both grid grid-cols-2 gap-2 max-[600px]:grid-cols-1">
+            <OptionList columns="grid-cols-2 max-[600px]:grid-cols-1">
               {FORMS.map((option) => (
                 <ChoiceOption
                   key={option.value}
+                  variant="row"
                   name="forma"
                   value={option.value}
                   label={option.label}
@@ -190,7 +193,7 @@ export default function SizeStep({
                   onChange={() => onForm(option.value)}
                 />
               ))}
-            </div>
+            </OptionList>
             <p className="text-nota">
               ¿Otra forma?{' '}
               <Link to="/pedido/referencia" className={inlineLink}>

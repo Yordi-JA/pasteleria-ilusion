@@ -9,31 +9,47 @@ import type { BreadGroups, Choice, FillingView } from '../../viewmodels/cakeDesi
 
 const inlineLink = `rounded-sm font-semibold underline underline-offset-4 ${focusRing}`
 
-export function Options({ name, choices, onChoose, type = 'radio', columns = '' }: {
+/**
+ * Las opciones de un paso como renglones de una lista con líneas `relieve`, no como tarjetas dentro de la tarjeta del paso
+ * (tanda 3). Cada renglón lleva solo su línea de arriba: lo que sigue (otro encabezado, la línea del pie de la tarjeta)
+ * cierra la lista, sin dos líneas seguidas. `columns` reparte los renglones en columnas, cada una con sus líneas.
+ */
+export function OptionList({ columns = '', children }: { columns?: string; children: ReactNode }) {
+  return <div className={`grid gap-x-6 ${columns}`}>{children}</div>
+}
+
+type OptionRowsProps = {
   name: string
   choices: Choice[]
   onChoose: (value: string) => void
   type?: 'radio' | 'checkbox'
-  columns?: string
-}) {
+}
+
+/** Los renglones sueltos, para ponerlos en una `OptionList` junto con otros (los grupos de la decoración). */
+export function OptionRows({ name, choices, onChoose, type = 'radio' }: OptionRowsProps) {
+  return choices.map((choice) => (
+    <ChoiceOption
+      key={choice.value}
+      variant="row"
+      type={type}
+      name={name}
+      value={choice.value}
+      label={choice.label}
+      description={choice.description}
+      trailing={choice.trailing}
+      checked={choice.checked}
+      disabled={choice.disabledReason !== undefined}
+      disabledReason={choice.disabledReason || undefined}
+      onChange={() => onChoose(choice.value)}
+    />
+  ))
+}
+
+export function Options({ columns, ...rows }: OptionRowsProps & { columns?: string }) {
   return (
-    <div className={`grid gap-2 ${columns}`}>
-      {choices.map((choice) => (
-        <ChoiceOption
-          key={choice.value}
-          type={type}
-          name={name}
-          value={choice.value}
-          label={choice.label}
-          description={choice.description}
-          trailing={choice.trailing}
-          checked={choice.checked}
-          disabled={choice.disabledReason !== undefined}
-          disabledReason={choice.disabledReason || undefined}
-          onChange={() => onChoose(choice.value)}
-        />
-      ))}
-    </div>
+    <OptionList columns={columns}>
+      <OptionRows {...rows} />
+    </OptionList>
   )
 }
 
@@ -95,7 +111,7 @@ export function BreadStep({ groups, onChoose, describedBy, legendHidden = false 
         <Options name="pan" choices={groups.withFilling} onChoose={onChoose} />
         {groups.fillingIncluded.length > 0 && (
           <>
-            <p className="pt-2 text-nota font-semibold">Con relleno incluido: se salta el paso de relleno</p>
+            <p className="pt-3 text-nota font-semibold">Con relleno incluido: se salta el paso de relleno</p>
             <Options name="pan" choices={groups.fillingIncluded} onChoose={onChoose} />
           </>
         )}

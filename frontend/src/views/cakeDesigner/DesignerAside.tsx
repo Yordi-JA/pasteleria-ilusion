@@ -1,9 +1,13 @@
 import { CaretDown } from '@phosphor-icons/react'
+import { useEffect, useRef } from 'react'
+import type { RefObject } from 'react'
 import { Link } from 'react-router'
 import Button from '../../components/Button.tsx'
 import ColorSwatches from '../../components/ColorSwatches.tsx'
 import { focusRing } from '../../components/focus.ts'
 import type { PriceView, SummaryRow } from '../../viewmodels/cakeDesignSummary.ts'
+import { useScrollOverflow } from '../../viewmodels/useScrollOverflow.ts'
+import { INNER_FOCUS, SCROLLBAR, SUMMARY_LIST, SUMMARY_SECTION } from './scrollStyles.ts'
 
 /**
  * El total: la cifra anterior se queda a la vista mientras llega la nueva (más tenue, sin parpadeo). La región es
@@ -87,7 +91,7 @@ type PriceCardProps = {
 /** "Total estimado" de escritorio, bajo la vista previa. En móvil lo sustituye la barra inferior. */
 export function PriceCard({ price, sizeLine, hintId, sceneReady, keyboardFocus, onRetry }: PriceCardProps) {
   return (
-    <section aria-label="Total estimado" className="flex flex-col gap-3 rounded-lg border border-relieve bg-betun p-6 max-[900px]:hidden">
+    <section aria-label="Total estimado" className="flex shrink-0 flex-col gap-3 rounded-lg border border-relieve bg-betun p-6 max-[900px]:hidden">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <p className="text-cuerpo text-mermelada-suave">Total estimado</p>
         <Amount price={price} currency className="text-titulo-3" />
@@ -126,10 +130,39 @@ type MobileBarProps = {
   onRetry: () => void
 }
 
+/** Aire entre lo enfocado y la barra, como el del aviso fijo del carrito. */
+const BAR_GAP_PX = 12
+
+/**
+ * Mientras la barra se ve (hasta 900 px), el documento reserva abajo su alto (`scroll-padding-bottom`): lo que el teclado
+ * enfoca, y el título del paso nuevo, que recibe el foco al cambiar de paso, no quedan debajo de ella (tanda 3). Se mide
+ * con cada cambio de tamaño, porque en escritorio la barra no se muestra y mide 0. Al irse, vuelve el valor de antes.
+ */
+function useBarClearance(bar: RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const element = bar.current
+    if (!element) return
+    const root = document.documentElement
+    const previous = root.style.scrollPaddingBottom
+    const measure = () => {
+      root.style.scrollPaddingBottom = element.offsetHeight > 0 ? `${element.offsetHeight + BAR_GAP_PX}px` : previous
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => {
+      observer.disconnect()
+      root.style.scrollPaddingBottom = previous
+    }
+  }, [bar])
+}
+
 /** Barra inferior fija en móvil: el total y el botón para continuar (libro de marca, "Cotizador 3D"). */
 export function MobileBar({ price, continueLabel, onContinue, disabled, busy, onRetry }: MobileBarProps) {
+  const bar = useRef<HTMLDivElement>(null)
+  useBarClearance(bar)
   return (
-    <div data-testid="barra-movil" className="sticky bottom-0 z-20 -mx-6 hidden border-t border-relieve bg-betun max-[900px]:block max-[600px]:-mx-4">
+    <div ref={bar} data-testid="barra-movil" className="sticky bottom-0 z-20 -mx-6 hidden border-t border-relieve bg-betun max-[900px]:block max-[600px]:-mx-4">
       <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-4 py-3">
         <div className="flex min-w-0 flex-col">
           <p className="text-nota text-mermelada-suave">Total estimado</p>
@@ -170,15 +203,34 @@ function SummaryList({ rows }: { rows: SummaryRow[] }) {
   )
 }
 
-/** "Tu pastel" de escritorio: lo elegido con "Cambiar". No aparece mientras está vacío. */
+/**
+ * "Tu pastel" de escritorio: lo elegido con "Cambiar". No aparece mientras está vacío. En una ventana alta va en la columna fija de la vista
+ * previa, que no pasa del alto de la ventana: si la lista no cabe, solo ella se desplaza (tanda 3), como una región con
+ * nombre que, solo cuando desborda, es una parada del tabulador.
+ */
 export function SummaryCard({ rows }: { rows: SummaryRow[] }) {
   if (rows.length === 0) return null
+  return <SummaryPanel rows={rows} />
+}
+
+function SummaryPanel({ rows }: { rows: SummaryRow[] }) {
+  const { viewport, content, overflowing } = useScrollOverflow<HTMLDivElement, HTMLDivElement>()
   return (
-    <section aria-labelledby="tu-pastel" className="flex flex-col gap-3 rounded-lg border border-relieve bg-betun p-6 max-[900px]:hidden">
-      <h2 id="tu-pastel" className="font-display text-titulo-3 font-medium">
+    <section aria-labelledby="tu-pastel" className={`flex flex-col gap-3 rounded-lg border border-relieve bg-betun py-6 max-[900px]:hidden ${SUMMARY_SECTION}`}>
+      <h2 id="tu-pastel" className="shrink-0 px-6 font-display text-titulo-3 font-medium">
         Tu pastel
       </h2>
-      <SummaryList rows={rows} />
+      <div
+        ref={viewport}
+        role="region"
+        aria-label="Lo que elegiste"
+        tabIndex={overflowing ? 0 : undefined}
+        className={`min-h-0 px-6 ${SUMMARY_LIST} ${SCROLLBAR} ${INNER_FOCUS}`}
+      >
+        <div ref={content}>
+          <SummaryList rows={rows} />
+        </div>
+      </div>
     </section>
   )
 }
