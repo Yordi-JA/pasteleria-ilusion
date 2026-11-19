@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { opened, mockAuth, signedIn } from './support/auth.ts'
+import { ana, bruno, logIn, mockAuth, mockSwitchableAccounts, opened, signedIn, withoutGoogle } from './support/auth.ts'
+import type { Accounts } from './support/auth.ts'
 import { COVERAGE_HEX, mockCakeDesignOptions, mockCakeDesignPrice } from './support/cake-design.ts'
 import { designLine, DRAFT_KEY, mockCalendar, mockOrders, NOW, placedOrder, seedCart, storedCart } from './support/checkout.ts'
 import { mockPayment, ORDER_ID, orderItems } from './support/payments.ts'
@@ -262,6 +263,144 @@ test.describe('signing out', () => {
     await page.getByRole('dialog', { name: 'Menú' }).getByRole('button', { name: 'Cerrar sesión' }).click()
     await expect(other.getByRole('link', { name: 'Cuenta', exact: true })).toBeVisible()
     await expect.poll(() => storedDraft(other)).toBeNull()
+  })
+})
+
+const BACK_TO_DESIGNER = `/entrar?volver=${encodeURIComponent('/pedido/disena')}`
+
+/** El diseñador con la cuenta de `accounts`; nada sale al servidor de desarrollo: lo que no se simula responde 404. */
+async function mockAccounts(page: Page, accounts: Accounts) {
+  await page.route('**/api/v1/**', (route) => route.fulfill({ status: 404, contentType: 'application/json', body: '{}' }))
+  await mockDesigner(page)
+  await withoutGoogle(page)
+  await mockSwitchableAccounts(page, accounts)
+}
+
+/** Con la cuenta abierta, lleva el borrador a medias del paso 3 al 4 eligiendo el pan. */
+async function designUpToFilling(page: Page) {
+  await page.goto('/pedido/disena?paso=3')
+  await expect(page.getByRole('link', { name: 'Mi cuenta' })).toBeVisible()
+  await expect(stepTitle(page)).toHaveText('3. Pan')
+  await page.getByRole('radio', { name: /^Chocolate/ }).check()
+  await card(page).getByRole('button', { name: 'Continuar', exact: true }).click()
+  await expect(stepTitle(page)).toHaveText('4. Relleno')
+}
+
+/** El borrador guarda de quién es sin guardar el correo. */
+async function expectOwnedWithoutEmail(page: Page, email: string) {
+  const draft = await storedDraft(page)
+  expect(draft?.owner).toEqual(expect.any(String))
+  expect(JSON.stringify(draft)).not.toContain(email)
+}
+
+/**
+ * El borrador es de la cuenta que lo armó (tanda 5). Una sesión que termina sola (vence, la rechaza el servidor) no lo borra,
+ * porque la misma cuenta puede volver; pero otra cuenta que entra en la pestaña nunca lo ve. Uno armado sin cuenta pasa a la
+ * cuenta con la que se entra, para pagarlo.
+ */
+test.describe('the draft belongs to the account that built it', () => {
+  test('a session that ends on its own keeps it, and another account signing in starts from zero', async ({ page }) => {
+    const accounts: Accounts = { current: ana }
+    await mockAccounts(page, accounts)
+    await seedDraftOnce(page, HALF_DONE)
+    await designUpToFilling(page)
+    // La sesión termina sola, sin "Cerrar sesión": el borrador se queda.
+    accounts.current = null
+    await page.reload()
+    await expect(page.getByRole('link', { name: 'Cuenta', exact: true })).toBeVisible()
+    expect(await storedDraft(page)).toMatchObject({ cakeType: 'envinado', bread: 'chocolate' })
+    // Otra cuenta entra en la misma pestaña.
+    await page.goto(BACK_TO_DESIGNER)
+    await logIn(page, bruno.email)
+    await expect(page).toHaveURL(/\/pedido\/disena\?paso=1$/)
+    await expectFreshDesigner(page)
+  })
+
+  test('another account signing in from another tab empties the designer on screen', async ({ page }) => {
+    const accounts: Accounts = { current: ana }
+    await mockAccounts(page, accounts)
+    await seedDraftOnce(page, HALF_DONE)
+    await designUpToFilling(page)
+    accounts.current = null
+    await page.reload()
+    await expect(page.getByRole('link', { name: 'Cuenta', exact: true })).toBeVisible()
+    await expect(stepTitle(page)).toHaveText('4. Relleno')
+    // `sessionStorage` es de cada pestaña: la otra entra con su cuenta y esta renueva con la cookie nueva.
+    const other = await page.context().newPage()
+    await mockAccounts(other, accounts)
+    await other.goto(`/entrar?volver=${encodeURIComponent('/pedido')}`)
+    await logIn(other, bruno.email)
+    await expect(page.getByRole('link', { name: 'Mi cuenta' })).toBeVisible()
+    await expect(page).toHaveURL(/\/pedido\/disena\?paso=1$/)
+    await expectFreshDesigner(page)
+  })
+
+  test('the same account coming back after its session ended keeps it', async ({ page }) => {
+    const accounts: Accounts = { current: ana }
+    await mockAccounts(page, accounts)
+    await seedDraftOnce(page, HALF_DONE)
+    await designUpToFilling(page)
+    accounts.current = null
+    await page.reload()
+    await expect(page.getByRole('link', { name: 'Cuenta', exact: true })).toBeVisible()
+    await page.goto(`/entrar?volver=${encodeURIComponent('/pedido/disena?paso=4')}`)
+    await logIn(page, ana.email)
+    await expect(page).toHaveURL(/\/pedido\/disena\?paso=4$/)
+    await expect(stepTitle(page)).toHaveText('4. Relleno')
+    expect(await storedDraft(page)).toMatchObject({ people: 60, cakeType: 'envinado', bread: 'chocolate' })
+  })
+
+  test('a reload while the same account is signed in keeps it', async ({ page }) => {
+    await mockAccounts(page, { current: ana })
+    await seedDraftOnce(page, HALF_DONE)
+    await designUpToFilling(page)
+    await page.reload()
+    await expect(stepTitle(page)).toHaveText('4. Relleno')
+    expect(await storedDraft(page)).toMatchObject({ people: 60, cakeType: 'envinado', bread: 'chocolate' })
+    await expectOwnedWithoutEmail(page, ana.email)
+  })
+
+  test('a design started without an account is kept after signing in, to pay for it', async ({ page }) => {
+    const accounts: Accounts = { current: null }
+    await mockAccounts(page, accounts)
+    await seedDraftOnce(page, HALF_DONE)
+    await page.goto('/pedido/disena?paso=3')
+    await expect(page.getByRole('link', { name: 'Cuenta', exact: true })).toBeVisible()
+    await expect(stepTitle(page)).toHaveText('3. Pan')
+    await page.goto(`/entrar?volver=${encodeURIComponent('/pedido/disena?paso=3')}`)
+    await logIn(page, ana.email)
+    await expect(page).toHaveURL(/\/pedido\/disena\?paso=3$/)
+    await expect(stepTitle(page)).toHaveText('3. Pan')
+    expect(await storedDraft(page)).toMatchObject({ people: 60, cakeType: 'envinado', confirmed: [1, 2] })
+    await expectOwnedWithoutEmail(page, ana.email)
+    // Ya es de Ana: si su sesión termina y entra otra cuenta, no lo hereda.
+    accounts.current = null
+    await page.reload()
+    await expect(page.getByRole('link', { name: 'Cuenta', exact: true })).toBeVisible()
+    await page.goto(BACK_TO_DESIGNER)
+    await logIn(page, bruno.email)
+    await expectFreshDesigner(page)
+  })
+
+  test('an emptied draft of an account whose session ended has no owner, so a new design on it goes to the next account', async ({ page }) => {
+    const accounts: Accounts = { current: ana }
+    await mockAccounts(page, accounts)
+    // Con Ana adentro, el diseñador vacío queda guardado con su marca.
+    await page.goto('/pedido/disena')
+    await expect(page.getByRole('link', { name: 'Mi cuenta' })).toBeVisible()
+    await expect(people(page)).toHaveValue('40')
+    await expect.poll(() => storedDraft(page).then((draft) => draft?.owner ?? null)).toEqual(expect.any(String))
+    // Su sesión termina sola; alguien sin cuenta empieza un pastel encima y luego entra con su cuenta.
+    accounts.current = null
+    await page.reload()
+    await expect(page.getByRole('link', { name: 'Cuenta', exact: true })).toBeVisible()
+    await people(page).fill('60')
+    await expect.poll(() => storedDraft(page).then((draft) => draft?.people ?? null)).toBe(60)
+    await page.goto(BACK_TO_DESIGNER)
+    await logIn(page, bruno.email)
+    await expect(page).toHaveURL(/\/pedido\/disena\?paso=1$/)
+    await expect(people(page)).toHaveValue('60')
+    expect(await storedDraft(page)).toMatchObject({ people: 60 })
   })
 })
 

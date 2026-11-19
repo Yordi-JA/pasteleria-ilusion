@@ -144,7 +144,8 @@ export function miniPrefill(options: CakeDesignOptions): Prefill | null {
 
 /** Si el borrador tiene algo hecho: cualquier cosa distinta del borrador vacío (también un paso sin confirmar). */
 export function hasProgress(draft: CakeDesignDraft): boolean {
-  return JSON.stringify(draft) !== JSON.stringify(emptyDraft())
+  // De quién es no cuenta como avance: un borrador vacío de la cuenta abierta sigue vacío (tanda 5).
+  return JSON.stringify({ ...draft, owner: null }) !== JSON.stringify(emptyDraft())
 }
 
 /** Si el borrador ya tiene el tipo, el pan y el relleno del producto: no hay nada que preguntar ni que cambiar. */

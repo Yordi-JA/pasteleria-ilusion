@@ -2,13 +2,26 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useNavigate, useSearchParams } from 'react-router'
 import { getCakeDesignOptions } from '../models/cakeDesign.ts'
 import type { CakeDesignOptions, CakeDesignQuote, CakeSizeCode } from '../models/cakeDesign.ts'
-import { clearDraft, emptyDraft, MAX_PEOPLE_INPUT, migrateLegacyColors, readDraft, writeDraft } from '../models/cakeDesignDraft.ts'
+import {
+  claimDraft,
+  claimStoredDraft,
+  clearDraft,
+  draftClaim,
+  emptyDraft,
+  MAX_PEOPLE_INPUT,
+  migrateLegacyColors,
+  readDraft,
+  writeDraft,
+} from '../models/cakeDesignDraft.ts'
 import type { CakeDesignDraft, CakeForm } from '../models/cakeDesignDraft.ts'
 import type { Occasion } from '../models/occasion.ts'
+import { ownerMarker, sessionOwner } from '../models/owner.ts'
+import { getSessionState, subscribeSession } from '../models/session.ts'
 import type { CakeShape, Viewpoint } from '../three/cakeShape.ts'
 import { defaultPickedColor } from './cakeDecorations.ts'
 import { designPreview } from './cakeDesignPreview.ts'
 import { withFillingBase, withFlavor, withFlavorCount } from './cakeDesignChoices.ts'
+import { hasProgress } from './cakeDesignPrefill.ts'
 import {
   confirmStep,
   COVERAGE_STEP,
@@ -37,7 +50,7 @@ import { useDesignPrefill } from './useDesignPrefill.ts'
 import { useLidStep } from './useLidStep.ts'
 import { useLoadedImage } from './useLoadedImage.ts'
 import { useRemoteData } from './useRemoteData.ts'
-import { useSignOutEffect } from './useSession.ts'
+import { useSession, useSignOutEffect } from './useSession.ts'
 import { useStoreDetails } from './useStoreInfo.ts'
 
 /** El paso pedido en `?paso=N`; sin número válido, el 1. */
@@ -86,6 +99,11 @@ export function forgetDesignDraft() {
   clearDraft()
 }
 
+/** Al entrar con una cuenta, el borrador guardado de otra se borra y uno sin cuenta pasa a esta (tanda 5, `claimStoredDraft`). */
+export function claimDesignDraft(email: string) {
+  claimStoredDraft(ownerMarker(email))
+}
+
 /**
  * View-model de "Diseña tu pastel" (`/pedido/disena`). El paso actual va en la URL (`?paso=N`), así atrás y adelante
  * del navegador recorren los pasos; el borrador va en `sessionStorage`, así recargar no borra el avance. Un paso al
@@ -95,12 +113,23 @@ export function forgetDesignDraft() {
 export function useCakeDesigner() {
   const { state: optionsState, retry: retryOptions } = useRemoteData(getCakeDesignOptions, OPTIONS_FAILURE)
   const options: CakeDesignOptions | null = optionsState.status === 'ready' ? optionsState.data : null
-  const [draft, setDraft] = useState<CakeDesignDraft>(readDraft)
+  const session = useSession()
+  // La cuenta abierta, con la que se marca el borrador (tanda 5); `null` sin sesión o mientras se recupera.
+  const account = sessionOwner(session)
+  // Al abrir, el borrador de otra cuenta ya no llega a la pantalla.
+  const [draft, setDraft] = useState<CakeDesignDraft>(() => (account ? claimDraft(readDraft(), account) : readDraft()))
+  // Con sesión, la cuenta se queda con el borrador al renderizar: uno sin dueño (armado sin cuenta, o recién empezado de cero)
+  // toma su marca, así ningún guardado lo deja sin dueño; el de otra cuenta se vacía aquí también, por si la cuenta cambió
+  // antes de que el diseñador escuchara la sesión (más abajo, donde además se sueltan las imágenes). Sin sesión, uno vacío no es
+  // de nadie, como el carrito: lo que alguien empiece encima pasa a la cuenta con que entre.
+  const owned = account ? claimDraft(draft, account) : draft.owner !== null && !hasProgress(draft) ? { ...draft, owner: null } : draft
   // Un borrador viejo guarda los colores como `slug` de la lista: al llegar las opciones se cambian por su código. Se hace al
   // renderizar, así ninguna petición ni dibujo llega a usar el `slug`.
-  const migrated = options ? migrateLegacyColors(draft, options.coverageColors) : draft
+  const migrated = options ? migrateLegacyColors(owned, options.coverageColors) : owned
   if (migrated !== draft) setDraft(migrated)
   const [peopleText, setPeopleText] = useState(() => String(draft.people))
+  // Con el borrador vaciado al renderizar, las personas escritas vuelven a las de inicio.
+  if (owned.people !== draft.people) setPeopleText(String(owned.people))
   const [stepError, setStepError] = useState<string | null>(null)
   const decorationImage = useDecorationImage()
   const imageReady = decorationImage.image !== null
@@ -383,6 +412,16 @@ export function useCakeDesigner() {
   // siguiente cambio volvería a guardar el borrador que el marco acaba de borrar.
   const startOverOnSignOut = useCallback(() => restart(emptyDraft(), true), [restart])
   useSignOutEffect(startOverOnSignOut)
+  // Entró otra cuenta con el diseñador abierto (tanda 5): empieza de cero, sin las imágenes. Se decide al cambiar la sesión, así
+  // el borrador vacío llega en el mismo render que la cuenta nueva; ese borrador toma la cuenta al renderizar.
+  useEffect(
+    () =>
+      subscribeSession(() => {
+        const owner = sessionOwner(getSessionState())
+        if (owner && draftClaim(latestDraft.current, owner) === 'discard') restart(emptyDraft(), true)
+      }),
+    [restart],
+  )
 
   // --- "Personalizar este pastel" desde la ficha (D59) ---
   // Un pastel de vitrina de origen ya trae tamaño, tipo, pan y relleno: el recorrido empieza en la cobertura (tanda 2).
@@ -391,7 +430,8 @@ export function useCakeDesigner() {
 
   return {
     // Con `?pastel=`, el diseñador espera la ficha en su esqueleto: no se ve un paso 1 vacío que luego cambia.
-    status: optionsState.status === 'ready' && prefill.loading ? 'loading' : optionsState.status,
+    // Un borrador con dueño espera a saber qué cuenta entra al recargar: no se ve un momento con la cuenta equivocada.
+    status: optionsState.status === 'ready' && (prefill.loading || (session.status === 'checking' && draft.owner !== null)) ? 'loading' : optionsState.status,
     /** El aviso del prellenado; solo en el paso 1, donde llega la ficha. Al seguir de paso, ya no hace falta. */
     prefill: {
       notice: current === 1 ? prefill.notice : null,

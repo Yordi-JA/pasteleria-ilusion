@@ -46,6 +46,19 @@ export function useSignOutEffect(onSignOut: () => void) {
   useEffect(() => subscribeSignOut(onSignOut), [onSignOut])
 }
 
+/**
+ * En el marco: corre `onSignIn` con el correo cada vez que la sesión queda abierta con una cuenta: al entrar, al recuperarla
+ * al cargar o con la de otra pestaña (tanda 5: el borrador de "Diseña tu pastel" de otra cuenta se descarta). Con la misma
+ * cuenta abierta no vuelve a correr.
+ */
+export function useSignInEffect(onSignIn: (email: string) => void) {
+  const session = useSession()
+  const email = session.status === 'authenticated' ? session.user.email : null
+  useEffect(() => {
+    if (email !== null) onSignIn(email)
+  }, [email, onSignIn])
+}
+
 /** El nombre para el saludo: la primera palabra del nombre completo; sin nombre, nada. */
 export function firstName(user: SessionUser): string {
   return user.fullName.trim().split(/\s+/)[0] ?? ''

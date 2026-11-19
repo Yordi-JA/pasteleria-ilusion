@@ -6,15 +6,15 @@ import SiteFooter from '../components/SiteFooter.tsx'
 import SiteHeader, { CheckoutHeader } from '../components/SiteHeader.tsx'
 import CheckoutStrip from '../components/CheckoutStrip.tsx'
 import LogoutUnconfirmedNotice from './account/LogoutUnconfirmedNotice.tsx'
-import { forgetDesignDraft } from '../viewmodels/useCakeDesigner.ts'
+import { claimDesignDraft, forgetDesignDraft } from '../viewmodels/useCakeDesigner.ts'
 import { CartContext, useCartState } from '../viewmodels/useCart.ts'
 import { CartFlightContext, useCartFlightState } from '../viewmodels/useCartFlight.ts'
 import { ClosingFieldContext, useClosingFieldState } from '../viewmodels/useClosingField.ts'
 import { checkoutBack } from '../viewmodels/referenceView.ts'
 import { useRouteFade } from '../viewmodels/useRouteFade.ts'
 import { useRouteFocus } from '../viewmodels/useRouteFocus.ts'
-import { forgetDeliveryChoice } from '../viewmodels/useDelivery.ts'
-import { useRestoreSession, useSession, useSignOut, useSignOutAcknowledgement, useSignOutEffect } from '../viewmodels/useSession.ts'
+import { claimDeliveryChoice, forgetDeliveryChoice } from '../viewmodels/useDelivery.ts'
+import { useRestoreSession, useSession, useSignInEffect, useSignOut, useSignOutAcknowledgement, useSignOutEffect } from '../viewmodels/useSession.ts'
 import { useSiteMenu } from '../viewmodels/useSiteMenu.ts'
 import { useStoreInfo } from '../viewmodels/useStoreInfo.ts'
 
@@ -47,6 +47,10 @@ export default function SiteLayout() {
   useSignOutEffect(forgetDeliveryChoice)
   // Y el borrador de "Diseña tu pastel", que vive en la misma pestaña (tanda 4).
   useSignOutEffect(forgetDesignDraft)
+  // Una sesión que termina sola no los borra (la misma cuenta puede volver), pero otra cuenta que entra no los hereda (tanda 5).
+  // El carrito hace lo mismo en `useCartState`.
+  useSignInEffect(claimDesignDraft)
+  useSignInEffect(claimDeliveryChoice)
   const session = useSession()
   const signOut = useSignOut()
   const [closingField, setClosingField] = useClosingFieldState()

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { ana, mockAuth, signedIn } from './support/auth.ts'
+import { ana, bruno, logIn, mockAuth, mockSwitchableAccounts, signedIn, withoutGoogle } from './support/auth.ts'
+import type { Accounts } from './support/auth.ts'
 import {
   cajetaSlice,
   calendarBody,
@@ -618,6 +619,53 @@ test('signing out forgets the date and the time chosen in this tab', async ({ pa
   await page.getByRole('dialog', { name: 'Menú' }).getByRole('button', { name: 'Cerrar sesión' }).click()
   await expect.poll(async () => (await storedCart(page))?.items ?? []).toEqual([])
   await expect.poll(() => storedDeliveryChoice(page)).toBeNull()
+})
+
+/**
+ * La fecha y la hora son de la cuenta que las eligió (tanda 5): una sesión que termina sola no las borra, pero otra cuenta
+ * que entra en la pestaña no las hereda.
+ */
+test.describe('the chosen date and time belong to the account', () => {
+  test.beforeEach(async ({ page }) => {
+    await withoutGoogle(page)
+    await mockCalendar(page)
+  })
+
+  test('another account signing in after the session ended does not get them', async ({ page }) => {
+    const accounts: Accounts = { current: ana }
+    await mockSwitchableAccounts(page, accounts)
+    await seedCart(page, [durazno])
+    await page.goto(DELIVERY)
+    await chooseMonday(page)
+    await expect.poll(() => storedDeliveryChoice(page)).toContain('2026-11-16')
+    // La sesión termina sola: la entrega pide entrar y lo elegido se queda.
+    accounts.current = null
+    await page.reload()
+    await expect(page).toHaveURL(/\/entrar\?volver=%2Fpedido%2Fentrega$/)
+    expect(await storedDeliveryChoice(page)).toContain('2026-11-16')
+    await logIn(page, bruno.email)
+    await expect(page).toHaveURL(PART_ONE)
+    await expect.poll(() => storedDeliveryChoice(page)).toBeNull()
+    // Con su propio carrito, Bruno ve el calendario sin nada elegido.
+    await writeCart(page, [durazno])
+    await page.reload()
+    await expect(day(page, 'Lunes 16 de noviembre')).toBeEnabled()
+    await expect(day(page, 'Lunes 16 de noviembre')).toHaveAttribute('aria-pressed', 'false')
+    await expect(page.getByRole('region', { name: 'Resumen' })).toContainText('Por elegir')
+  })
+
+  test('a reload of the same account keeps them, without the email', async ({ page }) => {
+    await mockSwitchableAccounts(page, { current: ana })
+    await seedCart(page, [durazno])
+    await page.goto(DELIVERY)
+    await chooseMonday(page)
+    await expect.poll(() => storedDeliveryChoice(page)).toContain('2026-11-16')
+    await page.reload()
+    await expect(day(page, 'Lunes 16 de noviembre')).toHaveAttribute('aria-pressed', 'true')
+    const stored = JSON.parse((await storedDeliveryChoice(page)) ?? 'null') as Record<string, unknown> | null
+    expect(stored?.owner).toEqual(expect.any(String))
+    expect(JSON.stringify(stored)).not.toContain(ana.email)
+  })
 })
 
 test.describe('the part transition', () => {

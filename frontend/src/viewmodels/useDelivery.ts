@@ -2,8 +2,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { RefObject } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { clearDraft, readDraft } from '../models/cakeDesignDraft.ts'
-import { readDeliveryChoice, writeDeliveryChoice } from '../models/deliveryChoice.ts'
+import { claimStoredDeliveryChoice, readDeliveryChoice, writeDeliveryChoice } from '../models/deliveryChoice.ts'
 import type { PlacedOrder } from '../models/orders.ts'
+import { ownerMarker, sessionOwner } from '../models/owner.ts'
+import { getSessionState } from '../models/session.ts'
 import { cartLines, cartSummary } from './cartLines.ts'
 import { formatTime, lineKinds, scheduleText, shortDate } from './deliverySchedule.ts'
 import type { OrderErrorsView } from './orderErrors.ts'
@@ -54,6 +56,11 @@ export function forgetDeliveryChoice() {
   writeDeliveryChoice(null)
 }
 
+/** Al entrar con una cuenta, la fecha y la hora que eligió otra se olvidan (tanda 5, `claimStoredDeliveryChoice`). */
+export function claimDeliveryChoice(email: string) {
+  claimStoredDeliveryChoice(ownerMarker(email))
+}
+
 /** Lo que falta de la fecha y la hora para continuar, con la frase de siempre (D66). */
 function scheduleError(date: string | null, slot: string | null): string | undefined {
   if (!date) return 'Elige la fecha en que recoges tu pedido.'
@@ -85,7 +92,7 @@ export function useDelivery(focus: CartDeliveryFocus) {
   const kinds = useMemo(() => lineKinds(cart.items), [cart.items])
   const [placedQuote, setPlacedQuote] = useState<PlacedOrder | null>(null)
   const blocked = cart.items.length === 0 || summary.conflict !== null
-  const [initialChoice] = useState(readDeliveryChoice)
+  const [initialChoice] = useState(() => readDeliveryChoice(sessionOwner(session)))
   const calendar = useDeliveryCalendar(kinds, !blocked && placedQuote === null, initialChoice)
   const { place, status } = usePlaceOrder()
 
@@ -93,7 +100,8 @@ export function useDelivery(focus: CartDeliveryFocus) {
   const finished = useRef(false)
   const { choice } = calendar
   useEffect(() => {
-    if (!finished.current) writeDeliveryChoice(choice)
+    // Con la cuenta de ahora (tanda 5): lo que cambia ya lo eligió quien tiene la sesión.
+    if (!finished.current) writeDeliveryChoice(choice, sessionOwner(getSessionState()))
   }, [choice])
 
   // Quién recoge: el nombre y el teléfono de la cuenta, una vez, mientras la persona no haya escrito nada.

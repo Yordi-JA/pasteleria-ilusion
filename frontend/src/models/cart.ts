@@ -1,5 +1,6 @@
 import { normalizeHex } from './color.ts'
 import { PRICE_PATTERN } from './money.ts'
+import { ownerClaim, parseOwner } from './owner.ts'
 import { isOfferingPresentation, PRESENTATION_LABELS } from './presentation.ts'
 import type { OfferingPresentation } from './presentation.ts'
 
@@ -120,6 +121,11 @@ export type OpaqueLine = Record<string, unknown>
 export type StoredCart = {
   items: CartItem[]
   unknown: OpaqueLine[]
+  /**
+   * La cuenta que lo llenó (tanda 5): la marca de `ownerMarker` (`owner.ts`), nunca el correo. No está en un carrito llenado
+   * sin cuenta, que pasa a la primera con que se entra, ni en uno vacío.
+   */
+  owner?: string
   /**
    * Hubo pasteles guardados con un color de la lista vieja y se descartaron al leer. `images` son las claves de sus imágenes
    * (`IndexedDB`) que ningún otro pastel usa; hay que borrarlas, y el carrito guardado se reescribe una vez sin esas líneas.
@@ -300,6 +306,7 @@ export function parseCart(data: unknown): StoredCart {
   if (!isRecord(data)) return { items, unknown }
   const lines = data.items
   if (!Array.isArray(lines)) return { items, unknown }
+  const owner = parseOwner(data.owner)
   for (const line of lines.slice(0, MAX_LINES)) {
     const item = parseItem(line)
     if (item) {
@@ -316,10 +323,11 @@ export function parseCart(data: unknown): StoredCart {
       }
     }
   }
-  if (discardedLines === 0) return { items, unknown }
+  const owned = owner && (items.length > 0 || unknown.length > 0) ? { owner } : {}
+  if (discardedLines === 0) return { items, unknown, ...owned }
   // Una clave que otro pastel del carrito sigue usando no se borra.
   const inUse = new Set(imageKeysOf(items))
-  return { items, unknown, discarded: { images: [...new Set(discardedImages)].filter((key) => !inUse.has(key)) } }
+  return { items, unknown, ...owned, discarded: { images: [...new Set(discardedImages)].filter((key) => !inUse.has(key)) } }
 }
 
 /**
@@ -346,12 +354,15 @@ export function readCart(): StoredCart | null {
 
 /**
  * Guarda el carrito con las líneas de una versión más nueva al final, sin pasar de `MAX_LINES` en total (las
- * propias van primero). Si no cabe con las miniaturas de los pasteles, se guarda sin ellas: el pastel importa más que su
- * imagen, y al leerlo se ve el hueco de la foto. Si aun así no se puede (almacenamiento bloqueado o lleno), el carrito
+ * propias van primero), y la cuenta que lo llenó (`owner`) si tiene alguna línea: uno vacío no es de nadie. Si no cabe
+ * con las miniaturas de los pasteles, se guarda sin ellas: el pastel importa más que su imagen, y al leerlo se ve el hueco
+ * de la foto. Si aun así no se puede (almacenamiento bloqueado o lleno), el carrito
  * sigue en memoria durante la visita y devuelve `false`.
  */
-export function writeCart(items: CartItem[], unknown: OpaqueLine[] = []): boolean {
-  const save = (lines: CartItem[]) => window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ items: [...lines, ...unknown].slice(0, MAX_LINES) }))
+export function writeCart(items: CartItem[], unknown: OpaqueLine[] = [], owner?: string): boolean {
+  const owned = owner && (items.length > 0 || unknown.length > 0) ? { owner } : {}
+  const save = (lines: CartItem[]) =>
+    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ items: [...lines, ...unknown].slice(0, MAX_LINES), ...owned }))
   let failure: unknown
   try {
     save(items)
@@ -469,6 +480,20 @@ export function removeDesign(items: CartItem[], designId: string): CartItem[] {
 /** Las claves de las imágenes guardadas aparte (`IndexedDB`) de las líneas diseñadas. */
 export function imageKeysOf(items: CartItem[]): string[] {
   return items.flatMap((item) => (item.kind === 'design' ? Object.values(item.images) : []))
+}
+
+/**
+ * El carrito que ve la cuenta `account` al entrar (tanda 5, `ownerClaim`): el mismo si es suyo o si está vacío; con su marca si
+ * se llenó sin cuenta (quien elige y luego entra para pagar no lo pierde); vacío si es de otra cuenta. Las líneas de una
+ * versión más nueva también se van: son de la otra persona aunque esta versión no las lea. `images` son las claves de
+ * `IndexedDB` del carrito descartado, para borrarlas.
+ */
+export function claimCart(cart: StoredCart, account: string): { cart: StoredCart; images: string[] } {
+  if (cart.items.length === 0 && cart.unknown.length === 0) return { cart, images: [] }
+  const claim = ownerClaim(cart.owner ?? null, account)
+  if (claim === 'keep') return { cart, images: [] }
+  if (claim === 'adopt') return { cart: { ...cart, owner: account }, images: [] }
+  return { cart: { items: [], unknown: [] }, images: imageKeysOf(cart.items) }
 }
 
 /** Piezas en el carrito: la suma de las cantidades, que es lo que muestra el contador. */

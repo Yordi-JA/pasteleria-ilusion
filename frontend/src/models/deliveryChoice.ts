@@ -3,10 +3,12 @@
  * "¿Quién recoge?" no borra lo que se eligió en "Fecha y hora". Guarda el día tal como lo dio la API (con sus lapsos), el
  * periodo y la hora; nunca quién recoge (el nombre y el teléfono son datos de la cuenta). No decide nada: el calendario lo
  * vuelve a validar con la API en cuanto carga ese mes, y el servidor al crear el pedido. Leer y escribir va en `try/catch`:
- * con el almacenamiento bloqueado, lo elegido vive en memoria; con datos dañados, se empieza sin elegir.
+ * con el almacenamiento bloqueado, lo elegido vive en memoria; con datos dañados, se empieza sin elegir. Va con la marca de la
+ * cuenta que lo eligió (tanda 5, `owner.ts`): otra cuenta que entra en la pestaña no lo hereda.
  */
 import { parseIsoDate } from './dates.ts'
 import type { CalendarDay, DeliverySlot } from './deliveryCalendar.ts'
+import { ownerClaim, parseOwner } from './owner.ts'
 
 export const DELIVERY_CHOICE_KEY = 'ilusion.deliveryChoice.v1'
 
@@ -51,21 +53,43 @@ export function parseDeliveryChoice(value: unknown): DeliveryChoice | null {
   return { day: { date, available: true, reason: null, slots: parsed as DeliverySlot[] }, period, slot }
 }
 
-export function readDeliveryChoice(): DeliveryChoice | null {
+/** Lo guardado sin validar y la cuenta que lo eligió; `null` sin nada guardado o con un JSON dañado. */
+function readStored(): { raw: unknown; owner: string | null } | null {
   try {
     const stored = window.sessionStorage.getItem(DELIVERY_CHOICE_KEY)
-    return stored ? parseDeliveryChoice(JSON.parse(stored)) : null
+    if (!stored) return null
+    const raw: unknown = JSON.parse(stored)
+    return { raw, owner: isRecord(raw) ? parseOwner(raw.owner) : null }
   } catch {
     return null
   }
 }
 
-/** Guarda lo elegido; `null` lo olvida (sin día elegido, o con el pedido ya creado). */
-export function writeDeliveryChoice(choice: DeliveryChoice | null) {
+/** Lo elegido, si lo hay; con la cuenta `account` abierta, nunca lo que eligió otra cuenta. */
+export function readDeliveryChoice(account: string | null = null): DeliveryChoice | null {
+  const stored = readStored()
+  if (!stored || (account && ownerClaim(stored.owner, account) === 'discard')) return null
+  return parseDeliveryChoice(stored.raw)
+}
+
+/** Guarda lo elegido con la cuenta que lo eligió (`owner`); `null` lo olvida (sin día elegido, o con el pedido ya creado). */
+export function writeDeliveryChoice(choice: DeliveryChoice | null, owner: string | null = null) {
   try {
-    if (choice) window.sessionStorage.setItem(DELIVERY_CHOICE_KEY, JSON.stringify(choice))
+    if (choice) window.sessionStorage.setItem(DELIVERY_CHOICE_KEY, JSON.stringify(owner ? { ...choice, owner } : choice))
     else window.sessionStorage.removeItem(DELIVERY_CHOICE_KEY)
   } catch {
     // Sin almacenamiento, lo elegido vive en memoria durante la visita.
   }
+}
+
+/**
+ * Al entrar la cuenta `account`, aunque la entrega no esté abierta (`ownerClaim`): lo que eligió otra cuenta se borra y lo
+ * elegido sin cuenta queda con su marca.
+ */
+export function claimStoredDeliveryChoice(account: string) {
+  const stored = readStored()
+  if (!stored) return
+  const claim = ownerClaim(stored.owner, account)
+  if (claim === 'discard') writeDeliveryChoice(null)
+  else if (claim === 'adopt') writeDeliveryChoice(parseDeliveryChoice(stored.raw), account)
 }
