@@ -1,7 +1,21 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { addDesign, addItem, cartCount, CART_STORAGE_KEY, imageKeysOf, readCart, removeDesign, removeItem, setItemQuantity, writeCart } from '../models/cart.ts'
+import {
+  addDesign,
+  addItem,
+  cartCount,
+  CART_STORAGE_KEY,
+  claimCart,
+  imageKeysOf,
+  readCart,
+  removeDesign,
+  removeItem,
+  setItemQuantity,
+  writeCart,
+} from '../models/cart.ts'
 import type { AddDesignResult, AddResult, CartItem, CartOffering, DesignItem, LineKey, StoredCart } from '../models/cart.ts'
 import { deleteDesignImages } from '../models/designImages.ts'
+import { sessionOwner } from '../models/owner.ts'
+import { getSessionState, subscribeSession } from '../models/session.ts'
 
 /** Lo que devuelve `add`: cuántas entraron, cuántas hay y, si no entró nada por un tope técnico, `limit`. */
 export type AddOutcome = Omit<AddResult, 'items'>
@@ -10,6 +24,8 @@ export type Cart = {
   items: CartItem[]
   /** Suma de las cantidades: lo que dice el contador del encabezado. */
   count: number
+  /** La cuenta que llenó el carrito (tanda 5, `owner.ts`); no está en uno vacío ni en uno llenado sin cuenta. */
+  owner?: string
   /** Agrega piezas sin pasar de `maxQuantity` (lo que queda hoy). Devuelve cuántas entraron y cuántas hay. */
   add: (offering: CartOffering, quantity: number, maxQuantity?: number) => AddOutcome
   /** Quita la línea de esa presentación y ese tipo (encargo o vitrina de hoy). */
@@ -41,13 +57,14 @@ export const CartContext = createContext<Cart | null>(null)
 export function useCartState(): Cart {
   const [initial] = useState<StoredCart>(() => readCart() ?? { items: [], unknown: [] })
   const [items, setItems] = useState<CartItem[]>(initial.items)
+  const [owner, setOwner] = useState<string | undefined>(initial.owner)
   // Un pastel guardado con los colores de la lista vieja no se puede leer: se descartó al leer. Aquí se borran sus imágenes y se
   // reescribe lo guardado (partiendo de lo que hay ahora, no de la lectura inicial) para que no vuelva a pasar en cada carga.
   useEffect(() => {
     if (!initial.discarded) return
     void deleteDesignImages(initial.discarded.images)
     const stored = readCart()
-    if (stored) writeCart(stored.items, stored.unknown)
+    if (stored) writeCart(stored.items, stored.unknown, stored.owner)
   }, [initial])
   // Lo vigente en esta pestaña, con las líneas de una versión más nueva que se conservan sin leer. Es la base
   // de cada cambio solo cuando el almacenamiento falla; mientras funciona, cada cambio parte de lo guardado
@@ -59,14 +76,19 @@ export function useCartState(): Cart {
   const show = useCallback((next: StoredCart) => {
     latest.current = next
     setItems(next.items)
+    setOwner(next.owner)
   }, [])
 
   const update = useCallback(
     <T>(change: (base: StoredCart) => { items: CartItem[]; result: T }): T => {
       const base = (storageWorks.current ? readCart() : null) ?? latest.current
       const { items: next, result } = change(base)
-      if (next !== base.items) storageWorks.current = writeCart(next, base.unknown)
-      show({ items: next, unknown: base.unknown })
+      // Lo que se agrega con sesión es de esa cuenta (tanda 5). Un carrito que ya tiene dueño lo conserva: solo cambia de
+      // dueño al entrar una cuenta (`claimCart`, abajo), y uno vacío no es de nadie.
+      const filled = next.length > 0 || base.unknown.length > 0
+      const owner = filled ? (base.owner ?? sessionOwner(getSessionState()) ?? undefined) : undefined
+      if (next !== base.items) storageWorks.current = writeCart(next, base.unknown, owner)
+      show({ items: next, unknown: base.unknown, owner })
       return result
     },
     [show],
@@ -89,6 +111,24 @@ export function useCartState(): Cart {
     // Un cambio de otra pestaña entre el primer render y la suscripción no llegó como evento.
     sync()
     return () => window.removeEventListener('storage', onStorage)
+  }, [show])
+
+  useEffect(() => {
+    // Al entrar una cuenta (aquí, al recuperar la sesión o desde otra pestaña), el carrito de otra cuenta se vacía con sus
+    // imágenes y uno sin dueño pasa a ella (tanda 5). Una sesión que termina sola no lo toca: la misma cuenta puede volver.
+    // Las otras pestañas ven el carrito vacío por el evento `storage`.
+    const claim = () => {
+      const account = sessionOwner(getSessionState())
+      if (!account) return
+      const base = (storageWorks.current ? readCart() : null) ?? latest.current
+      const { cart, images } = claimCart(base, account)
+      if (cart === base) return
+      storageWorks.current = writeCart(cart.items, cart.unknown, cart.owner)
+      show(cart)
+      if (images.length > 0) void deleteDesignImages(images)
+    }
+    claim()
+    return subscribeSession(claim)
   }, [show])
 
   const add = useCallback(
@@ -137,8 +177,8 @@ export function useCartState(): Cart {
   }, [update])
 
   return useMemo(
-    () => ({ items, count: cartCount(items), add, remove, setQuantity, addDesign: addDesignLine, removeDesign: removeDesignLine, clear }),
-    [items, add, remove, setQuantity, addDesignLine, removeDesignLine, clear],
+    () => ({ items, count: cartCount(items), owner, add, remove, setQuantity, addDesign: addDesignLine, removeDesign: removeDesignLine, clear }),
+    [items, owner, add, remove, setQuantity, addDesignLine, removeDesignLine, clear],
   )
 }
 

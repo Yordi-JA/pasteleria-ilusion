@@ -10,8 +10,11 @@ const FINGERPRINT_PATTERN = /^[a-z0-9]{8,128}$/
 
 type Attempt = { key: string; fingerprint: string }
 
-/** Un hash estable sin `crypto.subtle` (el sitio abierto por `http://<IP>`): cyrb53, en base 36. */
-function fallbackHash(text: string): string {
+/**
+ * Un hash estable sin `crypto.subtle` (el sitio abierto por `http://<IP>`): cyrb53, en base 36. También da, sin esperar, la
+ * marca de la cuenta dueña de lo que se guarda en el navegador (`ownerMarker` de `owner.ts`).
+ */
+export function fallbackHash(text: string): string {
   let h1 = 0xdeadbeef
   let h2 = 0x41c6ce57
   for (let i = 0; i < text.length; i++) {

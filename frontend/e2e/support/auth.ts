@@ -174,3 +174,33 @@ export async function mockGoogleIdentity(page: Page, { credential = 'credential-
 export async function withoutGoogle(page: Page) {
   await page.addInitScript(() => Reflect.set(globalThis, '__googleClientId', ''))
 }
+
+/** Otra cuenta, para las pruebas de cambiar de cuenta en el mismo navegador (tanda 5). */
+export const bruno = { email: 'bruno@correo.test', full_name: 'Bruno Pérez Ruiz', phone: '5587654321' }
+
+/** Quién tiene la sesión del navegador en este momento; `null` cuando terminó sola (el refresh ya no sirve). */
+export type Accounts = { current: typeof ana | null }
+
+/**
+ * La cuenta del navegador cambia a media prueba: `refresh` responde la de `accounts.current` (un 401 si es `null`) y entrar
+ * con un correo abre esa cuenta. Varias pestañas con el mismo `accounts` comparten la cuenta, como la cookie del refresh.
+ */
+export async function mockSwitchableAccounts(page: Page, accounts: Accounts): Promise<AuthCalls> {
+  // `signedIn` pone la pista y la cookie CSRF; el `mockAuth` de después gana a sus rutas.
+  await signedIn(page)
+  return mockAuth(page, {
+    refresh: () =>
+      accounts.current ? opened(sessionBody(accounts.current)) : rejected(401, { detail: 'Tu sesión terminó. Vuelve a entrar.', code: 'session_expired' }),
+    login: (request) => {
+      accounts.current = (request.postDataJSON() as { email: string }).email === bruno.email ? bruno : ana
+      return opened(sessionBody(accounts.current))
+    },
+  })
+}
+
+/** Entra con el correo y una contraseña en `/entrar` (ya abierta). */
+export async function logIn(page: Page, email: string) {
+  await page.getByLabel('Correo electrónico').fill(email)
+  await page.getByLabel('Contraseña', { exact: true }).fill('pastel-de-fresa-2026')
+  await page.getByRole('button', { name: 'Iniciar sesión' }).click()
+}

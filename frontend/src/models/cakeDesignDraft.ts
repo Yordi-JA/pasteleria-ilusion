@@ -12,6 +12,8 @@ import type { MessageLayout, WaferLayout } from './cakeDesignLayout.ts'
 import { displayFileName } from './decorationImage.ts'
 import { parseOccasion } from './occasion.ts'
 import type { Occasion } from './occasion.ts'
+import { ownerClaim, parseOwner } from './owner.ts'
+import type { OwnerClaim } from './owner.ts'
 
 export type CakeForm = 'round' | 'rectangular'
 
@@ -78,6 +80,11 @@ export type CakeDesignDraft = {
    * `null` en un diseño nuevo.
    */
   replaces: string | null
+  /**
+   * La cuenta que lo armó (tanda 5): la marca de `ownerMarker` (`owner.ts`), nunca el correo. `null` en uno armado sin
+   * cuenta, que pasa a la primera cuenta con que se entra (`claimDraft`).
+   */
+  owner: string | null
 }
 
 export const DRAFT_STORAGE_KEY = 'ilusion.cakeDesign.v1'
@@ -118,6 +125,7 @@ export function emptyDraft(): CakeDesignDraft {
     occasion: null,
     confirmed: [],
     replaces: null,
+    owner: null,
   }
 }
 
@@ -181,6 +189,7 @@ export function parseDraft(data: unknown): CakeDesignDraft {
     occasion: parseOccasion(raw.occasion),
     confirmed: [...new Set(confirmed)].sort((a, b) => a - b),
     replaces: typeof raw.replaces === 'string' && raw.replaces.length <= 40 ? slugOrNull(raw.replaces) : null,
+    owner: parseOwner(raw.owner),
   }
 }
 
@@ -190,9 +199,10 @@ const ARMED_STEPS = [1, 2, 3, 4, 5, 6, 7]
 /**
  * El borrador de un pastel que ya está en el carrito ("Editar pedido", D66), a partir de lo que guardó la línea
  * (`designSnapshot`). Pasa por `parseDraft`, así lo que no sirva toma su valor inicial. Las imágenes no viajan: viven en
- * `IndexedDB` con la línea, y el diseñador pide elegirlas otra vez.
+ * `IndexedDB` con la línea, y el diseñador pide elegirlas otra vez. `owner` es la cuenta dueña del carrito (tanda 5): el
+ * pastel de otra cuenta no pasa a la siguiente que entra por abrirlo sin sesión.
  */
-export function draftFromDesign(snapshot: Record<string, unknown>, designId: string): CakeDesignDraft {
+export function draftFromDesign(snapshot: Record<string, unknown>, designId: string, owner: string | null = null): CakeDesignDraft {
   const flavors = Array.isArray(snapshot.flavors) ? snapshot.flavors : []
   const message = snapshot.message
   const wafer = snapshot.wafer
@@ -204,6 +214,7 @@ export function draftFromDesign(snapshot: Record<string, unknown>, designId: str
     waferEnabled: typeof wafer === 'object' && wafer !== null,
     confirmed: ARMED_STEPS,
     replaces: designId,
+    owner,
   })
 }
 
@@ -237,6 +248,38 @@ export function clearDraft(): void {
   } catch {
     // Sin almacenamiento no hay borrador guardado que borrar.
   }
+}
+
+/** Qué pasa con el borrador cuando entra la cuenta `owner` (`ownerClaim`). */
+export function draftClaim(draft: CakeDesignDraft, owner: string): OwnerClaim {
+  return ownerClaim(draft.owner, owner)
+}
+
+/**
+ * El borrador que ve la cuenta `owner`: el mismo objeto si ya es suyo; con su marca si se armó sin cuenta (quien diseña y
+ * luego entra para pagar no lo pierde); vacío si es de otra cuenta, que nunca se muestra a esta.
+ */
+export function claimDraft(draft: CakeDesignDraft, owner: string): CakeDesignDraft {
+  const claim = draftClaim(draft, owner)
+  if (claim === 'keep') return draft
+  return claim === 'adopt' ? { ...draft, owner } : { ...emptyDraft(), owner }
+}
+
+/**
+ * Aplica `claimDraft` al borrador guardado cuando entra la cuenta `owner`, aunque "Diseña tu pastel" no esté abierto: el de otra
+ * cuenta se borra y uno sin cuenta queda con su marca. Sin borrador guardado no escribe nada.
+ */
+export function claimStoredDraft(owner: string): void {
+  try {
+    if (window.sessionStorage.getItem(DRAFT_STORAGE_KEY) === null) return
+  } catch {
+    // Sin almacenamiento no hay borrador guardado que revisar.
+    return
+  }
+  const draft = readDraft()
+  const claim = draftClaim(draft, owner)
+  if (claim === 'discard') clearDraft()
+  else if (claim === 'adopt') writeDraft(claimDraft(draft, owner))
 }
 
 /** Los colores de la lista de la pastelería, con los que se cambia un `slug` viejo por su código. */

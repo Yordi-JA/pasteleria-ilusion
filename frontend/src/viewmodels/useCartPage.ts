@@ -3,6 +3,8 @@ import type { RefObject } from 'react'
 import { useNavigate } from 'react-router'
 import { draftFromDesign, readDraft, writeDraft } from '../models/cakeDesignDraft.ts'
 import { MAX_LINE_QUANTITY } from '../models/cart.ts'
+import { sessionOwner } from '../models/owner.ts'
+import { getSessionState } from '../models/session.ts'
 import { hasProgress } from './cakeDesignPrefill.ts'
 import { cartLines, cartSummary, paymentNote } from './cartLines.ts'
 import type { CartLineView } from './cartLines.ts'
@@ -56,10 +58,11 @@ export function useCartPage(headings: { products: RefObject<HTMLElement | null>;
     (designId: string) => {
       const item = cart.items.find((candidate) => candidate.kind === 'design' && candidate.designId === designId)
       if (!item || item.kind !== 'design') return
-      writeDraft(draftFromDesign(item.design, designId))
+      // El pastel sigue siendo de la cuenta del carrito (tanda 5): abierto sin sesión, no pasa a la siguiente cuenta que entre.
+      writeDraft(draftFromDesign(item.design, designId, cart.owner ?? sessionOwner(getSessionState())))
       navigate(EDIT_DESIGN_PATH)
     },
-    [cart.items, navigate],
+    [cart.items, cart.owner, navigate],
   )
 
   /** "Editar pedido": abre el pastel en "Diseña tu pastel"; si ahí hay otro diseño a medias, pregunta primero. */
