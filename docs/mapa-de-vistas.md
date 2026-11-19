@@ -12,6 +12,8 @@ Los estados (cargando, error, vacío, agotado) no son rutas propias: son la mism
 
 Nota (D86): en la portada, los destacados y la sección de la vitrina muestran, en los pasteles con foto, la imagen dibujada desde el modelo 3D en lugar de la foto.
 
+Nota (D89): el pastel del hero es de dos pisos, con crema peinada y rosas (la captura muestra tres pisos). En escritorio, la barra empieza sin su logo y lo muestra con un fundido cuando el logo grande del hero pasa bajo ella; hasta 600 px, el logo siempre se ve.
+
 ## Catálogo
 
 | Vista | Ruta sugerida | Fuente | Escritorio | Móvil |
@@ -19,6 +21,8 @@ Nota (D86): en la portada, los destacados y la sección de la vitrina muestran, 
 | Catálogo | `/catalogo` | `Catalogo.dc.html` | [ver](../mockup/capturas/escritorio/003-Catalogo.jpg) | [ver](../mockup/capturas/movil/004-CatalogoMovil.jpg) |
 
 Nota (D86): las tarjetas de la cuadrícula muestran, en los pasteles con foto, la imagen dibujada desde el modelo 3D. La ficha conserva la foto real.
+
+Nota (D89): el encabezado usa el dibujo de pisos en lugar del pastel 3D de la captura, y las fotos de las tarjetas destacadas sobresalen de la tarjeta más que en la captura (96 px).
 
 ## Inicio de sesión y registro
 

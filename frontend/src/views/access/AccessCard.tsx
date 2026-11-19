@@ -36,11 +36,11 @@ function GoogleButton({ google: { container, ...google } }: { google: GoogleSign
   )
 }
 
-/** "o con tu correo" entre dos líneas `relieve`. */
+/** "o con tu correo" seguido de una línea `relieve` que corre hasta el borde, como un renglón de libreta. */
 function Divider() {
   return (
     <div className="flex items-center gap-3 text-nota text-mermelada-suave">
-      <span aria-hidden="true" className="h-px flex-1 bg-relieve" />o con tu correo
+      o con tu correo
       <span aria-hidden="true" className="h-px flex-1 bg-relieve" />
     </div>
   )

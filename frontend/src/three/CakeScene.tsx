@@ -7,7 +7,7 @@ import { focusRing, focusRingOnColor } from '../components/focus.ts'
 import CakeModel from './CakeModel.tsx'
 import type { CakeMotion } from './CakeModel.tsx'
 import type { CakeShape, Viewpoint } from './cakeShape.ts'
-import { contentOf, fitScale, lookAtHeight, referenceContent, standScale } from './cakeMetrics.ts'
+import { BOARD, boardRadius, contentOf, fitScale, lookAtHeight, PLATE_GAP, referenceContent, standScale } from './cakeMetrics.ts'
 import type { Content } from './cakeMetrics.ts'
 import { brandColor } from './palette.ts'
 import { encodeThumbnail } from './snapshot.ts'
@@ -69,6 +69,19 @@ const HERO_FRAMING: SceneFraming = { ...FRAME, overflowTop: OVERFLOW_TOP }
  * 72 px de la portada y no se sale de su sección.
  */
 const IN_BOX_FRAMING: SceneFraming = { ...FRAME, overflowTop: 0 }
+
+/**
+ * El pastel de dos pisos de la portada (tanda 6) mide lo que un pastel de verdad (los cm de los moldes) y va sobre la charola: la
+ * escena lo encuadra por el ancho de la charola, sea cual sea su tamaño. La charola queda al 74 % de la caja (no hay columna debajo,
+ * como en la base del pastel de tres pisos) y mide 5 unidades del mockup.
+ */
+const BOARD_FRAME = { plate: 0.74, width: 5 }
+
+/** El encuadre de un pastel sobre su charola, a partir del de la portada o del de la caja. */
+function boardFraming(base: SceneFraming, shape: CakeShape): SceneFraming {
+  const width = 2 * boardRadius(shape)
+  return width > 0 ? { ...base, plate: BOARD_FRAME.plate, scale: (base.scale * BOARD_FRAME.width) / width } : base
+}
 
 /** Constante de tiempo (s) con la que la cámara de la vista libre se acerca a su encuadre cuando cambia el pastel. */
 const FREE_FRAMING_RESPONSE = 0.1
@@ -202,12 +215,21 @@ function contactShadowTexture() {
   return texture
 }
 
-/** `scale` sigue al plato de la base cuando crece con el piso de abajo. */
-function ContactShadow({ scale }: { scale: number }) {
+/**
+ * Dónde va la sombra de contacto: bajo el pie de la base, con la escala del plato (que crece con el piso de abajo), o bajo la charola
+ * de un pastel de la casa, un poco más ancha que ella.
+ */
+function shadowPlacement(shape: CakeShape): { y: number; scale: number } {
+  if (shape.board && !shape.stand) return { y: PLATE_GAP - BOARD.thickness - 0.005, scale: (boardRadius(shape) * 1.15) / 1.8 }
+  const plate = standScale(shape)
+  return { y: -0.815 * plate, scale: plate }
+}
+
+function ContactShadow({ y, scale }: { y: number; scale: number }) {
   const texture = useMemo(() => contactShadowTexture(), [])
   useEffect(() => () => texture.dispose(), [texture])
   return (
-    <mesh rotation-x={-Math.PI / 2} position-y={-0.815 * scale} scale={scale}>
+    <mesh rotation-x={-Math.PI / 2} position-y={y} scale={scale}>
       <planeGeometry args={[3.6, 3.6]} />
       <meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} />
     </mesh>
@@ -263,7 +285,7 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnS
   const freeView = useRef<FreeView>({ scale: 0, centerY: 0 })
   const content = useMemo(() => contentOf(shape), [shape])
   const reference = useMemo(() => referenceContent(shape), [shape])
-  const plate = standScale(shape)
+  const shadow = shadowPlacement(shape)
   const ready = useRef(false)
   // El primer cuadro tras una pausa (o el primero de todos) trae un intervalo enorme; solo ese se acota.
   const resumed = useRef(true)
@@ -338,7 +360,7 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnS
       <group ref={cake}>
         <CakeModel shape={shape} motion={motion} animateColors={!reducedMotion} animateSize={!reducedMotion} />
       </group>
-      <ContactShadow scale={plate} />
+      <ContactShadow y={shadow.y} scale={shadow.scale} />
     </>
   )
 }
@@ -414,7 +436,9 @@ export default function CakeScene({
   onColor = false,
   onSnapshot,
 }: CakeSceneProps) {
-  const framing = framingProp ?? (separateOnScroll ? HERO_FRAMING : IN_BOX_FRAMING)
+  const baseFraming = framingProp ?? (separateOnScroll ? HERO_FRAMING : IN_BOX_FRAMING)
+  const onBoard = !freeLook && Boolean(shape.board) && !shape.stand
+  const framing = useMemo(() => (onBoard ? boardFraming(baseFraming, shape) : baseFraming), [baseFraming, onBoard, shape])
   const container = useRef<HTMLDivElement>(null)
   const spin = useRef(createSpin(viewpoint?.angle ?? INITIAL_ANGLE, viewpoint?.elevation ?? ELEVATION.initial))
   const tilt = useRef<Tilt>(createTilt())
@@ -508,6 +532,9 @@ export default function CakeScene({
       aria-describedby={describedBy}
       tabIndex={0}
       data-running={import.meta.env.DEV ? String(running) : undefined}
+      data-tiers={import.meta.env.DEV ? String(shape.tiers.length) : undefined}
+      data-board={import.meta.env.DEV ? String(Boolean(shape.board)) : undefined}
+      data-decoration={import.meta.env.DEV ? (shape.decoration?.kind ?? 'none') : undefined}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

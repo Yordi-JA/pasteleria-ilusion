@@ -114,7 +114,8 @@ test('the cake sliced today says so: its slices are taken today and the whole ca
   const hero = page.getByRole('region', { name: 'Tres leches de durazno' })
   await expect(hero).toContainText('Rebanado hoy')
   await expect(hero).not.toContainText('En vitrina hoy')
-  const notice = page.locator('strong', { hasText: 'Hoy se vende en rebanadas' }).locator('..')
+  // El aviso es el `div` más interno que tiene a la vez el título y el texto (no lleva `role`: ya estaba al cargar).
+  const notice = page.locator('div').filter({ has: page.locator('strong', { hasText: 'Hoy se vende en rebanadas' }), hasText: 'Llévate una rebanada' }).last()
   await expect(notice).toContainText('Llévate una rebanada hoy de la vitrina, o encarga el pastel completo.')
   await expect(notice.getByRole('link', { name: 'Ver rebanadas de hoy' })).toHaveAttribute('href', '/rebanadas')
 

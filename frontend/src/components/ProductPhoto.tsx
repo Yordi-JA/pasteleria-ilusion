@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { PHOTO_FILL } from '../viewmodels/productPhoto.ts'
 import type { PhotoView } from '../viewmodels/productPhoto.ts'
 
 /**
@@ -13,6 +14,12 @@ type ProductPhotoProps = {
   className?: string
   /** El hueco sobre un campo `fresa` (el encabezado de la ficha): la silueta va en `betun` para que se lea. */
   onFresa?: boolean
+  /**
+   * La caja de la tarjeta grande (tanda 6, solo con `tiers3`, que tiene la proporción de la imagen del modelo): la imagen del
+   * modelo ya la llena; una foto se agranda y se sube (`PHOTO_FILL`) para que su pastel mida y se apoye igual, y la fila se lea
+   * pareja. Lo transparente de la foto sale de la caja.
+   */
+  fillBox?: boolean
 }
 
 // Proporciones de las siluetas del mockup: la foto real usa la misma caja para que nada salte al cambiarla.
@@ -101,12 +108,27 @@ function Silhouette({ shape, label, onFresa = false }: { shape: PhotoShape; labe
  * silueta con "Foto del pastel". El hueco no es decorativo: es una imagen (`role="img"`) cuyo nombre dice que la
  * foto está pendiente, como el mockup ("Foto del pastel pendiente"). Si la foto no carga, también se muestra el hueco.
  */
-export default function ProductPhoto({ photo, shape, className = '', onFresa = false }: ProductPhotoProps) {
+export default function ProductPhoto({ photo, shape, className = '', onFresa = false, fillBox = false }: ProductPhotoProps) {
   // Estado de presentación: la foto que no cargó (archivo que falta o dañado) cae al hueco, nunca a un ícono roto.
   // Se guarda la dirección y no un sí o no, así una foto nueva vuelve a intentarse.
   const [failedSrc, setFailedSrc] = useState<string | null>(null)
   if (photo.src && photo.src !== failedSrc) {
     const src = photo.src
+    if (fillBox && !photo.model) {
+      return (
+        <div className={`relative overflow-x-clip ${aspect[shape]} ${className}`}>
+          <img
+            src={src}
+            alt={photo.alt}
+            onError={() => setFailedSrc(src)}
+            loading="lazy"
+            decoding="async"
+            style={PHOTO_FILL}
+            className="pointer-events-none absolute left-1/2 block h-auto max-w-none -translate-x-1/2"
+          />
+        </div>
+      )
+    }
     return (
       <img
         src={src}

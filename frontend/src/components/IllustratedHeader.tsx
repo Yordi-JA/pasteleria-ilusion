@@ -10,7 +10,7 @@ type IllustratedHeaderProps = {
   /** El `h1`, que también va en las migas como la página actual. */
   title: string
   titleId: string
-  /** El dibujo de línea a la derecha (`Vitrina.dc.html`: el toldo; `Rebanadas.dc.html`: la rebanada). */
+  /** El dibujo de línea a la derecha (`Vitrina.dc.html`: el toldo; `Rebanadas.dc.html`: la rebanada; el catálogo: los pisos). */
   drawing: LineDrawingName
   /** El `h1` recibe el foco al reintentar una carga que falló, así el foco no se pierde con el botón. */
   headingRef?: RefObject<HTMLHeadingElement | null>
@@ -21,7 +21,7 @@ type IllustratedHeaderProps = {
 }
 
 /**
- * Encabezado sobre `fresa` de la vitrina y las rebanadas: migas, `h1`, su frase y el dibujo de línea a la derecha al
+ * Encabezado sobre `fresa` de la vitrina, las rebanadas y el catálogo: migas, `h1`, su frase y el dibujo de línea a la derecha al
  * 30%, detrás del contenido (libro de marca, "Dibujos de línea"); en móvil el dibujo no va. Cierra con la guirnalda.
  */
 export default function IllustratedHeader({ title, titleId, drawing, headingRef, children, crumbs }: IllustratedHeaderProps) {

@@ -168,9 +168,12 @@ test('notices: roles, border widths and tone colors', async ({ page }) => {
   await expect(page.getByRole('status').filter({ hasText: 'Agregado al pedido' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Agregar al pedido', exact: true }).click()
   const success = page.getByRole('status').filter({ hasText: 'Agregado al pedido' })
-  await expect(success).toHaveCSS('border-top-color', 'rgb(63, 95, 42)')
-  await expect(success).toHaveCSS('border-top-width', '2px')
-  for (const notice of [info, attention, success, error]) {
+  // Lo confirmado va en glaseado: fondo `fresa-claro`, borde `fresa` de 1 px y la perla de duya en lugar de una palomita verde.
+  await expect(success).toHaveCSS('border-top-color', 'rgb(249, 193, 193)')
+  await expect(success).toHaveCSS('border-top-width', '1px')
+  await expect(success).toHaveCSS('background-color', 'rgb(255, 223, 223)')
+  await expect(success.locator('svg')).toHaveCount(0)
+  for (const notice of [info, attention, error]) {
     await expect(notice.locator('svg[aria-hidden="true"]')).toHaveCount(1)
   }
 })

@@ -1,21 +1,16 @@
-import { useId, useRef } from 'react'
-import type { RefObject } from 'react'
-import Breadcrumb from '../components/Breadcrumb.tsx'
 import ButtonLink from '../components/ButtonLink.tsx'
-import Duya from '../components/Duya.tsx'
-import HeroCake from '../components/HeroCake.tsx'
+import IllustratedHeader from '../components/IllustratedHeader.tsx'
 import LeadDays from '../components/LeadDays.tsx'
 import LoadErrorNotice from '../components/LoadErrorNotice.tsx'
 import { ORDER_LINK } from '../components/navigation.ts'
 import Card from '../components/Card.tsx'
-import ProductCard, { compactGrid, featureGrid } from '../components/ProductCard.tsx'
+import ProductCard, { compactGrid, featureCard, featureGrid, featurePhotoSlot } from '../components/ProductCard.tsx'
 import ProductPhoto from '../components/ProductPhoto.tsx'
 import ProductGridSkeleton from '../components/ProductGridSkeleton.tsx'
 import Reveal from '../components/Reveal.tsx'
 import { LoadingRegion } from '../components/Skeleton.tsx'
 import { useCatalog } from '../viewmodels/useCatalog.ts'
 import type { CatalogView } from '../viewmodels/useCatalog.ts'
-import { useHeroCake } from '../viewmodels/useHeroCake.ts'
 import { usePageTitle } from '../viewmodels/usePageTitle.ts'
 
 const TITLE = 'Catálogo'
@@ -23,52 +18,23 @@ const TITLE = 'Catálogo'
 const column = 'mx-auto flex w-full max-w-[1200px] flex-col px-6 max-[600px]:px-4'
 
 /**
- * El pastel de tres pisos de la portada (libro de marca, "Presencia de marca"), en la escena chica del mockup: gira
- * solo, se arrastra y gira con las flechas, se pausa fuera de pantalla y respeta "reducir movimiento" (D48). Sus pisos
- * no se separan con el scroll: eso es solo de la portada. Lleva su pista para el lector de pantalla (el mockup no
- * muestra pista visible aquí). Si la escena con foco desaparece, el foco pasa a "Realizar pedido", como en la portada.
- */
-function CatalogCake({ testId, actions }: { testId: string; actions: RefObject<HTMLDivElement | null> }) {
-  const cake = useHeroCake({ separateOnScroll: false })
-  const hintId = useId()
-  return (
-    <>
-      <p id={hintId} className="sr-only">
-        Arrastra el pastel para girarlo. Usa las flechas izquierda y derecha para girarlo.
-      </p>
-      <HeroCake cake={cake} hintId={hintId} size="compact" testId={testId} onFocusEscape={() => actions.current?.querySelector<HTMLElement>('a')?.focus()} />
-    </>
-  )
-}
-
-/**
- * Encabezado sobre `fresa` (Catalogo.dc.html): migas, `h1`, la línea que explica que cualquier sabor se pide en seco
- * o envinado al personalizarlo (libro de marca, "Catálogo y vitrina"), "Realizar pedido" y el pastel apoyado en la
- * guirnalda.
+ * Encabezado sobre `fresa` (Catalogo.dc.html) con el dibujo del pastel de pisos, como la vitrina y las rebanadas: migas, `h1`,
+ * la línea que explica que cualquier sabor se pide en seco o envinado al personalizarlo (libro de marca, "Catálogo y vitrina"),
+ * "Realizar pedido" y los días de anticipación. La tanda 6 quitó el pastel 3D: las tarjetas de abajo ya llevan los pasteles.
  */
 function CatalogHeader({ leadDays }: { leadDays: CatalogView['leadDays'] }) {
-  const actions = useRef<HTMLDivElement>(null)
   return (
-    <section aria-labelledby="catalogo-titulo" className="bg-fresa">
-      <div className={`${column} grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] items-end gap-10 pt-8 max-[960px]:grid-cols-1 max-[960px]:gap-4`}>
-        <div className="flex flex-col gap-4 pb-20 max-[960px]:pb-0">
-          <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: TITLE }]} />
-          <h1 id="catalogo-titulo" className="font-display text-display">
-            {TITLE}
-          </h1>
-          <p className="max-w-[560px] text-cuerpo text-mermelada-suave">
-            Pasteles y postres de nuestra vitrina, con sus precios. Cualquier sabor se puede pedir en seco o envinado al personalizarlo.
-          </p>
-          <div ref={actions} className="flex flex-wrap items-center gap-x-5 gap-y-3">
-            <ButtonLink to={ORDER_LINK.to}>{ORDER_LINK.label}</ButtonLink>
-            <p className="text-nota text-mermelada-suave">
-              Vitrina para hoy mismo. Pedidos con <LeadDays days={leadDays} tone="fresa" /> de anticipación.
-            </p>
-          </div>
-        </div>
-        <CatalogCake testId="pastel-catalogo" actions={actions} />
+    <IllustratedHeader title={TITLE} titleId="catalogo-titulo" drawing="pisos">
+      <p className="max-w-[560px] text-cuerpo text-mermelada-suave">
+        Pasteles y postres de nuestra vitrina, con sus precios. Cualquier sabor se puede pedir en seco o envinado al personalizarlo.
+      </p>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+        <ButtonLink to={ORDER_LINK.to}>{ORDER_LINK.label}</ButtonLink>
+        <p className="text-nota text-mermelada-suave">
+          Vitrina para hoy mismo. Pedidos con <LeadDays days={leadDays} tone="fresa" /> de anticipación.
+        </p>
       </div>
-    </section>
+    </IllustratedHeader>
   )
 }
 
@@ -90,10 +56,12 @@ function SectionTitle({ id, title, count }: { id: string; title: string; count: 
  */
 function MiniCard({ price, href }: { price: string; href: string }) {
   return (
-    <Card as="article" large className="tarjeta-elevable mt-16 flex h-[calc(100%-4rem)] flex-col gap-2.5 !pt-0">
-      {/* Mismo alto que la foto de tres pisos de las demás tarjetas, con el mini más chico y apoyado abajo. */}
-      <div className="-mt-16 flex h-[254px] flex-col justify-end">
-        <ProductPhoto photo={{ src: null, alt: 'Pastel mini', placeholder: 'Foto del pastel' }} shape="round" className="mx-auto w-full max-w-[200px]" />
+    <Card as="article" large className={featureCard}>
+      {/* La misma caja que la foto de las demás tarjetas, con el mini más chico y apoyado abajo. */}
+      <div className={featurePhotoSlot}>
+        <div className="flex aspect-[360/300] w-full items-end justify-center">
+          <ProductPhoto photo={{ src: null, alt: 'Pastel mini', placeholder: 'Foto del pastel' }} shape="round" className="w-full max-w-[200px]" />
+        </div>
         <div aria-hidden="true" className="mx-auto -mt-2.5 h-3.5 w-[40%] rounded-[50%] bg-mermelada/[.16] blur-[10px]" />
       </div>
       <p className="flex min-h-[26px] items-center text-nota text-mermelada-suave">Sabores normales</p>
@@ -215,7 +183,6 @@ export default function Catalog() {
   return (
     <>
       <CatalogHeader leadDays={catalog.leadDays} />
-      <Duya color="fresa" below="nata" />
       <LoadingRegion loading={catalog.status === 'loading'} label="Cargando el catálogo…" skeleton={<CatalogSkeleton />}>
         <Results catalog={catalog} />
       </LoadingRegion>

@@ -10,7 +10,8 @@ import { fullStoreInfo, mockStoreInfo } from './support/store-info.ts'
 // prueba a three. Con escala 1, el lienzo mide lo mismo en cualquier pantalla.
 test.use({ deviceScaleFactor: 1 })
 
-const NAME = 'Pastel de tres pisos'
+// El pastel de dos pisos de la portada (tanda 6, `viewmodels/homeCake.ts`).
+const NAME = 'Pastel de dos pisos'
 const DRAG_HINT = 'Arrastra el pastel para girarlo.'
 const KEYS_HINT = 'Usa las flechas izquierda y derecha para girarlo.'
 

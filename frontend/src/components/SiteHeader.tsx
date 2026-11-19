@@ -22,6 +22,13 @@ type SiteHeaderProps = {
   shownCount: number
   /** El enlace del carrito, a donde llegan las perlas y el que rebota. */
   cartIconRef: Ref<HTMLAnchorElement>
+  /**
+   * En la portada, mientras se ve el logotipo grande, el logo de la barra no se ve (tanda 6): guarda su lugar, invisible y fuera del
+   * orden del teclado (`visibility: hidden`), y aparece en 200 ms cuando el grande sale. En móvil se ve siempre.
+   */
+  logoHidden?: boolean
+  /** Si el cambio del logo se anima: no en el primer cuadro de la portada, para que no se desvanezca al cargar. */
+  logoAnimated?: boolean
 }
 
 /** Nombre del enlace del carrito, como en el mockup: "Carrito, vacío" o "Carrito, 4 productos". */
@@ -63,7 +70,7 @@ export function CheckoutHeader({ back = { to: '/carrito', label: 'Volver al carr
  * toldo (12 px en móvil) y se fija a 16 px del borde superior al hacer scroll. Los cuatro enlaces pasan
  * al menú por debajo de 768 px, porque entre 601 y 767 px ya no caben en una línea junto al logo y los íconos.
  */
-export default function SiteHeader({ store, menu, session, onSignOut, cartCount, shownCount, cartIconRef }: SiteHeaderProps) {
+export default function SiteHeader({ store, menu, session, onSignOut, cartCount, shownCount, cartIconRef, logoHidden = false, logoAnimated = false }: SiteHeaderProps) {
   const menuButton = useRef<HTMLButtonElement>(null)
   const signedIn = session.status === 'authenticated'
 
@@ -74,7 +81,11 @@ export default function SiteHeader({ store, menu, session, onSignOut, cartCount,
           data-testid="barra"
           className="flex min-h-16 items-center gap-8 rounded-lg border border-relieve bg-betun py-2 pl-6 pr-3 max-[960px]:gap-5 max-[600px]:gap-1 max-[600px]:pl-4"
         >
-          <Link to="/" className={`block shrink-0 rounded-sm ${focusRing}`}>
+          <Link
+            to="/"
+            data-testid="logo-barra"
+            className={`block shrink-0 rounded-sm ${logoAnimated ? 'transition-[opacity,visibility] duration-200 ease-entrada motion-reduce:transition-none' : ''} ${focusRing} ${logoHidden ? 'invisible opacity-0 focus:visible focus:opacity-100 max-[600px]:visible max-[600px]:opacity-100' : ''}`}
+          >
             <img src={logo} alt="Pastelería Ilusión, inicio" width={150} height={66} className="h-auto w-[150px] max-[600px]:w-[120px]" />
           </Link>
           <nav aria-label="Principal" className="flex flex-1 flex-wrap gap-x-7 max-[960px]:gap-x-4 max-md:hidden">

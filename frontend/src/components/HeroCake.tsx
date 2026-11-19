@@ -7,12 +7,25 @@ const CakeScene = lazy(() => import('../three/CakeScene.tsx'))
 
 const SCENE_LABEL = 'Pastel de tres pisos'
 
+/** El color de cada piso del dibujo fijo, como clase de Tailwind (los tokens que usan los pasteles). */
+const TIER_FILL = { betun: 'fill-betun', 'fresa-claro': 'fill-fresa-claro' } as const
+export type StillTierColor = keyof typeof TIER_FILL
+
 /**
  * El pastel fijo: el dibujo de pisos de la marca (`assets/motivos/dibujo-pisos.svg`) con los colores del pastel 3D
  * (pisos `betun` y `fresa-claro`) y su sombra de contacto. Se ve mientras llega la escena y
  * cuando no hay WebGL o se pierde el contexto. Es decorativo: el `h1` y el lema ya dicen de qué es la página.
  */
-export function StaticCake({ hidden = false, testId = 'pastel-portada-fijo' }: { hidden?: boolean; testId?: string }) {
+export function StaticCake({
+  hidden = false,
+  testId = 'pastel-portada-fijo',
+  tiers = ['betun', 'fresa-claro'],
+}: {
+  hidden?: boolean
+  testId?: string
+  /** El color del piso de abajo y el de arriba: por omisión, los del pastel de tres pisos. */
+  tiers?: readonly [StillTierColor, StillTierColor]
+}) {
   return (
     <div
       data-testid={testId}
@@ -28,8 +41,8 @@ export function StaticCake({ hidden = false, testId = 'pastel-portada-fijo' }: {
       >
         {/* El trazo no escala con el dibujo: queda en 3 px a cualquier tamaño. */}
         <g className="stroke-mermelada" strokeWidth={3} vectorEffect="non-scaling-stroke">
-          <rect x="16" y="34" width="32" height="18" rx="2" className="fill-betun" vectorEffect="non-scaling-stroke" />
-          <rect x="22" y="22" width="20" height="12" rx="2" className="fill-fresa-claro" vectorEffect="non-scaling-stroke" />
+          <rect x="16" y="34" width="32" height="18" rx="2" className={TIER_FILL[tiers[0]]} vectorEffect="non-scaling-stroke" />
+          <rect x="22" y="22" width="20" height="12" rx="2" className={TIER_FILL[tiers[1]]} vectorEffect="non-scaling-stroke" />
           <path d="M16 36q4 4 8 0t8 0 8 0 8 0M22 24q2.5 3 5 0t5 0 5 0 5 0M10 54h44" vectorEffect="non-scaling-stroke" />
         </g>
       </svg>
@@ -70,6 +83,8 @@ export default function HeroCake({
   size = 'hero',
   testId = 'pastel-portada',
   onColor = false,
+  label = SCENE_LABEL,
+  stillTiers,
 }: {
   cake: HeroCakeView
   /** `id` de la pista de cómo girarlo, que describe la escena. */
@@ -81,12 +96,16 @@ export default function HeroCake({
   testId?: string
   /** Sobre un campo `mermelada`: el anillo de foco de la escena va en `betun`. */
   onColor?: boolean
+  /** Nombre accesible de la escena: por omisión, "Pastel de tres pisos". */
+  label?: string
+  /** Los colores de los pisos del dibujo fijo, para que coincida con el pastel 3D (la portada, tanda 6). */
+  stillTiers?: readonly [StillTierColor, StillTierColor]
 }) {
   const { observeBox, separateOnScroll, ...scene } = cake
   const ready = scene.status === 'ready'
   return (
     <div ref={observeBox} data-testid={testId} data-state={scene.status} className={`relative ${BOX_HEIGHT[size]}`}>
-      <StaticCake hidden={ready} testId={`${testId}-fijo`} />
+      <StaticCake hidden={ready} testId={`${testId}-fijo`} tiers={stillTiers} />
       {scene.status !== 'fallback' && (
         <SceneBoundary onError={scene.onChunkError}>
           <Suspense fallback={null}>
@@ -96,7 +115,7 @@ export default function HeroCake({
             >
               <CakeScene
                 shape={scene.shape}
-                label={SCENE_LABEL}
+                label={label}
                 describedBy={hintId}
                 reducedMotion={scene.reducedMotion}
                 running={scene.running}
