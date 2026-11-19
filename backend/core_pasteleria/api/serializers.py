@@ -11,6 +11,8 @@ from ..models import (
     CakeShape,
     CakeType,
     CustomerImagePurpose,
+    FruitKind,
+    FruitLayout,
     Fulfillment,
     MessageArrangement,
     MessageColorMode,
@@ -22,6 +24,10 @@ from ..models import (
     Product,
     ProductCategory,
     SalesChannel,
+    SampleDrizzle,
+    SampleShells,
+    SampleSideBits,
+    SampleSideTexture,
     StandLoanStatus,
     WaferShape,
 )
@@ -808,6 +814,55 @@ class ShowcaseDesignSerializer(serializers.Serializer):
     unavailable_reason = serializers.CharField(allow_null=True)
 
 
+def _model_image_field():
+    return serializers.CharField(
+        allow_null=True,
+        help_text=(
+            "Imagen fija del modelo (D86), nombre del archivo estático del frontend: la tarjeta la muestra en lugar de "
+            "`photo`. `null` si la pastelería no la muestra en el catálogo o no tiene: la tarjeta usa `photo`."
+        ),
+    )
+
+
+class SampleDesignSerializer(serializers.Serializer):
+    """La muestra del modelo (D86): lo que dibuja la imagen fija, además del tipo, el pan y el relleno del producto."""
+
+    coverage_color = serializers.CharField(help_text="Color de la cobertura, `#RRGGBB`.")
+    decoration = serializers.SlugField(
+        allow_null=True, help_text="Decoración del paso 6, como en `cake-designs/options`. `null` si ya no está activa."
+    )
+    decoration_color = serializers.CharField(allow_null=True, help_text="`#RRGGBB`; `null` es automático.")
+    fruit_layout = serializers.ChoiceField(choices=FruitLayout.choices, allow_null=True, help_text="`null`: sin fruta.")
+    fruits = serializers.ListField(
+        child=serializers.ChoiceField(choices=FruitKind.choices),
+        help_text="Fruta fresca de la tapa. Solo la dibuja la imagen del catálogo: no se pide.",
+    )
+    side_comb = serializers.BooleanField(help_text="Peinado lateral de la cobertura.")
+    model_image = serializers.CharField(allow_null=True, help_text="Archivo de la imagen; `null` si aún no se genera.")
+    show_model_in_catalog = serializers.BooleanField(help_text="Si el catálogo y la portada muestran la imagen.")
+    # Los detalles de la imagen del catálogo (tanda 4b). Solo los dibuja esa imagen; `null` es "no lleva".
+    top_color = serializers.CharField(allow_null=True, help_text="Color de la tapa, `#RRGGBB`; `null`: el de la cobertura.")
+    top_glossy = serializers.BooleanField(help_text="La tapa brilla como un glaseado de espejo.")
+    side_glossy = serializers.BooleanField(help_text="El costado brilla como la cajeta.")
+    side_texture = serializers.ChoiceField(choices=SampleSideTexture.choices, allow_null=True, help_text="`null`: costado liso.")
+    top_ring_color = serializers.CharField(allow_null=True, help_text="Anillo de mermelada en la tapa, `#RRGGBB`; `null`: sin anillo.")
+    top_ring_width = serializers.FloatField(allow_null=True, help_text="Parte del radio de la tapa que ocupa el anillo, desde la orilla.")
+    side_band_color = serializers.CharField(allow_null=True, help_text="Franja de abajo del costado, `#RRGGBB`; `null`: sin franja.")
+    side_band_height = serializers.FloatField(allow_null=True, help_text="Parte del alto del pastel que ocupa la franja.")
+    drizzle = serializers.ChoiceField(choices=SampleDrizzle.choices, allow_null=True, help_text="`null`: sin hilos.")
+    drizzle_color = serializers.CharField(allow_null=True, help_text="Color de los hilos, `#RRGGBB`.")
+    edge_size = serializers.FloatField(help_text="Tamaño de los rosetones o conchas de duya del borde de arriba; 1 es el del diseñador.")
+    shells = serializers.ChoiceField(choices=SampleShells.choices, allow_null=True, help_text="`null`: sin conchas de chocolate.")
+    shell_color = serializers.CharField(allow_null=True, help_text="Color de las conchas, `#RRGGBB`.")
+    shell_second_color = serializers.CharField(allow_null=True, help_text="Segundo color, que se alterna; `null`: todas iguales.")
+    dusting_color = serializers.CharField(allow_null=True, help_text="Espolvoreado sobre la tapa y las conchas; `null`: sin él.")
+    side_bits = serializers.ChoiceField(choices=SampleSideBits.choices, allow_null=True, help_text="`null`: nada pegado al costado.")
+    side_bits_color = serializers.CharField(allow_null=True, help_text="Color de lo pegado al costado, `#RRGGBB`.")
+    fruit_density = serializers.FloatField(help_text="Lo tupido de la fruta, de 1 (el montón de siempre) a 3 (toda la parte libre de la tapa, alto).")
+    edge_inset = serializers.FloatField(help_text="Cuánto se meten las piezas del borde hacia el centro, en parte del radio de la tapa; 0 es la orilla.")
+    sprinkle_density = serializers.FloatField(help_text="Cuántas veces más chispas que en el diseñador, de 1 a 10.")
+
+
 class ProductCardSerializer(serializers.Serializer):
     """Tarjeta del catálogo, de "Pasteles de la casa" y de "También te puede gustar"."""
 
@@ -848,6 +903,7 @@ class ProductCardSerializer(serializers.Serializer):
             "definido. Si no, el motivo."
         )
     )
+    model_image = _model_image_field()
 
 
 class ProductDetailSerializer(ProductCardSerializer):
@@ -860,6 +916,10 @@ class ProductDetailSerializer(ProductCardSerializer):
     offerings = ProductOfferingSerializer(many=True, help_text="Presentaciones activas, en el orden del admin.")
     related = ProductCardSerializer(
         many=True, help_text="\"También te puede gustar\": otros productos activos de la misma categoría."
+    )
+    sample_design = SampleDesignSerializer(
+        allow_null=True,
+        help_text="La muestra del modelo, que lee la ruta que genera la imagen fija. `null` si el pastel no tiene.",
     )
 
 
@@ -890,6 +950,7 @@ class ShowcaseItemSerializer(StockItemSerializer):
             "del producto. Con `stock` en 0 el rebanado ya se acabó."
         )
     )
+    model_image = _model_image_field()
 
 
 class ShowcaseSerializer(TodayStockSerializer):

@@ -4,7 +4,7 @@ import type { RefObject } from 'react'
 import { Color, ExtrudeGeometry, Object3D } from 'three'
 import type { Group, InstancedMesh, MeshStandardMaterial, Texture } from 'three'
 import { TIER_EDGE_UNITS } from '../models/cakeDesignLayout.ts'
-import type { CakeComb, CakeLayer, CakeShape, CakeSpread, CakeTier } from './cakeShape.ts'
+import type { CakeComb, CakeLayer, CakeShape, CakeSpread, CakeTier, SideTextureKind } from './cakeShape.ts'
 import { rectOutline, rectShape, roundOutline, spreadGeometry, spreadShape } from './creamSpread.ts'
 import type { SpreadShape, SpreadTint } from './creamSpread.ts'
 import { combedProfile, combedSide, roundedProfile, slabOutline, SLAB_CORNER_SEGMENTS } from './comb.ts'
@@ -13,7 +13,12 @@ import { FINISH_LOOKS, FINISH_TILE, finishEnvironment, useFinishTexture } from '
 import FillingPieces from './FillingPieces.tsx'
 import { halfExtents, PLATE_GAP, standScale } from './cakeMetrics.ts'
 import Decoration from './Decoration.tsx'
+import Fruit from './Fruit.tsx'
+import { fruitLayout, lidKeepOut } from './fruit.ts'
 import Lid from './Lid.tsx'
+import SampleDetails, { Board } from './SampleDetails.tsx'
+import { sampleDetailsLayout } from './sampleDetails.ts'
+import { SIDE_TEXTURE_LOOKS, useSideTexture } from './sideTexture.ts'
 import { tierDecoration } from './decorationLayout.ts'
 import type { TierDecoration } from './decorationLayout.ts'
 import { pieceDensityScale } from './pieceBudget.ts'
@@ -322,9 +327,32 @@ function Layer({ tier, form, layer, bottom, animate, seed, densityScale }: Layer
   )
 }
 
-type TierProps = { tier: CakeTier; festoons: CakeShape['festoons']; form: Form; animate: boolean; index: number; densityScale: number; decoration: TierDecoration }
+/** El costado de la cobertura en las imágenes del catálogo (tanda 4b): brillante como la cajeta y con su textura. */
+type FrostingSurface = { glossy: boolean; texture: SideTextureKind | null }
 
-function Tier({ tier, festoons, form, animate, index, densityScale, decoration }: TierProps) {
+/**
+ * Qué parte de la coordenada `v` del torno ocupa el costado recto: `LatheGeometry` reparte `v` por número de puntos, no por largo,
+ * así que la textura del costado se repite según los puntos que caen en él.
+ */
+function sideSpan(profile: readonly { x: number; y: number }[], radius: number, height: number): number {
+  const side = profile.map((point, i) => (point.y >= EDGE - 1e-6 && point.y <= height - EDGE + 1e-6 && point.x >= radius - 0.05 ? i : -1)).filter((i) => i >= 0)
+  const span = side.length > 1 ? (side[side.length - 1] - side[0]) / (profile.length - 1) : 1 / Math.max(1, profile.length - 1)
+  return Math.max(span, 1e-3)
+}
+
+type TierProps = {
+  tier: CakeTier
+  festoons: CakeShape['festoons']
+  form: Form
+  animate: boolean
+  index: number
+  densityScale: number
+  decoration: TierDecoration
+  /** Solo las imágenes del catálogo lo dan, en el último piso. */
+  surface?: FrostingSurface
+}
+
+function Tier({ tier, festoons, form, animate, index, densityScale, decoration, surface }: TierProps) {
   // El peinado lateral (tanda 4) se arma con el perfil, una vez por medida y peine.
   const pitch = tier.comb?.pitch ?? 0
   const depth = tier.comb?.depth ?? 0
@@ -332,14 +360,32 @@ function Tier({ tier, festoons, form, animate, index, densityScale, decoration }
     () => (pitch > 0 ? combedProfile(tier.radius, tier.height, EDGE, { pitch, depth }) : roundedProfile(tier.radius, tier.height, EDGE)),
     [depth, pitch, tier.height, tier.radius],
   )
+  // La textura o el brillo del costado (tanda 4b), repetidos según lo que mide el piso. Sin `surface`, la cobertura de siempre.
+  const textureKind = form === 'round' ? (surface?.texture ?? null) : null
+  const glossy = form === 'round' && surface?.glossy === true
+  const tile = textureKind ? SIDE_TEXTURE_LOOKS[textureKind].tile : FINISH_TILE
+  const repeatU = Math.max(1, Math.round((2 * Math.PI * tier.radius) / tile))
+  const repeatV = Math.max(0.05, (tier.height - 2 * EDGE) / tile / sideSpan(profile, tier.radius, tier.height))
+  const sideTexture = useSideTexture(textureKind, repeatU, repeatV)
+  const sideGloss = useFinishTexture(glossy && !textureKind ? 'caramel' : null, repeatU, repeatV)
+  const frostingTexture = sideTexture ?? sideGloss
+  const frostingBump = textureKind ? SIDE_TEXTURE_LOOKS[textureKind].bumpScale : FINISH_LOOKS.caramel.bumpScale
   const layers = tier.frosting ? [] : (tier.layers ?? [])
   const bottoms = layers.map((_, i) => layers.slice(0, i).reduce((sum, layer) => sum + layer.height * tier.height, 0))
   return (
     <>
       {tier.frosting && (form === 'round' || !tier.comb) && (
         <mesh>
-          {form === 'round' ? <latheGeometry args={[profile, 64]} /> : <RectSlab tier={tier} height={tier.height} split="whole" />}
-          <FoodMaterial color={tier.frosting} roughness={0.8} animate={animate} />
+          {form === 'round' ? <latheGeometry args={[profile, surface ? 128 : 64]} /> : <RectSlab tier={tier} height={tier.height} split="whole" />}
+          <FoodMaterial
+            color={tier.frosting}
+            roughness={glossy ? 0.24 : 0.8}
+            animate={animate}
+            texture={frostingTexture}
+            bumpScale={frostingBump}
+            envMap={glossy ? finishEnvironment() : null}
+            envMapIntensity={1.6}
+          />
         </mesh>
       )}
       {tier.frosting && form !== 'round' && tier.comb && (
@@ -436,11 +482,22 @@ export default function CakeModel({ shape, motion, animateColors = false, animat
   const plate = standScale(shape)
   // El presupuesto de triángulos y la colocación de la decoración cuestan (hay que armar todas las piezas para contarlas):
   // se hacen una vez por forma, medidas, capas y decoración, no con cada `CakeShape` nuevo que arma una respuesta de precio.
-  const shapeKey = JSON.stringify([form, shape.decoration ?? null, shape.tiers])
-  const { densityScale, decorations } = useKeyed(shapeKey, () => {
+  // La fruta de la tapa (solo en las imágenes del catálogo) también se coloca aquí: depende de la decoración del último piso y de
+  // lo que ocupan el mensaje y la oblea, no de la imagen de la oblea.
+  const fruitKey = shape.topping ? [shape.topping, lidKeepOut(shape.lid)] : null
+  // Los detalles de las fotos (tanda 4b, solo las imágenes del catálogo) también: se colocan con la decoración y la fruta se aparta de ellos.
+  const shapeKey = JSON.stringify([form, shape.decoration ?? null, shape.tiers, fruitKey, shape.details ?? null])
+  const { densityScale, decorations, fruit, details } = useKeyed(shapeKey, () => {
     const scale = pieceDensityScale(shape)
-    return { densityScale: scale, decorations: shape.tiers.map((_, i) => tierDecoration(shape, i, scale)) }
+    const placed = shape.tiers.map((_, i) => tierDecoration(shape, i, scale))
+    const top = placed[placed.length - 1]
+    const sample = sampleDetailsLayout(shape, top)
+    return { densityScale: scale, decorations: placed, fruit: fruitLayout(shape, top, sample?.avoid), details: sample }
   })
+  const surface = useMemo(
+    () => (shape.details ? { glossy: shape.details.sideGlossy === true, texture: shape.details.sideTexture ?? null } : undefined),
+    [shape.details],
+  )
   const key = sizeKey(form, extents, plate)
   const latest = useRef({ extents, plate })
   // Se guarda antes de la transición (los efectos corren en orden), no durante el render.
@@ -499,6 +556,7 @@ export default function CakeModel({ shape, motion, animateColors = false, animat
 
   return (
     <group>
+      {shape.board && !shape.stand && <Board shape={shape} />}
       {shape.stand && (
         // El plato crece con el piso de abajo para que no se salga de él.
         <group ref={standRef}>
@@ -514,9 +572,20 @@ export default function CakeModel({ shape, motion, animateColors = false, animat
             }}
             position-y={bases[i]}
           >
-            <Tier tier={tier} festoons={shape.festoons} form={form} animate={animateColors} index={i} densityScale={densityScale} decoration={decorations[i]} />
+            <Tier
+              tier={tier}
+              festoons={shape.festoons}
+              form={form}
+              animate={animateColors}
+              index={i}
+              densityScale={densityScale}
+              decoration={decorations[i]}
+              surface={i === shape.tiers.length - 1 ? surface : undefined}
+            />
             {/* La oblea y el mensaje van sobre la tapa del último piso y suben con él al separar los pisos. */}
             {shape.lid && i === shape.tiers.length - 1 && <Lid lid={shape.lid} height={tier.height} />}
+            {fruit && i === shape.tiers.length - 1 && <Fruit layout={fruit} />}
+            {details && i === shape.tiers.length - 1 && <SampleDetails layout={details} />}
           </group>
         ))}
       </group>

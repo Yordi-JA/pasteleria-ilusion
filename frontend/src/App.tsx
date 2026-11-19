@@ -32,11 +32,24 @@ import Slices from './views/Slices.tsx'
 
 // La muestra de componentes solo existe en desarrollo: Vite reemplaza `import.meta.env.DEV` por `false` en el build y descarta la rama.
 const ComponentSample = import.meta.env.DEV ? lazy(() => import('./views/ComponentSample.tsx')) : null
+// La imagen fija del modelo de un pastel (D86), para `scripts/render-models.mjs`: también solo en desarrollo.
+const CakeRender = import.meta.env.DEV ? lazy(() => import('./views/CakeRender.tsx')) : null
 
 // Rutas de docs/mapa-de-vistas.md. Los estados (cargando, error, vacío) y el menú abierto no son rutas propias.
 export default function App() {
   return (
     <Routes>
+      {/* Fuera del marco: el lienzo de la imagen, sin barra ni pie. */}
+      {CakeRender && (
+        <Route
+          path="/muestra/modelo/:slug"
+          element={
+            <Suspense fallback={null}>
+              <CakeRender />
+            </Suspense>
+          }
+        />
+      )}
       <Route element={<SiteLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/catalogo" element={<Catalog />} />

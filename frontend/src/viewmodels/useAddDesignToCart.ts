@@ -38,7 +38,8 @@ async function blobOf(image: LocalImage) {
  * "Agregar al pedido" de la revisión (paso 8, D55): guarda las imágenes que la persona subió (`IndexedDB`, porque no caben en
  * `localStorage`), agrega el pastel al carrito del navegador y deja el aviso para `AddToCartNotice`. Si las imágenes no se
  * pueden guardar, el pastel entra igual y el aviso dice que hay que elegirlas otra vez. El mismo diseño no entra dos veces.
- * Guardar el diseño en el servidor es de la Etapa 4. Como el aviso del carrito, no se quita solo (WCAG 2.2.1).
+ * Guardar el diseño en el servidor es de la Etapa 4. Como el aviso del carrito, no se quita solo (WCAG 2.2.1). `add` devuelve si
+ * el pastel quedó en el carrito (recién agregado o porque ya estaba), para que el diseñador olvide su borrador (tanda 4).
  */
 export function useAddDesignToCart() {
   const { addDesign, removeDesign, items } = useCart()
@@ -58,14 +59,14 @@ export function useAddDesignToCart() {
       replaces: string | null = null,
       /** La miniatura de la vista previa (tanda 4), o `null` si no se pudo tomar: el pastel entra igual, con el hueco. */
       thumbnail: string | null = null,
-    ) => {
-      if (adding.current) return
+    ): Promise<boolean> => {
+      if (adding.current) return false
       adding.current = true
       setBusy(true)
       try {
         if (items.some((item) => item.kind === 'design' && item.designId === line.designId)) {
           show(DUPLICATE_NOTICE)
-          return
+          return true
         }
         const keys: DesignItem['images'] = {}
         let lost = false
@@ -89,12 +90,12 @@ export function useAddDesignToCart() {
           console.warn('No se pudo agregar el pastel al pedido.', error)
           void deleteDesignImages(Object.values(keys))
           show(FAILED_NOTICE)
-          return
+          return false
         }
         if (!outcome.added) {
           void deleteDesignImages(Object.values(keys))
           show(outcome.limit ? LIMIT_NOTICE : DUPLICATE_NOTICE)
-          return
+          return outcome.duplicate === true
         }
         // El pastel editado ocupa el lugar del que se editó: el de antes sale del carrito (y sus imágenes, del navegador).
         const replaced = replaces !== null && items.some((item) => item.kind === 'design' && item.designId === replaces)
@@ -109,6 +110,7 @@ export function useAddDesignToCart() {
               ? 'Tu pastel quedó en tu pedido en lugar del que editaste.'
               : 'Tu pastel quedó en tu pedido.',
         })
+        return true
       } finally {
         adding.current = false
         setBusy(false)

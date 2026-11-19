@@ -39,11 +39,11 @@ PUBLIC_URLS = [PRODUCTS_URL, product_url("tres-leches-de-durazno"), FEATURED_URL
 
 CARD_FIELDS = {
     "slug", "name", "category", "sales_channel", "cake_type", "bread", "filling_base",
-    "summary", "photo", "in_showcase_today", "sliced_today", "offerings", "showcase_design",
+    "summary", "photo", "in_showcase_today", "sliced_today", "offerings", "showcase_design", "model_image",
 }
 CARD_OFFERING_FIELDS = {"id", "presentation", "price", "price_pending"}
 DETAIL_FIELDS = CARD_FIELDS | {
-    "description", "filling_flavor", "storage_notes", "transport_notes", "related",
+    "description", "filling_flavor", "storage_notes", "transport_notes", "related", "sample_design",
 }
 DETAIL_OFFERING_FIELDS = {
     "id", "presentation", "price", "price_pending", "approx_weight_kg", "servings", "photo", "stock",
@@ -52,8 +52,8 @@ STOCK_ITEM_FIELDS = {
     "offering_id", "product_slug", "product_name", "category", "presentation",
     "price", "photo", "stock", "sold_out",
 }
-# La vitrina agrega `sliced`: la partida es el rebanado (D60). Las rebanadas no lo llevan.
-SHOWCASE_ITEM_FIELDS = STOCK_ITEM_FIELDS | {"sliced"}
+# La vitrina agrega `sliced`: la partida es el rebanado (D60), y `model_image`, la imagen del modelo (D86). Las rebanadas no los llevan.
+SHOWCASE_ITEM_FIELDS = STOCK_ITEM_FIELDS | {"sliced", "model_image"}
 FIRST_FOUR_CAKES = ["tres-leches-de-durazno", "tres-leches-de-fresa", "tres-leches-de-zarzamora", "tres-leches-de-cajeta"]
 PRICE_REQUEST = {
     "kg": 15,
@@ -152,6 +152,8 @@ def test_catalog_card_carries_what_the_card_shows_with_money_as_a_string(api):
         ],
         # Sale en la vitrina, completo con precio y con su pan: "Personalizar este pastel" lo abre como pastel de vitrina.
         "showcase_design": {"available": True, "unavailable_reason": None},
+        # La muestra del modelo que siembra la `0050` (D86): la tarjeta muestra su imagen fija.
+        "model_image": "tres-leches-de-durazno-modelo.webp",
     }
 
 
@@ -482,6 +484,7 @@ def test_showcase_lists_what_was_loaded_today_and_tells_sold_out_from_available(
         "stock": 1,
         "sold_out": False,
         "sliced": False,
+        "model_image": "tres-leches-de-fresa-modelo.webp",
     }
 
 
@@ -502,6 +505,7 @@ def test_showcase_gives_the_sliced_cake_as_its_slice_with_the_photo_of_the_whole
         "stock": 7,
         "sold_out": False,
         "sliced": True,
+        "model_image": None,
     }
     assert api.get(SLICES_URL).json()["items"][0]["photo"] == "posible-rebanada.webp"
 
@@ -721,7 +725,7 @@ def test_schema_marks_money_as_strings_and_only_the_pending_fields_as_nullable(s
     card = components["ProductCard"]
     assert set(card["properties"]) == set(card["required"]) == CARD_FIELDS
     nullable = {name for name, prop in card["properties"].items() if prop.get("nullable") or "oneOf" in prop}
-    assert nullable == {"cake_type", "bread", "filling_base", "photo"}
+    assert nullable == {"cake_type", "bread", "filling_base", "photo", "model_image"}
     stock_item = components["StockItem"]
     assert set(stock_item["properties"]) == STOCK_ITEM_FIELDS
     assert stock_item["properties"]["price"]["type"] == "string"

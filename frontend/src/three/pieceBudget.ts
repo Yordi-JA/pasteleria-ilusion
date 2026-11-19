@@ -1,6 +1,7 @@
 import { halfExtents } from './cakeMetrics.ts'
 import type { CakePieces, CakeShape } from './cakeShape.ts'
 import { decorationTriangles } from './decorationLayout.ts'
+import { fruitBudget } from './fruit.ts'
 
 /**
  * Cuántos trozos lleva cada franja de relleno y la decoración, y cuántos puede llevar toda la escena (D52, D53), sin React
@@ -70,14 +71,17 @@ const SCALE_PASSES = 8
  * queda con la mejor escala que alcanzó.
  */
 export function pieceDensityScale(shape: CakeShape): number {
+  // La fruta de la tapa (`fruit.ts`) aparta su parte antes: su acomodo depende de la decoración ya repartida, y la fruta no
+  // pasa de su parte.
+  const budget = TRIANGLE_BUDGET - fruitBudget(shape.topping)
   const wanted = sceneTriangles(shape)
-  if (wanted <= TRIANGLE_BUDGET) return 1
-  let scale = TRIANGLE_BUDGET / wanted
+  if (wanted <= budget) return 1
+  let scale = budget / wanted
   for (let pass = 0; pass < SCALE_PASSES; pass++) {
     const actual = sceneTriangles(shape, scale)
-    if (actual <= TRIANGLE_BUDGET) break
+    if (actual <= budget) break
     // Un poco por debajo de la proporción, para no quedar siempre al borde.
-    scale *= (TRIANGLE_BUDGET / actual) * 0.97
+    scale *= (budget / actual) * 0.97
   }
   return scale
 }

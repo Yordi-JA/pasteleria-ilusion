@@ -59,9 +59,23 @@ function standCircles(scale: number): Circle[] {
   ]
 }
 
+/** La charola de las imágenes del catálogo (tanda 4b): cuánto más ancha es que el piso de abajo, su grueso y su borde. */
+export const BOARD = { scale: 1.1, thickness: 0.035, rim: 0.05 } as const
+
+/** El radio de la charola: el piso de abajo más su margen. */
+export function boardRadius(shape: CakeShape): number {
+  const bottom = shape.tiers[0]
+  return bottom ? circumradius(bottom, shape.form ?? 'round') * BOARD.scale : 0
+}
+
 export function contentOf(shape: CakeShape): Content {
   const form = shape.form ?? 'round'
   const circles = shape.stand ? standCircles(standScale(shape)) : []
+  if (shape.board) {
+    // La charola: su cara de arriba queda a la altura del pie del pastel; el borde sube y el fondo baja.
+    const r = boardRadius(shape)
+    circles.push({ y: PLATE_GAP + BOARD.rim, r }, { y: PLATE_GAP - BOARD.thickness, r })
+  }
   let base = PLATE_GAP
   for (const tier of shape.tiers) {
     const r = circumradius(tier, form)

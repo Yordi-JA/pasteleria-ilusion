@@ -227,6 +227,18 @@ export function writeDraft(draft: CakeDesignDraft): boolean {
   }
 }
 
+/**
+ * Borra el borrador guardado: el pastel ya está a salvo en su línea del carrito, o la sesión se cerró (tanda 4). La siguiente
+ * visita a "Diseña tu pastel" empieza de cero.
+ */
+export function clearDraft(): void {
+  try {
+    window.sessionStorage.removeItem(DRAFT_STORAGE_KEY)
+  } catch {
+    // Sin almacenamiento no hay borrador guardado que borrar.
+  }
+}
+
 /** Los colores de la lista de la pastelería, con los que se cambia un `slug` viejo por su código. */
 type ColorReference = { slug: string; previewColor: string }
 

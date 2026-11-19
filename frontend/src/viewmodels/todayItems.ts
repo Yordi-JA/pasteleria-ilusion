@@ -3,7 +3,7 @@ import type { ProductCategory, StockItem } from '../models/catalog.ts'
 import { formatPrice } from '../models/money.ts'
 import { offeringLabel } from '../models/presentation.ts'
 import type { Addable } from './useAddToCart.ts'
-import { PHOTO_PLACEHOLDER, photoView } from './productPhoto.ts'
+import { catalogImageView, PHOTO_PLACEHOLDER, photoView } from './productPhoto.ts'
 import type { PhotoView } from './productPhoto.ts'
 import { productHref } from './productCards.ts'
 
@@ -51,14 +51,18 @@ export type ShowcaseItemView =
   | (ShowcaseItemBase & Addable & { kind: 'stock' })
   | (ShowcaseItemBase & { kind: 'sliced'; slicesHref: string; orderHref: string })
 
-export function toShowcaseItem(item: StockItem): ShowcaseItemView {
+/** Con `modelImages` (la portada, D86), la partida muestra la imagen del modelo donde la API la da, en lugar de la foto. */
+export type ShowcaseImages = { modelImages?: boolean }
+
+export function toShowcaseItem(item: StockItem, { modelImages = false }: ShowcaseImages = {}): ShowcaseItemView {
+  const modelImage = modelImages ? item.modelImage : null
   if (item.sliced) {
     return {
       kind: 'sliced',
       key: String(item.offeringId),
       label: item.productName,
       price: `${price(item.price)} la rebanada`,
-      photo: photoView(item.photo, item.productName, PHOTO_PLACEHOLDER[item.category]),
+      photo: catalogImageView(modelImage, item.photo, item.productName, PHOTO_PLACEHOLDER[item.category]),
       soldOut: item.soldOut,
       // Sin la unidad: el precio de arriba ya dice "la rebanada", y en 390 px la frase cabe en una línea.
       remaining: item.soldOut ? null : remainingLabel(item.stock),
@@ -72,7 +76,7 @@ export function toShowcaseItem(item: StockItem): ShowcaseItemView {
     key: String(item.offeringId),
     label,
     price: price(item.price),
-    photo: photoView(item.photo, label, PHOTO_PLACEHOLDER[item.category]),
+    photo: catalogImageView(modelImage, item.photo, label, PHOTO_PLACEHOLDER[item.category]),
     soldOut: item.soldOut,
     remaining: item.soldOut ? null : remainingLabel(item.stock),
     offering: stockItemToCartOffering(item),
@@ -98,10 +102,10 @@ const FILTER_EMPTY: Record<ProductCategory, string> = {
  * todo lo de la vitrina", también el rebanado sin rebanadas) y la frase de un chip sin nada. Los chips se muestran
  * solo con algo que filtrar.
  */
-export function showcaseView(all: StockItem[], filter: ShowcaseFilter, limit = Infinity) {
+export function showcaseView(all: StockItem[], filter: ShowcaseFilter, limit = Infinity, images: ShowcaseImages = {}) {
   const allSoldOut = all.length > 0 && all.every((item) => item.soldOut)
   const inFilter = filter === 'all' ? all : all.filter((item) => item.category === filter)
-  const items = availableFirst(inFilter).slice(0, limit).map(toShowcaseItem)
+  const items = availableFirst(inFilter).slice(0, limit).map((item) => toShowcaseItem(item, images))
   const emptyFilter = !allSoldOut && items.length === 0 && filter !== 'all' ? FILTER_EMPTY[filter] : null
   const filters = all.length > 0 && !allSoldOut ? SHOWCASE_FILTERS.map((option) => ({ ...option, checked: option.value === filter })) : []
   return { total: all.length, allSoldOut, items, emptyFilter, filters }

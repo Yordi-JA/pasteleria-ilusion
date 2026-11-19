@@ -137,6 +137,8 @@ test('parseProductCards keeps valid cards and drops malformed cards and offering
     ],
     // Sin `showcase_design` (una respuesta anterior a la tanda 2), no se personaliza como pastel de vitrina.
     showcaseDesign: null,
+    // Sin `model_image` (una respuesta anterior a D86), la tarjeta usa la foto.
+    modelImage: null,
   })
   // Una foto que no es un nombre de archivo queda pendiente; un resumen que no es texto queda vacío.
   expect(result.parsed[1]).toMatchObject({
@@ -193,6 +195,8 @@ test('parseTodayStock reads the date and the items, marks sold out and drops mal
       stock: 2,
       soldOut: false,
       sliced: false,
+      // Sin `model_image` (una respuesta anterior a D86), la partida usa la foto.
+      modelImage: null,
     },
     // Con 0 piezas está agotada aunque `sold_out` diga otra cosa, y con `sold_out` no se ofrece aunque queden.
     expect.objectContaining({ offeringId: 2, stock: 0, soldOut: true }),

@@ -377,6 +377,22 @@ Lo construido está en D81 a D85 ([`proyecto/decisiones.md`](proyecto/decisiones
 20. El despliegue necesita la migración `0048` (`CakeDesign.side_comb`).
 21. `e2e/site-frame.spec.ts:301` (el primer Tab enfoca "Saltar al contenido") falla seguido aun corriendo sola: 2 de 3 el 18 de noviembre. Esta rama no toca el marco del sitio; hay que revisarla por separado.
 
+## Tanda 4 de correcciones, parte 2 (D86 y D87)
+
+Lo construido está en D86 y D87 ([`proyecto/decisiones.md`](proyecto/decisiones.md)), en la rama `fix/correcciones-tanda-4b`, sin fusionar. Quedan estos puntos:
+
+1. Lo que aún difiere de las fotos: la fruta es más rala en algunos pasteles; el encaje lateral de la fresa es una textura y no relieve; las crestas de la cajeta son una textura de relieve y le faltan los listones de chocolate blanco; la base no tiene el borde acanalado; la mitad de abajo del durazno es ondulada y no pinceladas.
+2. Las imágenes `-modelo.webp` se regeneran a mano con `npm run render:modelos` cuando se cambia un ejemplo en el admin. El cambio no se ve en el sitio hasta publicar los archivos con un despliegue.
+3. Los 7 productos sin foto conservan el hueco "Foto del pastel". Cuando llegue su foto, hay que cargar su ejemplo y generar su imagen.
+4. Los colores de la fruta (`FRUIT_COLORS` en `three/fruit.ts`) y el de la base negra viven en el código, no en el admin.
+5. Los triángulos de los detalles (`three/sampleDetails.ts`) no cuentan en `three/pieceBudget.ts`, porque solo existen en las imágenes.
+6. El despliegue necesita las migraciones `0049` a `0058`.
+7. Tras agregar un diseño, el botón "Atrás" del navegador o una recarga abren el paso 1; el pastel se reabre con "Editar pedido" (D87).
+8. Revertir más allá de la `0051` falla si alguien agregó plátano a otro pastel en el admin: la restricción vieja no lo conoce. Habría que quitarlo antes en la reversa de la `0052`.
+9. `show_model_in_catalog` solo revisa que haya nombre de archivo, no que la imagen exista; si se marca sin desplegar la WebP, la tarjeta muestra el marcador en lugar de la foto real.
+10. Si se cambia algo en el paso 8 mientras se guarda el pastel en el carrito, ese cambio puede perderse al recargar (queda en pantalla). Bastaría comparar el borrador guardado antes de borrarlo.
+11. `product_repo._offerings_queryset` une siempre la muestra y su decoración, también donde no hace falta (dos LEFT JOIN de más por presentación).
+
 ## Confirmar el correo y recuperar la contraseña (D76)
 
 Lo construido está en D76 ([`proyecto/decisiones.md`](proyecto/decisiones.md)), en la rama `feat/verificar-recuperar`, sin desplegar. Quedan estos puntos:

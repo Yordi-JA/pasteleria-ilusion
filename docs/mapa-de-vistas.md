@@ -10,11 +10,15 @@ Los estados (cargando, error, vacío, agotado) no son rutas propias: son la mism
 | --- | --- | --- | --- | --- |
 | Portada | `/` | `Main.dc.html` | [ver](../mockup/capturas/escritorio/001-Main.jpg) | [ver](../mockup/capturas/movil/002-Movil.jpg) |
 
+Nota (D86): en la portada, los destacados y la sección de la vitrina muestran, en los pasteles con foto, la imagen dibujada desde el modelo 3D en lugar de la foto.
+
 ## Catálogo
 
 | Vista | Ruta sugerida | Fuente | Escritorio | Móvil |
 | --- | --- | --- | --- | --- |
 | Catálogo | `/catalogo` | `Catalogo.dc.html` | [ver](../mockup/capturas/escritorio/003-Catalogo.jpg) | [ver](../mockup/capturas/movil/004-CatalogoMovil.jpg) |
+
+Nota (D86): las tarjetas de la cuadrícula muestran, en los pasteles con foto, la imagen dibujada desde el modelo 3D. La ficha conserva la foto real.
 
 ## Inicio de sesión y registro
 

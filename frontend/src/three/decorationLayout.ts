@@ -34,6 +34,22 @@ export const PART_FACES: Record<PartShape, number> = {
   chip: 80,
 }
 
+/**
+ * Hasta dónde llega una instancia de cada parte desde su centro, en unidades de escena y con escala 1 (la geometría de
+ * `Decoration.tsx`, con sus costillas y lóbulos). La fruta de la tapa (`fruit.ts`) lo usa para no meterse en el borde.
+ */
+export const PART_REACH: Record<PartShape, number> = {
+  shell: 0.1,
+  rosette: 0.11,
+  bead: 0.04,
+  pearl: 0.055,
+  rosePetal: 0.05,
+  roseBud: 0.056,
+  leaf: 0.0975,
+  sprinkle: 0.024,
+  chip: 0.032,
+}
+
 /** Una instancia: posición, hacia dónde mira su eje z, giro sobre ese eje, escala, color (índice) y variación de brillo (0.1 es 20 % más). */
 export type Placement = { p: Vec3; dir: Vec3; roll: number; s: Vec3; color: number; tint: number }
 
@@ -156,13 +172,14 @@ const ROSE = {
 } as const
 const SPRINKLE = { density: 28 }
 
-function shells(tier: CakeTier, upper: CakeTier | undefined, form: Form, scale: number, seed: number): DecorationPart[] {
+/** `size` agranda cada pieza y su paso (las imágenes del catálogo, `CakeDecoration.size`); con 1, el diseñador. */
+function shells(tier: CakeTier, upper: CakeTier | undefined, form: Form, scale: number, seed: number, size = 1): DecorationPart[] {
   const perimeter = perimeterOf(tier, form)
   const random = seededRandom(seed)
   const placements: Placement[] = []
   const g = grow(scale)
   for (const [top, y] of [[true, tier.height - SHELL.rim], [false, SHELL.foot]] as const) {
-    for (const interval of intervals(perimeter, SHELL.spacing / scale, 6)) {
+    for (const interval of intervals(perimeter, (SHELL.spacing * size) / scale, 6)) {
       const at = perimeter.at(center(interval))
       if (top && underTier(at.x, at.z, upper, form, 0.04)) continue
       const [tx, tz] = tangent(at)
@@ -171,7 +188,7 @@ function shells(tier: CakeTier, upper: CakeTier | undefined, form: Form, scale: 
         p: [at.x + at.nx * 0.012, y, at.z + at.nz * 0.012],
         dir: normalize([tx * Math.cos(lift), Math.sin(lift), tz * Math.cos(lift)]),
         roll: 0,
-        s: [g ** 0.5, 1, g],
+        s: [g ** 0.5 * size, size, g * size],
         color: 0,
         tint: (random() - 0.5) * 0.08,
       })
@@ -180,16 +197,17 @@ function shells(tier: CakeTier, upper: CakeTier | undefined, form: Form, scale: 
   return [{ shape: 'shell', colors: [], placements }]
 }
 
-function rosettes(tier: CakeTier, upper: CakeTier | undefined, form: Form, scale: number, seed: number): DecorationPart[] {
+function rosettes(tier: CakeTier, upper: CakeTier | undefined, form: Form, scale: number, seed: number, size = 1, extraInset = 0): DecorationPart[] {
   const perimeter = perimeterOf(tier, form)
   const random = seededRandom(seed)
-  const g = grow(scale)
+  const g = grow(scale) * size
   const placements: Placement[] = []
   // Con un piso de arriba casi tan grande, el borde libre es angosto: la roseta se arrima al piso de arriba en vez de
   // quedar toda debajo de él.
   const gap = upper ? Math.min(halfExtents(tier, form).x - halfExtents(upper, form).x, halfExtents(tier, form).z - halfExtents(upper, form).z) : ROSETTE.inset
-  const inset = Math.min(ROSETTE.inset * g ** 0.5, Math.max(0.03, gap))
-  for (const position of rowCenters(perimeter, ROSETTE.spacing / scale, inset, 6)) {
+  // `extraInset` (las imágenes del catálogo) mete la fila hacia el centro; el paso se mide en la vuelta de la orilla.
+  const inset = Math.min(ROSETTE.inset * g ** 0.5, Math.max(0.03, gap)) + extraInset
+  for (const position of rowCenters(perimeter, (ROSETTE.spacing * size) / scale, inset, 6)) {
     const at = perimeter.at(position)
     const x = at.x - at.nx * inset
     const z = at.z - at.nz * inset
@@ -324,7 +342,7 @@ function sprinkles(tier: CakeTier, form: Form, decoration: Extract<CakeDecoratio
   const g = grow(scale)
   const placements: Placement[] = []
   const palette = Math.max(1, decoration.colors.length)
-  for (let i = 0, count = Math.round(sideArea * SPRINKLE.density * scale); i < count; i++) {
+  for (let i = 0, count = Math.round(sideArea * SPRINKLE.density * (decoration.density ?? 1) * scale); i < count; i++) {
     const at = perimeter.at(random() * perimeter.length)
     const size = (0.9 + random() * 0.4) * g ** 0.5
     placements.push({
@@ -354,9 +372,12 @@ export function tierDecoration(shape: CakeShape, index: number, scale = 1): Tier
     parts.map((part) => ({ ...part, colors: part.shape === 'pearl' ? [accent] : [main] }))
   switch (decoration.kind) {
     case 'shells':
-      return { parts: colors(shells(tier, upper, form, scale, seed), decoration.main, decoration.accent), bands: [] }
+      return { parts: colors(shells(tier, upper, form, scale, seed, decoration.size), decoration.main, decoration.accent), bands: [] }
     case 'rosettes':
-      return { parts: colors(rosettes(tier, upper, form, scale, seed), decoration.main, decoration.accent), bands: [] }
+      return {
+        parts: colors(rosettes(tier, upper, form, scale, seed, decoration.size, (decoration.inset ?? 0) * tier.radius), decoration.main, decoration.accent),
+        bands: [],
+      }
     case 'swags':
       return { parts: colors(swags(tier, form, scale, seed), decoration.main, decoration.accent), bands: [] }
     case 'ruffles':

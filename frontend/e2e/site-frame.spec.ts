@@ -301,8 +301,12 @@ test.describe('keyboard', () => {
   test('the first Tab reveals "Saltar al contenido" and Enter moves focus to main', async ({ page }) => {
     await mockStoreInfo(page)
     await page.goto('/vitrina')
-    await page.keyboard.press('Tab')
     const skip = page.getByRole('link', { name: 'Saltar al contenido' })
+    // `load` llega antes del primer render de React (`createRoot` lo agenda aparte): un Tab antes de eso no encuentra nada
+    // que enfocar. Se espera al marco, no a un tiempo fijo; el foco sigue en el documento hasta el Tab.
+    await expect(skip).toBeAttached()
+    await expect(page.locator('body')).toBeFocused()
+    await page.keyboard.press('Tab')
     await expect(skip).toBeFocused()
     await expect(skip).toBeInViewport()
     await page.keyboard.press('Enter')

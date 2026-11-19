@@ -8,7 +8,7 @@ import { availableFirst, showcaseView, toSliceItem } from './todayItems.ts'
 import type { ShowcaseFilter } from './todayItems.ts'
 import { useAddOne } from './useAddToCart.ts'
 import type { AddFeedback, Addable } from './useAddToCart.ts'
-import { PHOTO_PLACEHOLDER, photoView } from './productPhoto.ts'
+import { catalogImageView, PHOTO_PLACEHOLDER } from './productPhoto.ts'
 import type { PhotoView } from './productPhoto.ts'
 import { useRemoteData } from './useRemoteData.ts'
 import type { RemoteData } from './useRemoteData.ts'
@@ -69,7 +69,7 @@ function toFeaturedItem(card: ProductCard): FeaturedItemView {
     name: card.name,
     summary: card.summary,
     price: offering && (offering.presentation === 'whole' ? amount : `${PRESENTATION_LABELS[offering.presentation]}, ${amount}`),
-    photo: photoView(card.photo, card.name, PHOTO_PLACEHOLDER[card.category]),
+    photo: catalogImageView(card.modelImage, card.photo, card.name, PHOTO_PLACEHOLDER[card.category]),
     addable: priced && { offering: toCartOffering(card, priced), label: offeringLabel(card.name, priced.presentation) },
   }
 }
@@ -104,7 +104,8 @@ export function useShowcaseSection() {
 
   const view = useMemo(() => {
     const all: StockItem[] = state.status === 'ready' ? state.data.items : []
-    return showcaseView(all, filter, SHOWCASE_LIMIT)
+    // La portada muestra la imagen del modelo donde la API la da (D86); `/vitrina` conserva las fotos.
+    return showcaseView(all, filter, SHOWCASE_LIMIT, { modelImages: true })
   }, [state, filter])
 
   return {

@@ -13,6 +13,45 @@ from uuid import UUID
 
 
 @dataclass(frozen=True)
+class SampleDesignRecord:
+    """La muestra del modelo de un pastel (D86): lo que dibuja la imagen fija del catálogo, además del producto."""
+
+    coverage_color: str
+    # `None`: la decoración ya no está activa; la imagen no se puede generar.
+    decoration_slug: str | None
+    # Vacío: automático.
+    decoration_color: str
+    # Vacío: sin fruta.
+    fruit_layout: str
+    fruits: tuple[str, ...]
+    side_comb: bool
+    # Vacío: aún no se genera.
+    model_image: str
+    show_model_in_catalog: bool
+    # Los detalles de la imagen del catálogo (tanda 4b). En los textos, vacío es "no lleva".
+    top_color: str = ""
+    top_glossy: bool = False
+    side_glossy: bool = False
+    side_texture: str = ""
+    top_ring_color: str = ""
+    top_ring_width: float | None = None
+    side_band_color: str = ""
+    side_band_height: float | None = None
+    drizzle: str = ""
+    drizzle_color: str = ""
+    edge_size: float = 1.0
+    shells: str = ""
+    shell_color: str = ""
+    shell_second_color: str = ""
+    dusting_color: str = ""
+    side_bits: str = ""
+    side_bits_color: str = ""
+    fruit_density: float = 1.0
+    sprinkle_density: float = 1.0
+    edge_inset: float = 0.0
+
+
+@dataclass(frozen=True)
 class OfferingRecord:
     """Presentación a la venta de un producto, con su precio y sus existencias del día."""
 
@@ -34,6 +73,8 @@ class OfferingRecord:
     stock: int | None
     # La del producto, sin la de la presentación: el rebanado se ve completo en la vitrina (D60).
     product_photo: str
+    # La muestra del modelo del producto (D86): su imagen toma el lugar de la foto del producto en la portada.
+    product_sample_design: SampleDesignRecord | None = None
 
 
 @dataclass(frozen=True)
@@ -59,6 +100,8 @@ class ProductRecord:
     # Lo marca la pastelería para "Pasteles de la casa" de la portada.
     featured_on_home: bool
     offerings: tuple[OfferingRecord, ...]
+    # `None`: el pastel no tiene muestra del modelo (D86).
+    sample_design: SampleDesignRecord | None = None
 
 
 # --- Opciones de "Diseña tu pastel" ---
