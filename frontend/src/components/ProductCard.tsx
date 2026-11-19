@@ -7,8 +7,8 @@ import ProductPhoto from './ProductPhoto.tsx'
 type ProductCardProps = {
   product: ProductCardView
   /**
-   * `feature`: la tarjeta grande de los pasteles, con la foto de tres pisos que sobresale arriba (mockup del
-   * catálogo). `compact`: la de los postres, más chica, con la silueta redonda.
+   * `feature`: la tarjeta grande de los pasteles, con la foto que sobresale arriba (mockup del catálogo; más alta desde la
+   * tanda 6). `compact`: la de los postres, más chica, con la silueta redonda.
    */
   variant?: 'feature' | 'compact'
   /** Una acción más bajo el precio (por ejemplo, "Agregar al pedido" en la vitrina); el catálogo no la lleva. */
@@ -59,10 +59,10 @@ export default function ProductCard({ product, variant = 'feature', action }: Pr
     )
   }
   return (
-    <Card as="article" large className="tarjeta-elevable mt-16 flex h-[calc(100%-4rem)] flex-col gap-2.5 !pt-0">
-      <div className="-mt-16">
-        <ProductPhoto photo={product.photo} shape="tiers3" className="mx-auto w-full max-w-[300px]" />
-        <div aria-hidden="true" className="mx-auto -mt-2.5 h-3.5 w-[56%] rounded-[50%] bg-mermelada/[.16] blur-[10px]" />
+    <Card as="article" large className={featureCard}>
+      <div className={featurePhotoSlot}>
+        <ProductPhoto photo={product.photo} shape="tiers3" fillBox className="w-full" />
+        <div aria-hidden="true" className="mx-auto -mt-2.5 h-3.5 w-[66%] rounded-[50%] bg-mermelada/[.16] blur-[10px]" />
       </div>
       <Tags kind={product.kind} statuses={product.statuses} />
       <h3 className="font-display text-titulo-2">{product.name}</h3>
@@ -77,8 +77,19 @@ export default function ProductCard({ product, variant = 'feature', action }: Pr
   )
 }
 
+/**
+ * La tarjeta grande y el lugar de su foto, que comparte la tarjeta del pastel mini del catálogo. El gesto de la marca (libro de
+ * marca, "Presencia de marca"): el pastel cruza el borde de arriba de la tarjeta. La tarjeta baja 96 px dentro de su celda y el
+ * lugar de la foto sube lo mismo, así lo que sobresale nunca invade la fila de arriba. La caja (360/300) mide lo mismo en todas
+ * las tarjetas, hasta 320 px (288 px en móvil, para que el pastel no toque los lados): la imagen del modelo la llena con su
+ * charola abajo, la foto se acomoda igual (`fillBox`) y el hueco es la silueta del mockup, así cada fila se apoya en la misma
+ * línea. La sombra de contacto va debajo, al 66 % de la caja: el 70 % del pastel, que ocupa el 95 % (libro de marca).
+ */
+export const featureCard = 'tarjeta-elevable mt-24 flex h-[calc(100%-6rem)] flex-col gap-2.5 !pt-0'
+export const featurePhotoSlot = '-mt-24 mx-auto w-full max-w-[320px] max-[600px]:max-w-[288px]'
+
 /** Cuadrícula de las tarjetas grandes: tres columnas, dos hasta 960 px y una en móvil (mockup). */
-export const featureGrid = 'grid grid-cols-3 gap-x-8 gap-y-6 max-[960px]:grid-cols-2 max-[600px]:grid-cols-1'
+export const featureGrid = 'grid grid-cols-3 gap-x-8 gap-y-10 max-[960px]:grid-cols-2 max-[600px]:grid-cols-1'
 
 /** Cuadrícula de las tarjetas compactas: cuatro columnas y dos hasta 960 px, también en móvil (mockup). */
 export const compactGrid = 'grid grid-cols-4 gap-x-6 gap-y-12 max-[960px]:grid-cols-2 max-[600px]:gap-x-4 max-[600px]:gap-y-8'

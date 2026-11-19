@@ -11,6 +11,7 @@ import { mockStoreInfo } from './support/store-info.ts'
  */
 
 const FRAMING = '/src/three/stillFraming.ts'
+const PHOTO_VIEW = '/src/viewmodels/productPhoto.ts'
 
 /** La muestra de la semilla de Tres leches de cajeta (`0050`): cobertura de cajeta, rosetones blancos, peinado y fruta. */
 const CAJETA_SAMPLE = {
@@ -110,7 +111,7 @@ test('fresa lleva su anillo de mermelada y durazno su glaseado; sin detalles, so
   await expect(plain).toHaveAttribute('data-fruit-density', '1')
 })
 
-test('la captura es un WebP de 1200 px, transparente, con el pastel encuadrado como las fotos', async ({ page }) => {
+test('la captura es un WebP de 1200 × 1000 px, transparente, recortada al pastel con la charola abajo', async ({ page }) => {
   const render = await openRender(page, CAJETA_SAMPLE)
   await expect(render).toHaveAttribute('data-state', 'ready', { timeout: 60_000 })
   const measured = await page.evaluate(async (framing) => {
@@ -126,12 +127,12 @@ test('la captura es un WebP de 1200 px, transparente, con el pastel encuadrado c
     return { type: url.slice(0, url.indexOf(';')), width: bitmap.width, height: bitmap.height, corner: data[3], box: opaqueBounds(data, bitmap.width, bitmap.height) }
   }, FRAMING)
   expect(measured.type).toBe('data:image/webp')
-  expect([measured.width, measured.height]).toEqual([1200, 1200])
+  expect([measured.width, measured.height]).toEqual([1200, 1000])
   expect(measured.corner).toBe(0)
-  // 958 px de ancho, centrado, con el borde de abajo en y = 1101 (la compresión puede mover un par de píxeles el borde).
-  expect(Math.abs(measured.box.width - 958)).toBeLessThanOrEqual(4)
-  expect(Math.abs(measured.box.x - 121)).toBeLessThanOrEqual(4)
-  expect(Math.abs(measured.box.y + measured.box.height - 1101)).toBeLessThanOrEqual(4)
+  // 1140 px de ancho, centrado, con la charola en el borde de abajo (la compresión puede mover un par de píxeles el borde).
+  expect(Math.abs(measured.box.width - 1140)).toBeLessThanOrEqual(4)
+  expect(Math.abs(measured.box.x - 30)).toBeLessThanOrEqual(4)
+  expect(Math.abs(measured.box.y + measured.box.height - 1000)).toBeLessThanOrEqual(4)
 })
 
 test('sin muestra del modelo no hay imagen y lo dice', async ({ page }) => {
@@ -147,11 +148,12 @@ test('una decoración que ya no está en "Diseña tu pastel" no se dibuja a medi
   await expect(page.getByRole('alert')).toHaveText('La decoración de la muestra ya no está en "Diseña tu pastel".')
 })
 
-test('el encuadre acomoda cualquier caja a 958 px de ancho con el borde de abajo en 1101', async ({ page }) => {
+test('el encuadre acomoda cualquier caja a 1140 px de ancho con el borde de abajo en 1000, las medidas de la tarjeta', async ({ page }) => {
   await mockStoreInfo(page)
   await page.goto('/legal')
-  const result = await page.evaluate(async (framing) => {
-    const { opaqueBounds, placeInFrame } = await import(framing)
+  const result = await page.evaluate(async ([framing, photoView]) => {
+    const { opaqueBounds, placeInFrame, STILL_FRAME } = await import(framing)
+    const { MODEL_FRAME } = await import(photoView)
     // Una imagen de 6 × 4 con dos píxeles opacos: la caja va de (1, 1) a (4, 2).
     const data = new Uint8ClampedArray(6 * 4 * 4)
     data[(1 * 6 + 1) * 4 + 3] = 255
@@ -162,13 +164,17 @@ test('el encuadre acomoda cualquier caja a 958 px de ancho con el borde de abajo
       empty: opaqueBounds(new Uint8ClampedArray(16), 2, 2),
       wide: placeInFrame({ width: 500, height: 250 }),
       tall: placeInFrame({ width: 100, height: 400 }),
+      still: STILL_FRAME,
+      card: MODEL_FRAME,
     }
-  }, FRAMING)
+  }, [FRAMING, PHOTO_VIEW])
   expect(result.box).toEqual({ x: 1, y: 1, width: 4, height: 2 })
   expect(result.empty).toBeNull()
-  expect(result.wide).toEqual({ x: 121, y: 1101 - 479, width: 958, height: 479 })
-  // Uno muy alto no se sale por arriba: se achica hasta dejar 40 px y sigue centrado y apoyado en 1101.
-  expect(result.tall.y).toBeCloseTo(40)
-  expect(result.tall.y + result.tall.height).toBeCloseTo(1101)
+  expect(result.wide).toEqual({ x: 30, y: 1000 - 570, width: 1140, height: 570 })
+  // Uno muy alto no se sale por arriba: se achica hasta dejar 24 px y sigue centrado y apoyado en 1000.
+  expect(result.tall.y).toBeCloseTo(24)
+  expect(result.tall.y + result.tall.height).toBeCloseTo(1000)
   expect(result.tall.x + result.tall.width / 2).toBeCloseTo(600)
+  // La tarjeta acomoda las fotos con las mismas medidas con que se dibuja la imagen del modelo.
+  expect(result.still).toEqual({ ...result.card, top: result.still.top })
 })

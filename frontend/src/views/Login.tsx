@@ -53,7 +53,7 @@ export default function Login() {
           </>
         }
       >
-        <form noValidate onSubmit={form.submit} aria-label="Iniciar sesión con correo" className="flex flex-col gap-4">
+        <form noValidate onSubmit={form.submit} aria-label="Iniciar sesión con correo" className="flex flex-col gap-5">
           {form.accountConfirmed && <Notice tone="success" title="Tu cuenta quedó confirmada. Entra con tu contraseña." />}
           {form.notice && (
             <Notice tone="error" title={form.notice.title}>
@@ -92,7 +92,6 @@ export default function Login() {
             ref={passwordRef}
             label="Contraseña"
             autoComplete="current-password"
-            placeholder="Escribe tu contraseña"
             value={form.password.value}
             onChange={(event) => form.password.onChange(event.target.value)}
             error={form.password.error}

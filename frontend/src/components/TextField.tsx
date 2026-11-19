@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
+import FieldError from './FieldError.tsx'
 import { focusRing } from './focus.ts'
 
 type TextFieldProps = Omit<ComponentPropsWithRef<'input'>, 'aria-invalid'> & {
@@ -29,7 +30,7 @@ export default function TextField({ label, help, error, trailing, labelNote, id,
       aria-invalid={error ? true : undefined}
       aria-describedby={describedBy}
       className={
-        'h-12 w-full rounded-sm border border-mermelada-suave bg-harina px-[14px] font-sans text-cuerpo text-mermelada ' +
+        'h-12 w-full rounded-sm border border-mermelada-suave bg-betun px-[14px] font-sans text-cuerpo text-mermelada ' +
         'placeholder:text-mermelada-suave placeholder:opacity-100 ' +
         'enabled:hover:border-mermelada aria-[invalid=true]:border-2 aria-[invalid=true]:border-error aria-[invalid=true]:px-[13px] ' +
         'disabled:cursor-not-allowed disabled:border-dashed disabled:border-relieve disabled:bg-nata disabled:text-mermelada-suave ' +
@@ -41,7 +42,7 @@ export default function TextField({ label, help, error, trailing, labelNote, id,
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={inputId} className="text-etiqueta text-mermelada">
+      <label htmlFor={inputId} className="font-display text-[16px] font-medium leading-snug text-mermelada">
         {label}
         {labelNote && <span className="font-normal text-mermelada-suave"> {labelNote}</span>}
       </label>
@@ -59,9 +60,7 @@ export default function TextField({ label, help, error, trailing, labelNote, id,
         </p>
       )}
       {error && (
-        <p id={errorId} className="text-nota font-semibold text-error">
-          {error}
-        </p>
+        <FieldError id={errorId!}>{error}</FieldError>
       )}
     </div>
   )

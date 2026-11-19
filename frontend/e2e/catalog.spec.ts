@@ -87,7 +87,7 @@ test('no filters, no search and no "¿No encuentras el pastel que imaginas?" ban
   await expect(page.getByRole('radio')).toHaveCount(0)
   await expect(page.getByTestId('filtros-catalogo')).toHaveCount(0)
   await expect(page.getByRole('heading', { name: '¿No encuentras el pastel que imaginas?' })).toHaveCount(0)
-  // Un solo pastel 3D: el del encabezado.
+  // Tampoco el pastel de esa banda; desde la tanda 6 el encabezado lleva el dibujo de los pisos (`catalog-header.spec.ts`).
   await expect(page.getByTestId('pastel-imaginas')).toHaveCount(0)
 })
 

@@ -134,3 +134,85 @@ test('la ficha conserva la foto real; sus relacionados usan la imagen del modelo
   const relatedCard = card(page, 'Tres leches con queso y zarzamora')
   await expectImage(relatedCard.getByRole('img', { name: 'Tres leches con queso y zarzamora, ilustración del pastel', exact: true }), RELATED_MODEL)
 })
+
+/** La caja de la foto de una tarjeta grande: la imagen del modelo, el contenedor de la foto agrandada o el hueco. */
+async function photoBoxes(page: Page) {
+  const model = card(page, 'Tres leches de durazno').getByRole('img', { name: 'Tres leches de durazno, ilustración del pastel', exact: true })
+  const photo = card(page, 'Tres leches de fresa').getByRole('img', { name: 'Tres leches de fresa', exact: true })
+  const pending = card(page, 'Tres leches con queso y zarzamora').getByRole('img', { name: 'Foto del pastel pendiente' })
+  await expect(model).toBeVisible()
+  await expect(photo).toBeVisible()
+  await expect(pending).toBeVisible()
+  await expect.poll(() => model.evaluate((img) => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
+  await expect.poll(() => photo.evaluate((img) => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
+  return {
+    model: (await model.boundingBox())!,
+    photoBox: (await photo.locator('..').boundingBox())!,
+    photo: (await photo.boundingBox())!,
+    pending: (await pending.boundingBox())!,
+    article: (await card(page, 'Tres leches de durazno').boundingBox())!,
+  }
+}
+
+async function openMixedRow(page: Page) {
+  const [first, second, third, ...rest] = productCards
+  await mockProducts(page, {
+    cards: withImages([
+      { ...first, photo: PHOTO, model_image: MODEL },
+      { ...second, photo: OTHER_PHOTO, model_image: null },
+      { ...third, photo: null, model_image: null },
+      ...rest,
+    ]),
+  })
+  await page.goto('/catalogo')
+}
+
+test.describe('la fila de pasteles (tanda 6)', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('la imagen del modelo, la foto y el hueco van en la misma caja, que sobresale 96 px de la tarjeta', async ({ page }) => {
+    await openMixedRow(page)
+    const { model, photoBox, photo, pending, article } = await photoBoxes(page)
+    for (const box of [model, photoBox, pending]) {
+      expect(Math.abs(box.y - (article.y - 96))).toBeLessThanOrEqual(1)
+      expect(Math.abs(box.width - model.width)).toBeLessThanOrEqual(1)
+      expect(Math.abs(box.height - model.height)).toBeLessThanOrEqual(1)
+    }
+    // La caja tiene la proporción de la imagen del modelo (1200 × 1000) y ocupa el ancho de la tarjeta (menos su borde y sus 24 px
+    // de relleno), hasta 320 px.
+    expect(Math.abs(model.width - Math.min(320, article.width - 2 - 48))).toBeLessThanOrEqual(1)
+    expect(Math.abs(model.width / model.height - 1.2)).toBeLessThan(0.01)
+    // La foto se agranda hasta que su pastel (958 de 1200 px) mide como el del modelo (1140 de 1200) y su base (y = 1101) cae en
+    // el borde de abajo de la caja, donde está la charola del modelo.
+    expect(Math.abs(photo.width * (958 / 1200) - model.width * (1140 / 1200))).toBeLessThanOrEqual(1)
+    expect(Math.abs(photo.y + photo.height * (1101 / 1200) - (photoBox.y + photoBox.height))).toBeLessThanOrEqual(1)
+  })
+
+  test('en móvil la caja baja a 288 px y nada se sale de la pantalla', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await openMixedRow(page)
+    const { model, photoBox, pending } = await photoBoxes(page)
+    for (const box of [model, photoBox, pending]) expect(Math.abs(box.width - 288)).toBeLessThanOrEqual(1)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  })
+})
+
+test.describe('la foto agrandada no desborda la página (WCAG 1.4.10)', () => {
+  for (const width of [320, 720]) {
+    test(`a ${width} px no hay desplazamiento horizontal y la foto sigue sobresaliendo de la tarjeta`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 })
+      const [first, ...rest] = productCards
+      await mockProducts(page, { cards: withImages([{ ...first, photo: OTHER_PHOTO, model_image: null }, ...rest]) })
+      await page.goto('/catalogo')
+      const article = card(page, 'Tres leches de durazno')
+      const photo = article.getByRole('img', { name: 'Tres leches de durazno', exact: true })
+      await expect(photo).toBeVisible()
+      await expect.poll(() => photo.evaluate((img) => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+      // Solo se recorta a los lados: la caja de la foto sigue subiendo por encima de la tarjeta.
+      const box = (await photo.locator('..').boundingBox())!
+      const outer = (await article.boundingBox())!
+      expect(box.y).toBeLessThan(outer.y)
+    })
+  }
+})

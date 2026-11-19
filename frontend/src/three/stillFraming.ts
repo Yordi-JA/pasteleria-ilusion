@@ -1,12 +1,16 @@
 /**
- * El encuadre de las imágenes fijas del catálogo (D86): cada imagen del modelo se acomoda como las fotos de `public/fotos/`,
- * medidas en las 8 (análisis del 18 de noviembre de 2026): un cuadrado de 1200 px con fondo transparente, el pastel con su base
- * de 958 px de ancho (el 80 %), centrado, y su borde de abajo en y = 1101. Así la imagen del modelo ocupa en la tarjeta el mismo
- * lugar que la foto. Sin React ni three; `captureStill` solo usa lienzos 2D.
+ * El encuadre de las imágenes fijas del catálogo (D86). Hasta la tanda 5 copiaba el de las fotos de `public/fotos/` (un cuadrado
+ * de 1200 px con el pastel al 80 % del ancho y un tercio vacío arriba), y en la tarjeta el pastel se veía chico y bajo. Desde la
+ * tanda 6 la imagen se recorta al pastel: 1200 × 1000 px, la proporción de la caja de la tarjeta grande (360/300), fondo
+ * transparente, el pastel con su charola de 1140 px de ancho (el 95 %), centrado, y la charola en el borde de abajo. Así llena la
+ * caja y sobresale de la tarjeta. Sin React ni three; `captureStill` solo usa lienzos 2D.
  */
 
-/** Las medidas de las fotos en px: el lado del cuadrado, el ancho del pastel, su borde de abajo y el margen mínimo de arriba. */
-export const PHOTO_FRAME = { side: 1200, width: 958, bottom: 1101, top: 40 } as const
+/**
+ * Las medidas de la imagen en px: su ancho y su alto, el ancho del pastel, su borde de abajo y el margen mínimo de arriba. Son las
+ * de `MODEL_FRAME` en `viewmodels/productPhoto.ts`, que acomoda las fotos a este encuadre (`cake-render.spec.ts` lo revisa).
+ */
+export const STILL_FRAME = { width: 1200, height: 1000, cakeWidth: 1140, bottom: 1000, top: 24 } as const
 
 /** Un rectángulo en px, con el origen arriba a la izquierda. */
 export type Box = { x: number; y: number; width: number; height: number }
@@ -40,14 +44,14 @@ export function opaqueBounds(data: ArrayLike<number>, width: number, height: num
 }
 
 /**
- * Dónde va el pastel en el cuadrado de la foto: escalado a `frame.width` de ancho, centrado y con su borde de abajo en
- * `frame.bottom`. Si así no cabe arriba (un pastel muy alto), se achica hasta dejar `frame.top` de margen, sin moverlo de abajo.
+ * Dónde va el pastel en la imagen: escalado a `frame.cakeWidth` de ancho, centrado y con su borde de abajo en `frame.bottom`. Si
+ * así no cabe arriba (un pastel muy alto), se achica hasta dejar `frame.top` de margen, sin moverlo de abajo.
  */
-export function placeInFrame(bounds: Pick<Box, 'width' | 'height'>, frame: typeof PHOTO_FRAME = PHOTO_FRAME): Box {
-  const scale = Math.min(frame.width / bounds.width, (frame.bottom - frame.top) / bounds.height)
+export function placeInFrame(bounds: Pick<Box, 'width' | 'height'>, frame: typeof STILL_FRAME = STILL_FRAME): Box {
+  const scale = Math.min(frame.cakeWidth / bounds.width, (frame.bottom - frame.top) / bounds.height)
   const width = bounds.width * scale
   const height = bounds.height * scale
-  return { x: (frame.side - width) / 2, y: frame.bottom - height, width, height }
+  return { x: (frame.width - width) / 2, y: frame.bottom - height, width, height }
 }
 
 function context2d(width: number, height: number): CanvasRenderingContext2D {
@@ -61,8 +65,8 @@ function context2d(width: number, height: number): CanvasRenderingContext2D {
 
 /**
  * La imagen fija de lo que hay en `source` (el lienzo de la escena recién dibujado, en la misma tarea): busca el pastel por su
- * alfa, lo acomoda con `placeInFrame` sobre un cuadrado transparente y lo codifica como WebP. Lanza si no hay pastel o si el
- * navegador no codifica WebP (la imagen sería otra cosa con nombre `.webp`).
+ * alfa, lo acomoda con `placeInFrame` sobre un lienzo transparente de `STILL_FRAME` y lo codifica como WebP. Lanza si no hay
+ * pastel o si el navegador no codifica WebP (la imagen sería otra cosa con nombre `.webp`).
  */
 export function captureStill(source: HTMLCanvasElement, quality = 0.9): string {
   const copy = context2d(source.width, source.height)
@@ -70,7 +74,7 @@ export function captureStill(source: HTMLCanvasElement, quality = 0.9): string {
   const bounds = opaqueBounds(copy.getImageData(0, 0, source.width, source.height).data, source.width, source.height)
   if (!bounds) throw new Error('La escena no dibujó ningún pastel.')
   const target = placeInFrame(bounds)
-  const frame = context2d(PHOTO_FRAME.side, PHOTO_FRAME.side)
+  const frame = context2d(STILL_FRAME.width, STILL_FRAME.height)
   frame.imageSmoothingQuality = 'high'
   frame.drawImage(copy.canvas, bounds.x, bounds.y, bounds.width, bounds.height, target.x, target.y, target.width, target.height)
   const url = frame.canvas.toDataURL('image/webp', quality)

@@ -5,7 +5,10 @@ import type { CakeSceneStatus, CakeSceneView } from './useCakeScene.ts'
 /** `loading`: se ve el pastel fijo mientras llega la escena; `ready`: ya se dibujó; `fallback`: queda el pastel fijo. */
 export type HeroCakeStatus = CakeSceneStatus
 
-/** El pastel de la portada (libro de marca, "Presencia de marca"), con las medidas del mockup. */
+/**
+ * El pastel de tres pisos de la marca (libro de marca, "Presencia de marca"), con las medidas del mockup: el de `/entrar` y
+ * `/registro`. La portada lleva el de dos pisos de `homeCake.ts` (tanda 6).
+ */
 export const HERO_CAKE: CakeShape = {
   tiers: [
     { radius: 1.5, height: 1.12, frosting: 'betun' },
@@ -22,10 +25,10 @@ const VISIBLE_MARGIN = '72px 0px 0px 0px'
 /**
  * View-model del pastel de tres pisos: la escena compartida (`useCakeScene`) con el pastel del hero. En la portada los
  * pisos se separan con el scroll y el lienzo sube 72 px; en el catálogo (D59) el mismo pastel no se separa, así que
- * solo cuenta su caja para saber si se ve.
+ * solo cuenta su caja para saber si se ve. `shape` es el pastel que se dibuja: por omisión, el de tres pisos.
  */
-export function useHeroCake({ separateOnScroll = true }: { separateOnScroll?: boolean } = {}) {
-  return { ...useCakeScene(HERO_CAKE, separateOnScroll ? VISIBLE_MARGIN : '0px'), separateOnScroll }
+export function useHeroCake({ separateOnScroll = true, shape = HERO_CAKE }: { separateOnScroll?: boolean; shape?: CakeShape } = {}) {
+  return { ...useCakeScene(shape, separateOnScroll ? VISIBLE_MARGIN : '0px'), separateOnScroll }
 }
 
 export type HeroCakeView = CakeSceneView & { separateOnScroll: boolean }

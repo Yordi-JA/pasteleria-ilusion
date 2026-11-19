@@ -9,7 +9,7 @@ const CakeStill = lazy(() => import('../three/CakeStill.tsx'))
 /**
  * La imagen fija del modelo de un pastel (D86), para `frontend/scripts/render-models.mjs`. Solo existe en desarrollo (ver
  * `App.tsx`), fuera del marco del sitio, sin enlaces que lleven a ella y con `noindex`: es una herramienta, no una pantalla. El
- * lienzo mide 1200 px por lado y es transparente, como las fotos de `public/fotos/`.
+ * lienzo mide 1200 px por lado y es transparente; `three/stillFraming.ts` recorta de ahí la imagen al pastel.
  */
 export default function CakeRender() {
   const { slug = '' } = useParams()

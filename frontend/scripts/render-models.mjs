@@ -1,6 +1,6 @@
 // Genera las imágenes fijas del modelo de los pasteles del catálogo (D86): abre `/muestra/modelo/<slug>` en Chromium (el de
-// Playwright, que ya es dependencia), espera a que la escena dibuje y guarda `public/fotos/<archivo>` (WebP de 1200 px,
-// transparente, con el encuadre de las fotos).
+// Playwright, que ya es dependencia), espera a que la escena dibuje y guarda `public/fotos/<archivo>` (WebP de 1200 × 1000 px,
+// transparente, recortado al pastel con la charola abajo; ver `src/three/stillFraming.ts`).
 //
 // Necesita el servidor de desarrollo (`npm run dev`, la ruta solo existe ahí) y Django con la base local (la muestra sale de la
 // API). Uso, desde `frontend/`:

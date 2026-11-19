@@ -14,6 +14,7 @@ import { checkoutBack } from '../viewmodels/referenceView.ts'
 import { useRouteFade } from '../viewmodels/useRouteFade.ts'
 import { useRouteFocus } from '../viewmodels/useRouteFocus.ts'
 import { claimDeliveryChoice, forgetDeliveryChoice } from '../viewmodels/useDelivery.ts'
+import { BarLogoContext, useBarLogoState } from '../viewmodels/useBarLogo.ts'
 import { useRestoreSession, useSession, useSignInEffect, useSignOut, useSignOutAcknowledgement, useSignOutEffect } from '../viewmodels/useSession.ts'
 import { useSiteMenu } from '../viewmodels/useSiteMenu.ts'
 import { useStoreInfo } from '../viewmodels/useStoreInfo.ts'
@@ -56,46 +57,52 @@ export default function SiteLayout() {
   const [closingField, setClosingField] = useClosingFieldState()
   const location = useLocation()
   const checkout = CHECKOUT_PATHS.has(location.pathname)
+  // El logo de la barra y el logotipo grande de la portada no se ven juntos (tanda 6).
+  const { barLogoHidden, barLogoAnimated, registerHeroLogo } = useBarLogoState(location.pathname === '/')
 
   return (
     <CartContext value={cart}>
       <CartFlightContext value={flight}>
         <ClosingFieldContext value={setClosingField}>
-          {/* El fondo fresa es el campo detrás de la barra flotante, entre el toldo y la primera sección. */}
-          <div className="flex min-h-screen flex-col bg-fresa font-sans text-cuerpo text-mermelada">
-            <a
-              href="#contenido"
-              className={
-                'fixed left-4 top-4 z-50 -translate-y-[200%] rounded-md bg-mermelada px-[18px] py-3 text-etiqueta text-sobre-color ' +
-                'shadow-[0_0_0_3px_theme(colors.fresa)] outline-none focus:translate-y-0 motion-safe:transition-transform'
-              }
-            >
-              Saltar al contenido
-            </a>
-            {checkout && <CheckoutStrip store={store} payments={location.pathname === PAYMENT_PATH} />}
-            <div data-testid="toldo" className="toldo" aria-hidden="true" />
-            {checkout ? (
-              <CheckoutHeader back={checkoutBack(location.pathname, location.search)} />
-            ) : (
-              <SiteHeader
-                store={store}
-                menu={menu}
-                session={session}
-                onSignOut={signOut}
-                cartCount={cart.count}
-                shownCount={shownCount}
-                cartIconRef={iconRef}
-              />
-            )}
-            {session.status === 'anonymous' && session.logoutUnconfirmed && <LogoutUnconfirmedNotice onRetry={signOut} />}
-            <main id="contenido" ref={main} tabIndex={-1} className="flex-1 scroll-mt-24 bg-nata outline-none">
-              {/* Las vistas que necesitan los datos del negocio los leen con `useStoreDetails`, sin otra petición. */}
-              <Outlet context={store} />
-            </main>
-            <Duya color={closingField} below="mermelada" />
-            <SiteFooter store={store} compact={checkout} />
-          </div>
-          <CartPearls pearls={pearls} onArrive={arrive} />
+          <BarLogoContext value={registerHeroLogo}>
+            {/* El fondo fresa es el campo detrás de la barra flotante, entre el toldo y la primera sección. */}
+            <div className="flex min-h-screen flex-col bg-fresa font-sans text-cuerpo text-mermelada">
+              <a
+                href="#contenido"
+                className={
+                  'fixed left-4 top-4 z-50 -translate-y-[200%] rounded-md bg-mermelada px-[18px] py-3 text-etiqueta text-sobre-color ' +
+                  'shadow-[0_0_0_3px_theme(colors.fresa)] outline-none focus:translate-y-0 motion-safe:transition-transform'
+                }
+              >
+                Saltar al contenido
+              </a>
+              {checkout && <CheckoutStrip store={store} payments={location.pathname === PAYMENT_PATH} />}
+              <div data-testid="toldo" className="toldo" aria-hidden="true" />
+              {checkout ? (
+                <CheckoutHeader back={checkoutBack(location.pathname, location.search)} />
+              ) : (
+                <SiteHeader
+                  store={store}
+                  menu={menu}
+                  session={session}
+                  onSignOut={signOut}
+                  cartCount={cart.count}
+                  shownCount={shownCount}
+                  cartIconRef={iconRef}
+                  logoHidden={barLogoHidden}
+                  logoAnimated={barLogoAnimated}
+                />
+              )}
+              {session.status === 'anonymous' && session.logoutUnconfirmed && <LogoutUnconfirmedNotice onRetry={signOut} />}
+              <main id="contenido" ref={main} tabIndex={-1} className="flex-1 scroll-mt-24 bg-nata outline-none">
+                {/* Las vistas que necesitan los datos del negocio los leen con `useStoreDetails`, sin otra petición. */}
+                <Outlet context={store} />
+              </main>
+              <Duya color={closingField} below="mermelada" />
+              <SiteFooter store={store} compact={checkout} />
+            </div>
+            <CartPearls pearls={pearls} onArrive={arrive} />
+          </BarLogoContext>
         </ClosingFieldContext>
       </CartFlightContext>
     </CartContext>

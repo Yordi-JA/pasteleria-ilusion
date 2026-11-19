@@ -4,6 +4,8 @@ import logo from '../../../../assets/logos/ilusion-logo.svg'
 import ButtonLink from '../../components/ButtonLink.tsx'
 import HeroCake from '../../components/HeroCake.tsx'
 import { ORDER_LINK } from '../../components/navigation.ts'
+import { HOME_CAKE, HOME_CAKE_LABEL, HOME_CAKE_STILL } from '../../viewmodels/homeCake.ts'
+import { useHeroLogoRef } from '../../viewmodels/useBarLogo.ts'
 import { useHeroCake } from '../../viewmodels/useHeroCake.ts'
 import { Field } from './sectionLayout.tsx'
 
@@ -16,9 +18,13 @@ const HINT_ID = 'pastel-pista'
  * pastel para girarlo." guarda su lugar invisible hasta que la escena 3D se dibuja, para no mover la columna ni
  * prometer un gesto que el pastel fijo no tiene; en móvil se oculta, como en el mockup. Describe la escena
  * (`aria-describedby`) con sus dos frases; con el foco del teclado en la escena, la visible es la de las flechas.
+ *
+ * El pastel es el de dos pisos de `homeCake.ts` (tanda 6): cobertura peinada y una decoración del diseñador; su dibujo fijo lleva
+ * los mismos colores. El logotipo grande se registra en el marco (`useHeroLogoRef`): mientras se ve, la barra no muestra el suyo.
  */
 export default function HomeHero() {
-  const cake = useHeroCake()
+  const cake = useHeroCake({ shape: HOME_CAKE })
+  const heroLogo = useHeroLogoRef()
   const actions = useRef<HTMLDivElement>(null)
   // Si la escena con foco desaparece (se perdió el contexto), el foco pasa a "Ver la vitrina", no a `<body>`.
   const focusLastAction = () => actions.current?.querySelector<HTMLElement>('a:last-of-type')?.focus()
@@ -27,7 +33,7 @@ export default function HomeHero() {
       <div className="mx-auto grid w-full max-w-[1200px] grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] items-center gap-6 px-6 pb-6 pt-8 max-[960px]:grid-cols-1 max-[600px]:px-4">
         <div className="flex flex-col gap-6">
           <h1 id="portada-titulo" className="-ml-2 leading-none max-[600px]:sr-only">
-            <img src={logo} alt="" width={565} height={247} className="block h-auto w-full max-w-[640px] max-[600px]:hidden" />
+            <img ref={heroLogo} src={logo} alt="" width={565} height={247} className="block h-auto w-full max-w-[640px] max-[600px]:hidden" />
             <span className="sr-only">Pastelería Ilusión</span>
           </h1>
           <p className="font-display text-titulo-1 text-mermelada">Pide un deseo. Del pastel nos encargamos.</p>
@@ -66,7 +72,13 @@ export default function HomeHero() {
             <span className={cake.keyboardFocus ? '' : 'sr-only'}>Usa las flechas izquierda y derecha para girarlo.</span>
           </p>
         </div>
-        <HeroCake cake={cake} hintId={HINT_ID} onFocusEscape={focusLastAction} />
+        <HeroCake
+          cake={cake}
+          hintId={HINT_ID}
+          onFocusEscape={focusLastAction}
+          label={HOME_CAKE_LABEL}
+          stillTiers={HOME_CAKE_STILL}
+        />
       </div>
     </Field>
   )

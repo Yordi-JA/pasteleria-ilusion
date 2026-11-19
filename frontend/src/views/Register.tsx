@@ -1,5 +1,7 @@
+import { Check } from '@phosphor-icons/react'
 import { Link, Navigate } from 'react-router'
 import Button from '../components/Button.tsx'
+import FieldError from '../components/FieldError.tsx'
 import { focusRingWithin, inlineLink } from '../components/focus.ts'
 import Notice from '../components/Notice.tsx'
 import PasswordField from '../components/PasswordField.tsx'
@@ -104,7 +106,7 @@ export default function Register() {
           </p>
         }
       >
-        <form noValidate onSubmit={form.submit} aria-label="Crear cuenta con correo" className="flex flex-col gap-4">
+        <form noValidate onSubmit={form.submit} aria-label="Crear cuenta con correo" className="flex flex-col gap-5">
           {form.notice && (
             <Notice tone="error" title={form.notice.title}>
               {form.notice.detail}
@@ -114,7 +116,6 @@ export default function Register() {
             ref={fullNameRef}
             label="Nombre completo"
             autoComplete="name"
-            placeholder="Ej. Ana López García"
             maxLength={150}
             value={form.fullName.value}
             onChange={(event) => form.fullName.onChange(event.target.value)}
@@ -152,7 +153,6 @@ export default function Register() {
             ref={passwordRef}
             label="Contraseña"
             autoComplete="new-password"
-            placeholder="Crea una contraseña"
             help={PASSWORD_HELP}
             value={form.password.value}
             onChange={(event) => form.password.onChange(event.target.value)}
@@ -160,23 +160,24 @@ export default function Register() {
           />
           <div className="flex flex-col gap-1.5">
             <label className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-sm text-[15px] leading-[1.5] ${focusRingWithin}`}>
-              <input
-                ref={termsRef}
-                type="checkbox"
-                checked={form.acceptsTerms.value}
-                onChange={(event) => form.acceptsTerms.onChange(event.target.checked)}
-                aria-invalid={form.acceptsTerms.error ? true : undefined}
-                aria-describedby={form.acceptsTerms.error ? 'terminos-error' : undefined}
-                className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-mermelada"
-              />
+              <span className="relative mt-0.5 flex size-5 shrink-0">
+                <input
+                  ref={termsRef}
+                  type="checkbox"
+                  checked={form.acceptsTerms.value}
+                  onChange={(event) => form.acceptsTerms.onChange(event.target.checked)}
+                  aria-invalid={form.acceptsTerms.error ? true : undefined}
+                  aria-describedby={form.acceptsTerms.error ? 'terminos-error' : undefined}
+                  className="peer size-5 shrink-0 cursor-pointer appearance-none rounded-sm border border-mermelada-suave bg-betun checked:border-mermelada checked:bg-mermelada aria-[invalid=true]:border-2 aria-[invalid=true]:border-error"
+                />
+                <Check size={14} weight="bold" aria-hidden="true" className="pointer-events-none absolute left-[3px] top-[3px] hidden text-betun peer-checked:block" />
+              </span>
               <span>
                 Acepto <LegalLinks />.
               </span>
             </label>
             {form.acceptsTerms.error && (
-              <p id="terminos-error" className="text-nota font-semibold text-error">
-                {form.acceptsTerms.error}
-              </p>
+              <FieldError id="terminos-error">{form.acceptsTerms.error}</FieldError>
             )}
           </div>
           <Button type="submit" disabled={form.submitting} className="w-full">
