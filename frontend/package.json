@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "lint": "oxlint",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "render:modelos": "node scripts/render-models.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "2.1.10",

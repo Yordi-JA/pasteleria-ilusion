@@ -14,6 +14,10 @@ Aquí viven las reglas de lectura del catálogo; el repositorio solo consulta:
 - En la vitrina y las rebanadas, una presentación con existencias en 0 sale
   agotada; la que no se cargó para hoy no sale.
 - Lo vacío (foto, conservación, transporte) es PENDIENTE y sale como `None`.
+- La imagen del modelo (D86): la tarjeta, los pasteles de la casa y la vitrina la dan
+  (`model_image`) solo si la pastelería la muestra en el catálogo y su archivo existe; en la
+  vitrina, solo donde va la foto del producto. La ficha da la muestra completa
+  (`sample_design`), que lee la ruta que genera la imagen, y conserva su foto.
 - "Pasteles de la casa": ver `list_home_featured`.
 """
 from dataclasses import dataclass
@@ -24,7 +28,7 @@ from django.utils import timezone
 
 from ..models import Presentation, ProductCategory, SalesChannel
 from ..repositories import product_repo
-from ..repositories.records import OfferingRecord, ProductRecord
+from ..repositories.records import OfferingRecord, ProductRecord, SampleDesignRecord
 from .pricing_service import showcase_product_unavailable
 
 # La portada tiene un pastel grande y tres chicos (mockup `Main`, "Pasteles de la
@@ -63,6 +67,41 @@ class ShowcaseDesign:
 
 
 @dataclass(frozen=True)
+class SampleDesign:
+    """La muestra del modelo (D86): cobertura, decoración, peinado, fruta e imagen. Lo vacío sale como `None`."""
+
+    coverage_color: str
+    decoration: str | None
+    decoration_color: str | None
+    fruit_layout: str | None
+    fruits: tuple[str, ...]
+    side_comb: bool
+    model_image: str | None
+    show_model_in_catalog: bool
+    # Los detalles de la imagen del catálogo (tanda 4b); lo que no lleva sale como `None`.
+    top_color: str | None = None
+    top_glossy: bool = False
+    side_glossy: bool = False
+    side_texture: str | None = None
+    top_ring_color: str | None = None
+    top_ring_width: float | None = None
+    side_band_color: str | None = None
+    side_band_height: float | None = None
+    drizzle: str | None = None
+    drizzle_color: str | None = None
+    edge_size: float = 1.0
+    shells: str | None = None
+    shell_color: str | None = None
+    shell_second_color: str | None = None
+    dusting_color: str | None = None
+    side_bits: str | None = None
+    side_bits_color: str | None = None
+    fruit_density: float = 1.0
+    sprinkle_density: float = 1.0
+    edge_inset: float = 0.0
+
+
+@dataclass(frozen=True)
 class ProductCard:
     slug: str
     name: str
@@ -78,6 +117,8 @@ class ProductCard:
     sliced_today: bool
     offerings: tuple[Offering, ...]
     showcase_design: ShowcaseDesign
+    # La imagen fija del modelo que la tarjeta muestra en lugar de `photo`; `None`: la tarjeta usa la foto.
+    model_image: str | None
 
 
 @dataclass(frozen=True)
@@ -87,6 +128,7 @@ class ProductDetail(ProductCard):
     storage_notes: str | None
     transport_notes: str | None
     related: tuple[ProductCard, ...]
+    sample_design: SampleDesign | None
 
 
 @dataclass(frozen=True)
@@ -111,6 +153,8 @@ class ShowcaseItem(StockItem):
     """
 
     sliced: bool
+    # La imagen del modelo donde va la foto del producto (D86); `None`: la partida usa `photo`.
+    model_image: str | None
 
 
 @dataclass(frozen=True)
@@ -134,6 +178,48 @@ def _has_pieces_today(offering: OfferingRecord) -> bool:
 
 def _has_slices_left_today(offering: OfferingRecord) -> bool:
     return offering.presentation == Presentation.SLICE and (offering.stock or 0) > 0
+
+
+def _catalog_model_image(sample: SampleDesignRecord | None) -> str | None:
+    """La imagen del modelo que se muestra en el catálogo: solo con `show_model_in_catalog` y su archivo."""
+    if sample is None or not sample.show_model_in_catalog:
+        return None
+    return _pending_if_blank(sample.model_image)
+
+
+def _sample_design(sample: SampleDesignRecord | None) -> SampleDesign | None:
+    if sample is None:
+        return None
+    return SampleDesign(
+        coverage_color=sample.coverage_color,
+        decoration=sample.decoration_slug,
+        decoration_color=_pending_if_blank(sample.decoration_color),
+        fruit_layout=_pending_if_blank(sample.fruit_layout),
+        fruits=sample.fruits,
+        side_comb=sample.side_comb,
+        model_image=_pending_if_blank(sample.model_image),
+        show_model_in_catalog=sample.show_model_in_catalog,
+        top_color=_pending_if_blank(sample.top_color),
+        top_glossy=sample.top_glossy,
+        side_glossy=sample.side_glossy,
+        side_texture=_pending_if_blank(sample.side_texture),
+        top_ring_color=_pending_if_blank(sample.top_ring_color),
+        top_ring_width=sample.top_ring_width,
+        side_band_color=_pending_if_blank(sample.side_band_color),
+        side_band_height=sample.side_band_height,
+        drizzle=_pending_if_blank(sample.drizzle),
+        drizzle_color=_pending_if_blank(sample.drizzle_color),
+        edge_size=sample.edge_size,
+        shells=_pending_if_blank(sample.shells),
+        shell_color=_pending_if_blank(sample.shell_color),
+        shell_second_color=_pending_if_blank(sample.shell_second_color),
+        dusting_color=_pending_if_blank(sample.dusting_color),
+        side_bits=_pending_if_blank(sample.side_bits),
+        side_bits_color=_pending_if_blank(sample.side_bits_color),
+        fruit_density=sample.fruit_density,
+        sprinkle_density=sample.sprinkle_density,
+        edge_inset=sample.edge_inset,
+    )
 
 
 def _offering(record: OfferingRecord) -> Offering:
@@ -163,6 +249,7 @@ def _card_fields(record: ProductRecord) -> dict:
         "sliced_today": any(_has_slices_left_today(o) for o in record.offerings),
         "offerings": tuple(_offering(o) for o in record.offerings),
         "showcase_design": _showcase_design(record),
+        "model_image": _catalog_model_image(record.sample_design),
     }
 
 
@@ -195,12 +282,18 @@ def _stock_item(record: OfferingRecord) -> StockItem:
 
 
 def _showcase_item(record: OfferingRecord) -> ShowcaseItem:
-    """Una rebanada cargada hoy en la vitrina es el rebanado, con la foto del pastel completo."""
+    """Una rebanada cargada hoy en la vitrina es el rebanado, con la foto del pastel completo.
+
+    La imagen del modelo (D86) toma el lugar de la foto del producto, no la de una presentación con foto propia (un mini
+    con la suya la conserva).
+    """
     sliced = record.presentation == Presentation.SLICE
     fields = _stock_item_fields(record)
     if sliced:
         fields["photo"] = _pending_if_blank(record.product_photo)
-    return ShowcaseItem(**fields, sliced=sliced)
+    shows_product_photo = sliced or record.photo == record.product_photo
+    model_image = _catalog_model_image(record.product_sample_design) if shows_product_photo else None
+    return ShowcaseItem(**fields, sliced=sliced, model_image=model_image)
 
 
 def list_catalog(
@@ -229,6 +322,7 @@ def get_product(slug: str, *, products=product_repo, today: date | None = None) 
         storage_notes=_pending_if_blank(record.storage_notes),
         transport_notes=_pending_if_blank(record.transport_notes),
         related=tuple(_card(item) for item in related),
+        sample_design=_sample_design(record.sample_design),
     )
 
 

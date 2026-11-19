@@ -5,7 +5,7 @@ from decimal import Decimal
 import pytest
 from django.apps import apps
 
-from core_pasteleria.models import DecorationOption
+from core_pasteleria.models import DecorationOption, ProductSampleDesign
 
 migration = importlib.import_module("core_pasteleria.migrations.0026_seed_decoration_prices")
 
@@ -20,6 +20,8 @@ def row(slug):
 
 @pytest.fixture
 def as_after_the_0024():
+    # Las muestras del modelo de la `0050` (D86) protegen sus decoraciones: la reversa real las quita antes que la `0026`.
+    ProductSampleDesign.objects.all().delete()
     migration.restore(apps, None)
 
 

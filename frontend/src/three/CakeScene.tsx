@@ -226,6 +226,20 @@ function useFraming(framing: SceneFraming | null) {
   }, [framing, get, invalidate, size.height, size.width])
 }
 
+/**
+ * Luz suave de ambiente (cielo `betun`, rebote `nata`) y una principal arriba a la izquierda, como el sombreado del prototipo: la
+ * cara iluminada queda en el color del token y la opuesta, un poco más oscura. La comparten esta escena y la de las imágenes fijas
+ * del catálogo (`CakeStill.tsx`), así el pastel se ve igual en las dos.
+ */
+export function SceneLights() {
+  return (
+    <>
+      <hemisphereLight args={[brandColor('betun'), brandColor('nata'), 2.6]} />
+      <directionalLight color={brandColor('betun')} intensity={1.1} position={[-3, 5, 4]} />
+    </>
+  )
+}
+
 type RigProps = {
   shape: CakeShape
   running: boolean
@@ -320,10 +334,7 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnS
 
   return (
     <>
-      {/* Luz suave de ambiente (cielo `betun`, rebote `nata`) y una principal arriba a la izquierda, como el
-          sombreado del prototipo: la cara iluminada queda en el color del token y la opuesta, un poco más oscura. */}
-      <hemisphereLight args={[brandColor('betun'), brandColor('nata'), 2.6]} />
-      <directionalLight color={brandColor('betun')} intensity={1.1} position={[-3, 5, 4]} />
+      <SceneLights />
       <group ref={cake}>
         <CakeModel shape={shape} motion={motion} animateColors={!reducedMotion} animateSize={!reducedMotion} />
       </group>

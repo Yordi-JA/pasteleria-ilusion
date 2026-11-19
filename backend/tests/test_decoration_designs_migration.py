@@ -5,7 +5,7 @@ from decimal import Decimal
 import pytest
 from django.apps import apps
 
-from core_pasteleria.models import DecorationOption
+from core_pasteleria.models import DecorationOption, ProductSampleDesign
 
 migration = importlib.import_module("core_pasteleria.migrations.0023_seed_decoration_designs")
 prices = importlib.import_module("core_pasteleria.migrations.0026_seed_decoration_prices")
@@ -15,7 +15,12 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture(autouse=True)
 def as_after_the_0024():
-    """Estas pruebas miran lo que la 0023 sembró: se deshacen los precios y las chispas de la 0026 (D54)."""
+    """Estas pruebas miran lo que la 0023 sembró: se deshacen los precios y las chispas de la 0026 (D54).
+
+    Las muestras del modelo de la `0050` (D86) todavía no existían y protegen sus decoraciones: se quitan primero, como
+    hace la reversa real, que deshace la `0050` antes que la `0026`.
+    """
+    ProductSampleDesign.objects.all().delete()
     prices.restore(apps, None)
 
 ORDER = ["ninguna", "duya", "rosetones", "festones", "olanes", "flores", "chispas", "otra"]

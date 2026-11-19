@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import { clearDraft, readDraft } from '../models/cakeDesignDraft.ts'
 import { readDeliveryChoice, writeDeliveryChoice } from '../models/deliveryChoice.ts'
 import type { PlacedOrder } from '../models/orders.ts'
 import { cartLines, cartSummary } from './cartLines.ts'
@@ -256,6 +257,9 @@ export function useDelivery(focus: CartDeliveryFocus) {
     finished.current = true
     writeDeliveryChoice(null)
     cart.clear()
+    // Una edición de "Editar pedido" que no se volvió a agregar ya no tiene línea que reemplazar: el pastel de antes va en el
+    // pedido. Un diseño nuevo a medias, que nunca se agregó, se queda (D49).
+    if (readDraft().replaces !== null) clearDraft()
     if (result.order.status === 'awaiting_quote') {
       setPlacedQuote(result.order)
       focusRequest.current = { target: 'placed', part: null }

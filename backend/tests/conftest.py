@@ -138,6 +138,11 @@ SEED_MIGRATIONS = [
     ("0033_seed_decoration_accepts_color", "seed"),
     ("0045_seed_design_sizes", "seed"),
     ("0047_seed_preview_finishes", "seed"),
+    ("0050_seed_product_sample_designs", "seed"),
+    ("0052_seed_sample_design_details", "seed"),
+    ("0054_seed_sample_density", "seed"),
+    ("0056_seed_sample_edge_inset", "seed"),
+    ("0058_seed_fuller_fruit", "seed"),
 ]
 _db_blocker = None
 

@@ -105,9 +105,26 @@ export type CakeTier = {
  *   relleno de la pastelería (D54); nada en la cara de arriba.
  */
 export type CakeDecoration =
-  | { kind: 'shells' | 'rosettes' | 'swags' | 'ruffles'; main: ShapeColor; accent: ShapeColor }
+  | {
+      kind: 'shells' | 'rosettes' | 'swags' | 'ruffles'
+      main: ShapeColor
+      accent: ShapeColor
+      /**
+       * Solo en las imágenes del catálogo: cuánto más grandes son las conchas o los rosetones del borde de arriba (1 es el tamaño
+       * del diseñador). Con piezas más grandes caben menos. Sin él, 1.
+       */
+      size?: number
+      /** Solo en las imágenes del catálogo: cuánto más adentro van los rosetones, en parte del radio del piso. Sin él, 0. */
+      inset?: number
+    }
   | { kind: 'roses'; petals: readonly ShapeColor[]; leaf: ShapeColor }
-  | { kind: 'sprinkles'; style: CakePieces['style']; colors: readonly ShapeColor[] }
+  | {
+      kind: 'sprinkles'
+      style: CakePieces['style']
+      colors: readonly ShapeColor[]
+      /** Solo en las imágenes del catálogo: cuántas veces más chispas que en el diseñador. Sin él, 1. */
+      density?: number
+    }
 
 /**
  * La oblea sobre la tapa del último piso (paso 7, D55). Las medidas van en cm de la tapa, con el origen en su centro, la `y`
@@ -155,6 +172,77 @@ export type CakeLid = {
   message?: LidMessage
 }
 
+/**
+ * Las frutas frescas que la pastelería pone en la cara de arriba (las 8 fotos del catálogo): fresa (en mitades o entera), kiwi,
+ * durazno en almíbar, manzana roja en abanico, uva verde, carambola, pera y physalis.
+ */
+export type FruitKind = 'strawberry' | 'kiwi' | 'peach' | 'apple' | 'grape' | 'starfruit' | 'pear' | 'physalis' | 'banana'
+
+/**
+ * Cómo se acomoda la fruta: `mound`, un montón al centro; `ring`, una vuelta junto a la orilla, por dentro del borde de duya;
+ * `rows`, en filas de una fruta cada una.
+ */
+export type FruitLayoutKind = 'mound' | 'ring' | 'rows'
+
+/**
+ * Lo que va sobre la tapa del último piso además del mensaje y la oblea (tanda 4b): por ahora, fruta fresca. Solo para las
+ * imágenes del catálogo; no se pide en "Diseña tu pastel", que nunca la pone. Ver `fruit.ts`.
+ */
+export type CakeTopping = {
+  kind: 'fruit'
+  layout: FruitLayoutKind
+  /** Qué frutas lleva, en el orden en que se reparten; sin ella, las seis que más salen en las fotos (`DEFAULT_FRUITS`). */
+  fruits?: readonly FruitKind[]
+  /** Unidades de escena por cm del pastel (la escala de los moldes): cada pieza mide lo que mide una fruta de verdad. */
+  unitsPerCm: number
+  /**
+   * Lo tupido de la fruta, de 1 a 3: con 1 (o sin él), el montón cubre del 40 al 60 % de la tapa; con 2, toda la parte libre, sin el
+   * centro vacío, con más capas y piezas un poco más grandes, como las fotos de choco vainilla y cajeta; con 3, más alto y con piezas
+   * más grandes (capuchino). En filas, las encima más y las junta.
+   */
+  density?: number
+}
+
+/**
+ * La charola de cartón de las fotos de la pastelería (tanda 4b): redonda, más ancha que el piso de abajo y con el borde levantado.
+ * Solo en las imágenes del catálogo, en lugar de la base con columna (`stand`).
+ */
+export type CakeBoard = { color: ShapeColor }
+
+/** La textura del costado de la cobertura: encaje de duya (zigzag cerrado), marcas de espátula o crestas diagonales. */
+export type SideTextureKind = 'lace' | 'spatula' | 'ridges'
+/** Los hilos: encaje de chocolate sobre la tapa o hilos de cajeta sobre las piezas del borde de arriba. */
+export type DrizzleKind = 'lace' | 'threads'
+/**
+ * Dónde van las conchas de chocolate: huevos abiertos alrededor del borde de arriba, tulipanes cerrados alrededor del borde o cuencos
+ * amontonados en la mitad de atrás de la tapa.
+ */
+export type ShellPlace = 'edge' | 'tulips' | 'top'
+/** Lo pegado al costado: migas de galleta (también en la tapa) o virutas de chocolate. */
+export type SideBitsKind = 'crumbs' | 'flakes'
+
+/**
+ * Lo que tienen las fotos de la pastelería y "Diseña tu pastel" no ofrece (tanda 4b): solo en las imágenes del catálogo, en el
+ * último piso (las muestras son de un piso). Los colores son comida, como los de la cobertura. Ver `sampleDetails.ts`.
+ */
+export type CakeDetails = {
+  /** La tapa en otro color o con brillo de espejo, encima de la cobertura. */
+  top?: { color: ShapeColor; glossy: boolean }
+  /** Un anillo de mermelada brillante en la tapa; `width` es la parte del radio de la tapa que ocupa desde la orilla. */
+  ring?: { color: ShapeColor; width: number }
+  /** El costado brilla como la cajeta. */
+  sideGlossy?: boolean
+  sideTexture?: SideTextureKind
+  /** La parte de abajo del costado en otro color; `height` es la parte del alto del piso. */
+  band?: { color: ShapeColor; height: number }
+  drizzle?: { kind: DrizzleKind; color: ShapeColor }
+  /** Conchas de chocolate; con dos colores, se alternan. `inset` las mete hacia el centro, en parte del radio de la tapa. */
+  shells?: { place: ShellPlace; colors: readonly ShapeColor[]; inset?: number }
+  /** Canela o azúcar glass sobre la tapa y las conchas. */
+  dusting?: ShapeColor
+  sideBits?: { kind: SideBitsKind; color: ShapeColor }
+}
+
 export type CakeShape = {
   /** De abajo hacia arriba. */
   tiers: readonly CakeTier[]
@@ -170,8 +258,14 @@ export type CakeShape = {
   decoration?: CakeDecoration
   /** La oblea y el mensaje del paso 7, sobre la tapa del último piso. */
   lid?: CakeLid
+  /** Fruta sobre la tapa del último piso, solo para las imágenes del catálogo. Se aparta del mensaje, de la oblea y del borde. */
+  topping?: CakeTopping
   /** La base se ajusta al piso de abajo: mide un poco más que él, crece y se achica con él. Sin esto, solo crece si no cabe. */
   fitStand?: boolean
+  /** La charola de las fotos, solo en las imágenes del catálogo (va con `stand: false`). */
+  board?: CakeBoard
+  /** Los detalles de las fotos que el diseñador no ofrece, solo en las imágenes del catálogo. */
+  details?: CakeDetails
 }
 
 /**

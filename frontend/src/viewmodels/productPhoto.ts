@@ -17,3 +17,13 @@ export const PHOTO_PLACEHOLDER: Record<ProductCategory, string> = { cake: 'Foto 
 export function photoView(file: string | null, alt: string, placeholder: string): PhotoView {
   return { src: file ? photoUrl(file) : null, alt, placeholder }
 }
+
+/**
+ * La imagen de una tarjeta del catálogo y de la portada (D86): la imagen fija del modelo si la pastelería la muestra; si no, la
+ * foto; sin ninguna, el hueco. La imagen del modelo no es una foto, así que su texto alternativo dice que es la ilustración del
+ * pastel ("Tres leches de durazno, ilustración del pastel").
+ */
+export function catalogImageView(modelImage: string | null, photo: string | null, name: string, placeholder: string): PhotoView {
+  if (modelImage) return photoView(modelImage, `${name}, ilustración del pastel`, placeholder)
+  return photoView(photo, name, placeholder)
+}

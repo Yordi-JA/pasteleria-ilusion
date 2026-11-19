@@ -13,7 +13,15 @@ from django.db.models import CharField, Case, F, IntegerField, OuterRef, Prefetc
 from django.db.models.functions import Least, Now
 
 from ..models import Inventory, InventoryKind, Presentation, Product, ProductOffering, SalesChannel
-from .records import OfferingRecord, ProductRecord
+from .records import OfferingRecord, ProductRecord, SampleDesignRecord
+
+# Los detalles de la imagen del catálogo (tanda 4b): pasan tal cual de la muestra al registro.
+SAMPLE_DETAIL_FIELDS = (
+    "top_color", "top_glossy", "side_glossy", "side_texture", "top_ring_color", "top_ring_width", "side_band_color",
+    "side_band_height", "drizzle", "drizzle_color", "edge_size", "shells", "shell_color", "shell_second_color",
+    "dusting_color", "side_bits", "side_bits_color", "fruit_density", "sprinkle_density",
+    "edge_inset",
+)
 
 
 def _offerings_queryset(on_date: date | None):
@@ -39,9 +47,27 @@ def _offerings_queryset(on_date: date | None):
         )
     return (
         ProductOffering.objects.filter(is_active=True)
-        .select_related("product", "price")
+        .select_related("product", "price", "product__sample_design__decoration")
         .annotate(stock=stock)
         .order_by("sort_order", "id")
+    )
+
+
+def _sample_design_record(product) -> SampleDesignRecord | None:
+    """La muestra del modelo del producto (D86), ya cargada con `select_related`; `None` si no tiene."""
+    sample = getattr(product, "sample_design", None)
+    if sample is None:
+        return None
+    return SampleDesignRecord(
+        coverage_color=sample.coverage_color,
+        decoration_slug=_active_slug(sample.decoration),
+        decoration_color=sample.decoration_color,
+        fruit_layout=sample.fruit_layout,
+        fruits=tuple(sample.fruits),
+        side_comb=sample.side_comb,
+        model_image=sample.model_image,
+        show_model_in_catalog=sample.show_model_in_catalog,
+        **{name: getattr(sample, name) for name in SAMPLE_DETAIL_FIELDS},
     )
 
 
@@ -61,6 +87,7 @@ def _offering_record(offering) -> OfferingRecord:
         photo=offering.photo or product.photo,
         stock=offering.stock,
         product_photo=product.photo,
+        product_sample_design=_sample_design_record(product),
     )
 
 
@@ -68,7 +95,7 @@ def _product_queryset(on_date: date | None):
     """Productos activos con sus presentaciones activas ya cargadas (dos consultas)."""
     return (
         Product.objects.filter(is_active=True)
-        .select_related("bread", "filling_base", "filling_flavor")
+        .select_related("bread", "filling_base", "filling_flavor", "sample_design__decoration")
         .prefetch_related(Prefetch("offerings", queryset=_offerings_queryset(on_date)))
         .order_by("sort_order", "name")
     )
@@ -102,6 +129,7 @@ def _product_record(product) -> ProductRecord:
         photo=product.photo,
         featured_on_home=product.featured_on_home,
         offerings=tuple(_offering_record(offering) for offering in product.offerings.all()),
+        sample_design=_sample_design_record(product),
     )
 
 

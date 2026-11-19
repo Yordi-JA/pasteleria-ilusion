@@ -38,6 +38,7 @@ from .models import (
     FillingPreviewStyle,
     PIECELESS_PREVIEW_STYLES,
     FillingPrice,
+    FruitKind,
     Inventory,
     Order,
     OrderItem,
@@ -50,6 +51,7 @@ from .models import (
     PolicySettings,
     Product,
     ProductOffering,
+    ProductSampleDesign,
     ReferenceRequest,
     ReferenceRequestStatus,
     StoreSettings,
@@ -502,6 +504,48 @@ class ProductOfferingInline(admin.TabularInline):
     extra = 0
 
 
+class ProductSampleDesignInline(admin.StackedInline):
+    """La muestra del modelo del pastel (D86), en su producto: de ahí sale la imagen fija del catálogo."""
+
+    model = ProductSampleDesign
+    extra = 0
+    max_num = 1
+    fieldsets = (
+        (None, {"fields": ("coverage_color", ("decoration", "decoration_color"), "side_comb", ("fruit_layout", "fruits"))}),
+        (
+            "Detalles de la imagen del catálogo",
+            {
+                "description": "Solo los dibuja la imagen del catálogo; «Diseña tu pastel» no los ofrece.",
+                "fields": (
+                    ("top_color", "top_glossy"),
+                    ("top_ring_color", "top_ring_width"),
+                    ("side_texture", "side_glossy"),
+                    ("side_band_color", "side_band_height"),
+                    ("drizzle", "drizzle_color"),
+                    ("edge_size", "edge_inset"),
+                    ("shells", "shell_color", "shell_second_color"),
+                    "dusting_color",
+                    ("side_bits", "side_bits_color"),
+                    ("fruit_density", "sprinkle_density"),
+                ),
+            },
+        ),
+        ("Imagen del catálogo", {"fields": ("model_image", "show_model_in_catalog")}),
+    )
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        # Las frutas como casillas, como los tipos de pastel: la lista es fija (las que sabe dibujar el modelo).
+        if db_field.name == "fruits":
+            return forms.MultipleChoiceField(
+                label=db_field.verbose_name.capitalize(),
+                choices=FruitKind.choices,
+                widget=forms.CheckboxSelectMultiple,
+                required=False,
+                help_text=db_field.help_text,
+            )
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+
+
 @admin.register(Product)
 class ProductAdmin(ReadOnlySlugMixin, admin.ModelAdmin):
     empty_value_display = "PENDIENTE"
@@ -513,7 +557,7 @@ class ProductAdmin(ReadOnlySlugMixin, admin.ModelAdmin):
     list_editable = ("sort_order", "featured_on_home")
     list_filter = ("category", "sales_channel", "is_active", "featured_on_home")
     search_fields = ("name",)
-    inlines = [ProductOfferingInline]
+    inlines = [ProductOfferingInline, ProductSampleDesignInline]
 
     def changelist_view(self, request, extra_context=None):
         if request.method == "GET":

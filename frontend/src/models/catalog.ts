@@ -1,5 +1,7 @@
+import type { DrizzleKind, FruitKind, FruitLayoutKind, ShellPlace, SideBitsKind, SideTextureKind } from '../three/cakeShape.ts'
 import { ApiError, devRequestTimeoutMs, getJson, REQUEST_TIMEOUT_MS } from './apiClient.ts'
 import type { CartOffering, Fulfillment } from './cart.ts'
+import { normalizeHex } from './color.ts'
 import { PRICE_PATTERN } from './money.ts'
 import { isOfferingPresentation, offeringLabel } from './presentation.ts'
 import type { OfferingPresentation } from './presentation.ts'
@@ -57,6 +59,11 @@ export type ProductCard = {
   offerings: CardOffering[]
   /** `null` si la API no lo manda (una versión anterior): entonces no se personaliza como pastel de vitrina. */
   showcaseDesign: ShowcaseDesign | null
+  /**
+   * La imagen fija del modelo (D86), en `/fotos/`: la tarjeta y la portada la muestran en lugar de la foto. `null` si la
+   * pastelería no la muestra en el catálogo: entonces va la foto o, sin ella, el hueco.
+   */
+  modelImage: string | null
 }
 
 /** Una partida de la vitrina o de las rebanadas de hoy. */
@@ -77,6 +84,8 @@ export type StockItem = {
    * rebanada (`stock`, las rebanadas que quedan) y la foto es la del producto. Siempre `false` en las rebanadas.
    */
   sliced: boolean
+  /** Solo en la vitrina: la imagen del modelo donde va la foto del producto (D86). Siempre `null` en las rebanadas. */
+  modelImage: string | null
 }
 
 /** `showcase/` y `slices/`: la fecha de hoy en la pastelería ("AAAA-MM-DD") y lo cargado hoy. */
@@ -170,6 +179,7 @@ function parseCard(data: unknown): ProductCard | null {
     slicedToday: data.sliced_today === true,
     offerings,
     showcaseDesign: parseShowcaseDesign(data.showcase_design),
+    modelImage: photo(data.model_image),
   }
 }
 
@@ -220,6 +230,7 @@ function parseStockItem(data: unknown): StockItem | null {
     soldOut: stock === 0 || data.sold_out === true,
     // Solo una rebanada puede ser el rebanado: un `sliced` en otra presentación no se cree.
     sliced: data.sliced === true && presentation === 'slice',
+    modelImage: photo(data.model_image),
   }
 }
 
@@ -326,6 +337,53 @@ export type DetailOffering = CardOffering & {
   stock: number | null
 }
 
+/**
+ * La muestra del modelo de un pastel (D86, `SampleDesignSerializer`): lo que dibuja su imagen fija además del tipo, el pan y el
+ * relleno del producto. La fruta solo va en esa imagen; "Diseña tu pastel" no la ofrece.
+ */
+export type SampleDesign = {
+  /** `#rrggbb` en minúsculas, como los colores del borrador. */
+  coverageColor: string
+  /** La decoración del paso 6; `null` si ya no está activa (entonces no se genera la imagen). */
+  decoration: string | null
+  /** `#rrggbb` en minúsculas; `null` es automático. */
+  decorationColor: string | null
+  /** `null`: sin fruta. */
+  fruitLayout: FruitLayoutKind | null
+  fruits: FruitKind[]
+  sideComb: boolean
+  /** El archivo de la imagen en `/fotos/`; `null` si aún no se genera. */
+  modelImage: string | null
+  showModelInCatalog: boolean
+  /** Lo que solo dibuja la imagen del catálogo (tanda 4b). */
+  details: SampleDetails
+}
+
+/**
+ * Los detalles de la imagen del catálogo (tanda 4b): los colores en `#rrggbb` minúsculas y `null` donde no lleva. Una pareja a
+ * medias (un anillo sin ancho, unos hilos sin color) se descarta entera.
+ */
+export type SampleDetails = {
+  topColor: string | null
+  topGlossy: boolean
+  sideGlossy: boolean
+  sideTexture: SideTextureKind | null
+  ring: { color: string; width: number } | null
+  band: { color: string; height: number } | null
+  drizzle: { kind: DrizzleKind; color: string } | null
+  /** De 0.5 a 2.5; 1 es el tamaño del diseñador. */
+  edgeSize: number
+  shells: { place: ShellPlace; colors: string[] } | null
+  dustingColor: string | null
+  sideBits: { kind: SideBitsKind; color: string } | null
+  /** De 1 (el montón de siempre) a 3 (toda la parte libre de la tapa, alto). */
+  fruitDensity: number
+  /** De 1 a 10: cuántas veces más chispas que en el diseñador. */
+  sprinkleDensity: number
+  /** De 0 (la orilla) a 0.3: cuánto se meten las piezas del borde, en parte del radio de la tapa. */
+  edgeInset: number
+}
+
 /** Ficha de producto (`ProductDetailSerializer`). `null` en `storageNotes` y `transportNotes` es PENDIENTE. */
 export type ProductDetail = Omit<ProductCard, 'offerings'> & {
   /** Descripción de la ficha; vacía si no tiene. */
@@ -337,6 +395,8 @@ export type ProductDetail = Omit<ProductCard, 'offerings'> & {
   offerings: DetailOffering[]
   /** "También te puede gustar": hasta tres productos de la misma categoría. */
   related: ProductCard[]
+  /** `null` si el pastel no tiene muestra del modelo (o la API no la manda). */
+  sampleDesign: SampleDesign | null
 }
 
 // Los kilos aproximados: `DecimalField(max_digits=4, decimal_places=1)`.
@@ -361,6 +421,90 @@ function parseDetailOffering(data: unknown): DetailOffering | null {
   }
 }
 
+// Las frutas y los acomodos que sabe dibujar la escena (`three/cakeShape.ts`); el `Record` obliga a tenerlos todos.
+const FRUIT_KINDS: Record<FruitKind, true> = {
+  strawberry: true,
+  kiwi: true,
+  peach: true,
+  apple: true,
+  grape: true,
+  starfruit: true,
+  pear: true,
+  physalis: true,
+  banana: true,
+}
+const FRUIT_LAYOUTS: Record<FruitLayoutKind, true> = { mound: true, ring: true, rows: true }
+
+const isFruitKind = (value: unknown): value is FruitKind => typeof value === 'string' && Object.hasOwn(FRUIT_KINDS, value)
+
+// Lo que sabe dibujar la escena en los detalles de la imagen del catálogo (`three/cakeShape.ts`).
+const SIDE_TEXTURES: Record<SideTextureKind, true> = { lace: true, spatula: true, ridges: true }
+const DRIZZLES: Record<DrizzleKind, true> = { lace: true, threads: true }
+const SHELL_PLACES: Record<ShellPlace, true> = { edge: true, tulips: true, top: true }
+const SIDE_BITS: Record<SideBitsKind, true> = { crumbs: true, flakes: true }
+
+function choice<T extends string>(value: unknown, known: Record<T, true>): T | null {
+  return typeof value === 'string' && Object.hasOwn(known, value) ? (value as T) : null
+}
+
+/** Un número dentro de su rango, o `null`. */
+function fraction(value: unknown, min: number, max: number): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max ? value : null
+}
+
+/** Los detalles de la imagen del catálogo de una muestra; lo que falta o no se entiende queda en "no lleva". */
+function parseSampleDetails(data: Record<string, unknown>): SampleDetails {
+  const pair = <T,>(first: T | null, second: string | null) => (first !== null && second !== null ? ([first, second] as const) : null)
+  const ringColor = normalizeHex(data.top_ring_color)
+  const ringWidth = fraction(data.top_ring_width, 0.1, 0.9)
+  const bandColor = normalizeHex(data.side_band_color)
+  const bandHeight = fraction(data.side_band_height, 0.03, 1)
+  const drizzle = pair(choice(data.drizzle, DRIZZLES), normalizeHex(data.drizzle_color))
+  const shellPlace = choice(data.shells, SHELL_PLACES)
+  const shellColor = normalizeHex(data.shell_color)
+  const shellSecond = normalizeHex(data.shell_second_color)
+  const sideBits = pair(choice(data.side_bits, SIDE_BITS), normalizeHex(data.side_bits_color))
+  return {
+    topColor: normalizeHex(data.top_color),
+    topGlossy: data.top_glossy === true,
+    sideGlossy: data.side_glossy === true,
+    sideTexture: choice(data.side_texture, SIDE_TEXTURES),
+    ring: ringColor && ringWidth !== null ? { color: ringColor, width: ringWidth } : null,
+    band: bandColor && bandHeight !== null ? { color: bandColor, height: bandHeight } : null,
+    drizzle: drizzle ? { kind: drizzle[0], color: drizzle[1] } : null,
+    edgeSize: fraction(data.edge_size, 0.5, 2.5) ?? 1,
+    shells: shellPlace && shellColor ? { place: shellPlace, colors: shellSecond ? [shellColor, shellSecond] : [shellColor] } : null,
+    dustingColor: normalizeHex(data.dusting_color),
+    sideBits: sideBits ? { kind: sideBits[0], color: sideBits[1] } : null,
+    fruitDensity: fraction(data.fruit_density, 1, 3) ?? 1,
+    sprinkleDensity: fraction(data.sprinkle_density, 1, 10) ?? 1,
+    edgeInset: fraction(data.edge_inset, 0, 0.3) ?? 0,
+  }
+}
+
+/**
+ * La muestra del modelo de la ficha. Sin el color de la cobertura no hay muestra (`null`); una fruta que esta versión no sabe
+ * dibujar se descarta, y sin frutas no hay acomodo.
+ */
+function parseSampleDesign(data: unknown): SampleDesign | null {
+  if (!isRecord(data)) return null
+  const coverageColor = normalizeHex(data.coverage_color)
+  if (!coverageColor) return null
+  const fruits = Array.isArray(data.fruits) ? [...new Set(data.fruits.filter(isFruitKind))] : []
+  const layout = typeof data.fruit_layout === 'string' && Object.hasOwn(FRUIT_LAYOUTS, data.fruit_layout) ? (data.fruit_layout as FruitLayoutKind) : null
+  return {
+    coverageColor,
+    decoration: text(data.decoration, MAX_TEXT_LENGTH, SLUG),
+    decorationColor: normalizeHex(data.decoration_color),
+    fruitLayout: fruits.length > 0 ? layout : null,
+    fruits: layout ? fruits : [],
+    sideComb: data.side_comb === true,
+    modelImage: photo(data.model_image),
+    showModelInCatalog: data.show_model_in_catalog === true,
+    details: parseSampleDetails(data),
+  }
+}
+
 /**
  * Valida la ficha. Una ficha sin `slug`, nombre o categoría válidos es un `TypeError`; una presentación o un
  * relacionado dudoso se descarta, como en las tarjetas.
@@ -378,6 +522,7 @@ export function parseProductDetail(data: unknown): ProductDetail {
     transportNotes: notes(data.transport_notes),
     offerings,
     related: related.slice(0, 3),
+    sampleDesign: parseSampleDesign(data.sample_design),
   }
 }
 

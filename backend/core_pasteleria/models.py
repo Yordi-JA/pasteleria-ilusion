@@ -272,6 +272,58 @@ class InventoryKind(models.TextChoices):
     BREAD = "bread", "Pan para encargos de hoy"
 
 
+class FruitLayout(models.TextChoices):
+    """Cómo va la fruta fresca en la tapa de la muestra del modelo (D86). Solo la dibuja la imagen del catálogo."""
+
+    MOUND = "mound", "Montón al centro"
+    RING = "ring", "Anillo junto a la orilla"
+    ROWS = "rows", "En filas"
+
+
+class FruitKind(models.TextChoices):
+    """Las frutas que sabe dibujar el modelo (`frontend/src/three/fruit.ts`). No se piden: solo van en la imagen del catálogo."""
+
+    STRAWBERRY = "strawberry", "Fresa"
+    APPLE = "apple", "Manzana roja"
+    KIWI = "kiwi", "Kiwi"
+    GRAPE = "grape", "Uva verde"
+    PEACH = "peach", "Durazno en almíbar"
+    PEAR = "pear", "Pera"
+    STARFRUIT = "starfruit", "Carambola"
+    PHYSALIS = "physalis", "Physalis (uchuva)"
+    BANANA = "banana", "Plátano"
+
+
+class SampleSideTexture(models.TextChoices):
+    """La textura del costado de la cobertura en la imagen del catálogo (tanda 4b). Vacío: lisa."""
+
+    LACE = "lace", "Encaje de duya (zigzag cerrado)"
+    SPATULA = "spatula", "Marcas de espátula"
+    RIDGES = "ridges", "Crestas diagonales"
+
+
+class SampleDrizzle(models.TextChoices):
+    """Los hilos de la imagen del catálogo (tanda 4b): encaje sobre la tapa o hilos sobre las piezas del borde. Vacío: sin hilos."""
+
+    LACE = "lace", "Encaje sobre la tapa"
+    THREADS = "threads", "Hilos sobre el borde de arriba"
+
+
+class SampleShells(models.TextChoices):
+    """Dónde van las conchas de chocolate en la imagen del catálogo (tanda 4b). Vacío: sin conchas."""
+
+    EDGE = "edge", "Alrededor del borde de arriba"
+    TULIPS = "tulips", "Tulipanes cerrados alrededor del borde"
+    TOP = "top", "Amontonadas en media tapa"
+
+
+class SampleSideBits(models.TextChoices):
+    """Lo que va pegado al costado en la imagen del catálogo (tanda 4b). Vacío: nada."""
+
+    CRUMBS = "crumbs", "Migas de galleta (también en la tapa)"
+    FLAKES = "flakes", "Virutas de chocolate"
+
+
 # --- Clases base ---
 
 
@@ -1783,6 +1835,307 @@ class Product(OrderedOption):
                 "Un producto solo por encargo no puede tener existencias de vitrina; "
                 "borra las de hoy y de los días que siguen."
             )
+        if errors:
+            raise ValidationError(errors)
+
+
+# La semilla de la `0050` copia lo que se ve en cada foto; el admin lo dice junto a cada dato que se observó.
+OBSERVED_IN_PHOTO = "En las muestras de la semilla, observado en la foto; la pastelería puede corregirlo."
+ONLY_IN_IMAGE = "Solo en la imagen del catálogo."
+# Los rangos de los detalles de la imagen del catálogo (tanda 4b): fracción del radio de la tapa, del alto del pastel y tamaño.
+SAMPLE_RING_WIDTH = (0.1, 0.9)
+SAMPLE_BAND_HEIGHT = (0.03, 1.0)
+SAMPLE_EDGE_SIZE = (0.5, 2.5)
+SAMPLE_FRUIT_DENSITY = (1.0, 3.0)
+SAMPLE_SPRINKLE_DENSITY = (1.0, 10.0)
+SAMPLE_EDGE_INSET = (0.0, 0.3)
+# Los detalles que van en pareja: (el que lo activa, el que lo completa, mensaje si falta el segundo, mensaje si falta el primero).
+SAMPLE_DETAIL_PAIRS = (
+    ("top_ring_color", "top_ring_width", "Escribe el ancho del anillo, o quita su color.", "Elige el color del anillo, o quita su ancho."),
+    ("side_band_color", "side_band_height", "Escribe el alto de la franja, o quita su color.", "Elige el color de la franja, o quita su alto."),
+    ("drizzle", "drizzle_color", "Elige el color de los hilos, o quita los hilos.", "Elige los hilos, o quita su color."),
+    ("shells", "shell_color", "Elige el color de las conchas, o quita las conchas.", "Elige dónde van las conchas, o quita su color."),
+    ("side_bits", "side_bits_color", "Elige el color de lo pegado al costado, o quítalo.", "Elige qué va pegado al costado, o quita su color."),
+)
+
+
+class ProductSampleDesign(models.Model):
+    """La muestra del modelo de un pastel (D86): cómo se ve en el modelo 3D y la imagen fija que lo muestra en el catálogo.
+
+    El tipo, el pan y el relleno son los del producto; aquí va lo demás: la cobertura, la decoración, el peinado y la fruta
+    fresca. La fruta solo se dibuja en esta imagen: no se pide en "Diseña tu pastel". La imagen es un archivo estático que
+    genera `frontend/scripts/render-models.mjs`; la tarjeta del catálogo y la portada la muestran en lugar de la foto solo
+    con `show_model_in_catalog`. La ficha conserva la foto real.
+    """
+
+    product = models.OneToOneField(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="sample_design",
+        verbose_name="producto",
+    )
+    coverage_color = models.CharField(
+        "color de la cobertura",
+        max_length=7,
+        validators=[hex_color_validator],
+        help_text=f"La crema pastelera de afuera, como en el paso 5, en #RRGGBB. {OBSERVED_IN_PHOTO}",
+    )
+    decoration = models.ForeignKey(
+        DecorationOption,
+        on_delete=models.PROTECT,
+        related_name="+",
+        verbose_name="decoración",
+        # Sin `is_active`: una decoración que la pastelería desactiva no debe impedir guardar el producto; la API la da en `null`.
+        limit_choices_to=~Q(pricing=DecorationPricing.QUOTE),
+        help_text=f"La del paso 6; «Sin decoración» si no lleva. «Otra decoración» no se dibuja. {OBSERVED_IN_PHOTO}",
+    )
+    decoration_color = models.CharField(
+        "color de la decoración",
+        max_length=7,
+        blank=True,
+        validators=[hex_color_validator],
+        help_text=f"Vacío es automático. Solo en las decoraciones con duya y las rosas. {OBSERVED_IN_PHOTO}",
+    )
+    fruit_layout = models.CharField(
+        "cómo va la fruta",
+        max_length=10,
+        choices=FruitLayout.choices,
+        blank=True,
+        help_text=f"Vacío: sin fruta. La fruta solo va en la imagen del catálogo; no se pide. {OBSERVED_IN_PHOTO}",
+    )
+    fruits = ArrayField(
+        models.CharField(max_length=20, choices=FruitKind.choices),
+        verbose_name="frutas",
+        default=list,
+        blank=True,
+        help_text=f"Las que se ven en la tapa, cada una una vez. {OBSERVED_IN_PHOTO}",
+    )
+    side_comb = models.BooleanField(
+        "peinado lateral",
+        default=True,
+        help_text=f"Surcos horizontales en los costados, como el paso 5. {OBSERVED_IN_PHOTO}",
+    )
+    # Los detalles de la imagen del catálogo (tanda 4b): solo los dibuja la imagen fija, nunca "Diseña tu pastel".
+    top_color = models.CharField(
+        "color de la tapa",
+        max_length=7,
+        blank=True,
+        validators=[hex_color_validator],
+        help_text=f"Vacío: la tapa es del color de la cobertura. Por ejemplo, glaseado amarillo sobre crema blanca. {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}",
+    )
+    top_glossy = models.BooleanField(
+        "tapa brillante",
+        default=False,
+        help_text=f"La tapa brilla como un glaseado de espejo. {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}",
+    )
+    side_glossy = models.BooleanField(
+        "costado brillante",
+        default=False,
+        help_text=f"El costado brilla como la cajeta. {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}",
+    )
+    side_texture = models.CharField(
+        "textura del costado",
+        max_length=10,
+        choices=SampleSideTexture.choices,
+        blank=True,
+        help_text=f"Vacío: lisa. {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}",
+    )
+    top_ring_color = models.CharField(
+        "color del anillo de la tapa",
+        max_length=7,
+        blank=True,
+        validators=[hex_color_validator],
+        help_text=f"Un anillo brillante de mermelada con el centro de la tapa a la vista. Vacío: sin anillo. {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}",
+    )
+    top_ring_width = models.FloatField(
+        "ancho del anillo",
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(SAMPLE_RING_WIDTH[0]), MaxValueValidator(SAMPLE_RING_WIDTH[1])],
+        help_text=f"Parte del radio de la tapa, de la orilla hacia el centro (de 0.1 a 0.9). {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}",
+    )
+    side_band_color = models.CharField(
+        "color de la franja de abajo",
+        max_length=7,
+        blank=True,
+        validators=[hex_color_validator],
+        help_text=(
+            "La parte de abajo del costado en otro color: glaseado pintado o crema que se derrama en la charola. "
+            f"Vacío: sin franja. {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}"
+        ),
+    )
+    side_band_height = models.FloatField(
+        "alto de la franja de abajo",
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(SAMPLE_BAND_HEIGHT[0]), MaxValueValidator(SAMPLE_BAND_HEIGHT[1])],
+        help_text=f"Parte del alto del pastel (de 0.03 a 1). {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}",
+    )
+    drizzle = models.CharField(
+        "hilos",
+        max_length=10,
+        choices=SampleDrizzle.choices,
+        blank=True,
+        help_text=f"Vacío: sin hilos. {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}",
+    )
+    drizzle_color = models.CharField(
+        "color de los hilos",
+        max_length=7,
+        blank=True,
+        validators=[hex_color_validator],
+        help_text=f"Chocolate o cajeta, en #RRGGBB. {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}",
+    )
+    edge_size = models.FloatField(
+        "tamaño de las piezas del borde",
+        default=1.0,
+        validators=[MinValueValidator(SAMPLE_EDGE_SIZE[0]), MaxValueValidator(SAMPLE_EDGE_SIZE[1])],
+        help_text=(
+            "Cuánto más grandes que en «Diseña tu pastel» son los rosetones o las conchas de duya del borde de arriba "
+            f"(1 es igual; de 0.5 a 2.5): con piezas más grandes caben menos. {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}"
+        ),
+    )
+    shells = models.CharField(
+        "conchas de chocolate",
+        max_length=10,
+        choices=SampleShells.choices,
+        blank=True,
+        help_text=f"Conchas o tulipanes de chocolate. Vacío: sin conchas. {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}",
+    )
+    shell_color = models.CharField(
+        "color de las conchas",
+        max_length=7,
+        blank=True,
+        validators=[hex_color_validator],
+        help_text=f"El chocolate de las conchas, en #RRGGBB. {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}",
+    )
+    shell_second_color = models.CharField(
+        "segundo color de las conchas",
+        max_length=7,
+        blank=True,
+        validators=[hex_color_validator],
+        help_text=f"Vacío: todas del mismo color. Con él, se alternan (chocolate blanco y oscuro). {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}",
+    )
+    dusting_color = models.CharField(
+        "color del espolvoreado",
+        max_length=7,
+        blank=True,
+        validators=[hex_color_validator],
+        help_text=f"Canela o azúcar glass sobre la tapa y las conchas. Vacío: sin espolvoreado. {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}",
+    )
+    side_bits = models.CharField(
+        "pegado al costado",
+        max_length=10,
+        choices=SampleSideBits.choices,
+        blank=True,
+        help_text=f"Vacío: nada. {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}",
+    )
+    side_bits_color = models.CharField(
+        "color de lo pegado al costado",
+        max_length=7,
+        blank=True,
+        validators=[hex_color_validator],
+        help_text=f"En #RRGGBB. {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}",
+    )
+    fruit_density = models.FloatField(
+        "fruta tupida",
+        default=1.0,
+        validators=[MinValueValidator(SAMPLE_FRUIT_DENSITY[0]), MaxValueValidator(SAMPLE_FRUIT_DENSITY[1])],
+        help_text=(
+            "1 es el montón de siempre, que cubre del 40 al 60 % de la tapa; 2 llena toda la parte libre de la tapa, con más piezas "
+            f"y más alto, sin el centro vacío; 3, más alto y con piezas más grandes (de 1 a 3). {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}"
+        ),
+    )
+    edge_inset = models.FloatField(
+        "piezas del borde más adentro",
+        default=0.0,
+        validators=[MinValueValidator(SAMPLE_EDGE_INSET[0]), MaxValueValidator(SAMPLE_EDGE_INSET[1])],
+        help_text=(
+            "Cuánto se meten hacia el centro los rosetones del borde o las conchas de chocolate, en parte del radio de la tapa "
+            f"(0 es sobre la orilla; de 0 a 0.3). La fruta se queda dentro de ellas. {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}"
+        ),
+    )
+    sprinkle_density = models.FloatField(
+        "chispas tupidas",
+        default=1.0,
+        validators=[MinValueValidator(SAMPLE_SPRINKLE_DENSITY[0]), MaxValueValidator(SAMPLE_SPRINKLE_DENSITY[1])],
+        help_text=(
+            "Cuántas veces más chispas que en «Diseña tu pastel» lleva el costado, con la decoración de chispas "
+            f"(1 es igual; de 1 a 10). {ONLY_IN_IMAGE} {OBSERVED_IN_PHOTO}"
+        ),
+    )
+    model_image = models.CharField(
+        "archivo de la imagen del modelo",
+        max_length=120,
+        blank=True,
+        validators=[photo_file_validator],
+        help_text=(
+            "Nombre del archivo estático que genera el script de imágenes, por ejemplo tres-leches-de-durazno-modelo.webp. "
+            "Vacío si aún no se genera."
+        ),
+    )
+    show_model_in_catalog = models.BooleanField(
+        "mostrar la imagen del modelo en el catálogo",
+        default=False,
+        help_text="La tarjeta del catálogo y la portada muestran la imagen del modelo en lugar de la foto. La ficha conserva la foto.",
+    )
+
+    class Meta:
+        verbose_name = "muestra del modelo"
+        verbose_name_plural = "muestras del modelo"
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(show_model_in_catalog=False) | ~Q(model_image=""),
+                name="productsampledesign_shown_has_image",
+                violation_error_message="Para mostrarla en el catálogo, escribe el archivo de la imagen del modelo.",
+            ),
+            models.CheckConstraint(
+                condition=(Q(fruit_layout="") & Q(fruits__len=0)) | (~Q(fruit_layout="") & Q(fruits__len__gt=0)),
+                name="productsampledesign_fruit_with_layout",
+                violation_error_message="La fruta va con su acomodo, y un acomodo lleva fruta.",
+            ),
+            models.CheckConstraint(
+                condition=Q(fruits__contained_by=list(FruitKind.values)),
+                name="productsampledesign_fruits_known",
+                violation_error_message="Hay una fruta que el modelo no sabe dibujar.",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Muestra del modelo de {self.product}"
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        try:
+            # En el alta desde el admin, el producto puede no tener id todavía: la muestra ya lo trae en memoria.
+            product = self.product
+        except Product.DoesNotExist:
+            product = None
+        if product is not None and product.category != ProductCategory.CAKE:
+            errors["product"] = "Solo un pastel lleva muestra del modelo."
+        decoration = self.decoration if self.decoration_id else None
+        if decoration is not None:
+            if decoration.pricing == DecorationPricing.QUOTE:
+                errors["decoration"] = "«Otra decoración» no se dibuja: elige un diseño o «Sin decoración»."
+            elif self.decoration_color and not decoration.accepts_color:
+                errors["decoration_color"] = "Esta decoración no lleva color propio: deja el color vacío."
+        if self.fruits and not self.fruit_layout:
+            errors["fruit_layout"] = "Elige cómo va la fruta, o quita la fruta."
+        if self.fruit_layout and not self.fruits:
+            errors["fruits"] = "Elige al menos una fruta, o quita cómo va."
+        elif len(set(self.fruits or [])) != len(self.fruits or []):
+            errors["fruits"] = "Cada fruta va una sola vez."
+        if self.show_model_in_catalog and not self.model_image:
+            errors["model_image"] = "Para mostrarla en el catálogo, escribe el archivo de la imagen del modelo."
+        for first, second, needs_second, needs_first in SAMPLE_DETAIL_PAIRS:
+            has_first = getattr(self, first) not in ("", None)
+            has_second = getattr(self, second) not in ("", None)
+            if has_first and not has_second:
+                errors.setdefault(second, needs_second)
+            elif has_second and not has_first:
+                errors.setdefault(first, needs_first)
+        if self.shell_second_color and not self.shells:
+            errors.setdefault("shell_second_color", "El segundo color va con las conchas: elige dónde van, o quítalo.")
         if errors:
             raise ValidationError(errors)
 

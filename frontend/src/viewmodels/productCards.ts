@@ -2,7 +2,7 @@ import { CAKE_TYPE_LABELS, featuredOffering, PENDING_PRICE } from '../models/cat
 import type { CardOffering, ProductCard, ProductCategory } from '../models/catalog.ts'
 import { formatPrice } from '../models/money.ts'
 import { PRESENTATION_LABELS } from '../models/presentation.ts'
-import { PHOTO_PLACEHOLDER, photoView } from './productPhoto.ts'
+import { catalogImageView, PHOTO_PLACEHOLDER } from './productPhoto.ts'
 import type { PhotoView } from './productPhoto.ts'
 
 /**
@@ -102,7 +102,8 @@ export function toProductCardView(card: ProductCard): ProductCardView {
     href: productHref(card.slug),
     linkLabel: LINK_LABEL[card.category],
     summary: card.summary,
-    photo: photoView(card.photo, card.name, PHOTO_PLACEHOLDER[card.category]),
+    // La imagen del modelo antes que la foto (D86); la ficha conserva la foto real.
+    photo: catalogImageView(card.modelImage, card.photo, card.name, PHOTO_PLACEHOLDER[card.category]),
     kind: productKind(card),
     statuses: showcaseStatus(card),
     ...priceSummary(card),

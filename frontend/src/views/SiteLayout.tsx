@@ -6,6 +6,7 @@ import SiteFooter from '../components/SiteFooter.tsx'
 import SiteHeader, { CheckoutHeader } from '../components/SiteHeader.tsx'
 import CheckoutStrip from '../components/CheckoutStrip.tsx'
 import LogoutUnconfirmedNotice from './account/LogoutUnconfirmedNotice.tsx'
+import { forgetDesignDraft } from '../viewmodels/useCakeDesigner.ts'
 import { CartContext, useCartState } from '../viewmodels/useCart.ts'
 import { CartFlightContext, useCartFlightState } from '../viewmodels/useCartFlight.ts'
 import { ClosingFieldContext, useClosingFieldState } from '../viewmodels/useClosingField.ts'
@@ -44,6 +45,8 @@ export default function SiteLayout() {
   useSignOutEffect(cart.clear)
   // Con el carrito se olvidan la fecha y la hora elegidas en la entrega de esta pestaña (D77, D80).
   useSignOutEffect(forgetDeliveryChoice)
+  // Y el borrador de "Diseña tu pastel", que vive en la misma pestaña (tanda 4).
+  useSignOutEffect(forgetDesignDraft)
   const session = useSession()
   const signOut = useSignOut()
   const [closingField, setClosingField] = useClosingFieldState()

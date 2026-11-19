@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useNavigate, useSearchParams } from 'react-router'
 import { getCakeDesignOptions } from '../models/cakeDesign.ts'
 import type { CakeDesignOptions, CakeDesignQuote, CakeSizeCode } from '../models/cakeDesign.ts'
-import { emptyDraft, MAX_PEOPLE_INPUT, migrateLegacyColors, readDraft, writeDraft } from '../models/cakeDesignDraft.ts'
+import { clearDraft, emptyDraft, MAX_PEOPLE_INPUT, migrateLegacyColors, readDraft, writeDraft } from '../models/cakeDesignDraft.ts'
 import type { CakeDesignDraft, CakeForm } from '../models/cakeDesignDraft.ts'
 import type { Occasion } from '../models/occasion.ts'
 import type { CakeShape, Viewpoint } from '../three/cakeShape.ts'
@@ -37,6 +37,7 @@ import { useDesignPrefill } from './useDesignPrefill.ts'
 import { useLidStep } from './useLidStep.ts'
 import { useLoadedImage } from './useLoadedImage.ts'
 import { useRemoteData } from './useRemoteData.ts'
+import { useSignOutEffect } from './useSession.ts'
 import { useStoreDetails } from './useStoreInfo.ts'
 
 /** El paso pedido en `?paso=N`; sin número válido, el 1. */
@@ -79,6 +80,11 @@ function viewpointFor(step: number): Viewpoint {
 
 /** Mientras llegan las opciones no hay pastel que dibujar; la escena no se monta hasta tenerlas. */
 const EMPTY_SHAPE: CakeShape = { tiers: [], festoons: false, stand: true }
+
+/** Olvida el borrador guardado: al cerrar la sesión, otra persona en la misma pestaña no lo hereda (D77, tanda 4). */
+export function forgetDesignDraft() {
+  clearDraft()
+}
 
 /**
  * View-model de "Diseña tu pastel" (`/pedido/disena`). El paso actual va en la URL (`?paso=N`), así atrás y adelante
@@ -344,7 +350,10 @@ export function useCakeDesigner() {
   const addToOrder = useCallback(async () => {
     if (!orderLine) return
     // La miniatura se toma al hacer clic, antes de guardar las imágenes: es el pastel que la persona está viendo.
-    await order.add(orderLine, { decoration: decorationLocal, wafer: waferLocal }, draft.replaces, takeSnapshot())
+    const inCart = await order.add(orderLine, { decoration: decorationLocal, wafer: waferLocal }, draft.replaces, takeSnapshot())
+    // Ya a salvo en su línea del carrito (de ahí lo vuelve a abrir "Editar pedido"): la siguiente visita empieza de cero. La
+    // pantalla conserva el pastel en memoria, con su aviso; si la persona cambia algo, es otro diseño y se vuelve a guardar.
+    if (inCart) clearDraft()
   }, [decorationLocal, draft.replaces, order, orderLine, takeSnapshot, waferLocal])
   /** Empieza con `fresh` en `step` (por omisión, el paso 1), sin las imágenes del diseño anterior. */
   // El paso al que lleva `restart`: se navega cuando el borrador nuevo ya está en pantalla. Si la URL cambiara antes, el paso
@@ -370,6 +379,10 @@ export function useCakeDesigner() {
   )
   /** "Diseñar otro pastel": empieza de cero, sin las imágenes de este. */
   const startOver = useCallback(() => restart(emptyDraft()), [restart])
+  // Cerrar la sesión (aquí o en otra pestaña) vacía también el diseño que está en pantalla, como el carrito (D77): si no, el
+  // siguiente cambio volvería a guardar el borrador que el marco acaba de borrar.
+  const startOverOnSignOut = useCallback(() => restart(emptyDraft(), true), [restart])
+  useSignOutEffect(startOverOnSignOut)
 
   // --- "Personalizar este pastel" desde la ficha (D59) ---
   // Un pastel de vitrina de origen ya trae tamaño, tipo, pan y relleno: el recorrido empieza en la cobertura (tanda 2).
