@@ -58,8 +58,9 @@ function ShowcaseContent({ section, heading }: { section: ShowcaseState; heading
   if (section.allSoldOut) return <SoldOut leadDays={section.leadDays} />
   if (section.emptyFilter) return <p className="pt-4 text-cuerpo text-sobre-color-suave">{section.emptyFilter}</p>
   return (
-    // Aparece entera, sin escalonar: las repisas de una fila se leen como una sola y no deben quedar a distintas alturas.
-    <Reveal as="ul" className={gridClass}>
+    // En cascada por partidas (D90): la repisa se queda y solo se mueven el pastel y su etiqueta, así las repisas de una fila
+    // siguen leyéndose como una sola.
+    <Reveal as="ul" stagger className={gridClass}>
       {section.items.map((item) => (
         <ShowcaseShelfItem key={item.key} item={item} onAdd={section.add} field="mermelada" />
       ))}

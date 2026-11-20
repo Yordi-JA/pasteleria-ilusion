@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
 import { mockCatalog } from './support/catalog.ts'
 import { cakeDesignOptions, COVERAGE_HEX, mockCakeDesignOptions, mockCakeDesignPrice } from './support/cake-design.ts'
+import { durazno, seedCart } from './support/checkout.ts'
 import { fullStoreInfo, mockStoreInfo } from './support/store-info.ts'
 
 /**
@@ -26,16 +27,28 @@ const slices = (page: Page) => region(page, 'Rebanadas de hoy')
 const notice = (section: Locator) => section.getByTestId('aviso-carrito')
 const addTo = (section: Locator, name: string) => section.getByRole('button', { name: `Agregar al pedido: ${name}`, exact: true })
 
-/** Cuenta los rebotes del ícono: `animate` del enlace del carrito es lo que los dibuja. */
+/**
+ * Cuenta los saltos del contador (tanda 7, D90): cada llegada vuelve a montar el contador con la animación `header-contador`, así
+ * que se cuentan los contadores nuevos que nacen con ella. También cuenta si algo anima el ícono entero, que ya no rebota.
+ */
 async function countBounces(page: Page) {
-  await cartLink(page).evaluate((link) => {
-    const win = window as unknown as { bounces: number }
+  await page.evaluate(() => {
+    const win = window as unknown as { bounces: number; iconBounces: number }
     win.bounces = 0
+    win.iconBounces = 0
+    const link = document.querySelector('header a[href="/carrito"]') as HTMLAnchorElement
     const original = link.animate.bind(link)
     link.animate = (...args: Parameters<typeof link.animate>) => {
-      win.bounces++
+      win.iconBounces++
       return original(...args)
     }
+    new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (node instanceof HTMLElement && node.dataset.testid === 'contador-carrito' && getComputedStyle(node).animationName === 'header-contador') win.bounces++
+        }
+      }
+    }).observe(link, { childList: true })
   })
   return () => page.evaluate(() => (window as unknown as { bounces: number }).bounces)
 }
@@ -102,7 +115,7 @@ test.describe('catalog product', () => {
     await expect(notice(featured(page))).toContainText('Tres leches de durazno. Tienes 1 en tu pedido.')
   })
 
-  test('the icon bounces once per arrival, and not before', async ({ page }) => {
+  test('the counter pops once per arrival, and not before; the icon itself stays still', async ({ page }) => {
     await openHome(page)
     const bounces = await countBounces(page)
     await addTo(featured(page), 'Tres leches de durazno').click()
@@ -111,6 +124,23 @@ test.describe('catalog product', () => {
     await land(page)
     await expect(counter(page)).toHaveText('1')
     expect(await bounces()).toBe(1)
+    // El salto: escala de 1 a 1.25 y de vuelta a 1 en 300 ms, solo con `transform`.
+    await expect(counter(page)).toHaveCSS('animation-name', 'header-contador')
+    await expect(counter(page)).toHaveCSS('animation-duration', '0.3s')
+    // Otra llegada, otro salto.
+    await addTo(featured(page), 'Imposible').click()
+    await land(page)
+    await expect(counter(page)).toHaveText('2')
+    expect(await bounces()).toBe(2)
+    expect(await page.evaluate(() => (window as unknown as { iconBounces: number }).iconBounces)).toBe(0)
+  })
+
+  test('a counter already there when the page opens does not pop', async ({ page }) => {
+    await seedCart(page, [{ ...durazno, quantity: 2 }])
+    await openHome(page)
+    await expect(counter(page)).toHaveText('2')
+    await expect(counter(page)).toBeVisible()
+    await expect(counter(page)).toHaveCSS('animation-name', 'none')
   })
 
   test('with reduced motion nothing flies and the counter changes at once', async ({ page }) => {
@@ -122,6 +152,7 @@ test.describe('catalog product', () => {
     await expect(pearls(page)).toHaveCount(0)
     await expect(notice(featured(page))).toContainText('Agregado al pedido')
     expect(await bounces()).toBe(0)
+    await expect(counter(page)).toHaveCSS('animation-name', 'none')
   })
 
   test('two quick clicks on different products give two pearls and two arrivals', async ({ page }) => {

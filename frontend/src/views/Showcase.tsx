@@ -89,8 +89,9 @@ function Content({ showcase, onRetry }: { showcase: ShowcaseView; onRetry: () =>
   }
   if (showcase.emptyFilter) return <p className="text-cuerpo text-mermelada-suave">{showcase.emptyFilter}</p>
   return (
-    // Aparece entera, sin escalonar: las repisas de una fila se leen como una sola y no deben quedar a distintas alturas.
-    <Reveal as="ul" className={`${showcaseGrid} pt-2`}>
+    // En cascada por partidas (D90): la repisa se queda y solo se mueven el pastel y su etiqueta, así las repisas de una fila
+    // siguen leyéndose como una sola.
+    <Reveal as="ul" stagger className={`${showcaseGrid} pt-2`}>
       {showcase.items.map((item) => (
         <ShowcaseShelfItem key={item.key} item={item} onAdd={showcase.add} field="nata" showRemaining titleAs="h2" />
       ))}

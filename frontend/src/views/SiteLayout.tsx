@@ -36,7 +36,7 @@ export default function SiteLayout() {
   const store = useStoreInfo()
   const menu = useSiteMenu()
   const cart = useCartState()
-  const { flight, pearls, arrive, iconRef, shownCount } = useCartFlightState(cart.count)
+  const { flight, pearls, arrive, iconRef, shownCount, landings } = useCartFlightState(cart.count)
   const main = useRef<HTMLElement>(null)
   useRouteFocus(main)
   useRouteFade(main)
@@ -57,8 +57,8 @@ export default function SiteLayout() {
   const [closingField, setClosingField] = useClosingFieldState()
   const location = useLocation()
   const checkout = CHECKOUT_PATHS.has(location.pathname)
-  // El logo de la barra y el logotipo grande de la portada no se ven juntos (tanda 6).
-  const { barLogoHidden, barLogoAnimated, registerHeroLogo } = useBarLogoState(location.pathname === '/')
+  // El logo de la barra y el logotipo grande de la portada no se ven juntos (tanda 6); en escritorio, el grande viaja a la barra (D90).
+  const { barLogoHidden, barLogoAnimated, registerHeroLogo, morphing, morphParts } = useBarLogoState(location.pathname === '/')
 
   return (
     <CartContext value={cart}>
@@ -91,6 +91,11 @@ export default function SiteLayout() {
                   cartIconRef={iconRef}
                   logoHidden={barLogoHidden}
                   logoAnimated={barLogoAnimated}
+                  morphing={morphing}
+                  logoRef={morphParts.barLogo}
+                  navRef={morphParts.nav}
+                  travelingLogoRef={morphParts.ghost}
+                  cartLandings={landings}
                 />
               )}
               {session.status === 'anonymous' && session.logoutUnconfirmed && <LogoutUnconfirmedNotice onRetry={signOut} />}

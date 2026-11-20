@@ -84,9 +84,11 @@ export default function ProductCard({ product, variant = 'feature', action }: Pr
  * las tarjetas, hasta 320 px (288 px en móvil, para que el pastel no toque los lados): la imagen del modelo la llena con su
  * charola abajo, la foto se acomoda igual (`fillBox`) y el hueco es la silueta del mockup, así cada fila se apoya en la misma
  * línea. La sombra de contacto va debajo, al 66 % de la caja: el 70 % del pastel, que ocupa el 95 % (libro de marca).
+ * `foto-sobresaliente` (D90, `index.css`): con el mouse encima, el pastel (el primer hijo) sube más que la tarjeta y su sombra
+ * (el último hijo) se angosta; por eso el lugar de la foto lleva siempre esos dos hijos, en ese orden.
  */
 export const featureCard = 'tarjeta-elevable mt-24 flex h-[calc(100%-6rem)] flex-col gap-2.5 !pt-0'
-export const featurePhotoSlot = '-mt-24 mx-auto w-full max-w-[320px] max-[600px]:max-w-[288px]'
+export const featurePhotoSlot = 'foto-sobresaliente -mt-24 mx-auto w-full max-w-[320px] max-[600px]:max-w-[288px]'
 
 /** Cuadrícula de las tarjetas grandes: tres columnas, dos hasta 960 px y una en móvil (mockup). */
 export const featureGrid = 'grid grid-cols-3 gap-x-8 gap-y-10 max-[960px]:grid-cols-2 max-[600px]:grid-cols-1'

@@ -11,7 +11,7 @@ import { useHeroCake } from '../../viewmodels/useHeroCake.ts'
  * al primer campo de la tarjeta.
  */
 function AccessCake({ card }: { card: RefObject<HTMLDivElement | null> }) {
-  const cake = useHeroCake({ separateOnScroll: false })
+  const cake = useHeroCake()
   const hintId = useId()
   return (
     <>

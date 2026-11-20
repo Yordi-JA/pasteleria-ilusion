@@ -8,13 +8,13 @@ import { prefersReducedMotion } from './reducedMotion.ts'
 export type RevealPhase = 'static' | 'hidden' | 'shown'
 
 /** Margen bajo la ventana: aparece cuando ya asoma un poco, para que el movimiento se alcance a ver. */
-const ROOT_MARGIN = '0px 0px -48px 0px'
+export const ROOT_MARGIN = '0px 0px -48px 0px'
 
 /**
  * Red de seguridad: un IntersectionObserver siempre avisa una vez al empezar a observar. Si en este tiempo no avisó,
  * se da por descompuesto y el contenido se muestra, para que nunca quede invisible.
  */
-const OBSERVER_WATCHDOG_MS = 1000
+export const OBSERVER_WATCHDOG_MS = 1000
 
 /**
  * La aparición al llegar a la vista (tanda 3): el contenido que empieza abajo del pliegue sube 8 px y se desvanece la
