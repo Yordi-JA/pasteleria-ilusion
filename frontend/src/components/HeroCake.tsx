@@ -1,29 +1,28 @@
 import { lazy, Suspense } from 'react'
+import { HOME_CAKE_LABEL, HOME_CAKE_STILL } from '../viewmodels/homeCake.ts'
 import type { HeroCakeView } from '../viewmodels/useHeroCake.ts'
 import SceneBoundary from './SceneBoundary.tsx'
 
 // La escena 3D va en su propio chunk: three y react-three-fiber no frenan el primer render de la portada.
 const CakeScene = lazy(() => import('../three/CakeScene.tsx'))
 
-const SCENE_LABEL = 'Pastel de tres pisos'
-
 /** El color de cada piso del dibujo fijo, como clase de Tailwind (los tokens que usan los pasteles). */
 const TIER_FILL = { betun: 'fill-betun', 'fresa-claro': 'fill-fresa-claro' } as const
 export type StillTierColor = keyof typeof TIER_FILL
 
 /**
- * El pastel fijo: el dibujo de pisos de la marca (`assets/motivos/dibujo-pisos.svg`) con los colores del pastel 3D
- * (pisos `betun` y `fresa-claro`) y su sombra de contacto. Se ve mientras llega la escena y
+ * El pastel fijo: el dibujo de pisos de la marca (`assets/motivos/dibujo-pisos.svg`) con los colores del pastel 3D (por
+ * omisión, los dos pisos en la crema `betun` del pastel de `homeCake.ts`) y su sombra de contacto. Se ve mientras llega la escena y
  * cuando no hay WebGL o se pierde el contexto. Es decorativo: el `h1` y el lema ya dicen de qué es la página.
  */
 export function StaticCake({
   hidden = false,
   testId = 'pastel-portada-fijo',
-  tiers = ['betun', 'fresa-claro'],
+  tiers = HOME_CAKE_STILL,
 }: {
   hidden?: boolean
   testId?: string
-  /** El color del piso de abajo y el de arriba: por omisión, los del pastel de tres pisos. */
+  /** El color del piso de abajo y el de arriba: por omisión, los del pastel de la marca (`HOME_CAKE_STILL`). */
   tiers?: readonly [StillTierColor, StillTierColor]
 }) {
   return (
@@ -60,7 +59,7 @@ const BOX_HEIGHT = {
 
 /**
  * El pastel fijo en la caja de la escena chica, sin 3D: para las vistas de acceso que el libro de marca no enumera en
- * "Presencia de marca" (recuperar y verificar, D76), con el mismo lugar y tamaño que el pastel de `/entrar`.
+ * "Presencia de marca" (recuperar y verificar, D76), con el mismo lugar, tamaño y colores que el pastel de `/entrar`.
  */
 export function StaticCakeBox({ testId }: { testId: string }) {
   return (
@@ -71,8 +70,8 @@ export function StaticCakeBox({ testId }: { testId: string }) {
 }
 
 /**
- * Lugar del pastel de tres pisos: en la portada, con la altura de la escena del mockup (600 px, 460 px hasta 960 px de
- * ancho y 380 px en móvil); en el catálogo, la de la escena chica (`size="compact"`, D59). La caja no cambia de tamaño: adentro, el pastel fijo cede su lugar a la escena 3D
+ * Lugar del pastel de la marca: en la portada, con la altura de la escena del mockup (600 px, 460 px hasta 960 px de
+ * ancho y 380 px en móvil); en `/entrar` y `/registro`, la de la escena chica (`size="compact"`, D59). La caja no cambia de tamaño: adentro, el pastel fijo cede su lugar a la escena 3D
  * (`src/three/CakeScene.tsx`, D48) en cuanto dibuja su primer cuadro. La escena entra en 250 ms (opacidad y escala
  * de 0.97 a 1, con la curva `ease-entrada`) y el pastel fijo sale en 150 ms; con "reducir movimiento", sin transición.
  */
@@ -83,8 +82,8 @@ export default function HeroCake({
   size = 'hero',
   testId = 'pastel-portada',
   onColor = false,
-  label = SCENE_LABEL,
-  stillTiers,
+  label = HOME_CAKE_LABEL,
+  stillTiers = HOME_CAKE_STILL,
 }: {
   cake: HeroCakeView
   /** `id` de la pista de cómo girarlo, que describe la escena. */
@@ -96,9 +95,9 @@ export default function HeroCake({
   testId?: string
   /** Sobre un campo `mermelada`: el anillo de foco de la escena va en `betun`. */
   onColor?: boolean
-  /** Nombre accesible de la escena: por omisión, "Pastel de tres pisos". */
+  /** Nombre accesible de la escena: por omisión, el del pastel de la marca ("Pastel de dos pisos"). */
   label?: string
-  /** Los colores de los pisos del dibujo fijo, para que coincida con el pastel 3D (la portada, tanda 6). */
+  /** Los colores de los pisos del dibujo fijo, para que coincida con el pastel 3D: por omisión, los del pastel de la marca. */
   stillTiers?: readonly [StillTierColor, StillTierColor]
 }) {
   const { observeBox, ...scene } = cake

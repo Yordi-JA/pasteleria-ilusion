@@ -35,6 +35,8 @@ Nota (D89): el encabezado usa el dibujo de pisos en lugar del pastel 3D de la ca
 | Datos y avisos | `/cuenta/datos` | `CuentaDatos.dc.html` | [ver](../mockup/capturas/escritorio/013-CuentaDatos.jpg) | [ver](../mockup/capturas/movil/014-CuentaDatosMovil.jpg) |
 | Menú de mi cuenta (móvil) | `/cuenta (menú móvil abierto)` | `CuentaMenu.dc.html` | — | [ver](../mockup/capturas/movil/015-CuentaMenu.jpg) |
 
+Nota (D91): `/entrar` y `/registro` llevan el pastel de dos pisos de la portada, con crema peinada y rosas sobre la charola negra (las capturas muestran el de tres pisos).
+
 ## Carrito y pago
 
 | Vista | Ruta sugerida | Fuente | Escritorio | Móvil |

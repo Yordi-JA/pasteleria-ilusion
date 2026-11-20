@@ -1,4 +1,5 @@
 import type { CakeShape } from '../three/cakeShape.ts'
+import { HOME_CAKE } from './homeCake.ts'
 import { useCakeScene } from './useCakeScene.ts'
 import type { CakeSceneStatus, CakeSceneView } from './useCakeScene.ts'
 
@@ -6,24 +7,12 @@ import type { CakeSceneStatus, CakeSceneView } from './useCakeScene.ts'
 export type HeroCakeStatus = CakeSceneStatus
 
 /**
- * El pastel de tres pisos de la marca (libro de marca, "Presencia de marca"), con las medidas del mockup: el de `/entrar` y
- * `/registro`. La portada lleva el de dos pisos de `homeCake.ts` (tanda 6).
+ * View-model del pastel del hero: la escena compartida (`useCakeScene`) con el pastel que se dibuja (`shape`). Por omisión, el de
+ * dos pisos de la marca (`homeCake.ts`), el mismo en la portada, `/entrar` y `/registro` desde la tanda 8; el de tres pisos con
+ * festones sobre el stand ya no se usa. Desde D90 los pisos no se separan con el scroll en ninguna vista, así que solo cuenta su
+ * caja para saber si se ve.
  */
-export const HERO_CAKE: CakeShape = {
-  tiers: [
-    { radius: 1.5, height: 1.12, frosting: 'betun' },
-    { radius: 1.1, height: 0.96, frosting: 'fresa-claro' },
-    { radius: 0.72, height: 0.8, frosting: 'betun' },
-  ],
-  festoons: true,
-  stand: true,
-}
-
-/**
- * View-model del pastel del hero: la escena compartida (`useCakeScene`) con el pastel que se dibuja (`shape`; por omisión, el de
- * tres pisos). Desde D90 los pisos no se separan con el scroll en ninguna vista, así que solo cuenta su caja para saber si se ve.
- */
-export function useHeroCake({ shape = HERO_CAKE }: { shape?: CakeShape } = {}) {
+export function useHeroCake({ shape = HOME_CAKE }: { shape?: CakeShape } = {}) {
   return useCakeScene(shape)
 }
 

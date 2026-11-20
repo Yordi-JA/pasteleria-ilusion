@@ -5,8 +5,8 @@ import { useClosingField } from '../../viewmodels/useClosingField.ts'
 import { useHeroCake } from '../../viewmodels/useHeroCake.ts'
 
 /**
- * El pastel de tres pisos de la portada en la escena chica (libro de marca, "Presencia de marca": también va en el
- * inicio de sesión y el registro), con las reglas de D48: gira solo, se arrastra, gira con las flechas, se pausa fuera
+ * El pastel de dos pisos de la portada (`homeCake.ts`, desde la tanda 8) en la escena chica (libro de marca, "Presencia de
+ * marca": también va en el inicio de sesión y el registro), con las reglas de D48: gira solo, se arrastra, gira con las flechas, se pausa fuera
  * de pantalla y respeta "reducir movimiento". No se separa con el scroll. Si tenía el foco y desaparece, el foco pasa
  * al primer campo de la tarjeta.
  */
