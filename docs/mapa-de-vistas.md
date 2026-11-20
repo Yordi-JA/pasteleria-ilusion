@@ -12,7 +12,7 @@ Los estados (cargando, error, vacío, agotado) no son rutas propias: son la mism
 
 Nota (D86): en la portada, los destacados y la sección de la vitrina muestran, en los pasteles con foto, la imagen dibujada desde el modelo 3D en lugar de la foto.
 
-Nota (D89): el pastel del hero es de dos pisos, con crema peinada y rosas (la captura muestra tres pisos). En escritorio, la barra empieza sin su logo y lo muestra con un fundido cuando el logo grande del hero pasa bajo ella; hasta 600 px, el logo siempre se ve.
+Nota (D89): el pastel del hero es de dos pisos, con crema peinada y rosas (la captura muestra tres pisos). En escritorio, la barra empieza sin su logo: al hacer scroll, el logo grande del hero se encoge y viaja a su lugar en la barra mientras los enlaces se recorren a la derecha (D90); los pisos del pastel se quedan juntos. Con "reducir movimiento" la barra muestra su logo sin fundido cuando el grande pasa bajo ella; hasta 600 px, el logo siempre se ve.
 
 ## Catálogo
 

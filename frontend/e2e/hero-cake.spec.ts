@@ -6,8 +6,9 @@ import { mockCatalog } from './support/catalog.ts'
 import { fullStoreInfo, mockStoreInfo } from './support/store-info.ts'
 
 // El pastel 3D de la portada (D48). La escena expone en desarrollo `data-angle` (grados, sin dar la vuelta),
-// `data-separation` (0 a 1), `data-frames` (cuadros dibujados) y `data-running`, para probarla sin acoplar la
-// prueba a three. Con escala 1, el lienzo mide lo mismo en cualquier pantalla.
+// `data-separation` (la separación de los pisos que recibe el modelo, de 0 a 1; desde D90 siempre 0), `data-frames`
+// (cuadros dibujados) y `data-running`, para probarla sin acoplar la prueba a three. Con escala 1, el lienzo mide lo mismo
+// en cualquier pantalla.
 test.use({ deviceScaleFactor: 1 })
 
 // El pastel de dos pisos de la portada (tanda 6, `viewmodels/homeCake.ts`).
@@ -140,13 +141,21 @@ test.describe('hero cake: scene', () => {
     expect((await num(page, 'data-frames')) - before).toBeGreaterThan(0)
   })
 
-  test('the tiers separate as the page scrolls', async ({ page }) => {
+  test('the tiers stay together as the page scrolls', async ({ page }) => {
+    // D90: el usuario pidió quitar la separación ("parece que se levantan las capas al bajar").
     await openReady(page)
     expect(await num(page, 'data-separation')).toBe(0)
-    await page.mouse.wheel(0, 300)
-    await expect.poll(() => num(page, 'data-separation')).toBeGreaterThan(0.5)
-    await page.mouse.wheel(0, -300)
-    await expect.poll(() => num(page, 'data-separation')).toBe(0)
+    // El lienzo ya no sube 72 px sobre su caja para dejar lugar al piso de arriba. Se espera a que termine la entrada de la escena
+    // (250 ms, escala de 0.97 a 1), que mueve el lienzo unas décimas mientras corre.
+    const canvasOffset = async () => (await box(page).locator('canvas').boundingBox())!.y - (await box(page).boundingBox())!.y
+    await expect.poll(async () => Math.abs(await canvasOffset())).toBeLessThan(0.5)
+    for (const y of [150, 300, 380]) {
+      await page.evaluate((top) => window.scrollTo(0, top), y)
+      // Cuadros que se dibujan después del scroll (el giro solo sigue): la separación sigue en 0.
+      const frames = await num(page, 'data-frames')
+      await expect.poll(() => num(page, 'data-frames')).toBeGreaterThan(frames)
+      expect(await num(page, 'data-separation')).toBe(0)
+    }
   })
 
   test('pauses when it leaves the screen and when the tab is hidden', async ({ page }) => {

@@ -44,8 +44,8 @@ type CakeState = {
 /**
  * View-model de una escena del pastel (la portada y "Diseña tu pastel"): decide si hay escena 3D o pastel fijo, si la
  * escena corre (en pantalla y con la pestaña visible), si el usuario pidió reducir el movimiento y si la escena tiene
- * el foco del teclado. `visibleMargin` amplía la caja que cuenta como "en pantalla" (el lienzo de la portada sube
- * 72 px sobre ella). `viewpoint` es desde dónde se ve el pastel (la vista previa de "Diseña tu pastel", por paso).
+ * el foco del teclado. `visibleMargin` amplía la caja que cuenta como "en pantalla" (hoy ninguna escena lo
+ * necesita: desde D90 el lienzo de la portada ya no sube sobre su caja). `viewpoint` es desde dónde se ve el pastel (la vista previa de "Diseña tu pastel", por paso).
  */
 export function useCakeScene(shape: CakeShape, visibleMargin = '0px', viewpoint?: Viewpoint) {
   const reducedMotion = useSyncExternalStore(subscribeReducedMotion, prefersReducedMotion)

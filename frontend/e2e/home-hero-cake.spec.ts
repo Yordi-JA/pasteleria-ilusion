@@ -102,11 +102,15 @@ test.describe('header logo on the home page', () => {
     expect(await page.evaluate(() => document.activeElement?.getAttribute('data-testid'))).toBe('logo-barra')
   })
 
-  test('it fades in 200 ms, and with reduced motion it changes at once', async ({ page }) => {
+  test('with motion the big logo travels to the bar instead of a fade; with reduced motion it changes at once', async ({ page }) => {
+    // D90: en escritorio el logotipo grande viaja a la barra (`home-header-morph.spec.ts`), así que el logo de la barra no se
+    // desvanece: aparece cuando llega. Con "reducir movimiento" sigue lo de la tanda 6, sin transición.
     await page.setViewportSize({ width: 1440, height: 900 })
     await openHome(page)
-    await expect(barLogo(page)).toHaveCSS('transition-duration', '0.2s')
+    await expect(page.getByTestId('logo-viaje')).toBeAttached()
+    await expect(barLogo(page)).toHaveCSS('transition-duration', '0s')
     await page.emulateMedia({ reducedMotion: 'reduce' })
+    await expect(page.getByTestId('logo-viaje')).toHaveCount(0)
     await expect(barLogo(page)).toHaveCSS('transition-property', 'none')
   })
 

@@ -101,7 +101,7 @@ export default function HeroCake({
   /** Los colores de los pisos del dibujo fijo, para que coincida con el pastel 3D (la portada, tanda 6). */
   stillTiers?: readonly [StillTierColor, StillTierColor]
 }) {
-  const { observeBox, separateOnScroll, ...scene } = cake
+  const { observeBox, ...scene } = cake
   const ready = scene.status === 'ready'
   return (
     <div ref={observeBox} data-testid={testId} data-state={scene.status} className={`relative ${BOX_HEIGHT[size]}`}>
@@ -119,7 +119,6 @@ export default function HeroCake({
                 describedBy={hintId}
                 reducedMotion={scene.reducedMotion}
                 running={scene.running}
-                separateOnScroll={separateOnScroll}
                 onColor={onColor}
                 onReady={scene.onReady}
                 onContextLost={scene.onContextLost}

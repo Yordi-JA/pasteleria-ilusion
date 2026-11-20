@@ -7,9 +7,23 @@ import { ORDER_LINK } from '../../components/navigation.ts'
 import { HOME_CAKE, HOME_CAKE_LABEL, HOME_CAKE_STILL } from '../../viewmodels/homeCake.ts'
 import { useHeroLogoRef } from '../../viewmodels/useBarLogo.ts'
 import { useHeroCake } from '../../viewmodels/useHeroCake.ts'
+import { useHeroEntrance } from '../../viewmodels/useHeroEntrance.ts'
 import { Field } from './sectionLayout.tsx'
 
 const HINT_ID = 'pastel-pista'
+
+/**
+ * La entrada del hero (tanda 7, D90): 450 ms cada pieza, 60 ms de escalón, con la curva `entrada` (`tailwind.config.cjs`). El
+ * pastel entra con la frase, a la par del texto. Solo con `motion-safe:`: con "reducir movimiento" no hay ninguna.
+ */
+const ENTRANCE = {
+  logo: 'motion-safe:animate-home-entrada',
+  motto: 'motion-safe:animate-home-entrada [--entrada-retraso:60ms]',
+  text: 'motion-safe:animate-home-entrada [--entrada-retraso:120ms]',
+  cake: 'motion-safe:animate-home-entrada [--entrada-retraso:120ms]',
+  order: 'motion-safe:animate-home-entrada [--entrada-retraso:180ms]',
+  showcase: 'motion-safe:animate-home-entrada [--entrada-retraso:240ms]',
+} as const
 
 /**
  * Hero de la portada sobre `fresa` (Main.dc.html): el logotipo grande como `h1`, el lema, la frase y las dos
@@ -20,11 +34,14 @@ const HINT_ID = 'pastel-pista'
  * (`aria-describedby`) con sus dos frases; con el foco del teclado en la escena, la visible es la de las flechas.
  *
  * El pastel es el de dos pisos de `homeCake.ts` (tanda 6): cobertura peinada y una decoración del diseñador; su dibujo fijo lleva
- * los mismos colores. El logotipo grande se registra en el marco (`useHeroLogoRef`): mientras se ve, la barra no muestra el suyo.
+ * los mismos colores. El logotipo grande se registra en el marco (`useHeroLogoRef`): mientras se ve, la barra no muestra el suyo,
+ * y en escritorio es el que viaja a la barra al bajar (D90). Al cargar la página, el hero entra en escalón una sola vez.
  */
 export default function HomeHero() {
   const cake = useHeroCake({ shape: HOME_CAKE })
   const heroLogo = useHeroLogoRef()
+  const entering = useHeroEntrance()
+  const enter = (piece: keyof typeof ENTRANCE) => (entering ? ENTRANCE[piece] : '')
   const actions = useRef<HTMLDivElement>(null)
   // Si la escena con foco desaparece (se perdió el contexto), el foco pasa a "Ver la vitrina", no a `<body>`.
   const focusLastAction = () => actions.current?.querySelector<HTMLElement>('a:last-of-type')?.focus()
@@ -33,16 +50,18 @@ export default function HomeHero() {
       <div className="mx-auto grid w-full max-w-[1200px] grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] items-center gap-6 px-6 pb-6 pt-8 max-[960px]:grid-cols-1 max-[600px]:px-4">
         <div className="flex flex-col gap-6">
           <h1 id="portada-titulo" className="-ml-2 leading-none max-[600px]:sr-only">
-            <img ref={heroLogo} src={logo} alt="" width={565} height={247} className="block h-auto w-full max-w-[640px] max-[600px]:hidden" />
+            <img ref={heroLogo} src={logo} alt="" width={565} height={247} className={`block h-auto w-full max-w-[640px] max-[600px]:hidden ${enter('logo')}`} />
             <span className="sr-only">Pastelería Ilusión</span>
           </h1>
-          <p className="font-display text-titulo-1 text-mermelada">Pide un deseo. Del pastel nos encargamos.</p>
-          <p className="max-w-[520px] text-cuerpo text-mermelada-suave">
+          <p className={`font-display text-titulo-1 text-mermelada ${enter('motto')}`}>Pide un deseo. Del pastel nos encargamos.</p>
+          <p className={`max-w-[520px] text-cuerpo text-mermelada-suave ${enter('text')}`}>
             Pasteles artesanales para bodas, XV años y cumpleaños, y postres del día, hechos por una pastelería familiar.
           </p>
           <div ref={actions} className="flex flex-wrap items-center gap-4">
-            <ButtonLink to={ORDER_LINK.to}>{ORDER_LINK.label}</ButtonLink>
-            <ButtonLink to="/vitrina" variant="secondary">
+            <ButtonLink to={ORDER_LINK.to} className={enter('order')}>
+              {ORDER_LINK.label}
+            </ButtonLink>
+            <ButtonLink to="/vitrina" variant="secondary" className={enter('showcase')}>
               Ver la vitrina
             </ButtonLink>
           </div>
@@ -72,13 +91,15 @@ export default function HomeHero() {
             <span className={cake.keyboardFocus ? '' : 'sr-only'}>Usa las flechas izquierda y derecha para girarlo.</span>
           </p>
         </div>
-        <HeroCake
-          cake={cake}
-          hintId={HINT_ID}
-          onFocusEscape={focusLastAction}
-          label={HOME_CAKE_LABEL}
-          stillTiers={HOME_CAKE_STILL}
-        />
+        <div data-testid="pastel-portada-entrada" className={enter('cake')}>
+          <HeroCake
+            cake={cake}
+            hintId={HINT_ID}
+            onFocusEscape={focusLastAction}
+            label={HOME_CAKE_LABEL}
+            stillTiers={HOME_CAKE_STILL}
+          />
+        </div>
       </div>
     </Field>
   )

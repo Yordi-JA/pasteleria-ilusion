@@ -2,8 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 /** Lo que dura el vuelo de la perla (libro de marca: los movimientos largos del sitio rondan los 300 ms; este cruza la pantalla). */
 export const FLIGHT_MS = 550
-/** Lo que dura el rebote del ícono al llegar la perla. */
-export const BOUNCE_MS = 200
 /** Diámetro de la perla en px. */
 export const PEARL_SIZE = 13
 
@@ -64,11 +62,13 @@ export function flightKeyframes({ from, to }: Pick<Pearl, 'from' | 'to'>): Keyfr
  * que React corra el manejador); cuando el carrito agrega algo, `launch` mide ese botón y el ícono del carrito una sola
  * vez y deja una perla en `pearls`. El estado del carrito cambia al instante; solo el número del encabezado espera:
  * `shownCount` es el valor real menos lo que traen las perlas aún en el aire, y baja a cero pendiente cuando cada una
- * llega (`arrive`), cuando la vista se desmonta o cuando el vuelo se cancela.
- * Con `prefers-reduced-motion`, o si no se puede medir el botón o el ícono, no hay perla ni rebote.
+ * llega (`arrive`), cuando la vista se desmonta o cuando el vuelo se cancela. `landings` cuenta las llegadas: con cada una, el
+ * contador del encabezado da un salto corto (tanda 7, D90; antes rebotaba el ícono entero).
+ * Con `prefers-reduced-motion`, o si no se puede medir el botón o el ícono, no hay perla ni salto.
  */
 export function useCartFlightState(count: number) {
   const [pearls, setPearls] = useState<Pearl[]>([])
+  const [landings, setLandings] = useState(0)
   const iconRef = useRef<HTMLAnchorElement | null>(null)
   const lastButton = useRef<Element | null>(null)
   const nextId = useRef(1)
@@ -93,14 +93,11 @@ export function useCartFlightState(count: number) {
 
   const arrive = useCallback((id: number) => {
     setPearls((current) => current.filter((pearl) => pearl.id !== id))
-    iconRef.current?.animate(
-      [{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }],
-      { duration: BOUNCE_MS, easing: 'ease-out' },
-    )
+    setLandings((count) => count + 1)
   }, [])
 
   const pending = pearls.reduce((sum, pearl) => sum + pearl.pieces, 0)
   const shownCount = Math.max(0, count - pending)
   const flight = useMemo(() => ({ launch }), [launch])
-  return { flight, pearls, arrive, iconRef, shownCount }
+  return { flight, pearls, arrive, iconRef, shownCount, landings }
 }

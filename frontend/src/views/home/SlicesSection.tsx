@@ -15,8 +15,9 @@ import { addNoticeSpacing, EmptyAfterError, Field, sectionColumn, sectionHeading
 
 // Cuatro columnas en escritorio; hasta 960 px, una fila que se desliza de lado con tarjetas de 240 px (mockup).
 const rowClass = 'grid grid-cols-4 gap-6 max-[960px]:flex max-[960px]:[&>*]:flex-[0_0_240px]'
-// El contenedor que se desliza: enfocable para moverlo con las flechas del teclado, con su nombre y el anillo de foco.
-const scrollerClass = `rounded-md max-[960px]:overflow-x-auto max-[960px]:pb-2 ${focusRing}`
+// El contenedor que se desliza: enfocable para moverlo con las flechas del teclado, con su nombre y el anillo de foco. Arriba
+// deja 6 px para que la tarjeta que sube con el mouse (D90) no se recorte: con `overflow-x` también se recorta en vertical.
+const scrollerClass = `rounded-md max-[960px]:overflow-x-auto max-[960px]:pb-2 max-[960px]:pt-1.5 ${focusRing}`
 
 function SliceCard({ item, onAdd }: { item: SliceItemView; onAdd: SlicesState['add'] }) {
   return (

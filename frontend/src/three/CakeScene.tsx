@@ -14,7 +14,6 @@ import { encodeThumbnail } from './snapshot.ts'
 import {
   aimTilt,
   approach,
-  clamp,
   createSpin,
   createTilt,
   ELEVATION,
@@ -39,17 +38,10 @@ const TILT = { yaw: 16, pitch: 5, timeConstant: 0.2 }
 /**
  * Intervalo entre cuadros del giro solo: unos 30 por segundo. A 7° por segundo no se nota la diferencia con 60, y
  * en un teléfono la mitad de cuadros es la mitad de trabajo de la GPU y de batería. Mientras la persona arrastra,
- * hay inercia, un paso de flecha, inclinación o scroll, se dibuja a la tasa completa de la pantalla.
+ * hay inercia, un paso de flecha o inclinación, se dibuja a la tasa completa de la pantalla.
  */
 const IDLE_FRAME_MS = 33
 const IDLE_FRAME_MARGIN_MS = 6
-/** Píxeles de scroll en los que los pisos se separan por completo (380 en el mockup). */
-const SEPARATION_SCROLL = 380
-/**
- * El lienzo sube estos píxeles por encima de la caja del pastel para que el piso de arriba no se corte cuando los pisos se
- * separan. La caja (y el diseño) no cambia: el lienzo no recibe el puntero y es transparente.
- */
-const OVERFLOW_TOP = 72
 /**
  * El plato queda al 70% de la altura de la caja y el pastel cabe en 560 × 600 px, como el mockup. `scale` iguala el
  * tamaño de la captura (`001-Main.jpg`): la perspectiva de CSS 3D del prototipo lo dibuja algo más chico.
@@ -57,18 +49,11 @@ const OVERFLOW_TOP = 72
 const FRAME = { plate: 0.7, width: 560, height: 600, scale: 0.88 }
 
 /**
- * Encuadre de la escena: dónde queda el plato (fracción del alto de la caja), qué caja en px del mockup debe caber, a
- * qué escala y cuántos px sube el lienzo sobre la caja. Sin él, el de la portada.
+ * Encuadre de la escena: dónde queda el plato (fracción del alto de la caja), qué caja en px del mockup debe caber y a
+ * qué escala. Sin él, el de la portada. Desde D90 los pisos ya no se separan con el scroll, así que el lienzo mide lo mismo
+ * que su caja (antes subía 72 px sobre ella para el piso de arriba).
  */
-export type SceneFraming = typeof FRAME & { overflowTop: number }
-
-const HERO_FRAMING: SceneFraming = { ...FRAME, overflowTop: OVERFLOW_TOP }
-
-/**
- * El mismo encuadre sin sobresalir: sin pisos que se separen con el scroll (el catálogo, D59), el lienzo no sube los
- * 72 px de la portada y no se sale de su sección.
- */
-const IN_BOX_FRAMING: SceneFraming = { ...FRAME, overflowTop: 0 }
+export type SceneFraming = typeof FRAME
 
 /**
  * El pastel de dos pisos de la portada (tanda 6) mide lo que un pastel de verdad (los cm de los moldes) y va sobre la charola: la
@@ -77,7 +62,7 @@ const IN_BOX_FRAMING: SceneFraming = { ...FRAME, overflowTop: 0 }
  */
 const BOARD_FRAME = { plate: 0.74, width: 5 }
 
-/** El encuadre de un pastel sobre su charola, a partir del de la portada o del de la caja. */
+/** El encuadre de un pastel sobre su charola, a partir del de la portada. */
 function boardFraming(base: SceneFraming, shape: CakeShape): SceneFraming {
   const width = 2 * boardRadius(shape)
   return width > 0 ? { ...base, plate: BOARD_FRAME.plate, scale: (base.scale * BOARD_FRAME.width) / width } : base
@@ -104,15 +89,13 @@ export type CakeSceneProps = {
   reducedMotion: boolean
   /** Falso cuando la escena no se ve o la pestaña está oculta: no se dibuja ningún cuadro. */
   running: boolean
-  /** Los pisos se separan con el scroll (solo en la portada). */
-  separateOnScroll: boolean
   onReady: () => void
   onContextLost: () => void
   /** Avisa si la escena tiene el foco del teclado (`:focus-visible`), para cambiar la pista visible. */
   onKeyboardFocusChange?: (keyboard: boolean) => void
   /** Si la escena tiene el foco cuando se pierde el contexto, lo pasa a otro control antes de desaparecer. */
   onFocusEscape?: () => void
-  /** Encuadre propio; sin él, el de la portada (o `IN_BOX_FRAMING` sin `separateOnScroll`). Con `freeLook` no se usa. */
+  /** Encuadre propio; sin él, el de la portada. Con `freeLook` no se usa. */
   framing?: SceneFraming
   /**
    * Vista libre ("Diseña tu pastel"): arrastrar en vertical cambia la elevación de la cámara, las flechas de arriba y
@@ -128,7 +111,10 @@ export type CakeSceneProps = {
   onSnapshot?: (take: TakeSnapshot | null) => void
 }
 
-/** Lo que leen las pruebas en desarrollo, sin acoplarlas a three: cuadros dibujados, ángulo y separación. */
+/**
+ * Lo que leen las pruebas en desarrollo, sin acoplarlas a three: cuadros dibujados, ángulo y la separación de los pisos que
+ * recibe el modelo (siempre 0 desde D90: el scroll ya no los separa).
+ */
 type Probe = { frames: number; angle: number; separation: number; elevation: number; scale: number }
 
 function writeProbe(el: HTMLElement, probe: Probe, angle: number, separation: number, elevation: number, scale: number) {
@@ -150,10 +136,10 @@ function writeProbe(el: HTMLElement, probe: Probe, angle: number, separation: nu
 
 /** Coloca la cámara: la escala del mockup (100 px por unidad a 600 px de alto) y el plato al 70% de la caja. */
 function frameCamera(camera: PerspectiveCamera, width: number, height: number, framing: SceneFraming) {
-  const box = Math.max(1, height - framing.overflowTop)
+  const box = Math.max(1, height)
   const pxPerUnit = Math.max(1, framing.scale * Math.min((100 * box) / framing.height, (100 * width) / framing.width))
   const visibleHeight = height / pxPerUnit
-  const plateFromCenter = (framing.overflowTop + framing.plate * box - height / 2) / pxPerUnit
+  const plateFromCenter = (framing.plate * box - height / 2) / pxPerUnit
   const elevation = (CAMERA_ELEVATION * Math.PI) / 180
   const target = new Vector3(0, plateFromCenter, 0)
   camera.fov = (2 * Math.atan(visibleHeight / 2 / CAMERA_DISTANCE) * 180) / Math.PI
@@ -269,7 +255,6 @@ type RigProps = {
   tilt: RefObject<Tilt>
   container: RefObject<HTMLDivElement | null>
   reducedMotion: boolean
-  separateOnScroll: boolean
   onReady: () => void
   framing: SceneFraming
   freeLook: boolean
@@ -278,7 +263,7 @@ type RigProps = {
   onSnapshot?: (take: TakeSnapshot | null) => void
 }
 
-function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnScroll, onReady, framing, freeLook, autoSpin, onSnapshot }: RigProps) {
+function Rig({ shape, running, spin, tilt, container, reducedMotion, onReady, framing, freeLook, autoSpin, onSnapshot }: RigProps) {
   const cake = useRef<Group>(null)
   const motion = useRef<CakeMotion>({ separation: 0 })
   const probe = useRef<Probe>({ frames: 0, angle: NaN, separation: NaN, elevation: NaN, scale: NaN })
@@ -289,7 +274,6 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnS
   const ready = useRef(false)
   // El primer cuadro tras una pausa (o el primero de todos) trae un intervalo enorme; solo ese se acota.
   const resumed = useRef(true)
-  const lastSeparation = useRef(0)
   const lastFrameAt = useRef(0)
   const idleTimer = useRef<number | null>(null)
   const invalidate = useThree((state) => state.invalidate)
@@ -316,26 +300,20 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnS
     const moving = stepSpin(s, dt, !reducedMotion && autoSpin)
     const t = tilt.current
     stepTilt(t, dt, !reducedMotion, TILT.timeConstant)
-    // El scroll se lee aquí, dentro del cuadro que ya se dibuja por el giro: sin escuchar el evento `scroll`, sin
-    // medir el diseño (leer `scrollY` no fuerza un reflow) y sin escribir en el DOM. Solo mueve la escena WebGL.
-    const separation = separateOnScroll && !reducedMotion ? clamp(window.scrollY / SEPARATION_SCROLL, 0, 1) : 0
     // En la vista libre la cámara sube y baja con la elevación y se encuadra al pastel.
     const reframing = freeLook && stepFreeCamera(state.camera as PerspectiveCamera, state.size, freeView.current, content, reference, s.elevation, dt, !reducedMotion)
     const yaw = ((s.angle + t.x * TILT.yaw) * Math.PI) / 180
-    motion.current.separation = separation
     if (cake.current) {
       cake.current.rotation.y = yaw
       cake.current.rotation.x = (t.y * TILT.pitch * Math.PI) / 180
     }
     // La escena siempre usa `frameloop="demand"`: cada cuadro decide si pide otro. Con "reducir movimiento", solo
-    // mientras algo se mueve por un gesto. Si no, a la tasa completa mientras la persona mueve el pastel (o la
-    // página, por la separación) y a unos 30 por segundo para el giro solo.
-    const scrolled = Math.abs(separation - lastSeparation.current) > 0.0005
-    lastSeparation.current = separation
+    // mientras algo se mueve por un gesto. Si no, a la tasa completa mientras la persona mueve el pastel y a unos 30 por
+    // segundo para el giro solo. El scroll de la página no mueve la escena (D90: los pisos ya no se separan).
     if (reducedMotion) {
       if (moving || reframing) invalidate()
     } else if (running) {
-      if (scrolled || reframing || needsFullRate(s, t, autoSpin)) invalidate()
+      if (reframing || needsFullRate(s, t, autoSpin)) invalidate()
       else if (autoSpin && idleTimer.current === null) {
         // El temporizador pide el cuadro y este llega en el siguiente refresco: sin margen, caería justo después
         // del refresco de los 33 ms y esperaría al de los 50 (unos 20 fps). Con 6 ms de margen alcanza el de 33.
@@ -351,7 +329,7 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, separateOnS
       onReady()
     }
     // Solo en desarrollo: en producción este bloque no existe.
-    if (import.meta.env.DEV && container.current) writeProbe(container.current, probe.current, s.angle, separation, s.elevation, freeView.current.scale)
+    if (import.meta.env.DEV && container.current) writeProbe(container.current, probe.current, s.angle, motion.current.separation, s.elevation, freeView.current.scale)
   })
 
   return (
@@ -425,7 +403,6 @@ export default function CakeScene({
   describedBy,
   reducedMotion,
   running,
-  separateOnScroll,
   onReady,
   onContextLost,
   onKeyboardFocusChange,
@@ -436,7 +413,7 @@ export default function CakeScene({
   onColor = false,
   onSnapshot,
 }: CakeSceneProps) {
-  const baseFraming = framingProp ?? (separateOnScroll ? HERO_FRAMING : IN_BOX_FRAMING)
+  const baseFraming = framingProp ?? FRAME
   const onBoard = !freeLook && Boolean(shape.board) && !shape.stand
   const framing = useMemo(() => (onBoard ? boardFraming(baseFraming, shape) : baseFraming), [baseFraming, onBoard, shape])
   const container = useRef<HTMLDivElement>(null)
@@ -553,7 +530,7 @@ export default function CakeScene({
         flat
         gl={{ antialias: true, alpha: true, powerPreference: 'low-power' }}
         camera={{ near: 1, far: 30 }}
-        style={{ position: 'absolute', top: freeLook ? 0 : -framing.overflowTop, right: 0, bottom: 0, left: 0, width: 'auto', height: 'auto', pointerEvents: 'none' }}
+        style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, width: 'auto', height: 'auto', pointerEvents: 'none' }}
         onCreated={({ gl, invalidate }) => {
           invalidateRef.current = invalidate
           gl.domElement.addEventListener(
@@ -576,7 +553,6 @@ export default function CakeScene({
           tilt={tilt}
           container={container}
           reducedMotion={reducedMotion}
-          separateOnScroll={separateOnScroll}
           onReady={onReady}
           framing={framing}
           freeLook={freeLook}

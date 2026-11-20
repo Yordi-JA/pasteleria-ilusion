@@ -45,13 +45,15 @@ export function Shelf({ field }: { field: ShowcaseShelfItemProps['field'] }) {
 export default function ShowcaseShelfItem({ item, onAdd, field, showRemaining = false, titleAs: Title = 'h3' }: ShowcaseShelfItemProps) {
   const sliced = item.kind === 'sliced' && !item.soldOut
   return (
-    <li>
+    // `data-cascada-partes` y `data-cascada-parte` (D90, `index.css`): en la cascada se mueven el pastel y la etiqueta, no la repisa.
+    <li data-cascada-partes="">
       <article className="flex h-full flex-col">
-        <div className="px-2">
+        <div data-cascada-parte="pastel" className="px-2">
           <ProductPhoto photo={item.photo} shape="tiers2" />
         </div>
         <Shelf field={field} />
         <div
+          data-cascada-parte="etiqueta"
           className={`mt-5 flex flex-1 items-center justify-between gap-2 rounded-sm bg-betun py-3 pl-3.5 pr-3 text-mermelada max-[600px]:pl-3 max-[600px]:pr-2 ${card[field]}`}
         >
           <div className="flex min-w-0 flex-col">

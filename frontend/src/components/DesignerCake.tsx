@@ -68,7 +68,6 @@ export default function DesignerCake({ scene, hintId }: { scene: CakeSceneView; 
                 describedBy={hintId}
                 reducedMotion={view.reducedMotion}
                 running={view.running}
-                separateOnScroll={false}
                 onReady={view.onReady}
                 onContextLost={view.onContextLost}
                 onKeyboardFocusChange={view.onKeyboardFocusChange}

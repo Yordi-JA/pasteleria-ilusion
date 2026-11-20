@@ -834,4 +834,16 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Logo de la barra en la portada: en escritorio la barra empieza sin su logo y lo muestra con un fundido de 200 ms cuando el logo grande pasa bajo ella (`useBarLogo.ts`, `SiteHeader`). Oculto no sale del lugar ni recibe Tab, y nunca se oculta con el foco.
 - Pruebas: `e2e/catalog-header.spec.ts` (nueva; se borró `catalog-cake.spec.ts`), `catalog-model-images.spec.ts`, `cake-render.spec.ts`, `home-hero-cake.spec.ts` y `hero-cake.spec.ts`. Suite completa: 980 pruebas con `--workers=2`, 979 pasaron; la única que falla, `cake-designer-lid.spec.ts:210`, también falla en `main`.
 - Se actualizaron el libro de marca, `docs/mapa-de-vistas.md`, `frontend/AGENTS.md` y el estado del `README.md`.
-- Decisión D89. Rama `fix/correcciones-tanda-6`, sin fusionar.
+- Decisión D89. Rama `fix/correcciones-tanda-6`, fusionada en `main` (PR #50) y desplegada en Heroku (v41).
+
+### Jueves 19 de noviembre (noche): tanda 7 de correcciones (D90)
+
+- Después de ver la tanda 6 en producción, el usuario dijo que las animaciones moderadas seguían haciendo que la página se viera sin vida, y eligió el estilo "Expresivas". Los efectos ligados al scroll solo si la página seguía vacía. Pidió además que los pisos del pastel de la portada dejaran de levantarse al hacer scroll y que el logo grande se moviera hasta el lugar del logo de la barra.
+- Los pisos del pastel de la portada ya no se separan con el scroll (`CakeScene` pierde `separateOnScroll` y el desborde; `data-separation` queda en 0). Se revierte parte de D48 y D89.
+- Cambio del encabezado en la portada, solo en escritorio y sin "reducir movimiento": una copia decorativa del logo grande (`logo-viaje`) se encoge y viaja al lugar del logo de la barra mientras los enlaces se recorren a la derecha, atado al scroll y reversible. Lo calculan `headerMorph.ts` y `useHeaderMorph.ts` con un oyente de `scroll` pasivo, un cuadro por refresco y solo `transform` y `visibility`. Se descartaron las animaciones de CSS ligadas al scroll (Firefox no las trae activas y el cambio de logo enfocable necesita JavaScript) y mover el `h1` real (contexto de apilamiento del encabezado fijo y desvanecido de ruta). Medido en la GPU: 55 a 56 cuadros por segundo contra unos 57 sin el cambio, sin tareas largas.
+- Entrada de la portada una sola vez por carga (`useHeroEntrance`), salto del contador del carrito al llegar la perla (300 ms; sustituye el rebote del ícono de D55), cascada por tarjeta al entrar en la ventana (`useCascade`; la causa de que D80 se sintiera muerta era observar cada cuadrícula como un bloque), hover de 4 px con la sombra de contacto del pastel destacado que se angosta, y botones que se hunden a 0.97.
+- Sistema de movimiento: una curva, duraciones de 150, 250 y 450 ms (100 ms al presionar), solo `transform` y `opacity`.
+- Pendiente de limpieza: `separation` de `CakeModel` y `visibleMargin` de `useCakeScene` valen siempre 0. No se probó en Firefox ni en Safari (Playwright solo corre Chromium).
+- Pruebas: `e2e/home-header-morph.spec.ts` (nueva) y cambios en `animations.spec.ts`, `add-to-cart-flight.spec.ts`, `hero-cake.spec.ts` y `home-hero-cake.spec.ts`. Suite completa: 1009 pruebas con `--workers=2`, 1008 pasaron; la única que falla, `cake-designer-lid.spec.ts:210`, también falla en `main`.
+- Se actualizaron el libro de marca, `docs/mapa-de-vistas.md`, `frontend/AGENTS.md` y el estado del `README.md`.
+- Decisión D90. Rama `fix/correcciones-tanda-7`, sin fusionar.
