@@ -1706,6 +1706,14 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 - **Alternativas descartadas:** Una caja más baja: también acortaría la del dibujo fijo de `/recuperar` y `/verificar`, que con su ancho máximo ya no cabría. Centrar el pastel en su celda: en `/entrar` dejaría el mismo hueco repartido arriba y abajo.
 - **Verificación:** `npm run typecheck` y `npm run lint` sin errores. `access.spec.ts`, `password-recovery.spec.ts`, `email-verification.spec.ts`, `hero-cake.spec.ts` y `home-hero-cake.spec.ts`: 91 pasaron con `--workers=2`. Capturas de `/entrar` a 1440 × 900, 1280 × 720 y 390 px, de `/registro` a 1440 px y de `/recuperar` a 1440 px.
 
+### D94. El pastel de `/entrar` y `/registro` pegado al texto (tanda 11)
+
+- **Fecha:** 19 de noviembre de 2026.
+- **Decisión:** En escritorio, la caja del pastel sube 24 px sobre el espacio de 32 px de la cuadrícula (`-mt-6`, y `mt-0` hasta 960 px). Queda a unos 8 px del lema en `/entrar` y de la lista en `/registro`, sin encimarse con el texto, y las rosas empiezan casi pegadas a él. La escena no cambia. Va en la rama `fix/correcciones-tanda-11`, que sale de `main` en `e049c6c` (después de D93).
+- **Contexto:** Al ver D93 en producción, el usuario dijo: "siguen demasiado abajo, se ve bastante aire todavía". Le pregunté qué aire le molestaba (entre el texto y el pastel, debajo del pastel o el pastel de `/registro` bajo el borde de la pantalla) y eligió el que hay entre el texto y el pastel. Dentro de su caja, el pastel ya empezaba a unos 8 px de arriba: el aire era el espacio de la cuadrícula más el que deja el renglón del lema.
+- **Alternativas descartadas:** Subir más el pastel dentro de su caja: las rosas se cortarían arriba al inclinarse con el puntero. Quitar el espacio de la cuadrícula para toda la columna: también juntaría el lema con la lista de `/registro`.
+- **Verificación:** En `## Verificación` del PR. Capturas de `/entrar` y `/registro` a 1536 × 864 y de `/entrar` a 390 px.
+
 ## Decisiones abiertas
 
 | Tema | Detalle | Se resuelve |

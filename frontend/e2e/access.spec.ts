@@ -502,9 +502,9 @@ test.describe('the cake of the access pages (tanda 8)', () => {
       const box = await page.getByTestId('pastel-acceso').boundingBox()
       const text = await page.getByText(above, { exact: true }).boundingBox()
       expect(box!.width).toBe(480)
-      // Solo el espacio de la cuadrícula (32 px) entre el texto y la caja del pastel.
+      // Tanda 11: la caja sube 24 px sobre el espacio de la cuadrícula (32 px): queda a unos 8 px del texto, sin encimarse.
       expect(box!.y - (text!.y + text!.height)).toBeGreaterThanOrEqual(0)
-      expect(box!.y - (text!.y + text!.height)).toBeLessThanOrEqual(40)
+      expect(box!.y - (text!.y + text!.height)).toBeLessThanOrEqual(16)
     })
   }
 
