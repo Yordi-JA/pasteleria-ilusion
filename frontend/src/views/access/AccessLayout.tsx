@@ -32,7 +32,7 @@ const WITHOUT_ASIDE = "grid-rows-[auto_1fr] [grid-template-areas:'lema_tarjeta'_
 
 /**
  * El armado de `/entrar` y `/registro` (Login.dc.html, Registro.dc.html): todo sobre `fresa`. En escritorio, a la
- * izquierda el lema, lo que ofrece la cuenta (`aside`) y el pastel justo debajo (arriba en su celda, tanda 10); a la derecha, la tarjeta. Hasta 960 px, una
+ * izquierda el lema, lo que ofrece la cuenta (`aside`) y el pastel justo debajo (arriba en su celda, tanda 10, y 24 px más arriba que el espacio de la cuadrícula, tanda 11); a la derecha, la tarjeta. Hasta 960 px, una
  * columna: lema, tarjeta y el pastel debajo; `aside` no se muestra. Un solo pastel cambia de lugar con la cuadrícula,
  * para no abrir dos escenas 3D. `/recuperar` y `/verificar` (D76) usan el mismo armado con `cake="static"`: el pastel
  * fijo, porque el 3D solo va en las vistas que enumera el libro de marca.
@@ -64,7 +64,7 @@ export default function AccessLayout({
           {slogan}
         </p>
         {aside && <div className="[grid-area:cuenta] max-[960px]:hidden">{aside}</div>}
-        <div className="w-full max-w-[480px] self-start [grid-area:pastel] max-[960px]:mx-auto max-[960px]:max-w-[320px]">
+        <div className="w-full max-w-[480px] -mt-6 self-start [grid-area:pastel] max-[960px]:mx-auto max-[960px]:mt-0 max-[960px]:max-w-[320px]">
           {cake === 'scene' ? <AccessCake card={card} /> : <StaticCakeBox testId="pastel-acceso-fijo" />}
         </div>
         <div ref={card} className="[grid-area:tarjeta]">

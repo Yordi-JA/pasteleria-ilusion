@@ -868,4 +868,11 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - En producción, el pastel seguía viéndose bajo, sobre todo en `/entrar`, que no lleva lista y dejaba un hueco bajo el lema.
 - La caja del pastel va arriba en su celda (`self-start`), la charola sube al 76 % del alto y, sin la lista, la cuadrícula ya no lleva su fila vacía (sumaba otros 32 px). El pastel empieza justo bajo el texto, y a 1280 × 720 ya cabe completo en la ventana.
 - La prueba de la tanda 9 (el pastel termina con la tarjeta) cambió por una que revisa que la caja quede justo debajo del texto en `/entrar` y `/registro`.
-- Decisión D93. Rama `fix/correcciones-tanda-10`, sin fusionar.
+- Decisión D93. Rama `fix/correcciones-tanda-10`, fusionada en `main` (PR #54) y desplegada en Heroku (v45).
+
+### Jueves 19 de noviembre (noche): tanda 11 de correcciones (D94)
+
+- El usuario seguía viendo aire entre el texto y el pastel de `/entrar` y `/registro`. Le pregunté cuál aire, y fue ese.
+- En escritorio, la caja del pastel sube 24 px sobre el espacio de la cuadrícula (`-mt-6`): queda a unos 8 px del texto. En móvil no cambia.
+- La prueba de `access.spec.ts` ahora pide que la caja quede a no más de 16 px del texto.
+- Decisión D94. Rama `fix/correcciones-tanda-11`, sin fusionar.
