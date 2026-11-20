@@ -492,17 +492,21 @@ test.describe('the cake of the access pages (tanda 8)', () => {
     for (const rect of await still.locator('rect').all()) await expect(rect).toHaveClass(/fill-betun/)
   })
 
-  test('on desktop the cake takes a 480 px column and ends with the card (tanda 9)', async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 1000 })
-    await withoutGoogle(page)
-    await mockAuth(page)
-    await page.goto('/registro')
-    const box = await page.getByTestId('pastel-acceso').boundingBox()
-    const card = await page.getByRole('heading', { level: 1 }).locator('xpath=ancestor::*[contains(@class,"rounded")][1]').boundingBox()
-    expect(box!.width).toBe(480)
-    // El pastel se apoya abajo, a la altura del final de la tarjeta (la tarjeta lleva unos px de margen dentro de su celda).
-    expect(Math.abs(box!.y + box!.height - (card!.y + card!.height))).toBeLessThanOrEqual(8)
-  })
+  // Tanda 10: el pastel va arriba, justo debajo del lema (en `/entrar`, que no lleva lista) o de la lista (en `/registro`).
+  for (const [path, above] of [['/entrar', 'Qué gusto verte de nuevo.'], ['/registro', 'Todos tus pedidos en un solo lugar.']] as const) {
+    test(`on desktop ${path} puts the cake in a 480 px column right under the text`, async ({ page }) => {
+      await page.setViewportSize({ width: 1440, height: 1000 })
+      await withoutGoogle(page)
+      await mockAuth(page)
+      await page.goto(path)
+      const box = await page.getByTestId('pastel-acceso').boundingBox()
+      const text = await page.getByText(above, { exact: true }).boundingBox()
+      expect(box!.width).toBe(480)
+      // Solo el espacio de la cuadrícula (32 px) entre el texto y la caja del pastel.
+      expect(box!.y - (text!.y + text!.height)).toBeGreaterThanOrEqual(0)
+      expect(box!.y - (text!.y + text!.height)).toBeLessThanOrEqual(40)
+    })
+  }
 
   test('/recuperar keeps the still cake, in the same colors', async ({ page }) => {
     await mockAuth(page)
