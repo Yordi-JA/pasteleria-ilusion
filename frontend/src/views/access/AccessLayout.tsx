@@ -57,7 +57,7 @@ export default function AccessLayout({
           {slogan}
         </p>
         {aside && <div className="[grid-area:cuenta] max-[960px]:hidden">{aside}</div>}
-        <div className="w-full max-w-[400px] self-end [grid-area:pastel] max-[960px]:mx-auto max-[960px]:max-w-[320px]">
+        <div className="w-full max-w-[480px] self-end [grid-area:pastel] max-[960px]:mx-auto max-[960px]:max-w-[320px]">
           {cake === 'scene' ? <AccessCake card={card} /> : <StaticCakeBox testId="pastel-acceso-fijo" />}
         </div>
         <div ref={card} className="[grid-area:tarjeta]">

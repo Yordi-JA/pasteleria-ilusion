@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { HOME_CAKE_LABEL, HOME_CAKE_STILL } from '../viewmodels/homeCake.ts'
+import type { SceneFraming } from '../three/CakeScene.tsx'
 import type { HeroCakeView } from '../viewmodels/useHeroCake.ts'
 import SceneBoundary from './SceneBoundary.tsx'
 
@@ -58,6 +59,16 @@ const BOX_HEIGHT = {
 } as const
 
 /**
+ * Encuadre de la escena en cada caja. La portada usa el de `CakeScene` (sin encuadre propio). La escena chica de `/entrar` y
+ * `/registro` (tanda 9) llena su caja: el pastel cabe en una caja del mockup de 500 × 440 px, a la escala de la portada, y la
+ * charola queda al 82 % del alto, con lugar debajo para la sombra. En una caja angosta (móvil, 320 px) manda el ancho y deja margen a los lados. Con el de la portada se veía chico y bajo, con aire arriba.
+ */
+const SCENE_FRAMING: Record<keyof typeof BOX_HEIGHT, SceneFraming | undefined> = {
+  hero: undefined,
+  compact: { plate: 0.82, width: 500, height: 440, scale: 0.88 },
+}
+
+/**
  * El pastel fijo en la caja de la escena chica, sin 3D: para las vistas de acceso que el libro de marca no enumera en
  * "Presencia de marca" (recuperar y verificar, D76), con el mismo lugar, tamaño y colores que el pastel de `/entrar`.
  */
@@ -114,6 +125,7 @@ export default function HeroCake({
             >
               <CakeScene
                 shape={scene.shape}
+                framing={SCENE_FRAMING[size]}
                 label={label}
                 describedBy={hintId}
                 reducedMotion={scene.reducedMotion}
