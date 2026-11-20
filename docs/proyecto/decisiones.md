@@ -1698,6 +1698,14 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 - **Alternativas descartadas:** Subir el pastel con `self-start` en la cuadrícula: el aire pasaría debajo y el pastel seguiría chico. Una caja más alta: alargaría la página en lugar de llenar el hueco.
 - **Verificación:** `npm run typecheck` y `npm run lint` sin errores. `access.spec.ts`, `password-recovery.spec.ts`, `email-verification.spec.ts`, `home-hero-cake.spec.ts`, `hero-cake.spec.ts` y `catalog-model.spec.ts`: 101 pasaron con `--workers=2`; con la prueba nueva del ancho de la columna, `access.spec.ts` completo: 38 pasaron. Capturas a 1440, 800 y 390 px: en escritorio el pastel llena el hueco bajo los beneficios y termina con la tarjeta, y en móvil deja margen a los lados.
 
+### D93. El pastel de `/entrar` y `/registro` va justo debajo del texto (tanda 10)
+
+- **Fecha:** 19 de noviembre de 2026.
+- **Decisión:** En escritorio, la caja del pastel va arriba en su celda (`self-start` en lugar de `self-end`), justo debajo del lema en `/entrar` y de la lista de lo que ofrece la cuenta en `/registro`. La charola del encuadre propio (D92) sube del 82 % al 76 % del alto de la caja, Sin `aside` (`/entrar`, `/recuperar` y `/verificar`) la cuadrícula ya no lleva la fila vacía de la lista, que sumaba otro espacio de 32 px. Con los tres cambios, en `/entrar` la caja empieza 32 px bajo el lema y el pastel unos 40 px más abajo, en lugar de unos 120 px. En móvil no cambia nada visible. Va en la rama `fix/correcciones-tanda-10`, que sale de `main` en `e199aaa` (después de D92).
+- **Contexto:** Al ver D92 en producción, el usuario dijo: "se sigue viendo más abajo, sobre todo en la vista de iniciar sesión". `/entrar` no lleva lista, y con `self-end` el pastel se iba al final de la tarjeta y dejaba un hueco bajo el lema. A 1280 × 720 la charola quedaba cortada en el borde de la ventana.
+- **Alternativas descartadas:** Una caja más baja: también acortaría la del dibujo fijo de `/recuperar` y `/verificar`, que con su ancho máximo ya no cabría. Centrar el pastel en su celda: en `/entrar` dejaría el mismo hueco repartido arriba y abajo.
+- **Verificación:** `npm run typecheck` y `npm run lint` sin errores. `access.spec.ts`, `password-recovery.spec.ts`, `email-verification.spec.ts`, `hero-cake.spec.ts` y `home-hero-cake.spec.ts`: 91 pasaron con `--workers=2`. Capturas de `/entrar` a 1440 × 900, 1280 × 720 y 390 px, de `/registro` a 1440 px y de `/recuperar` a 1440 px.
+
 ## Decisiones abiertas
 
 | Tema | Detalle | Se resuelve |

@@ -61,11 +61,11 @@ const BOX_HEIGHT = {
 /**
  * Encuadre de la escena en cada caja. La portada usa el de `CakeScene` (sin encuadre propio). La escena chica de `/entrar` y
  * `/registro` (tanda 9) llena su caja: el pastel cabe en una caja del mockup de 500 × 440 px, a la escala de la portada, y la
- * charola queda al 82 % del alto, con lugar debajo para la sombra. En una caja angosta (móvil, 320 px) manda el ancho y deja margen a los lados. Con el de la portada se veía chico y bajo, con aire arriba.
+ * charola queda al 76 % del alto (tanda 10), con lugar debajo para la sombra; la caja va arriba en su columna, así el pastel empieza justo bajo el texto. En una caja angosta (móvil, 320 px) manda el ancho y deja margen a los lados. Con el de la portada se veía chico y bajo, con aire arriba.
  */
 const SCENE_FRAMING: Record<keyof typeof BOX_HEIGHT, SceneFraming | undefined> = {
   hero: undefined,
-  compact: { plate: 0.82, width: 500, height: 440, scale: 0.88 },
+  compact: { plate: 0.76, width: 500, height: 440, scale: 0.88 },
 }
 
 /**
