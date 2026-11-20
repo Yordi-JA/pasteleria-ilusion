@@ -1690,6 +1690,14 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 - **Alternativas descartadas:** Un pastel distinto para el acceso, con otra cobertura o decoración. Habría dos artes de marca que mantener, y el usuario ya eligió este. Sobre el campo `fresa` del acceso, la crema clara y la charola negra se distinguen del fondo (revisado en capturas a 1440 px y 390 px).
 - **Verificación:** `npm run typecheck` y `npm run lint` sin errores. Las pruebas nuevas en `e2e/access.spec.ts` y las de `password-recovery.spec.ts`, `email-verification.spec.ts`, `home-hero-cake.spec.ts`, `hero-cake.spec.ts` y `catalog-header.spec.ts`: 91 pasaron con `--workers=2`. No hay migración.
 
+### D92. El pastel de `/entrar` y `/registro` llena su lugar (tanda 9)
+
+- **Fecha:** 19 de noviembre de 2026.
+- **Decisión:** La escena chica del acceso tiene su propio encuadre (`SCENE_FRAMING.compact` en `components/HeroCake.tsx`): el pastel cabe en una caja del mockup de 500 × 440 px, a la escala de la portada, y la charola queda al 82 % del alto, con lugar para la sombra. En escritorio la columna del pastel pasa de 400 a 480 px de ancho. `CakeScene` respeta el `plate` de un encuadre propio también con la charola (antes siempre la ponía al 74 %). La portada y "Diseña tu pastel" no cambian. Va en la rama `fix/correcciones-tanda-9`, que sale de `main` en `9e8b8d5` (después de D91).
+- **Contexto:** Al ver D91 en producción, el usuario dijo: "hay que acomodar el modelo porque sale muy abajo y queda mucho aire, también se ve chico". Con el encuadre de la portada, el pastel quedaba bajo en su caja de 400 × 420 px, con unos 90 px de aire arriba.
+- **Alternativas descartadas:** Subir el pastel con `self-start` en la cuadrícula: el aire pasaría debajo y el pastel seguiría chico. Una caja más alta: alargaría la página en lugar de llenar el hueco.
+- **Verificación:** `npm run typecheck` y `npm run lint` sin errores. `access.spec.ts`, `password-recovery.spec.ts`, `email-verification.spec.ts`, `home-hero-cake.spec.ts`, `hero-cake.spec.ts` y `catalog-model.spec.ts`: 101 pasaron con `--workers=2`; con la prueba nueva del ancho de la columna, `access.spec.ts` completo: 38 pasaron. Capturas a 1440, 800 y 390 px: en escritorio el pastel llena el hueco bajo los beneficios y termina con la tarjeta, y en móvil deja margen a los lados.
+
 ## Decisiones abiertas
 
 | Tema | Detalle | Se resuelve |

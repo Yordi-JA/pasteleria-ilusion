@@ -62,10 +62,14 @@ export type SceneFraming = typeof FRAME
  */
 const BOARD_FRAME = { plate: 0.74, width: 5 }
 
-/** El encuadre de un pastel sobre su charola, a partir del de la portada. */
-function boardFraming(base: SceneFraming, shape: CakeShape): SceneFraming {
+/**
+ * El encuadre de un pastel sobre su charola, a partir del de la portada o de uno propio (`custom`). Con uno propio, su `plate` dice
+ * dónde queda la charola (la escena chica de `/entrar` y `/registro`, tanda 9); si no, al 74 % de `BOARD_FRAME`.
+ */
+function boardFraming(base: SceneFraming, shape: CakeShape, custom: boolean): SceneFraming {
   const width = 2 * boardRadius(shape)
-  return width > 0 ? { ...base, plate: BOARD_FRAME.plate, scale: (base.scale * BOARD_FRAME.width) / width } : base
+  const plate = custom ? base.plate : BOARD_FRAME.plate
+  return width > 0 ? { ...base, plate, scale: (base.scale * BOARD_FRAME.width) / width } : base
 }
 
 /** Constante de tiempo (s) con la que la cámara de la vista libre se acerca a su encuadre cuando cambia el pastel. */
@@ -415,7 +419,10 @@ export default function CakeScene({
 }: CakeSceneProps) {
   const baseFraming = framingProp ?? FRAME
   const onBoard = !freeLook && Boolean(shape.board) && !shape.stand
-  const framing = useMemo(() => (onBoard ? boardFraming(baseFraming, shape) : baseFraming), [baseFraming, onBoard, shape])
+  const framing = useMemo(
+    () => (onBoard ? boardFraming(baseFraming, shape, framingProp !== undefined) : baseFraming),
+    [baseFraming, framingProp, onBoard, shape],
+  )
   const container = useRef<HTMLDivElement>(null)
   const spin = useRef(createSpin(viewpoint?.angle ?? INITIAL_ANGLE, viewpoint?.elevation ?? ELEVATION.initial))
   const tilt = useRef<Tilt>(createTilt())

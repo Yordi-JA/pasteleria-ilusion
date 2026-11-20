@@ -854,4 +854,11 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - `/entrar` y `/registro` dibujan ahora el pastel de la portada (`homeCake.ts`): dos pisos peinados con rosas sobre la charola negra. El dibujo fijo, también el de `/recuperar` y `/verificar`, lleva los dos pisos en `betun`. Se quitó `HERO_CAKE`: `useHeroCake` y `HeroCake` toman por omisión el pastel de la portada.
 - Pruebas nuevas en `e2e/access.spec.ts`. Con las de recuperación, verificación y el pastel de la portada: 91 pasaron. Capturas revisadas a 1440 px y 390 px sobre el campo `fresa`.
 - Se actualizaron el libro de marca, `docs/mapa-de-vistas.md`, `frontend/AGENTS.md` y el estado del `README.md`.
-- Decisión D91. Rama `fix/correcciones-tanda-8`, sin fusionar.
+- Decisión D91. Rama `fix/correcciones-tanda-8`, fusionada en `main` (PR #52) y desplegada en Heroku (v43).
+
+### Jueves 19 de noviembre (noche): tanda 9 de correcciones (D92)
+
+- En producción, el pastel de `/entrar` y `/registro` se veía chico y bajo, con mucho aire arriba.
+- La escena chica tiene su propio encuadre (`SCENE_FRAMING.compact` en `HeroCake.tsx`): el pastel llena la caja y la charola queda al 82 % del alto. En escritorio la columna pasa a 480 px. `CakeScene` respeta el `plate` de un encuadre propio con la charola.
+- Prueba nueva en `e2e/access.spec.ts` (el ancho de la columna y que el pastel termine con la tarjeta). Las de acceso, recuperación, verificación y la escena: 101 pasaron. Capturas revisadas a 1440, 800 y 390 px.
+- Decisión D92. Rama `fix/correcciones-tanda-9`, sin fusionar.

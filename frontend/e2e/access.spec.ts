@@ -492,6 +492,18 @@ test.describe('the cake of the access pages (tanda 8)', () => {
     for (const rect of await still.locator('rect').all()) await expect(rect).toHaveClass(/fill-betun/)
   })
 
+  test('on desktop the cake takes a 480 px column and ends with the card (tanda 9)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await withoutGoogle(page)
+    await mockAuth(page)
+    await page.goto('/registro')
+    const box = await page.getByTestId('pastel-acceso').boundingBox()
+    const card = await page.getByRole('heading', { level: 1 }).locator('xpath=ancestor::*[contains(@class,"rounded")][1]').boundingBox()
+    expect(box!.width).toBe(480)
+    // El pastel se apoya abajo, a la altura del final de la tarjeta (la tarjeta lleva unos px de margen dentro de su celda).
+    expect(Math.abs(box!.y + box!.height - (card!.y + card!.height))).toBeLessThanOrEqual(8)
+  })
+
   test('/recuperar keeps the still cake, in the same colors', async ({ page }) => {
     await mockAuth(page)
     await page.goto('/recuperar')
