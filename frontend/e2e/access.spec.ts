@@ -464,3 +464,39 @@ test.describe('round 1 of the review', () => {
     await expect(page.getByRole('alert')).toHaveCount(0)
   })
 })
+
+test.describe('the cake of the access pages (tanda 8)', () => {
+  // `/entrar` y `/registro` llevan el pastel de la portada (`homeCake.ts`): dos pisos peinados con rosas sobre la charola negra.
+  for (const path of ['/entrar', '/registro']) {
+    test(`${path} draws the brand cake of the home page, not the old three-tier one`, async ({ page }) => {
+      await withoutGoogle(page)
+      await mockAuth(page)
+      await page.goto(path)
+      await expect(page.getByTestId('pastel-acceso')).toHaveAttribute('data-state', 'ready', { timeout: 30_000 })
+      const scene = page.getByRole('img', { name: 'Pastel de dos pisos', exact: true })
+      await expect(scene).toHaveAttribute('data-tiers', '2')
+      await expect(scene).toHaveAttribute('data-decoration', 'roses')
+      await expect(scene).toHaveAttribute('data-board', 'true')
+      await expect(page.getByRole('img', { name: 'Pastel de tres pisos' })).toHaveCount(0)
+    })
+  }
+
+  test('the still drawing while the scene loads has two tiers in the cream of the cake', async ({ page }) => {
+    await page.route('**/src/three/**', () => {})
+    await withoutGoogle(page)
+    await mockAuth(page)
+    await page.goto('/entrar')
+    const still = page.getByTestId('pastel-acceso-fijo')
+    await expect(still).toBeVisible()
+    await expect(still.locator('rect')).toHaveCount(2)
+    for (const rect of await still.locator('rect').all()) await expect(rect).toHaveClass(/fill-betun/)
+  })
+
+  test('/recuperar keeps the still cake, in the same colors', async ({ page }) => {
+    await mockAuth(page)
+    await page.goto('/recuperar')
+    const still = page.getByTestId('pastel-acceso-fijo')
+    await expect(still.locator('rect')).toHaveCount(2)
+    for (const rect of await still.locator('rect').all()) await expect(rect).toHaveClass(/fill-betun/)
+  })
+})

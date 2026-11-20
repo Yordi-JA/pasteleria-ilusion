@@ -846,4 +846,12 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Pendiente de limpieza: `separation` de `CakeModel` y `visibleMargin` de `useCakeScene` valen siempre 0. No se probó en Firefox ni en Safari (Playwright solo corre Chromium).
 - Pruebas: `e2e/home-header-morph.spec.ts` (nueva) y cambios en `animations.spec.ts`, `add-to-cart-flight.spec.ts`, `hero-cake.spec.ts` y `home-hero-cake.spec.ts`. Suite completa: 1009 pruebas con `--workers=2`, 1008 pasaron; la única que falla, `cake-designer-lid.spec.ts:210`, también falla en `main`.
 - Se actualizaron el libro de marca, `docs/mapa-de-vistas.md`, `frontend/AGENTS.md` y el estado del `README.md`.
-- Decisión D90. Rama `fix/correcciones-tanda-7`, sin fusionar.
+- Decisión D90. Rama `fix/correcciones-tanda-7`, fusionada en `main` (PR #51) y desplegada en Heroku (v42).
+
+### Jueves 19 de noviembre (noche): tanda 8 de correcciones (D91)
+
+- Después de ver la tanda 7 en producción, el usuario notó que el inicio de sesión y el registro seguían con el pastel antiguo de tres pisos.
+- `/entrar` y `/registro` dibujan ahora el pastel de la portada (`homeCake.ts`): dos pisos peinados con rosas sobre la charola negra. El dibujo fijo, también el de `/recuperar` y `/verificar`, lleva los dos pisos en `betun`. Se quitó `HERO_CAKE`: `useHeroCake` y `HeroCake` toman por omisión el pastel de la portada.
+- Pruebas nuevas en `e2e/access.spec.ts`. Con las de recuperación, verificación y el pastel de la portada: 91 pasaron. Capturas revisadas a 1440 px y 390 px sobre el campo `fresa`.
+- Se actualizaron el libro de marca, `docs/mapa-de-vistas.md`, `frontend/AGENTS.md` y el estado del `README.md`.
+- Decisión D91. Rama `fix/correcciones-tanda-8`, sin fusionar.
