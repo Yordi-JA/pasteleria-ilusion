@@ -54,8 +54,10 @@ Todos los pasteles de vitrina son **tres leches**, excepto el **Choco-pingüino*
 | Flan napolitano | $360 grande | $35 individual | |
 | Tarta de frutas | $290 grande | $35 mini | |
 | Gelatina de molde | $290 | — | El diseño varía; siempre vale lo mismo |
+| Gelatina Mosaico normal (vaso) | $20 | — | **Solo en vitrina**, no se hace por pedido (lo decidió el usuario el 20 de noviembre de 2026) |
 | Gelatina Mosaico con crema (vaso) | $20 | — | **Solo en vitrina**, no se hace por pedido |
-| Gelatina Mosaico con yogurt, fresa o durazno (vaso) | $20 | — | **Solo en vitrina** |
+| Gelatina Mosaico con yogurt de durazno (vaso) | $20 | — | **Solo en vitrina** (desde el 20 de noviembre de 2026 es un producto aparte del de fresa) |
+| Gelatina Mosaico con yogurt de fresa (vaso) | $20 | — | **Solo en vitrina** |
 | Gelatina de Duvalín, 3 secciones (vaso) | $25 | — | **Solo en vitrina** |
 
 - Un pastel de vitrina pesa ~2.7 kg (~19 personas).

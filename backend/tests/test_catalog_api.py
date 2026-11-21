@@ -117,7 +117,7 @@ def test_catalog_lists_every_active_product_as_a_card_in_admin_order(api):
     assert response.status_code == 200
     cards = response.json()
     assert slugs(cards) == list(Product.objects.order_by("sort_order", "name").values_list("slug", flat=True))
-    assert len(cards) == 24
+    assert len(cards) == 26
     assert all(set(card) == CARD_FIELDS for card in cards)
     assert all(set(offering) == CARD_OFFERING_FIELDS for card in cards for offering in card["offerings"])
 
@@ -169,7 +169,7 @@ def test_catalog_card_of_a_dessert_has_no_cake_fields(api):
 def test_catalog_filters_by_category(api):
     cakes = api.get(PRODUCTS_URL, {"category": "cake"}).json()
     desserts = api.get(PRODUCTS_URL, {"category": "dessert"}).json()
-    assert (len(cakes), len(desserts)) == (16, 8)
+    assert (len(cakes), len(desserts)) == (16, 10)
     assert {card["category"] for card in cakes} == {"cake"}
     assert {card["category"] for card in desserts} == {"dessert"}
 
@@ -180,7 +180,7 @@ def test_catalog_search_ignores_case_and_spaces_and_combines_with_the_category(a
     flan = slugs(api.get(PRODUCTS_URL, {"category": "dessert", "search": "flan"}).json())
     assert {"flan-napolitano", "imposible", "posible"} <= set(flan)
     assert "tres-leches-con-flan-y-cajeta" not in flan
-    assert len(api.get(PRODUCTS_URL, {"search": "   "}).json()) == 24
+    assert len(api.get(PRODUCTS_URL, {"search": "   "}).json()) == 26
     assert api.get(PRODUCTS_URL, {"search": "no-hay-un-pastel-asi"}).json() == []
 
 
@@ -192,7 +192,7 @@ def test_catalog_rejects_an_unknown_category(api, params):
 
 
 def test_catalog_with_an_empty_category_lists_everything_like_the_all_filter(api):
-    assert len(api.get(PRODUCTS_URL, {"category": ""}).json()) == 24
+    assert len(api.get(PRODUCTS_URL, {"category": ""}).json()) == 26
 
 
 def test_catalog_rejects_a_search_longer_than_a_product_name(api):
@@ -758,7 +758,7 @@ def test_featured_on_home_is_off_by_default_and_explains_who_picks():
 
 
 def test_the_seed_marks_no_product_as_featured():
-    assert Product.objects.count() == 24
+    assert Product.objects.count() == 26
     assert not Product.objects.filter(featured_on_home=True).exists()
 
 

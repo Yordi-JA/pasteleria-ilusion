@@ -143,6 +143,7 @@ SEED_MIGRATIONS = [
     ("0054_seed_sample_density", "seed"),
     ("0056_seed_sample_edge_inset", "seed"),
     ("0058_seed_fuller_fruit", "seed"),
+    ("0059_seed_cup_gelatins", "seed"),
 ]
 _db_blocker = None
 
