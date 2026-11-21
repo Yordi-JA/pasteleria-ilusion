@@ -176,7 +176,7 @@
   }
 }
 
-/* "Hechos en la casa" (`views/home/GallerySection.tsx`): la banda se detiene con el botón (`data-pausada`), con el foco en la banda
+/* "Hechos en la casa" (`views/home/GallerySection.tsx`): la banda se detiene con el control de pausa (`data-pausada`), con el foco en la banda
    (que es enfocable para eso) y, en equipos con mouse, con el puntero sobre la banda. En táctil el hover queda pegado tras un toque, por eso no cuenta. */
 .galeria[data-pausada='si'] .galeria-pista,
 .galeria:focus-within .galeria-pista {

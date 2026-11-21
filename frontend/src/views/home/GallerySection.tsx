@@ -1,22 +1,23 @@
 import type { CSSProperties } from 'react'
 import { Pause, Play } from '@phosphor-icons/react'
-import Button from '../../components/Button.tsx'
 import { focusRing } from '../../components/focus.ts'
 import Reveal from '../../components/Reveal.tsx'
 import type { GalleryPhoto } from '../../viewmodels/homeGallery.ts'
 import { useHomeGallery } from '../../viewmodels/useHomeGallery.ts'
 import { Field, sectionColumn } from './sectionLayout.tsx'
 
-/** Una foto con su alto, su desnivel y su inclinación; la caja guarda la proporción real de la foto. */
+/**
+ * Una foto a su alto y a su desnivel, sin marco ni inclinación: la foto real con el radio de las tarjetas. La caja guarda
+ * la proporción del archivo, así nada se recorta; `fresa-claro` es el hueco mientras la foto llega.
+ */
 function Photo({ photo, decorative }: { photo: GalleryPhoto; decorative: boolean }) {
   const style: CSSProperties = {
     height: `calc(var(--foto-alto) * ${photo.heightUnits})`,
     aspectRatio: `${photo.width} / ${photo.height}`,
     marginTop: `calc(var(--foto-alto) * ${photo.offsetUnits})`,
-    transform: `rotate(${photo.tilt}deg)`,
   }
   return (
-    <li style={style} className="shrink-0 overflow-hidden rounded-md border-2 border-betun bg-betun">
+    <li style={style} className="shrink-0 overflow-hidden rounded-md bg-fresa-claro">
       <img
         src={photo.src}
         alt={decorative ? '' : photo.alt}
@@ -41,31 +42,33 @@ function PhotoList({ photos, decorative }: { photos: readonly GalleryPhoto[]; de
   )
 }
 
-// El alto base de las fotos; la banda mide una vez y media ese alto para dar espacio al desnivel y a la inclinación.
-const bandSize = '[--foto-alto:340px] max-[600px]:[--foto-alto:230px] h-[calc(var(--foto-alto)*1.5+2rem)] py-4'
+// El alto base de las fotos. La banda mide lo que ocupa la foto que más baja, sin espacio sobrante, más 12 px arriba y
+// abajo para el anillo de foco, que va por dentro porque la banda llega a los dos bordes de la ventana.
+const bandSize = '[--foto-alto:340px] max-[600px]:[--foto-alto:230px] py-3'
+const bandFocus = `${focusRing} focus-visible:outline-offset-[-6px]`
+
+/** El control de pausa: solo el ícono, del tamaño de los íconos de la barra (44 px), con su nombre para lectores de pantalla. */
+const pauseControl = `ml-auto inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-md text-mermelada hover:bg-fresa-claro motion-safe:transition-colors ${focusRing}`
 
 /**
  * "Hechos en la casa", sobre `fresa` (la portada alterna nata, mermelada, fresa y nata): una banda de fotos de pasteles
- * que se desliza sola en bucle, con cada foto a su altura y ligeramente inclinada. La copia que cierra el bucle va oculta
- * a los lectores de pantalla; el hover, el foco y el botón la pausan, y con "reducir movimiento" es una fila que se recorre.
+ * que se desliza sola en bucle, colgadas como la guirnalda (`viewmodels/homeGallery.ts`). La copia que cierra el bucle va
+ * oculta a los lectores de pantalla. La pausan el mouse encima, el foco en la banda y el control junto al título (WCAG
+ * 2.2.2); con "reducir movimiento" es una fila quieta que se recorre.
  */
 export default function GallerySection() {
   const gallery = useHomeGallery()
   return (
-    <Field field="fresa" labelledBy="galeria-titulo" className="bg-fresa">
-      <div className={`${sectionColumn} pb-6 pt-20 max-[600px]:pt-14`}>
-        <Reveal className="mb-8 flex items-end justify-between gap-6 max-[600px]:flex-col max-[600px]:items-start max-[600px]:gap-4">
-          <div className="flex flex-col gap-1.5">
-            <h2 id="galeria-titulo" className="font-display text-titulo-1">
-              Hechos en la casa
-            </h2>
-            <p className="text-cuerpo text-mermelada-suave">Algunos de los pasteles que han salido de nuestra cocina.</p>
-          </div>
+    <Field field="fresa" labelledBy="galeria-titulo" className="bg-fresa pb-14 max-[600px]:pb-10">
+      <div className={`${sectionColumn} pb-5 pt-20 max-[600px]:pb-3 max-[600px]:pt-14`}>
+        <Reveal className="flex flex-wrap items-end gap-x-4 gap-y-1">
+          <h2 id="galeria-titulo" className="font-display text-titulo-1">
+            Hechos en la casa
+          </h2>
           {!gallery.reduced && (
-            <Button variant="secondary" onClick={gallery.togglePause} className="shrink-0 gap-2">
-              {gallery.paused ? <Play size={20} weight="bold" aria-hidden="true" /> : <Pause size={20} weight="bold" aria-hidden="true" />}
-              {gallery.paused ? 'Reanudar las fotos' : 'Pausar las fotos'}
-            </Button>
+            <button type="button" onClick={gallery.togglePause} aria-label={gallery.paused ? 'Reanudar las fotos' : 'Pausar las fotos'} className={pauseControl}>
+              {gallery.paused ? <Play size={22} weight="regular" aria-hidden="true" /> : <Pause size={22} weight="regular" aria-hidden="true" />}
+            </button>
           )}
         </Reveal>
       </div>
@@ -75,7 +78,7 @@ export default function GallerySection() {
           aria-label="Fotos de pasteles hechos en la casa"
           tabIndex={0}
           data-testid="galeria-banda"
-          className={`${bandSize} overflow-x-auto pl-6 max-[600px]:pl-4 ${focusRing}`}
+          className={`${bandSize} overflow-x-auto overflow-y-hidden pl-6 max-[600px]:pl-4 ${bandFocus}`}
         >
           <div className="flex w-max">
             <PhotoList photos={gallery.photos} decorative={false} />
@@ -88,7 +91,7 @@ export default function GallerySection() {
           tabIndex={0}
           data-testid="galeria-banda"
           data-pausada={gallery.paused ? 'si' : 'no'}
-          className={`galeria ${bandSize} overflow-hidden ${focusRing}`}
+          className={`galeria ${bandSize} overflow-hidden ${bandFocus}`}
         >
           <div
             data-testid="galeria-pista"

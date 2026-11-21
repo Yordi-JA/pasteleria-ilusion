@@ -30,9 +30,8 @@ test.describe('Hechos en la casa, with motion', () => {
     )
     expect(floors).toEqual(['fresa', 'duya', 'nata', 'duya', 'mermelada', 'duya', 'fresa', 'duya', 'nata'])
     await expect(gallery(page)).toHaveCSS('background-color', 'rgb(249, 193, 193)')
-    const text = (await gallery(page).innerText()).toLowerCase()
-    expect(text).not.toContain('!')
-    expect(text).not.toMatch(/pedidos reales|proyecto|escolar|escuela/)
+    // El título basta: sin subtítulo de relleno ni texto en el control de pausa.
+    expect((await gallery(page).innerText()).trim()).toBe('Hechos en la casa')
   })
 
   test('lists the photos once for assistive technology, each with a short alt, and a hidden copy to close the loop', async ({ page }) => {
@@ -54,7 +53,7 @@ test.describe('Hechos en la casa, with motion', () => {
     }
   })
 
-  test('the cards are not in a line: each photo keeps its own ratio, height, offset and tilt, the same on every load', async ({ page }) => {
+  test('the photos are not in a line: each keeps its own ratio, height and offset, the same on every load, with no frame or tilt', async ({ page }) => {
     await openHome(page)
     const read = () =>
       gallery(page)
@@ -66,6 +65,8 @@ test.describe('Hechos en la casa, with motion', () => {
             return {
               marginTop: style.marginTop,
               transform: style.transform,
+              border: style.borderTopWidth,
+              shadow: style.boxShadow,
               height: Math.round(li.getBoundingClientRect().height),
               ratio: li.clientWidth / li.clientHeight,
               natural: img.width / img.height,
@@ -73,15 +74,68 @@ test.describe('Hechos en la casa, with motion', () => {
           }),
         )
     const first = await read()
-    expect(new Set(first.map((card) => card.marginTop)).size).toBeGreaterThan(4)
-    expect(new Set(first.map((card) => card.transform)).size).toBeGreaterThan(4)
+    expect(new Set(first.map((card) => card.marginTop)).size).toBeGreaterThan(8)
     expect(new Set(first.map((card) => card.height)).size).toBeGreaterThan(8)
     expect(first.some((card) => card.natural > 1.3)).toBe(true)
     expect(first.some((card) => card.natural < 0.8)).toBe(true)
-    // La caja de la foto conserva la proporción del archivo: nada recortado a cuadrado.
-    for (const card of first) expect(card.ratio / card.natural).toBeCloseTo(1, 1)
+    for (const card of first) {
+      // La caja de la foto conserva la proporción del archivo: nada recortado a cuadrado.
+      expect(card.ratio / card.natural).toBeCloseTo(1, 1)
+      // Sin marco, sin sombra y sin inclinación: la foto real con el radio de las tarjetas.
+      expect(card).toMatchObject({ transform: 'none', border: '0px', shadow: 'none' })
+    }
     await page.reload()
     expect(await read()).toEqual(first)
+  })
+
+  test('the photos hang like the guirnalda: the tops dip and rise again, and the band ends at the lowest photo', async ({ page }) => {
+    await openHome(page)
+    const { tops, gap } = await gallery(page)
+      .locator('ul:not([aria-hidden])')
+      .evaluate((ul) => {
+        const items = [...ul.children] as HTMLElement[]
+        const band = ul.closest('[data-testid="galeria-banda"]')!
+        const style = getComputedStyle(band)
+        const unit = parseFloat(style.getPropertyValue('--foto-alto'))
+        const bottom = Math.max(...items.map((li) => li.getBoundingClientRect().bottom))
+        return {
+          tops: items.map((li) => parseFloat(getComputedStyle(li).marginTop) / unit),
+          gap: band.getBoundingClientRect().bottom - parseFloat(style.paddingBottom) - bottom,
+        }
+      })
+    // Cada arco baja y vuelve a subir: hay fotos arriba del todo (las uniones) y otras bien abajo (el centro del arco).
+    expect(Math.min(...tops)).toBeLessThan(0.05)
+    expect(Math.max(...tops)).toBeGreaterThan(0.2)
+    const turns = tops.slice(1, -1).filter((top, i) => (top - tops[i]) * (tops[i + 2] - top) < 0).length
+    expect(turns).toBeGreaterThan(10)
+    // Sin espacio sobrante bajo la banda: termina donde termina la foto que más baja.
+    expect(Math.abs(gap)).toBeLessThan(1)
+  })
+
+  test('the pause control is a small icon next to the title, named for assistive technology, with the focus ring', async ({ page }) => {
+    await openHome(page)
+    const control = pauseButton(page)
+    await expect(control).toHaveAccessibleName('Pausar las fotos')
+    await expect(control).toHaveText('')
+    const box = (await control.boundingBox())!
+    expect([Math.round(box.width), Math.round(box.height)]).toEqual([44, 44])
+    // En el renglón del título: mismo contenedor, a la derecha, sin caja ancha.
+    const heading = (await gallery(page).getByRole('heading', { level: 2 }).boundingBox())!
+    expect(box.x).toBeGreaterThan(heading.x + heading.width)
+    expect(box.y + box.height).toBeGreaterThan(heading.y)
+    expect(box.y).toBeLessThan(heading.y + heading.height)
+    await expect(control).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+    await expect(control).toHaveCSS('border-top-width', '0px')
+    // Con el teclado: el anillo de foco en `mermelada` y Enter lo cambia.
+    await control.focus()
+    await page.keyboard.press('Shift+Tab')
+    await page.keyboard.press('Tab')
+    await expect(control).toBeFocused()
+    await expect(control).toHaveCSS('outline-style', 'solid')
+    await expect(control).toHaveCSS('outline-color', 'rgb(94, 25, 33)')
+    await page.keyboard.press('Enter')
+    await expect(control).toHaveAccessibleName('Reanudar las fotos')
+    await expect(band(page)).toHaveAttribute('data-pausada', 'si')
   })
 
   test('slides on its own with transform only, loops over half its width, and pauses with the button', async ({ page }) => {
@@ -96,10 +150,10 @@ test.describe('Hechos en la casa, with motion', () => {
     const start = await x()
     await expect.poll(x).toBeLessThan(start - 5)
 
-    await expect(pauseButton(page)).toHaveText('Pausar las fotos')
+    await expect(pauseButton(page)).toHaveAccessibleName('Pausar las fotos')
     await expect(pauseButton(page)).not.toHaveAttribute('aria-pressed')
     await pauseButton(page).click()
-    await expect(pauseButton(page)).toHaveText('Reanudar las fotos')
+    await expect(pauseButton(page)).toHaveAccessibleName('Reanudar las fotos')
     await expect(pauseButton(page)).not.toHaveAttribute('aria-pressed')
     // Con el botón quitado el puntero y el foco de la banda no cuentan: solo lo pausa el botón.
     await page.mouse.move(5, 5)
@@ -110,7 +164,7 @@ test.describe('Hechos en la casa, with motion', () => {
     expect(await x()).toBe(frozen)
 
     await pauseButton(page).click()
-    await expect(pauseButton(page)).toHaveText('Pausar las fotos')
+    await expect(pauseButton(page)).toHaveAccessibleName('Pausar las fotos')
     expect(await playState(track(page))).toBe('running')
     await expect.poll(x).not.toBe(frozen)
   })
@@ -202,7 +256,10 @@ test.describe('Hechos en la casa, phone', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     const photoHeight = await gallery(page).locator('ul:not([aria-hidden]) li').first().evaluate((li) => li.getBoundingClientRect().height)
     expect(photoHeight).toBeLessThan(300)
+    // El control de pausa conserva los 44 px táctiles y no saca la página por la derecha.
     await expect(pauseButton(page)).toBeVisible()
-    await expect(pauseButton(page)).toHaveCSS('min-height', '44px')
+    const box = (await pauseButton(page).boundingBox())!
+    expect([Math.round(box.width), Math.round(box.height)]).toEqual([44, 44])
+    expect(box.x + box.width).toBeLessThanOrEqual(390 - 16)
   })
 })
