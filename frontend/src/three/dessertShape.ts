@@ -60,7 +60,7 @@ export type FlanShape = {
   kind: 'flan'
   /** `individual` (el napolitano) o `whole` (del tamaño de un pastel, el Imposible); sin él, `individual`. */
   size?: 'individual' | 'whole'
-  /** El pan bajo el flan (el pan de chocolate del Imposible); sin él, el flan solo. Su alto lo da el tamaño. */
+  /** El pan bajo el flan (el de chocolate del Imposible, el de vainilla del Posible); sin él, el flan solo. Su alto lo da el tamaño. */
   bread?: ShapeColor
   /** El flan, con las burbujitas tostadas del costado. */
   custard: ShapeColor
@@ -73,7 +73,23 @@ export type FlanShape = {
   unitsPerCm: number
 }
 
-export type DessertShape = MosaicCupShape | LayeredCupShape | MiniTartShape | FlanShape
+/**
+ * Una gelatina de molde (`assets/Catalogo/Mosaico.jpeg`), desmoldada de un molde de anillo acanalado: la corona de gajos redondos,
+ * el hueco al centro, las capas horizontales de colores en el costado y, encima, gajos de durazno y fresas de `fruit.ts`. Las
+ * capas son parámetros: otro sabor es otra lista de colores.
+ */
+export type MoldRingShape = {
+  kind: 'moldRing'
+  /** Las capas delgadas del costado, de abajo hacia arriba, todas del mismo alto. */
+  layers: readonly ShapeColor[]
+  /** La capa gruesa de arriba: lo alto del costado y la corona acanalada. */
+  crown: ShapeColor
+  /** La charola bajo la gelatina, la misma de los pasteles; sin ella, la gelatina va sobre la mesa. */
+  board?: CakeBoard
+  unitsPerCm: number
+}
+
+export type DessertShape = MosaicCupShape | LayeredCupShape | MiniTartShape | FlanShape | MoldRingShape
 export type DessertKind = DessertShape['kind']
 
 /** Lo que dibuja la escena: un pastel por pisos o un postre. */

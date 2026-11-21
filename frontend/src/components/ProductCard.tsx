@@ -47,7 +47,7 @@ export default function ProductCard({ product, variant = 'feature', action }: Pr
   if (variant === 'compact') {
     return (
       <Card as="article" className="tarjeta-elevable flex h-full flex-col gap-2 !p-4">
-        <ProductPhoto photo={product.photo} shape="round" />
+        <ProductPhoto photo={product.photo} shape="round" className={product.photo.model ? compactModelLift : ''} />
         <Tags kind={product.kind} statuses={product.statuses} />
         <h3 className="font-display text-titulo-3">{product.name}</h3>
         {product.summary && <p className="flex-1 text-nota text-mermelada-suave">{product.summary}</p>}
@@ -92,6 +92,14 @@ export const featurePhotoSlot = 'foto-sobresaliente -mt-24 mx-auto w-full max-w-
 
 /** Cuadrícula de las tarjetas grandes: tres columnas, dos hasta 960 px y una en móvil (mockup). */
 export const featureGrid = 'grid grid-cols-3 gap-x-8 gap-y-10 max-[960px]:grid-cols-2 max-[600px]:grid-cols-1'
+
+/**
+ * La imagen del modelo de un postre en la tarjeta compacta (D98) sube 12 px sobre su caja, hacia el relleno de la tarjeta (16 px):
+ * la imagen se apoya en su borde de abajo y el postre se veía bajo, pegado al texto. Solo se mueve el dibujo (`transform`), así la
+ * caja, el texto y el alto de la tarjeta no cambian, y lo más alto (la tapa de un vaso, a 24 de 1000 px de la orilla) queda dentro
+ * de la tarjeta. La foto y el hueco no suben.
+ */
+export const compactModelLift = '-translate-y-3'
 
 /** Cuadrícula de las tarjetas compactas: cuatro columnas y dos hasta 960 px, también en móvil (mockup). */
 export const compactGrid = 'grid grid-cols-4 gap-x-6 gap-y-12 max-[960px]:grid-cols-2 max-[600px]:gap-x-4 max-[600px]:gap-y-8'

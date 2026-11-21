@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { CanvasTexture, Color, DoubleSide, Float32BufferAttribute, LatheGeometry, RepeatWrapping, SRGBColorSpace, Vector2 } from 'three'
-import { caramelPool, flanBreadTop, flanDrips, flanGlazeFrom, flanLift, flanProfile, flanSize, LATHE_SEGMENTS } from './dessertLayout.ts'
+import { boardLift, caramelPool, flanBreadTop, flanDrips, flanGlazeFrom, flanProfile, flanSize, LATHE_SEGMENTS } from './dessertLayout.ts'
 import type { ProfilePoint } from './dessertLayout.ts'
 import type { FlanShape } from './dessertShape.ts'
 import { finishEnvironment } from './finish.ts'
@@ -94,7 +94,7 @@ export default function Flan({ shape }: { shape: FlanShape }) {
   return (
     <>
       {shape.board && <BoardDisc radius={size.boardRadius * shape.unitsPerCm} color={shape.board.color} />}
-      <group position-y={flanLift(shape)} scale={shape.unitsPerCm}>
+      <group position-y={boardLift(shape)} scale={shape.unitsPerCm}>
         {pool && (
           <mesh geometry={pool}>
             <meshStandardMaterial vertexColors roughness={0.08} envMap={finishEnvironment()} envMapIntensity={1.1} side={DoubleSide} />

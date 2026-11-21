@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
 import { mockCakeDesignOptions } from './support/cake-design.ts'
 import { featuredProducts, mockCatalog, ok, sliceItems, stockItem, todayStock } from './support/catalog.ts'
-import { cupCards, durazno, mockProductDetails, mockProducts, productCards, tartaCard } from './support/products.ts'
+import { cupCards, durazno, mockProductDetails, mockProducts, moldGelatinCard, posibleCard, productCards, tartaCard } from './support/products.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 
 /**
@@ -212,6 +212,8 @@ test.describe('los postres con modelo (D95)', () => {
     ['mosaico-con-yogurt-de-durazno', 'Mosaico con yogurt de durazno'],
     ['mosaico-con-yogurt-de-fresa', 'Mosaico con yogurt de fresa'],
     ['gelatina-de-duvalin', 'Gelatina de Duvalín'],
+    ['posible', 'Posible'],
+    ['gelatina-de-molde', 'Gelatina de molde'],
   ] as const
   const IMPOSIBLE_PHOTO = 'imposible.webp'
 
@@ -224,13 +226,16 @@ test.describe('los postres con modelo (D95)', () => {
   }
 
   test('the catalog shows each dessert model as an illustration, before its photo; a dessert without a model keeps its slot', async ({ page }) => {
-    const posible = { ...productCards.find((entry) => entry.slug === 'imposible')!, slug: 'posible', name: 'Posible', summary: 'Flan con pan de vainilla.' }
+    // Desde D98 todos los postres de la semilla tienen modelo: uno de prueba, sin modelo, conserva su hueco.
+    const withoutModelCard = { ...posibleCard, slug: 'postre-sin-modelo', name: 'Postre sin modelo' }
     await mockProducts(page, {
       cards: withImages([
         ...productCards.map((entry) => (entry.slug === 'imposible' ? { ...entry, photo: IMPOSIBLE_PHOTO } : entry)),
         tartaCard,
         ...cupCards,
-        posible,
+        posibleCard,
+        moldGelatinCard,
+        withoutModelCard,
       ]),
     })
     await page.goto('/catalogo')
@@ -244,10 +249,35 @@ test.describe('los postres con modelo (D95)', () => {
     await expect(page.locator(`img[src="/fotos/${IMPOSIBLE_PHOTO}"]`)).toHaveCount(0)
     await expect(page.getByRole('img', { name: /ilustración del postre/ })).toHaveCount(DESSERT_MODELS.length)
 
-    const withoutModel = card(page, 'Posible')
+    const withoutModel = card(page, 'Postre sin modelo')
     await expect(withoutModel.getByRole('img', { name: 'Foto del postre pendiente' })).toBeVisible()
     await expect(withoutModel.locator('img')).toHaveCount(0)
   })
+
+  for (const width of [1440, 390]) {
+    test(`at ${width} px the dessert model sits 12 px higher in its compact card, inside the card; the slot does not move`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 })
+      const withoutModelCard = { ...posibleCard, slug: 'postre-sin-modelo', name: 'Postre sin modelo' }
+      await mockProducts(page, { cards: withImages([...productCards, ...cupCards, withoutModelCard]) })
+      await page.goto('/catalogo')
+      for (const name of ['Mosaico normal', 'Imposible']) {
+        const article = card(page, name)
+        const image = article.getByRole('img', { name: `${name}, ilustración del postre`, exact: true })
+        await expectModelFile(image)
+        const cardBox = (await article.boundingBox())!
+        const imageBox = (await image.boundingBox())!
+        // El relleno de la tarjeta es de 16 px y el borde de 1 px: la caja de la imagen sube 12 px dentro de él.
+        expect(Math.abs(imageBox.y - (cardBox.y + 1 + 16 - 12))).toBeLessThanOrEqual(1)
+        // El dibujo no sale de la tarjeta: la tapa del vaso queda a 24 de 1000 px de la orilla de la imagen.
+        expect(imageBox.y + imageBox.height * (24 / 1000)).toBeGreaterThan(cardBox.y + 1)
+      }
+      const slot = card(page, 'Postre sin modelo')
+      const slotCard = (await slot.boundingBox())!
+      const slotBox = (await slot.getByRole('img', { name: 'Foto del postre pendiente' }).boundingBox())!
+      expect(Math.abs(slotBox.y - (slotCard.y + 1 + 16))).toBeLessThanOrEqual(1)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
+    })
+  }
 
   test('the home page uses the dessert model in the featured cards and in its showcase', async ({ page }) => {
     const [first, second, imposible, ...rest] = featuredProducts
@@ -272,7 +302,9 @@ test.describe('los postres con modelo (D95)', () => {
 
     const showcase = page.getByRole('region', { name: 'Vitrina', exact: true })
     await expectImage(showcase.getByRole('img', { name: 'Flan napolitano, ilustración del postre', exact: true }), 'flan-napolitano-modelo.webp')
-    await expect(showcase.getByRole('img', { name: 'Foto del postre pendiente' })).toHaveCount(1)
+    // La gelatina de molde tiene modelo desde D98.
+    await expectImage(showcase.getByRole('img', { name: 'Gelatina de molde, ilustración del postre', exact: true }), 'gelatina-de-molde-modelo.webp')
+    await expect(showcase.getByRole('img', { name: 'Foto del postre pendiente' })).toHaveCount(0)
   })
 
   test('the showcase page keeps the dessert photo or its slot', async ({ page }) => {

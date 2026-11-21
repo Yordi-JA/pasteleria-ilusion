@@ -1,8 +1,8 @@
 import { BOARD, PLATE_GAP } from './cakeMetrics.ts'
 import type { Circle, Content } from './cakeMetrics.ts'
 import type { ShapeColor } from './cakeShape.ts'
-import type { DessertKind, DessertShape, FlanShape, MiniTartShape, MosaicCupShape } from './dessertShape.ts'
-import { MeshBuilder, pieceTriangles } from './fruit.ts'
+import type { DessertKind, DessertShape, FlanShape, MiniTartShape, MoldRingShape, MosaicCupShape } from './dessertShape.ts'
+import { fruitMesh, MeshBuilder, pieceTriangles } from './fruit.ts'
 import type { FruitLayout, FruitMesh, FruitPiece, FruitPlacement } from './fruit.ts'
 import { resolveColor } from './palette.ts'
 import { TRIANGLE_BUDGET } from './pieceBudget.ts'
@@ -583,10 +583,10 @@ const FLAN_SIZES: Record<
 export const flanSize = (shape: Pick<FlanShape, 'size'>) => FLAN_SIZES[shape.size ?? 'individual']
 
 /**
- * Lo que sube el flan sobre la mesa, en unidades de escena: con charola, se apoya en su cara de arriba, como el piso de abajo de un
- * pastel (`PLATE_GAP`); sin ella, el charco va sobre la mesa.
+ * Lo que sube un postre con charola (el flan, la gelatina de molde) sobre la mesa, en unidades de escena: con charola, se apoya en su
+ * cara de arriba, como el piso de abajo de un pastel (`PLATE_GAP`); sin ella, el charco del flan va sobre la mesa.
  */
-export const flanLift = (shape: Pick<FlanShape, 'board'>) => (shape.board ? PLATE_GAP : 0)
+export const boardLift = (shape: Pick<FlanShape | MoldRingShape, 'board'>) => (shape.board ? PLATE_GAP : 0)
 
 /** Hasta qué altura llega el pan bajo el flan, en cm; 0 sin pan. */
 export const flanBreadTop = (shape: Pick<FlanShape, 'size' | 'bread'>) => (shape.bread ? flanSize(shape).base + flanSize(shape).breadHeight : 0)
@@ -698,6 +698,143 @@ export function caramelPool(shape: Pick<FlanShape, 'caramel' | 'size'>): FruitMe
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------
+// Gelatina de molde
+
+/**
+ * La gelatina de molde de la foto (`Mosaico.jpeg`), desmoldada de un molde de anillo acanalado, en cm. `lobes` gajos redondos
+ * (`lobeDepth` de hondo en el costado, `innerDepth` en el hueco y `dip`, cuánto se hunde la corona entre dos gajos); el costado se
+ * angosta de `outerBottom` a `outerTop` hasta `height`, y de ahí la corona sube `rise` y baja al hueco, que se abre de
+ * `innerBottom` en la base a `innerTop` arriba (el tubo del molde, al revés). `crownBand` es lo que baja la capa gruesa de arriba por
+ * el costado; las capas delgadas se reparten el resto. La charola es la del Imposible.
+ */
+export const MOLD_RING = {
+  lobes: 14,
+  outerBottom: 11.2,
+  outerTop: 10.4,
+  lobeDepth: 0.6,
+  innerDepth: 0.35,
+  dip: 0.2,
+  height: 6,
+  rise: 2.2,
+  innerBottom: 2.6,
+  innerTop: 4.4,
+  crownBand: 2,
+  boardRadius: 13.2,
+} as const
+
+const MOLD_COLUMNS = MOLD_RING.lobes * 12
+const MOLD_CROWN_ROWS = 16
+/** Lo que separa los dos anillos del corte entre dos capas, en cm: el color cambia ahí, con el borde limpio. */
+const MOLD_EDGE = 0.02
+
+/** Qué tanto de gajo hay en ese ángulo: 1 en el centro de un gajo y 0 en la arista entre dos (redondo, con la arista marcada). */
+const moldLobe = (angle: number) => Math.abs(Math.cos((MOLD_RING.lobes * angle) / 2)) ** 0.5
+
+/** El radio de afuera y el del hueco a esa altura del costado (sin la corona) y ese ángulo. */
+const moldOuter = (y: number, angle: number) => lerp(MOLD_RING.outerBottom, MOLD_RING.outerTop, y / MOLD_RING.height) - MOLD_RING.lobeDepth * (1 - moldLobe(angle))
+const moldInner = (y: number, angle: number) => lerp(MOLD_RING.innerBottom, MOLD_RING.innerTop, y / MOLD_RING.height) + MOLD_RING.innerDepth * (1 - moldLobe(angle))
+
+/** El punto de la corona a la fracción `s` del camino de la orilla de afuera (0) a la del hueco (1), en ese ángulo. */
+function moldCrown(s: number, angle: number): Vec3 {
+  const r = lerp(moldOuter(MOLD_RING.height, angle), moldInner(MOLD_RING.height, angle), s)
+  const y = MOLD_RING.height + MOLD_RING.rise * Math.sin(Math.PI * s) ** 0.6 * (1 - MOLD_RING.dip * (1 - moldLobe(angle)))
+  return [Math.cos(angle) * r, y, Math.sin(angle) * r]
+}
+
+/** Las alturas del costado y del hueco, de abajo hacia arriba: dos anillos juntos en cada corte entre capas. */
+export function moldBands(shape: Pick<MoldRingShape, 'layers'>): { cuts: number[]; heights: number[] } {
+  const count = shape.layers.length
+  const crownFrom = MOLD_RING.height - MOLD_RING.crownBand
+  const cuts = Array.from({ length: count }, (_, i) => ((i + 1) * crownFrom) / Math.max(1, count))
+  const heights = [0, ...cuts.flatMap((cut) => [cut - MOLD_EDGE, cut + MOLD_EDGE]), (crownFrom + MOLD_RING.height) / 2, MOLD_RING.height]
+  return { cuts: count > 0 ? cuts : [], heights: count > 0 ? heights : [0, MOLD_RING.height / 2, MOLD_RING.height] }
+}
+
+/**
+ * La gelatina: una sola superficie que sube por el costado acanalado, pasa por la corona de gajos, baja por el hueco y cierra por
+ * abajo. El color sale de la altura: cada capa delgada en su franja y la capa gruesa arriba y en toda la corona; entre dos gajos,
+ * donde la luz cruza más gelatina, el tono se hunde un poco hacia `mermelada`.
+ */
+export function moldRingBody(shape: Pick<MoldRingShape, 'layers' | 'crown'>): FruitMesh {
+  const mesh = new MeshBuilder()
+  const { cuts, heights } = moldBands(shape)
+  const tones = [...shape.layers, shape.crown].map((color) => ({ base: rgb(color), deep: rgb({ mix: [color, 'mermelada'], amount: 0.16 }) }))
+  // La capa de esa altura: la del corte de arriba más cercano; arriba del último corte, la gruesa.
+  const layerAt = (y: number) => {
+    const index = cuts.findIndex((cut) => y < cut)
+    return tones[index === -1 ? tones.length - 1 : index]
+  }
+  const tone = (y: number, angle: number) => {
+    const layer = layerAt(y)
+    return mixRgb(layer.base, layer.deep, 1 - moldLobe(angle))
+  }
+  const angles = Array.from({ length: MOLD_COLUMNS }, (_, j) => (j / MOLD_COLUMNS) * Math.PI * 2)
+  const wall = (radius: (y: number, angle: number) => number, y: number) => angles.map((a): Vec3 => [Math.cos(a) * radius(y, a), y, Math.sin(a) * radius(y, a)])
+  const rows: Vec3[][] = []
+  const colors: RGB[][] = []
+  // El costado, de abajo hacia arriba.
+  for (const y of heights) {
+    rows.push(wall(moldOuter, y))
+    colors.push(angles.map((a) => tone(y, a)))
+  }
+  // La corona, de la orilla de afuera a la del hueco; más filas junto a las orillas, donde se curva más.
+  for (let i = 1; i < MOLD_CROWN_ROWS; i++) {
+    const s = (1 - Math.cos((Math.PI * i) / MOLD_CROWN_ROWS)) / 2
+    rows.push(angles.map((a) => moldCrown(s, a)))
+    colors.push(angles.map((a) => tone(MOLD_RING.height, a)))
+  }
+  // El hueco, de arriba hacia abajo, con las mismas capas; y el fondo, de vuelta a la orilla de afuera.
+  for (const y of [...heights].reverse()) {
+    rows.push(wall(moldInner, y))
+    colors.push(angles.map((a) => tone(y, a)))
+  }
+  rows.push(wall(moldOuter, 0))
+  colors.push(angles.map((a) => tone(0, a)))
+  mesh.grid(rows, colors, true)
+  return mesh.build()
+}
+
+/** Cuánto se escala cada pieza de `fruit.ts` en la corona: el gajo de durazno queda de unos 4 cm y la fresa, de 3 cm de largo. */
+const MOLD_PIECE_SCALE: Partial<Record<FruitPiece, number>> = { peachSlice: 0.95, strawberryHalf: 0.85 }
+
+/** Lo alto de una pieza de `fruit.ts` sin girar, en cm (su base está en 0). */
+const pieceHeight = (piece: FruitPiece) => fruitMesh(piece).positions.reduce((top, value, i) => (i % 3 === 1 ? Math.max(top, value) : top), 0)
+
+/**
+ * La fruta de la corona como en la foto: un gajo de durazno en almíbar o una media fresa sobre cada gajo de la gelatina, alternados.
+ * El durazno va acostado a lo largo del anillo, con su lado curvo hacia afuera; la fresa, a lo largo del radio y volteada, con la
+ * piel roja hacia arriba. Las coordenadas van en cm sobre la base de la gelatina.
+ */
+export function moldFruit(): FruitLayout {
+  const random = seededRandom(20261124)
+  const radius = (MOLD_RING.outerTop + MOLD_RING.innerTop) / 2
+  const s = (MOLD_RING.outerTop - radius) / (MOLD_RING.outerTop - MOLD_RING.innerTop)
+  const placements: FruitPlacement[] = Array.from({ length: MOLD_RING.lobes }, (_, k): FruitPlacement => {
+    // En el centro del gajo, donde la corona está más alta.
+    const a = (2 * Math.PI * k) / MOLD_RING.lobes
+    const top = moldCrown(s, a)[1]
+    const peach = k % 2 === 0
+    const piece: FruitPiece = peach ? 'peachSlice' : 'strawberryHalf'
+    const scale = (MOLD_PIECE_SCALE[piece] ?? 1) * (0.95 + 0.1 * random())
+    // La fresa volteada queda bajo su base: se sube lo que mide.
+    const y = top - 0.05 + (peach ? 0 : pieceHeight(piece) * scale)
+    return {
+      kind: peach ? 'peach' : 'strawberry',
+      piece,
+      p: [Math.cos(a) * radius, y, Math.sin(a) * radius],
+      yaw: peach ? Math.PI / 2 - a : -a,
+      tilt: peach ? 0.08 : Math.PI,
+      toward: [Math.cos(a), Math.sin(a)],
+      scale,
+      reach: 2.2 * scale,
+      tint: (random() - 0.5) * 0.08,
+    }
+  })
+  const triangles = placements.reduce((sum, placement) => sum + pieceTriangles(placement.piece), 0)
+  return { layout: 'rows', placements, triangles }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
 // Lo que ocupa cada postre y cuánto pesa
 
 /** El charco más lejos del centro del flan, en cm: su orilla, abultada, y lo que se corre hacia `offset`. */
@@ -725,13 +862,26 @@ const OUTLINES: { [K in DessertKind]: (shape: Extract<DessertShape, { kind: K }>
   ],
   flan: (shape) => {
     const u = shape.unitsPerCm
-    const lift = flanLift(shape)
+    const lift = boardLift(shape)
     const { height, topRadius, boardRadius } = flanSize(shape)
     const top = { y: lift + (height + 0.04) * u, r: topRadius * u }
     if (!shape.board) return [{ y: 0, r: poolReach(shape) * u }, top]
     // La charola, como la de los pasteles en `contentOf`: su borde sube y su fondo baja.
     const r = boardRadius * u
     return [{ y: PLATE_GAP + BOARD.rim, r }, { y: PLATE_GAP - BOARD.thickness, r }, top]
+  },
+  moldRing: (shape) => {
+    const u = shape.unitsPerCm
+    const lift = boardLift(shape)
+    const { outerBottom, outerTop, height, rise, innerTop, boardRadius } = MOLD_RING
+    // La orilla de arriba del costado y la fruta, que sobresale de la corona.
+    const gelatin = [
+      { y: lift + height * u, r: outerTop * u },
+      { y: lift + (height + rise + 1.6) * u, r: ((outerTop + innerTop) / 2 + 2.2) * u },
+    ]
+    if (!shape.board) return [{ y: 0, r: outerBottom * u }, ...gelatin]
+    const r = boardRadius * u
+    return [{ y: PLATE_GAP + BOARD.rim, r }, { y: PLATE_GAP - BOARD.thickness, r }, ...gelatin]
   },
 }
 
@@ -760,11 +910,15 @@ const DESSERT_VIEWS: Record<DessertKind, { scene: number; still: number; fit?: {
   layeredCup: { scene: 10, still: 20, fit: { plate: 0.98, top: 1.01 } },
   miniTart: { scene: 35, still: 48 },
   flan: { scene: 26, still: 36 },
+  // Como en su foto: desde arriba se ven la corona y la fruta, y aun así el costado con sus capas.
+  moldRing: { scene: 28, still: 38 },
 }
 
 export const dessertView = (shape: DessertShape) => DESSERT_VIEWS[shape.kind]
 
 const meshTriangles = (mesh: FruitMesh) => mesh.indices.length / 3
+/** La charola de `BoardDisc`: su perfil girado en 96 segmentos. */
+const boardTriangles = (shape: Pick<FlanShape | MoldRingShape, 'board'>) => (shape.board ? (boardProfile(1).length - 1) * 96 * 2 : 0)
 
 /** Triángulos de cada postre: tornos, mallas, cubos (12 caras cada uno) y fruta. */
 const TRIANGLES: { [K in DessertKind]: (shape: Extract<DessertShape, { kind: K }>) => number } = {
@@ -778,7 +932,8 @@ const TRIANGLES: { [K in DessertKind]: (shape: Extract<DessertShape, { kind: K }
     latheTriangles(cupProfile().length) + latheTriangles(lidProfile().length) + layerProfiles(shape.layers.length).reduce((sum, profile) => sum + latheTriangles(profile.length), 0),
   miniTart: (shape) => meshTriangles(tartShell(shape)) + latheTriangles(tartCreamProfile().length) + tartFruit().triangles,
   flan: (shape) =>
-    latheTriangles(flanProfile(shape).length) + meshTriangles(flanDrips(shape)) + meshTriangles(caramelPool(shape)) + (shape.board ? (boardProfile(1).length - 1) * 96 * 2 : 0),
+    latheTriangles(flanProfile(shape).length) + meshTriangles(flanDrips(shape)) + meshTriangles(caramelPool(shape)) + boardTriangles(shape),
+  moldRing: (shape) => meshTriangles(moldRingBody(shape)) + moldFruit().triangles + boardTriangles(shape),
 }
 
 /**
