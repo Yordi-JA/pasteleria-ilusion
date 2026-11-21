@@ -153,15 +153,15 @@ export function useSlicesSection() {
  * Las tres secciones de datos de la portada, cada una con su carga, su reintento y su aviso, y los campos de color
  * que dependen de cuáles aparecen. `afterHero` es el campo del que cuelgan los 21 px de la guirnalda del hero.
  * `closingField` dice si la página necesita un campo `nata` antes de la guirnalda: la guirnalda cuelga de `nata`
- * y el pie es `mermelada`, así que la vitrina (o el hero solo) nunca queda pegada al pie (dos campos oscuros
- * seguidos).
+ * y el pie es `mermelada`, así que "Hechos en la casa" (`fresa`, que siempre está) no queda pegado a ellos sin las
+ * rebanadas. `afterHero` es `fresa` cuando no hay otra sección entre el hero y las fotos: no lleva borde.
  */
 export function useHome() {
   const featured = useFeaturedSection()
   const showcase = useShowcaseSection()
   const slices = useSlicesSection()
-  const afterHero: 'nata' | 'mermelada' = !featured.visible && showcase.visible ? 'mermelada' : 'nata'
-  const closingField = !slices.visible && (showcase.visible || !featured.visible)
+  const afterHero: 'nata' | 'mermelada' | 'fresa' = featured.visible ? 'nata' : showcase.visible ? 'mermelada' : 'fresa'
+  const closingField = !slices.visible
   return { featured, showcase, slices, afterHero, closingField }
 }
 

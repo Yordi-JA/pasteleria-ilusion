@@ -17,6 +17,8 @@ module.exports = {
         'paso-izquierda': { from: { opacity: '0', transform: 'translateX(-24px)' }, to: { opacity: '1', transform: 'none' } },
         // Tanda 7 (D90), portada y encabezado. La entrada del hero: sube 12 px y aparece, una sola vez por carga.
         'home-entrada': { from: { opacity: '0', transform: 'translateY(12px)' }, to: { opacity: '1', transform: 'none' } },
+        // "Hechos en la casa": la banda lleva dos copias de las fotos y recorre la mitad de su ancho, así el bucle no se nota.
+        'galeria-desliza': { from: { transform: 'translateX(0)' }, to: { transform: 'translateX(-50%)' } },
         // El salto del contador del carrito cuando llega la perla.
         'header-contador': { '0%': { transform: 'scale(1)' }, '40%': { transform: 'scale(1.25)' }, '100%': { transform: 'scale(1)' } },
       },
@@ -27,6 +29,7 @@ module.exports = {
         // 450 ms con la curva `entrada`; cada pieza fija su escalón con `--entrada-retraso`. `backwards`: invisible solo mientras
         // espera su turno, y al terminar no queda ningún efecto encima.
         'home-entrada': 'home-entrada 450ms cubic-bezier(0.23, 1, 0.32, 1) var(--entrada-retraso, 0ms) backwards',
+        galeria: 'galeria-desliza var(--galeria-duracion, 300s) linear infinite',
         'header-contador': 'header-contador 300ms cubic-bezier(0.23, 1, 0.32, 1)',
       },
       // Curva de entrada fuerte (ease-out) para lo que aparece, como la escena 3D de la portada (D48).
