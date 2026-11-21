@@ -17,7 +17,7 @@ const LAYOUT = '/src/three/dessertLayout.ts'
 const SAMPLES = '/src/viewmodels/dessertSamples.ts'
 const FRAMING = '/src/three/stillFraming.ts'
 
-/** Los postres del catálogo con modelo: los cinco vasos de gelatina, la tarta y el flan. */
+/** Los postres del catálogo con modelo: los cinco vasos de gelatina, la tarta, el flan napolitano y el Imposible. */
 const DESSERTS = [
   { slug: 'gelatina-mosaico', kind: 'mosaicCup' },
   { slug: 'mosaico-con-crema', kind: 'mosaicCup' },
@@ -26,6 +26,7 @@ const DESSERTS = [
   { slug: 'gelatina-de-duvalin', kind: 'layeredCup' },
   { slug: 'tarta-de-frutas', kind: 'miniTart' },
   { slug: 'flan-napolitano', kind: 'flan' },
+  { slug: 'imposible', kind: 'flan' },
 ] as const
 
 /** Los vasos con cubos: la gelatina firme y los líquidos. */
@@ -87,10 +88,10 @@ test('the cups change flavor with their colors and style, and each dessert fits 
       const other = mosaicCup({ base: '#f2c6cf', cubes: ['#cf2a2c', '#2f6b2c'] })
       const cubes = mosaicCubes(solid)
       const otherCubes = mosaicCubes(other)
-      const slugs = ['gelatina-mosaico', 'mosaico-con-crema', 'mosaico-con-yogurt-de-durazno', 'mosaico-con-yogurt-de-fresa', 'gelatina-de-duvalin', 'tarta-de-frutas', 'flan-napolitano']
+      const slugs = ['gelatina-mosaico', 'mosaico-con-crema', 'mosaico-con-yogurt-de-durazno', 'mosaico-con-yogurt-de-fresa', 'gelatina-de-duvalin', 'tarta-de-frutas', 'flan-napolitano', 'imposible']
       return {
         // El `slug` de antes del yogurt (`0059_seed_cup_gelatins` lo renombró) ya no tiene modelo.
-        kinds: [...slugs, 'gelatina-de-molde', 'tres-leches-de-fresa', 'mosaico-con-yogurt'].map((slug) => dessertSample(slug)?.kind ?? null),
+        kinds: [...slugs, 'gelatina-de-molde', 'tres-leches-de-fresa', 'mosaico-con-yogurt', 'posible'].map((slug) => dessertSample(slug)?.kind ?? null),
         styles: slugs.slice(0, 4).map((slug) => dessertSample(slug)?.style ?? null),
         solidColors: [...new Set(cubes.map((cube: { color: number }) => cube.color))].sort(),
         otherColors: [...new Set(otherCubes.map((cube: { color: number }) => cube.color))].sort(),
@@ -104,8 +105,8 @@ test('the cups change flavor with their colors and style, and each dessert fits 
     },
     [LAYOUT, SAMPLES],
   )
-  // La gelatina de molde no se modela (el usuario la dejó fuera) y un pastel no es un postre.
-  expect(result.kinds).toEqual(['mosaicCup', 'mosaicCup', 'mosaicCup', 'mosaicCup', 'layeredCup', 'miniTart', 'flan', null, null, null])
+  // La gelatina de molde y el Posible no se modelan (el usuario no los pidió) y un pastel no es un postre.
+  expect(result.kinds).toEqual(['mosaicCup', 'mosaicCup', 'mosaicCup', 'mosaicCup', 'layeredCup', 'miniTart', 'flan', 'flan', null, null, null, null])
   // La gelatina mosaico es firme; la crema y los yogures, líquidos.
   expect(result.styles).toEqual(['solid', 'creamy', 'creamy', 'creamy'])
   // Verde casi negro (dos veces en la lista, la mitad de los cubos), rojo y naranja.
@@ -120,6 +121,66 @@ test('the cups change flavor with their colors and style, and each dessert fits 
   expect(result.cupTop).toBeCloseTo(9.55, 2)
   // El flan va sobre la charola negra de los pasteles, no en su recipiente transparente.
   expect(result.flanBoard).toBe('#2c2c2c')
+})
+
+test('the Imposible is a cake-sized flan on the cake board: chocolate bread below, a taller flan above and a caramel top', async ({ page }) => {
+  await mockStoreInfo(page)
+  await page.goto('/legal')
+  const result = await page.evaluate(
+    async ([layout, samples]) => {
+      const { dessertContent, flanBreadTop, flanDrips, flanProfile, flanSize } = await import(layout)
+      const { dessertModelImage, dessertSample } = await import(samples)
+      const imposible = dessertSample('imposible')
+      const napolitano = dessertSample('flan-napolitano')
+      const size = flanSize(imposible)
+      const breadTop = flanBreadTop(imposible)
+      const profile = flanProfile(imposible) as [number, number][]
+      // La cara de arriba cubierta: el caramelo llega al centro, por encima del flan.
+      const drips = flanDrips(imposible) as { positions: ArrayLike<number> }
+      let capTop = -Infinity
+      for (let i = 0; i < drips.positions.length; i += 3) {
+        if (Math.hypot(drips.positions[i], drips.positions[i + 2]) < 0.01) capTop = Math.max(capTop, drips.positions[i + 1])
+      }
+      const napolitanDrips = flanDrips(napolitano) as { positions: ArrayLike<number> }
+      let napolitanCenter = 0
+      for (let i = 0; i < napolitanDrips.positions.length; i += 3) {
+        if (Math.hypot(napolitanDrips.positions[i], napolitanDrips.positions[i + 2]) < 0.01) napolitanCenter += 1
+      }
+      const widest = (shape: unknown) => Math.max(...(dessertContent(shape).circles as { r: number }[]).map((circle) => circle.r))
+      return {
+        bread: imposible.bread,
+        board: imposible.board?.color ?? null,
+        size: imposible.size,
+        breadHeight: breadTop - size.base,
+        flanHeight: size.height - breadTop,
+        // Dos puntos juntos en el corte, para que el color cambie ahí.
+        cut: profile.filter(([, y]) => Math.abs(y - breadTop) <= 0.05 + 1e-9).length,
+        capTop,
+        top: size.height,
+        napolitanBread: flanBreadTop(napolitano),
+        napolitanCenter,
+        // Del tamaño de un pastel: varias veces el ancho del napolitano.
+        widthRatio: widest(imposible) / widest(napolitano),
+        image: dessertModelImage('imposible'),
+        noImage: dessertModelImage('posible'),
+      }
+    },
+    [LAYOUT, SAMPLES],
+  )
+  expect(result.size).toBe('whole')
+  expect(result.board).toBe('#2c2c2c')
+  expect(result.bread).toBe('#3b2419')
+  // El pan, más bajo que el flan.
+  expect(result.breadHeight).toBeGreaterThan(2)
+  expect(result.breadHeight).toBeLessThan(result.flanHeight)
+  expect(result.cut).toBe(2)
+  expect(result.capTop).toBeGreaterThan(result.top)
+  // El napolitano no cambia: sin pan ni caramelo en la cara de arriba.
+  expect(result.napolitanBread).toBe(0)
+  expect(result.napolitanCenter).toBe(0)
+  expect(result.widthRatio).toBeGreaterThan(1.8)
+  expect(result.image).toBe('imposible-modelo.webp')
+  expect(result.noImage).toBeNull()
 })
 
 /** Lo que miden las pruebas de los cubos de un vaso: contención, tamaño, reparto, giro y velo. */

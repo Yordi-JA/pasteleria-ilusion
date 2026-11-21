@@ -1,5 +1,6 @@
 import { photoUrl } from '../models/catalog.ts'
 import type { ProductCategory } from '../models/catalog.ts'
+import { dessertModelImage } from './dessertSamples.ts'
 
 /** Lo que una pantalla sabe de la foto de un producto, listo para `ProductPhoto`. */
 export type PhotoView = {
@@ -21,12 +22,33 @@ export function photoView(file: string | null, alt: string, placeholder: string)
 }
 
 /**
- * La imagen de una tarjeta del catálogo y de la portada (D86): la imagen fija del modelo si la pastelería la muestra; si no, la
- * foto; sin ninguna, el hueco. La imagen del modelo no es una foto, así que su texto alternativo dice que es la ilustración del
- * pastel ("Tres leches de durazno, ilustración del pastel").
+ * El nombre de la imagen o de la escena del modelo: no es una foto, así que dice que es la ilustración ("Tres leches de durazno,
+ * ilustración del pastel"; "Flan napolitano, ilustración del postre"). Lo comparten la tarjeta y la ficha (`modelLabel`).
  */
-export function catalogImageView(modelImage: string | null, photo: string | null, name: string, placeholder: string): PhotoView {
-  if (modelImage) return { ...photoView(modelImage, `${name}, ilustración del pastel`, placeholder), model: true }
+export function modelAlt(name: string, category: ProductCategory): string {
+  return `${name}, ilustración del ${category === 'cake' ? 'pastel' : 'postre'}`
+}
+
+/** Lo que una tarjeta sabe de la imagen de su producto. */
+export type CatalogImageSource = {
+  slug: string
+  /** El nombre como se muestra en la tarjeta (en la vitrina, con su presentación). */
+  name: string
+  category: ProductCategory
+  photo: string | null
+  /** La imagen del modelo que da la API (solo los pasteles con muestra, D86). */
+  modelImage: string | null
+}
+
+/**
+ * La imagen de una tarjeta del catálogo y de la portada (D86): la imagen fija del modelo si la hay; si no, la foto; sin ninguna, el
+ * hueco. La de un pastel la da la API (`model_image`, si la pastelería la muestra); la de un postre con modelo (D95) es la que guarda
+ * `npm run render:modelos`, por su `slug` (`dessertModelImage`), porque el backend solo guarda muestras de pasteles.
+ */
+export function catalogImageView({ slug, name, category, photo, modelImage }: CatalogImageSource): PhotoView {
+  const placeholder = PHOTO_PLACEHOLDER[category]
+  const model = modelImage ?? dessertModelImage(slug)
+  if (model) return { ...photoView(model, modelAlt(name, category), placeholder), model: true }
   return photoView(photo, name, placeholder)
 }
 

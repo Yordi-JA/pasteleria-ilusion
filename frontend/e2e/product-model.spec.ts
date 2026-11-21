@@ -115,6 +115,21 @@ test.describe('product model: scene', () => {
     }
   })
 
+  test('the Imposible shows its model and "Ver la foto" opens its real photo', async ({ page }) => {
+    const name = 'Imposible, ilustración del postre'
+    await open(page, 'imposible', [{ ...productDetail('imposible'), photo: 'imposible.webp' }])
+    await waitReady(page, name)
+    await expect(scene(page, name)).toHaveAttribute('data-dessert', 'flan')
+    await expect(page.getByRole('heading', { level: 1, name: 'Imposible' })).toBeVisible()
+    const link = page.getByRole('link', { name: 'Ver la foto (se abre en otra pestaña)' })
+    await expect(link).toBeVisible()
+    await expect(link).toHaveAttribute('href', '/fotos/imposible.webp')
+    // La foto existe y abre.
+    const photo = await page.request.get('/fotos/imposible.webp')
+    expect(photo.status()).toBe(200)
+    expect(photo.headers()['content-type']).toContain('image/webp')
+  })
+
   test('a cake with its sample is built like its catalog image: on its board, with one tier', async ({ page }) => {
     await open(page, 'tres-leches-de-durazno', [durazno()])
     await waitReady(page, DURAZNO_NAME)

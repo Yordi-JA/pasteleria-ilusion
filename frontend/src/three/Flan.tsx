@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { CanvasTexture, Color, DoubleSide, Float32BufferAttribute, LatheGeometry, RepeatWrapping, SRGBColorSpace, Vector2 } from 'three'
-import { caramelPool, FLAN, FLAN_GLAZE_FROM, flanDrips, flanLift, flanProfile, LATHE_SEGMENTS } from './dessertLayout.ts'
+import { caramelPool, flanBreadTop, flanDrips, flanGlazeFrom, flanLift, flanProfile, flanSize, LATHE_SEGMENTS } from './dessertLayout.ts'
+import type { ProfilePoint } from './dessertLayout.ts'
 import type { FlanShape } from './dessertShape.ts'
 import { finishEnvironment } from './finish.ts'
 import { resolveColor } from './palette.ts'
@@ -9,12 +10,13 @@ import { useGeometry } from './vertexGeometry.ts'
 import { seededRandom } from './seededRandom.ts'
 
 /**
- * El flan napolitano desmoldado (D95): el flan con las burbujitas tostadas del costado y la cara de arriba bañada en caramelo, el
- * caramelo que escurre y el charco, sobre la charola de los pasteles (`BoardDisc`). Las texturas y las mallas se arman una vez.
+ * Un flan desmoldado (D95): el flan con las burbujitas tostadas del costado y la cara de arriba bañada en caramelo, el caramelo que
+ * escurre y el charco, sobre la charola de los pasteles (`BoardDisc`). El napolitano es el individual; el Imposible, del tamaño de un
+ * pastel y con el pan de chocolate abajo (`bread`). Las medidas son las de su tamaño (`flanSize`). Las texturas y las mallas se arman
+ * una vez por postre.
  */
 
-const PROFILE = flanProfile()
-/** Lo que tarda el color del costado en volverse el de la cara de arriba, hacia abajo de `FLAN_GLAZE_FROM`, en cm. */
+/** Lo que tarda el color del costado en volverse el de la cara de arriba, hacia abajo de `flanGlazeFrom`, en cm. */
 const GLAZE_BLEND = 0.35
 
 /**
@@ -47,24 +49,30 @@ function spotsTexture(custard: string, caramel: string): CanvasTexture {
   texture.colorSpace = SRGBColorSpace
   texture.wrapS = RepeatWrapping
   texture.wrapT = RepeatWrapping
+  // Cinco vueltas: en el flan grande el costado también es más alto (el lienzo va por el perfil), así que los puntos siguen redondos.
   texture.repeat.set(5, 1)
   return texture
 }
 
-/** El cuerpo del flan: el torno con el color del flan en el costado y el de la cara de arriba en la orilla y la tapa. */
-function bodyGeometry(custard: string, glaze: string): LatheGeometry {
-  const geometry = new LatheGeometry(PROFILE.map(([r, y]) => new Vector2(r, y)), LATHE_SEGMENTS)
-  const side = new Color(custard)
-  const top = new Color(glaze)
+/**
+ * El cuerpo del flan: el torno con el color del flan en el costado y el de la cara de arriba en la orilla y la tapa. Con pan, lo que
+ * queda bajo `breadTop` es del color del pan.
+ */
+function bodyGeometry(profile: ProfilePoint[], colors: { custard: string; glaze: string; bread: string | null }, glazeFrom: number, breadTop: number): LatheGeometry {
+  const geometry = new LatheGeometry(profile.map(([r, y]) => new Vector2(r, y)), LATHE_SEGMENTS)
+  const side = new Color(colors.custard)
+  const top = new Color(colors.glaze)
+  const bread = colors.bread ? new Color(colors.bread) : null
   const tone = new Color()
   const positions = geometry.getAttribute('position')
-  const colors: number[] = []
+  const vertexColors: number[] = []
   for (let i = 0; i < positions.count; i++) {
-    const t = Math.min(1, Math.max(0, (positions.getY(i) - (FLAN_GLAZE_FROM - GLAZE_BLEND)) / GLAZE_BLEND))
-    tone.copy(side).lerp(top, t)
-    colors.push(tone.r, tone.g, tone.b)
+    const y = positions.getY(i)
+    if (bread && y < breadTop) tone.copy(bread)
+    else tone.copy(side).lerp(top, Math.min(1, Math.max(0, (y - (glazeFrom - GLAZE_BLEND)) / GLAZE_BLEND)))
+    vertexColors.push(tone.r, tone.g, tone.b)
   }
-  geometry.setAttribute('color', new Float32BufferAttribute(colors, 3))
+  geometry.setAttribute('color', new Float32BufferAttribute(vertexColors, 3))
   return geometry
 }
 
@@ -72,7 +80,12 @@ export default function Flan({ shape }: { shape: FlanShape }) {
   const custard = resolveColor(shape.custard)
   const glaze = resolveColor(shape.glaze)
   const caramel = resolveColor(shape.caramel)
-  const body = useMemo(() => bodyGeometry(custard, glaze), [custard, glaze])
+  const bread = shape.bread ? resolveColor(shape.bread) : null
+  const size = flanSize(shape)
+  const body = useMemo(
+    () => bodyGeometry(flanProfile(shape), { custard, glaze, bread }, flanGlazeFrom(shape), flanBreadTop(shape)),
+    [shape, custard, glaze, bread],
+  )
   const spots = useMemo(() => spotsTexture(custard, caramel), [custard, caramel])
   useEffect(() => () => body.dispose(), [body])
   useEffect(() => () => spots.dispose(), [spots])
@@ -80,7 +93,7 @@ export default function Flan({ shape }: { shape: FlanShape }) {
   const pool = useGeometry(useMemo(() => caramelPool(shape), [shape]))
   return (
     <>
-      {shape.board && <BoardDisc radius={FLAN.boardRadius * shape.unitsPerCm} color={shape.board.color} />}
+      {shape.board && <BoardDisc radius={size.boardRadius * shape.unitsPerCm} color={shape.board.color} />}
       <group position-y={flanLift(shape)} scale={shape.unitsPerCm}>
         {pool && (
           <mesh geometry={pool}>

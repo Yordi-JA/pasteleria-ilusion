@@ -520,13 +520,67 @@ export function tartFruit(): FruitLayout {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------
-// Flan napolitano
+// Flan (el napolitano y el Imposible)
+
+export type FlanSize = NonNullable<FlanShape['size']>
 
 /**
- * El flan individual de la foto: 7.6 cm abajo, 6.6 cm arriba y 4.2 cm de alto. Va sobre la charola de los pasteles (`SAMPLE_BOARD`),
- * de 13.2 cm, que deja ver todo el charco con un margen de cartón, como el pastel sobre la suya.
+ * Las medidas de cada tamaño de flan, en cm. Los dos van sobre la charola de los pasteles (`SAMPLE_BOARD`), que deja ver todo el
+ * charco con un margen de cartón, como el pastel sobre la suya.
+ *
+ * - `individual`, el flan napolitano de la foto (`Napolitano.jpeg`): 7.6 cm abajo, 6.6 cm arriba y 4.2 cm de alto, sobre una charola
+ *   de 13.2 cm; el caramelo escurre en lenguas largas y forma un charco corrido hacia atrás y a la derecha.
+ * - `whole`, el Imposible (`Imposible.jpg`): del tamaño de un pastel, casi recto, de 23 cm y 9 cm de alto; con pan (`bread`), el pan
+ *   de chocolate ocupa los 3.8 cm de abajo y el flan, más alto, el resto. El caramelo cubre la cara de arriba con brillo (`cap`),
+ *   apenas escurre por la orilla y deja un hilo delgado al pie.
+ *
+ * `side` son los puntos del costado del torno: cuánto del radio de abajo al de arriba (`t`) y a qué altura. `drips` son las lenguas
+ * de caramelo (cuántas, su ancho en radianes y su largo en cm, mínimo y lo que se agrega al azar) y `pool`, el charco (su radio, cuánto
+ * se ondula su orilla y hacia dónde se corre).
  */
-export const FLAN = { bottomRadius: 3.8, topRadius: 3.3, height: 4.25, base: 0.1, boardRadius: 6.6 } as const
+const FLAN_SIZES: Record<
+  FlanSize,
+  {
+    bottomRadius: number
+    topRadius: number
+    height: number
+    base: number
+    boardRadius: number
+    side: readonly (readonly [number, number])[]
+    breadHeight: number
+    drips: { count: number; width: readonly [number, number]; length: readonly [number, number] }
+    pool: { radius: number; wobble: number; offset: readonly [number, number] }
+    cap: boolean
+  }
+> = {
+  individual: {
+    bottomRadius: 3.8,
+    topRadius: 3.3,
+    height: 4.25,
+    base: 0.1,
+    boardRadius: 6.6,
+    side: [[0.3, 1.4], [0.7, 3.0]],
+    breadHeight: 0,
+    drips: { count: 9, width: [0.12, 0.18], length: [0.6, 2.6] },
+    pool: { radius: 4.2, wobble: 1, offset: [0.5, -0.4] },
+    cap: false,
+  },
+  whole: {
+    bottomRadius: 11.5,
+    topRadius: 11.3,
+    height: 9,
+    base: 0.1,
+    boardRadius: 13.2,
+    side: [[0.5, 4.5]],
+    breadHeight: 3.8,
+    drips: { count: 24, width: [0.045, 0.04], length: [0.3, 0.7] },
+    pool: { radius: 11.85, wobble: 0.35, offset: [0.2, -0.15] },
+    cap: true,
+  },
+}
+
+/** Las medidas del flan de ese tamaño; sin tamaño, el individual. */
+export const flanSize = (shape: Pick<FlanShape, 'size'>) => FLAN_SIZES[shape.size ?? 'individual']
 
 /**
  * Lo que sube el flan sobre la mesa, en unidades de escena: con charola, se apoya en su cara de arriba, como el piso de abajo de un
@@ -534,15 +588,27 @@ export const FLAN = { bottomRadius: 3.8, topRadius: 3.3, height: 4.25, base: 0.1
  */
 export const flanLift = (shape: Pick<FlanShape, 'board'>) => (shape.board ? PLATE_GAP : 0)
 
-/** El perfil del flan desmoldado: un poco más ancho abajo, con la orilla de arriba redondeada. */
-export function flanProfile(): ProfilePoint[] {
-  const { bottomRadius, topRadius, height, base } = FLAN
+/** Hasta qué altura llega el pan bajo el flan, en cm; 0 sin pan. */
+export const flanBreadTop = (shape: Pick<FlanShape, 'size' | 'bread'>) => (shape.bread ? flanSize(shape).base + flanSize(shape).breadHeight : 0)
+
+/** Lo que tarda el pan en volverse flan, en cm: el corte entre los dos es casi recto. */
+const BREAD_EDGE = 0.05
+
+/**
+ * El perfil del flan desmoldado: un poco más ancho abajo, con la orilla de arriba redondeada. Con pan, dos puntos juntos en el corte
+ * para que el color cambie ahí y no a lo largo del costado.
+ */
+export function flanProfile(shape: Pick<FlanShape, 'size' | 'bread'>): ProfilePoint[] {
+  const { bottomRadius, topRadius, height, base, side } = flanSize(shape)
+  const breadTop = flanBreadTop(shape)
+  const sidePoints: ProfilePoint[] = side.map(([t, y]) => [lerp(bottomRadius, topRadius, t), y])
+  if (breadTop > 0) sidePoints.push([flanRadius(shape, breadTop - BREAD_EDGE), breadTop - BREAD_EDGE], [flanRadius(shape, breadTop + BREAD_EDGE), breadTop + BREAD_EDGE])
+  sidePoints.sort((a, b) => a[1] - b[1])
   return [
     [0, base],
     [bottomRadius - 0.1, base],
     [bottomRadius, base + 0.15],
-    [lerp(bottomRadius, topRadius, 0.3), base + 1.3],
-    [lerp(bottomRadius, topRadius, 0.7), base + 2.9],
+    ...sidePoints,
     [topRadius, height - 0.4],
     [topRadius - 0.12, height - 0.12],
     [topRadius - 0.4, height],
@@ -551,20 +617,29 @@ export function flanProfile(): ProfilePoint[] {
 }
 
 /** El radio del costado del flan a esa altura (sin la orilla redondeada). */
-const flanRadius = (y: number) => lerp(FLAN.bottomRadius, FLAN.topRadius, Math.min(1, Math.max(0, (y - FLAN.base) / (FLAN.height - 0.4 - FLAN.base))))
+function flanRadius(shape: Pick<FlanShape, 'size'>, y: number): number {
+  const { bottomRadius, topRadius, height, base } = flanSize(shape)
+  return lerp(bottomRadius, topRadius, Math.min(1, Math.max(0, (y - base) / (height - 0.4 - base))))
+}
 
 /** Desde qué altura el flan es del color de la cara de arriba: la orilla redondeada ya está bañada en caramelo. */
-export const FLAN_GLAZE_FROM = FLAN.height - 0.45
+export const flanGlazeFrom = (shape: Pick<FlanShape, 'size'>) => flanSize(shape).height - 0.45
 
 const DRIP_COLUMNS = 120
 
 /**
  * El caramelo que escurre: una capa delgada sobre la orilla de arriba que baja por el costado en lenguas de largo distinto, del
- * color de la cara de arriba al caramelo oscuro en las puntas.
+ * color de la cara de arriba al caramelo oscuro en las puntas. Con `cap` (el Imposible), la misma capa cubre antes toda la cara de
+ * arriba, para que brille como caramelo.
  */
-export function flanDrips(shape: Pick<FlanShape, 'glaze' | 'caramel'>): FruitMesh {
+export function flanDrips(shape: Pick<FlanShape, 'glaze' | 'caramel' | 'size'>): FruitMesh {
+  const { height, topRadius, drips, cap } = flanSize(shape)
   const random = seededRandom(20261122)
-  const tongues = Array.from({ length: 9 }, () => ({ at: random() * Math.PI * 2, width: 0.12 + 0.18 * random(), length: 0.6 + 2.6 * random() }))
+  const tongues = Array.from({ length: drips.count }, () => ({
+    at: random() * Math.PI * 2,
+    width: drips.width[0] + drips.width[1] * random(),
+    length: drips.length[0] + drips.length[1] * random(),
+  }))
   const reach = (angle: number) =>
     0.2 + tongues.reduce((longest, tongue) => {
       const apart = Math.atan2(Math.sin(angle - tongue.at), Math.cos(angle - tongue.at))
@@ -574,54 +649,62 @@ export function flanDrips(shape: Pick<FlanShape, 'glaze' | 'caramel'>): FruitMes
   const glaze = rgb(shape.glaze)
   const caramel = rgb(shape.caramel)
   const angles = Array.from({ length: DRIP_COLUMNS }, (_, j) => (j / DRIP_COLUMNS) * Math.PI * 2)
+  const ring = (r: number, y: number) => angles.map((a): Vec3 => [Math.cos(a) * r, y, Math.sin(a) * r])
   const steps = 8
-  const start = FLAN.height - 0.3
-  const rows: Vec3[][] = []
-  const tones: RGB[][] = []
+  const start = height - 0.3
+  // La cara de arriba y la orilla redondeada, apenas por fuera del flan (su perfil: `topRadius - 0.4` a la altura `height`).
+  const rows: Vec3[][] = cap ? [ring(topRadius - 0.42, height + 0.03), ring(topRadius - 0.1, height - 0.1)] : []
+  const tones: RGB[][] = rows.map(() => angles.map(() => glaze))
   for (let i = 0; i <= steps; i++) {
     const t = i / steps
     rows.push(angles.map((a): Vec3 => {
       const y = start - t * reach(a)
-      const r = flanRadius(y) + 0.04 + 0.03 * t
+      const r = flanRadius(shape, y) + 0.04 + 0.03 * t
       return [Math.cos(a) * r, y, Math.sin(a) * r]
     }))
     tones.push(angles.map(() => mixRgb(glaze, caramel, t)))
   }
-  mesh.grid(rows, tones, true)
+  const ids = mesh.grid(rows, tones, true)
+  if (cap) mesh.fan(mesh.vertex([0, height + 0.07, 0], glaze), [...ids[0]].reverse())
   return mesh.build()
 }
 
 const POOL_COLUMNS = 96
 
-/** La orilla irregular del charco de caramelo, en cm desde el centro del flan; se corre hacia atrás y a la derecha, como en la foto. */
-function poolOutline(angle: number): [number, number] {
-  const r = 4.2 + 0.6 * Math.sin(2 * angle + 1) + 0.35 * Math.sin(3 * angle + 2) + 0.2 * Math.sin(5 * angle + 0.5)
-  return [0.5 + Math.cos(angle) * r, -0.4 + Math.sin(angle) * r]
+/** La orilla irregular del charco de caramelo, en cm desde el centro del flan; se corre hacia `offset` (atrás y a la derecha). */
+function poolOutline(shape: Pick<FlanShape, 'size'>, angle: number): [number, number] {
+  const { radius, wobble, offset } = flanSize(shape).pool
+  const r = radius + wobble * (0.6 * Math.sin(2 * angle + 1) + 0.35 * Math.sin(3 * angle + 2) + 0.2 * Math.sin(5 * angle + 0.5))
+  return [offset[0] + Math.cos(angle) * r, offset[1] + Math.sin(angle) * r]
 }
 
 /** El charco de caramelo bajo el flan: plano, con la orilla abultada. */
-export function caramelPool(shape: Pick<FlanShape, 'caramel'>): FruitMesh {
+export function caramelPool(shape: Pick<FlanShape, 'caramel' | 'size'>): FruitMesh {
+  const { base, pool } = flanSize(shape)
+  const [cx, cz] = pool.offset
   const mesh = new MeshBuilder()
   const caramel = rgb(shape.caramel)
   // La orilla delgada del charco deja pasar más luz: se aclara un poco.
   const edge = rgb({ mix: [shape.caramel, 'betun'], amount: 0.18 })
   const angles = Array.from({ length: POOL_COLUMNS }, (_, j) => (j / POOL_COLUMNS) * Math.PI * 2)
   const ring = (grow: number, y: number): Vec3[] => angles.map((a) => {
-    const [x, z] = poolOutline(a)
-    const [cx, cz] = [0.5, -0.4]
+    const [x, z] = poolOutline(shape, a)
     return [cx + (x - cx) * grow, y, cz + (z - cz) * grow]
   })
-  const rings = [ring(0.96, FLAN.base), ring(1, FLAN.base - 0.03), ring(1.015, 0.01)]
+  const rings = [ring(0.96, base), ring(1, base - 0.03), ring(1.015, 0.01)]
   mesh.grid(rings, [rings[0].map(() => caramel), rings[1].map(() => edge), rings[2].map(() => edge)], true)
-  mesh.fan(mesh.vertex([0.5, FLAN.base, -0.4], caramel), [...rings[0].map((point) => mesh.vertex(point, caramel))].reverse())
+  mesh.fan(mesh.vertex([cx, base, cz], caramel), [...rings[0].map((point) => mesh.vertex(point, caramel))].reverse())
   return mesh.build()
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------
 // Lo que ocupa cada postre y cuánto pesa
 
-/** El charco más lejos del centro del flan, en cm: su orilla, abultada, y lo que se corre hacia atrás y a la derecha. */
-const POOL_REACH = (4.2 + 0.6 + 0.35 + 0.2) * 1.015 + Math.hypot(0.5, 0.4)
+/** El charco más lejos del centro del flan, en cm: su orilla, abultada, y lo que se corre hacia `offset`. */
+function poolReach(shape: Pick<FlanShape, 'size'>): number {
+  const { radius, wobble, offset } = flanSize(shape).pool
+  return (radius + wobble * (0.6 + 0.35 + 0.2)) * 1.015 + Math.hypot(offset[0], offset[1])
+}
 
 /** Lo que ocupa cada postre, como círculos horizontales en unidades de escena (altura y radio), igual que los pisos en `contentOf`. */
 /** Lo que ocupa el vaso con su tapa: el mismo para los vasos de cubos y el de capas. */
@@ -643,10 +726,11 @@ const OUTLINES: { [K in DessertKind]: (shape: Extract<DessertShape, { kind: K }>
   flan: (shape) => {
     const u = shape.unitsPerCm
     const lift = flanLift(shape)
-    const top = { y: lift + (FLAN.height + 0.04) * u, r: FLAN.topRadius * u }
-    if (!shape.board) return [{ y: 0, r: POOL_REACH * u }, top]
+    const { height, topRadius, boardRadius } = flanSize(shape)
+    const top = { y: lift + (height + 0.04) * u, r: topRadius * u }
+    if (!shape.board) return [{ y: 0, r: poolReach(shape) * u }, top]
     // La charola, como la de los pasteles en `contentOf`: su borde sube y su fondo baja.
-    const r = FLAN.boardRadius * u
+    const r = boardRadius * u
     return [{ y: PLATE_GAP + BOARD.rim, r }, { y: PLATE_GAP - BOARD.thickness, r }, top]
   },
 }
@@ -694,7 +778,7 @@ const TRIANGLES: { [K in DessertKind]: (shape: Extract<DessertShape, { kind: K }
     latheTriangles(cupProfile().length) + latheTriangles(lidProfile().length) + layerProfiles(shape.layers.length).reduce((sum, profile) => sum + latheTriangles(profile.length), 0),
   miniTart: (shape) => meshTriangles(tartShell(shape)) + latheTriangles(tartCreamProfile().length) + tartFruit().triangles,
   flan: (shape) =>
-    latheTriangles(flanProfile().length) + meshTriangles(flanDrips(shape)) + meshTriangles(caramelPool(shape)) + (shape.board ? (boardProfile(1).length - 1) * 96 * 2 : 0),
+    latheTriangles(flanProfile(shape).length) + meshTriangles(flanDrips(shape)) + meshTriangles(caramelPool(shape)) + (shape.board ? (boardProfile(1).length - 1) * 96 * 2 : 0),
 }
 
 /**

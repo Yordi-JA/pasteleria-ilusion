@@ -51,18 +51,24 @@ export type ShowcaseItemView =
   | (ShowcaseItemBase & Addable & { kind: 'stock' })
   | (ShowcaseItemBase & { kind: 'sliced'; slicesHref: string; orderHref: string })
 
-/** Con `modelImages` (la portada, D86), la partida muestra la imagen del modelo donde la API la da, en lugar de la foto. */
+/**
+ * Con `modelImages` (la portada, D86), la partida muestra la imagen del modelo donde la hay (la de la API o la de un postre con
+ * modelo, D95), en lugar de la foto. `/vitrina` conserva la foto.
+ */
 export type ShowcaseImages = { modelImages?: boolean }
 
 export function toShowcaseItem(item: StockItem, { modelImages = false }: ShowcaseImages = {}): ShowcaseItemView {
-  const modelImage = modelImages ? item.modelImage : null
+  const image = (name: string): PhotoView =>
+    modelImages
+      ? catalogImageView({ slug: item.productSlug, name, category: item.category, photo: item.photo, modelImage: item.modelImage })
+      : photoView(item.photo, name, PHOTO_PLACEHOLDER[item.category])
   if (item.sliced) {
     return {
       kind: 'sliced',
       key: String(item.offeringId),
       label: item.productName,
       price: `${price(item.price)} la rebanada`,
-      photo: catalogImageView(modelImage, item.photo, item.productName, PHOTO_PLACEHOLDER[item.category]),
+      photo: image(item.productName),
       soldOut: item.soldOut,
       // Sin la unidad: el precio de arriba ya dice "la rebanada", y en 390 px la frase cabe en una línea.
       remaining: item.soldOut ? null : remainingLabel(item.stock),
@@ -76,7 +82,7 @@ export function toShowcaseItem(item: StockItem, { modelImages = false }: Showcas
     key: String(item.offeringId),
     label,
     price: price(item.price),
-    photo: catalogImageView(modelImage, item.photo, label, PHOTO_PLACEHOLDER[item.category]),
+    photo: image(label),
     soldOut: item.soldOut,
     remaining: item.soldOut ? null : remainingLabel(item.stock),
     offering: stockItemToCartOffering(item),

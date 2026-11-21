@@ -51,9 +51,25 @@ const FRUIT_TART: MiniTartShape = { kind: 'miniTart', crust: '#e2b46c', cream: '
 const NAPOLITAN_FLAN: FlanShape = { kind: 'flan', custard: '#f1cf92', glaze: '#e0761d', caramel: '#7a320c', board: SAMPLE_BOARD, unitsPerCm: UNITS_PER_CM }
 
 /**
+ * "Imposible" (`Imposible.jpg`): del tamaño de un pastel, el pan de chocolate oscuro abajo y el flan dorado arriba, más alto, con la
+ * cara de arriba cubierta de caramelo ámbar que apenas escurre por la orilla; sobre la charola negra de los pasteles, como el
+ * napolitano. Los colores, de la foto.
+ */
+const IMPOSIBLE: FlanShape = {
+  kind: 'flan',
+  size: 'whole',
+  bread: '#3b2419',
+  custard: '#e9c27c',
+  glaze: '#b9773a',
+  caramel: '#8e4a14',
+  board: SAMPLE_BOARD,
+  unitsPerCm: UNITS_PER_CM,
+}
+
+/**
  * Los postres con modelo, por el `slug` de su producto (semillas `0009_seed_catalog` y `0059_seed_cup_gelatins`): los cinco vasos de
- * gelatina (el mosaico normal, el de crema, los de yogurt de durazno y de fresa y el de Duvalín), la tarta y el flan. La gelatina de
- * molde no tiene modelo.
+ * gelatina (el mosaico normal, el de crema, los de yogurt de durazno y de fresa y el de Duvalín), la tarta, el flan napolitano y el
+ * Imposible. La gelatina de molde y el Posible no tienen modelo.
  */
 const DESSERT_SAMPLES: Readonly<Record<string, DessertShape>> = {
   'mosaico-con-crema': MOSAIC_WITH_CREAM,
@@ -61,6 +77,7 @@ const DESSERT_SAMPLES: Readonly<Record<string, DessertShape>> = {
   'gelatina-de-duvalin': DUVALIN,
   'tarta-de-frutas': FRUIT_TART,
   'flan-napolitano': NAPOLITAN_FLAN,
+  imposible: IMPOSIBLE,
   'gelatina-mosaico': GELATIN_MOSAIC,
   'mosaico-con-yogurt-de-durazno': MOSAIC_WITH_PEACH_YOGURT,
 }
@@ -68,4 +85,13 @@ const DESSERT_SAMPLES: Readonly<Record<string, DessertShape>> = {
 /** El modelo del postre de ese producto, o `null` si no tiene. */
 export function dessertSample(slug: string): DessertShape | null {
   return Object.hasOwn(DESSERT_SAMPLES, slug) ? DESSERT_SAMPLES[slug] : null
+}
+
+/**
+ * El archivo de la imagen fija del modelo de ese postre en `/fotos/`, el que guarda `npm run render:modelos -- <slug>`
+ * (`scripts/render-models.mjs`), o `null` si no tiene modelo. La API no la da (solo guarda muestras de pasteles): la tarjeta la
+ * toma de aquí.
+ */
+export function dessertModelImage(slug: string): string | null {
+  return dessertSample(slug) ? `${slug}-modelo.webp` : null
 }

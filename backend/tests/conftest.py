@@ -144,6 +144,7 @@ SEED_MIGRATIONS = [
     ("0056_seed_sample_edge_inset", "seed"),
     ("0058_seed_fuller_fruit", "seed"),
     ("0059_seed_cup_gelatins", "seed"),
+    ("0060_seed_imposible_photo", "seed"),
 ]
 _db_blocker = None
 
