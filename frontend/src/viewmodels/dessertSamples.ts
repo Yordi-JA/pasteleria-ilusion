@@ -1,5 +1,5 @@
 import type { ShapeColor } from '../three/cakeShape.ts'
-import type { DessertShape, FlanShape, LayeredCupShape, MiniTartShape, MosaicCupShape } from '../three/dessertShape.ts'
+import type { DessertShape, FlanShape, LayeredCupShape, MiniTartShape, MoldRingShape, MosaicCupShape } from '../three/dessertShape.ts'
 import { UNITS_PER_CM } from './cakeMolds.ts'
 import { SAMPLE_BOARD } from './sampleDesign.ts'
 
@@ -67,9 +67,28 @@ const IMPOSIBLE: FlanShape = {
 }
 
 /**
+ * "Posible" (D98): el Imposible con el pan de vainilla en lugar del de chocolate, con las mismas medidas, el mismo flan y el mismo
+ * caramelo. No hay foto: propuse un amarillo pálido, más claro y apagado que el flan dorado, para que el corte entre los dos se lea.
+ */
+const POSIBLE: FlanShape = { ...IMPOSIBLE, bread: '#efe2bb' }
+
+/**
+ * "Gelatina de molde" (D98, `Mosaico.jpeg`): desmoldada de un molde de anillo acanalado, con la capa amarilla gruesa arriba y, de
+ * arriba hacia abajo, dos tandas de crema, rosa y naranja en el costado; sobre la charola negra de los pasteles. Los colores, de la
+ * foto; otro sabor es otra lista de capas.
+ */
+const MOLD_GELATIN: MoldRingShape = {
+  kind: 'moldRing',
+  layers: ['#f08a1c', '#ec8fa0', '#f7ecd2', '#f08a1c', '#ec8fa0', '#f7ecd2'],
+  crown: '#f6c514',
+  board: SAMPLE_BOARD,
+  unitsPerCm: UNITS_PER_CM,
+}
+
+/**
  * Los postres con modelo, por el `slug` de su producto (semillas `0009_seed_catalog` y `0059_seed_cup_gelatins`): los cinco vasos de
- * gelatina (el mosaico normal, el de crema, los de yogurt de durazno y de fresa y el de Duvalín), la tarta, el flan napolitano y el
- * Imposible. La gelatina de molde y el Posible no tienen modelo.
+ * gelatina (el mosaico normal, el de crema, los de yogurt de durazno y de fresa y el de Duvalín), la tarta, el flan napolitano, el
+ * Imposible, el Posible y la gelatina de molde: todos los postres del catálogo.
  */
 const DESSERT_SAMPLES: Readonly<Record<string, DessertShape>> = {
   'mosaico-con-crema': MOSAIC_WITH_CREAM,
@@ -80,6 +99,8 @@ const DESSERT_SAMPLES: Readonly<Record<string, DessertShape>> = {
   imposible: IMPOSIBLE,
   'gelatina-mosaico': GELATIN_MOSAIC,
   'mosaico-con-yogurt-de-durazno': MOSAIC_WITH_PEACH_YOGURT,
+  posible: POSIBLE,
+  'gelatina-de-molde': MOLD_GELATIN,
 }
 
 /** El modelo del postre de ese producto, o `null` si no tiene. */

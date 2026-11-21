@@ -3,6 +3,7 @@ import type { DessertKind, DessertShape } from './dessertShape.ts'
 import Flan from './Flan.tsx'
 import LayeredCup from './LayeredCup.tsx'
 import MiniTart from './MiniTart.tsx'
+import MoldRing from './MoldRing.tsx'
 import MosaicCup from './MosaicCup.tsx'
 
 /**
@@ -15,6 +16,7 @@ const MODELS: { [K in DessertKind]: ComponentType<{ shape: Extract<DessertShape,
   layeredCup: LayeredCup,
   miniTart: MiniTart,
   flan: Flan,
+  moldRing: MoldRing,
 }
 
 export default function DessertModel({ shape }: { shape: DessertShape }) {

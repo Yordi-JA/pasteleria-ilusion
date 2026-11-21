@@ -192,9 +192,10 @@ test.describe('portada with data', () => {
     await expect(soldOut.getByRole('heading')).toHaveText('Imposible')
     await expect(soldOut).toContainText('Agotada por hoy')
     await expect(soldOut.getByRole('button')).toHaveCount(0)
-    // El flan napolitano tiene modelo (D95); la gelatina de molde, no.
+    // El flan napolitano (D95) y la gelatina de molde (D98) tienen modelo; la gelatina de mosaico de la prueba, no.
     await expect(desserts.first().getByRole('img', { name: 'Flan napolitano, ilustración del postre', exact: true })).toBeVisible()
-    await expect(desserts.nth(2).getByRole('img', { name: 'Foto del postre pendiente' })).toBeVisible()
+    await expect(desserts.nth(2).getByRole('img', { name: 'Gelatina de molde, ilustración del postre', exact: true })).toBeVisible()
+    await expect(desserts.nth(3).getByRole('img', { name: 'Foto del postre pendiente' })).toBeVisible()
     await expectRequestCountStays(requests.showcase, before)
   })
 

@@ -145,8 +145,18 @@ SEED_MIGRATIONS = [
     ("0058_seed_fuller_fruit", "seed"),
     ("0059_seed_cup_gelatins", "seed"),
     ("0060_seed_imposible_photo", "seed"),
+    ("0061_seed_hide_walnut_cake", "seed"),
+    ("0062_seed_hide_red_velvet_cake", "seed"),
 ]
 _db_blocker = None
+
+
+@pytest.fixture
+def red_velvet_on_sale(db):
+    """Red velvet reactivado: la `0062` lo desactiva del catálogo, y estas pruebas lo usan como el producto solo por encargo."""
+    from core_pasteleria.models import Product
+
+    Product.objects.filter(slug="red-velvet").update(is_active=True)
 
 
 def _reseed():

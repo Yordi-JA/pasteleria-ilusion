@@ -7,7 +7,7 @@ import { mockStoreInfo } from './support/store-info.ts'
 
 /**
  * Los postres con modelo (D95): los vasos de gelatina (la gelatina mosaico, firme; la crema y los yogures, líquidos con cubos; la de
- * Duvalín, en capas), la tarta mini y el flan napolitano. `/muestra/modelo/:slug` los dibuja con la misma escena y la misma cámara de
+ * Duvalín, en capas), la tarta mini, el flan napolitano, el Imposible, el Posible y la gelatina de molde (D98). `/muestra/modelo/:slug` los dibuja con la misma escena y la misma cámara de
  * las imágenes del catálogo (D86) y da su captura; la forma sale de `dessertSamples.ts` por el `slug` del producto, que tiene que
  * existir en la API. La API se simula con los productos de la semilla (`0009_seed_catalog` y `0059_seed_cup_gelatins`). Las capturas
  * quedan en `test-results/` para revisarlas.
@@ -17,7 +17,7 @@ const LAYOUT = '/src/three/dessertLayout.ts'
 const SAMPLES = '/src/viewmodels/dessertSamples.ts'
 const FRAMING = '/src/three/stillFraming.ts'
 
-/** Los postres del catálogo con modelo: los cinco vasos de gelatina, la tarta, el flan napolitano y el Imposible. */
+/** Los postres del catálogo con modelo: los cinco vasos de gelatina, la tarta, el flan napolitano, el Imposible, el Posible y la gelatina de molde. */
 const DESSERTS = [
   { slug: 'gelatina-mosaico', kind: 'mosaicCup' },
   { slug: 'mosaico-con-crema', kind: 'mosaicCup' },
@@ -27,6 +27,8 @@ const DESSERTS = [
   { slug: 'tarta-de-frutas', kind: 'miniTart' },
   { slug: 'flan-napolitano', kind: 'flan' },
   { slug: 'imposible', kind: 'flan' },
+  { slug: 'posible', kind: 'flan' },
+  { slug: 'gelatina-de-molde', kind: 'moldRing' },
 ] as const
 
 /** Los vasos con cubos: la gelatina firme y los líquidos. */
@@ -88,10 +90,10 @@ test('the cups change flavor with their colors and style, and each dessert fits 
       const other = mosaicCup({ base: '#f2c6cf', cubes: ['#cf2a2c', '#2f6b2c'] })
       const cubes = mosaicCubes(solid)
       const otherCubes = mosaicCubes(other)
-      const slugs = ['gelatina-mosaico', 'mosaico-con-crema', 'mosaico-con-yogurt-de-durazno', 'mosaico-con-yogurt-de-fresa', 'gelatina-de-duvalin', 'tarta-de-frutas', 'flan-napolitano', 'imposible']
+      const slugs = ['gelatina-mosaico', 'mosaico-con-crema', 'mosaico-con-yogurt-de-durazno', 'mosaico-con-yogurt-de-fresa', 'gelatina-de-duvalin', 'tarta-de-frutas', 'flan-napolitano', 'imposible', 'posible', 'gelatina-de-molde']
       return {
         // El `slug` de antes del yogurt (`0059_seed_cup_gelatins` lo renombró) ya no tiene modelo.
-        kinds: [...slugs, 'gelatina-de-molde', 'tres-leches-de-fresa', 'mosaico-con-yogurt', 'posible'].map((slug) => dessertSample(slug)?.kind ?? null),
+        kinds: [...slugs, 'tres-leches-de-fresa', 'mosaico-con-yogurt'].map((slug) => dessertSample(slug)?.kind ?? null),
         styles: slugs.slice(0, 4).map((slug) => dessertSample(slug)?.style ?? null),
         solidColors: [...new Set(cubes.map((cube: { color: number }) => cube.color))].sort(),
         otherColors: [...new Set(otherCubes.map((cube: { color: number }) => cube.color))].sort(),
@@ -105,8 +107,8 @@ test('the cups change flavor with their colors and style, and each dessert fits 
     },
     [LAYOUT, SAMPLES],
   )
-  // La gelatina de molde y el Posible no se modelan (el usuario no los pidió) y un pastel no es un postre.
-  expect(result.kinds).toEqual(['mosaicCup', 'mosaicCup', 'mosaicCup', 'mosaicCup', 'layeredCup', 'miniTart', 'flan', 'flan', null, null, null, null])
+  // Todos los postres de la semilla tienen modelo (D98: también el Posible y la gelatina de molde); un pastel no es un postre.
+  expect(result.kinds).toEqual(['mosaicCup', 'mosaicCup', 'mosaicCup', 'mosaicCup', 'layeredCup', 'miniTart', 'flan', 'flan', 'flan', 'moldRing', null, null])
   // La gelatina mosaico es firme; la crema y los yogures, líquidos.
   expect(result.styles).toEqual(['solid', 'creamy', 'creamy', 'creamy'])
   // Verde casi negro (dos veces en la lista, la mitad de los cubos), rojo y naranja.
@@ -162,7 +164,7 @@ test('the Imposible is a cake-sized flan on the cake board: chocolate bread belo
         // Del tamaño de un pastel: varias veces el ancho del napolitano.
         widthRatio: widest(imposible) / widest(napolitano),
         image: dessertModelImage('imposible'),
-        noImage: dessertModelImage('posible'),
+        noImage: dessertModelImage('tres-leches-de-fresa'),
       }
     },
     [LAYOUT, SAMPLES],
@@ -181,6 +183,143 @@ test('the Imposible is a cake-sized flan on the cake board: chocolate bread belo
   expect(result.widthRatio).toBeGreaterThan(1.8)
   expect(result.image).toBe('imposible-modelo.webp')
   expect(result.noImage).toBeNull()
+})
+
+test('the Posible is the Imposible with vanilla bread: same measures, flan and caramel, a pale bread lighter than the flan', async ({ page }) => {
+  await mockStoreInfo(page)
+  await page.goto('/legal')
+  const result = await page.evaluate(
+    async ([layout, samples]) => {
+      const { flanProfile, flanSize } = await import(layout)
+      const { dessertModelImage, dessertSample } = await import(samples)
+      const posible = dessertSample('posible')
+      const imposible = dessertSample('imposible')
+      const napolitano = dessertSample('flan-napolitano')
+      const { bread, ...rest } = posible
+      const { bread: chocolate, ...imposibleRest } = imposible
+      // Luminosidad y saturación (HSL) de un `#rrggbb`, con una conversión propia de la prueba.
+      const hsl = (hex: string) => {
+        const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+        const max = Math.max(r, g, b)
+        const min = Math.min(r, g, b)
+        const l = (max + min) / 2
+        const d = max - min
+        return { l, s: d === 0 ? 0 : l > 0.5 ? d / (2 - max - min) : d / (max + min) }
+      }
+      return {
+        bread,
+        chocolate,
+        sameRest: JSON.stringify(rest) === JSON.stringify(imposibleRest),
+        sameProfile: JSON.stringify(flanProfile(posible)) === JSON.stringify(flanProfile(imposible)),
+        wholeSize: flanSize(posible),
+        napolitanSize: flanSize(napolitano),
+        breadTone: hsl(bread),
+        custardTone: hsl(posible.custard),
+        image: dessertModelImage('posible'),
+      }
+    },
+    [LAYOUT, SAMPLES],
+  )
+  expect(result.bread).toBe('#efe2bb')
+  expect(result.chocolate).toBe('#3b2419')
+  // Todo lo demás, igual al Imposible: tamaño, flan, cara de arriba, caramelo y charola; y el mismo perfil (las mismas medidas).
+  expect(result.sameRest).toBe(true)
+  expect(result.sameProfile).toBe(true)
+  // Las medidas de los dos tamaños no cambian.
+  expect([result.wholeSize.bottomRadius, result.wholeSize.height, result.wholeSize.breadHeight]).toEqual([11.5, 9, 3.8])
+  expect([result.napolitanSize.bottomRadius, result.napolitanSize.height, result.napolitanSize.breadHeight]).toEqual([3.8, 4.25, 0])
+  // El pan de vainilla se distingue del flan dorado: más claro y más apagado.
+  expect(result.breadTone.l).toBeGreaterThan(result.custardTone.l + 0.08)
+  expect(result.breadTone.s).toBeLessThan(result.custardTone.s)
+  expect(result.image).toBe('posible-modelo.webp')
+})
+
+test('the mold gelatin is a fluted ring with a hole, contiguous color layers under a thick crown, fruit on every lobe and on the cake board', async ({ page }) => {
+  await mockStoreInfo(page)
+  await page.goto('/legal')
+  const result = await page.evaluate(
+    async ([layout, samples]) => {
+      const { dessertTriangles, dessertView, MOLD_RING, moldBands, moldFruit, moldRingBody } = await import(layout)
+      const { dessertModelImage, dessertSample } = await import(samples)
+      const mold = dessertSample('gelatina-de-molde')
+      const body = moldRingBody(mold) as { positions: number[]; colors: number[] }
+      const hex = (r: number, g: number, b: number) => `#${[r, g, b].map((value) => Math.round(value * 255).toString(16).padStart(2, '0')).join('')}`
+      const { cuts } = moldBands(mold) as { cuts: number[] }
+      const crownFrom = MOLD_RING.height - MOLD_RING.crownBand
+      // En el centro de un gajo (ángulo 0: x > 0, z = 0) el color es el de la capa sin sombra: cada altura, su capa.
+      const wrongLayer: string[] = []
+      const outerRing: [number, number][] = []
+      let innermost = Infinity
+      for (let i = 0; i < body.positions.length; i += 3) {
+        const [x, y, z] = [body.positions[i], body.positions[i + 1], body.positions[i + 2]]
+        const r = Math.hypot(x, z)
+        innermost = Math.min(innermost, r)
+        if (y === 0 && r > MOLD_RING.outerBottom - 1) outerRing.push([Math.atan2(z, x), r])
+        if (Math.abs(z) > 1e-9 || x <= 0) continue
+        const index = cuts.findIndex((cut) => y < cut)
+        const expected = index === -1 ? mold.crown : mold.layers[index]
+        const actual = hex(body.colors[i], body.colors[i + 1], body.colors[i + 2])
+        if (actual !== expected) wrongLayer.push(`${y.toFixed(2)}: ${actual} en lugar de ${expected}`)
+      }
+      // Los gajos del costado, al pie: cuántos máximos tiene el radio alrededor (sin repetir el anillo del fondo).
+      const ring = [...new Map(outerRing.map(([a, r]) => [a.toFixed(6), r])).entries()].map(([a, r]) => [Number(a), r]).sort((p, q) => p[0] - q[0])
+      const peaks = ring.filter((_, j) => ring[j][1] > ring[(j + ring.length - 1) % ring.length][1] && ring[j][1] > ring[(j + 1) % ring.length][1]).length
+      const fruit = moldFruit() as { placements: { piece: string; p: number[] }[] }
+      const other = moldBands({ layers: ['#cf2a2c', '#2f6b2c'] }) as { cuts: number[] }
+      return {
+        lobes: MOLD_RING.lobes,
+        peaks,
+        depth: Math.max(...ring.map(([, r]) => r)) - Math.min(...ring.map(([, r]) => r)),
+        wrongLayer,
+        cuts,
+        crownFrom,
+        innermost,
+        innerBottom: MOLD_RING.innerBottom,
+        layers: mold.layers,
+        crown: mold.crown,
+        board: mold.board?.color ?? null,
+        pieces: fruit.placements.map((placement) => placement.piece),
+        fruitRadii: fruit.placements.map((placement) => Math.hypot(placement.p[0], placement.p[2])),
+        innerTop: MOLD_RING.innerTop,
+        outerTop: MOLD_RING.outerTop,
+        otherCuts: other.cuts,
+        budget: dessertTriangles(mold),
+        view: dessertView(mold),
+        image: dessertModelImage('gelatina-de-molde'),
+      }
+    },
+    [LAYOUT, SAMPLES],
+  )
+  // De arriba hacia abajo, como la foto: crema, rosa y naranja dos veces bajo la capa amarilla gruesa.
+  expect(result.layers).toEqual(['#f08a1c', '#ec8fa0', '#f7ecd2', '#f08a1c', '#ec8fa0', '#f7ecd2'])
+  expect(result.crown).toBe('#f6c514')
+  // Capas contiguas y parejas, de abajo hasta la capa gruesa, sin huecos ni encimadas; cada altura lleva el color de su capa.
+  expect(result.cuts).toHaveLength(6)
+  const band = result.crownFrom / 6
+  result.cuts.forEach((cut, i) => expect(cut).toBeCloseTo((i + 1) * band, 9))
+  expect(result.wrongLayer).toEqual([])
+  // La capa gruesa de arriba mide más que una delgada.
+  expect(6 - result.crownFrom).toBeGreaterThan(2 * band)
+  // Otro sabor es otra lista de capas.
+  expect(result.otherCuts).toHaveLength(2)
+  // El festón: de 12 a 14 gajos al pie, con la arista entre dos bien marcada.
+  expect(result.lobes).toBeGreaterThanOrEqual(12)
+  expect(result.lobes).toBeLessThanOrEqual(14)
+  expect(result.peaks).toBe(result.lobes)
+  expect(result.depth).toBeGreaterThan(0.4)
+  // El hueco: nada de gelatina más cerca del centro que el tubo del molde.
+  expect(result.innermost).toBeGreaterThanOrEqual(result.innerBottom - 1e-9)
+  // Un gajo de durazno o una fresa en cada gajo, alternados, sobre la corona.
+  expect(result.pieces).toHaveLength(result.lobes)
+  result.pieces.forEach((piece, i) => expect(piece).toBe(i % 2 === 0 ? 'peachSlice' : 'strawberryHalf'))
+  for (const radius of result.fruitRadii) {
+    expect(radius).toBeGreaterThan(result.innerTop)
+    expect(radius).toBeLessThan(result.outerTop)
+  }
+  expect(result.board).toBe('#2c2c2c')
+  expect(result.budget.withinBudget).toBe(true)
+  expect(result.view.still).toBeGreaterThan(result.view.scene)
+  expect(result.image).toBe('gelatina-de-molde-modelo.webp')
 })
 
 /** Lo que miden las pruebas de los cubos de un vaso: contención, tamaño, reparto, giro y velo. */

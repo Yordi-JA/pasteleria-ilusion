@@ -65,11 +65,13 @@ export const productCards = [
     offerings: [offering(10, 'whole', '420.00'), offering(11, 'slice', '40.00')],
   }),
   card({ slug: 'choco-pinguino', name: 'Choco-pingüino', category: 'cake', summary: 'Pan de chocolate con su crema de chocolate sabor helado.', cake_type: 'seco', bread: 'choco_pinguino', in_showcase_today: true, showcase_design: SHOWCASE_AVAILABLE, offerings: [offering(20, 'whole', '350.00'), offering(21, 'slice', '35.00')] }),
-  card({ slug: 'red-velvet', name: 'Red velvet', category: 'cake', summary: 'Con su relleno típico de red velvet.', sales_channel: 'order_only', cake_type: 'seco', bread: 'red_velvet', offerings: [offering(30, 'whole', '450.00')] }),
   card({ slug: 'imposible', name: 'Imposible', category: 'dessert', summary: 'Flan con pan de chocolate.', offerings: [offering(40, 'whole', '350.00'), offering(41, 'slice', '35.00')] }),
   card({ slug: 'flan-napolitano', name: 'Flan napolitano', category: 'dessert', summary: 'Grande o individual.', offerings: [offering(50, 'large', '360.00'), offering(51, 'individual', '35.00')] }),
   card({ slug: 'mosaico-con-crema', name: 'Mosaico con crema', category: 'dessert', summary: 'Gelatina en vaso, cuadritos de sabores con crema.', sales_channel: 'showcase_only', offerings: [offering(60, 'cup', '20.00')] }),
 ]
+
+/** Red velvet: solo por encargo. Desde la `0062` la API ya no lo entrega: no está en la lista por omisión. */
+export const redVelvetCard = card({ slug: 'red-velvet', name: 'Red velvet', category: 'cake', summary: 'Con su relleno típico de red velvet.', sales_channel: 'order_only', cake_type: 'seco', bread: 'red_velvet', offerings: [offering(30, 'whole', '450.00')] })
 
 type Card = (typeof productCards)[number]
 
@@ -105,6 +107,10 @@ export const cupCards = [
   card({ slug: 'gelatina-de-duvalin', name: 'Gelatina de Duvalín', category: 'dessert', summary: 'Gelatina en vaso en tres secciones, como el dulce.', sales_channel: 'showcase_only', offerings: [offering(91, 'cup', '25.00')] }),
 ]
 
+/** El Posible y la gelatina de molde de la semilla (`0009_seed_catalog`), con modelo desde D98. No están en la lista por omisión. */
+export const posibleCard = card({ slug: 'posible', name: 'Posible', category: 'dessert', summary: 'Flan con pan de vainilla.', offerings: [offering(94, 'whole', '350.00'), offering(95, 'slice', '35.00')] })
+export const moldGelatinCard = card({ slug: 'gelatina-de-molde', name: 'Gelatina de molde', category: 'dessert', summary: 'El diseño cambia según cómo la hagamos.', offerings: [offering(96, 'whole', '290.00')] })
+
 /** Lo que agrega la ficha a una tarjeta: peso, personas y existencias por presentación, notas y relacionados. */
 type DetailExtras = {
   stock?: Record<number, number | null>
@@ -122,7 +128,7 @@ type DetailExtras = {
 }
 
 export function productDetail(slug: string, extras: DetailExtras = {}) {
-  const base = [...productCards, nuezCard, tartaCard, ...cupCards].find((entry) => entry.slug === slug)
+  const base = [...productCards, nuezCard, redVelvetCard, tartaCard, ...cupCards, posibleCard, moldGelatinCard].find((entry) => entry.slug === slug)
   if (!base) throw new Error(`No hay tarjeta para ${slug}`)
   const { stock = {}, sizes = {}, filling_flavor = null, storage_notes = null, transport_notes = null, related = [] } = extras
   return {

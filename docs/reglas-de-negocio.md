@@ -46,7 +46,7 @@ Todos los pasteles de vitrina son **tres leches**, excepto el **Choco-pingüino*
 | Pastel de sabor normal (tres leches) | $350 | Rebanada $35 | Sabores normales de la sección 4.4, incluido Blueberry (D78) |
 | Pastel con queso o con flan (tres leches) | $420 | Rebanada $40 | |
 | Choco-pingüino (seco) | $350 | Rebanada $35 | Relleno: crema de chocolate sabor helado |
-| Red velvet (seco) | $450 | — | **Solo por encargo**, nunca en vitrina. Por pedido: $280/kg |
+| Red velvet (seco) | $450 | — | **Solo por encargo**, nunca en vitrina. Por pedido: $280/kg. Desde el 20 de noviembre de 2026 el producto está desactivado y no sale en el catálogo: Red velvet es un pan del diseñador, no un pastel de la casa; la pastelería puede reactivarlo en el admin |
 | Tres leches de nuez | PENDIENTE (se muestra "[Precio por confirmar]") | — | **Solo por encargo**. No se puede pedir hasta que la pastelería capture el precio en el admin (D78) |
 | Pastel mini | $130 | — | Cualquier sabor normal; **no hay mini con queso ni con flan**. Rinde ~3 personas. La tarjeta del catálogo lleva "Diseña tu pastel mini", que abre el diseñador con el mini elegido (sección 3.4) |
 | Imposible (flan con pan de chocolate) | $350 | Rebanada $35 | |
@@ -62,8 +62,8 @@ Todos los pasteles de vitrina son **tres leches**, excepto el **Choco-pingüino*
 
 - Un pastel de vitrina pesa ~2.7 kg (~19 personas).
 - **Pan de cada pastel de vitrina** (lo dijo el usuario el 17 de noviembre de 2026, tanda 2 de correcciones, D78): vainilla en los de sabor normal, en Blueberry, Nuez, "con queso y zarzamora", "con flan y cajeta" y "con flan y zarzamora"; chocolate en "Tres leches de chocolate" y "Tres leches con queso y chocolate"; choco-vainilla en "Tres leches de choco vainilla"; el Choco-pingüino, el suyo. Se guarda en el producto (`Product.bread`). Con el pan registrado, un encargo de vitrina para hoy pide pan del día en el inventario (sección 1, D30).
-- **Blueberry y nuez** (D78): "Tres leches de blueberry" se vende completo ($350), en rebanada ($35) y mini ($130), en la vitrina y por encargo. "Tres leches de nuez" es solo por encargo y su precio es PENDIENTE: un precio vacío en el admin (`CatalogPrice.amount`) se muestra como "[Precio por confirmar]" y esa presentación no se puede pedir. Una presentación de la vitrina o de las rebanadas con el precio vacío no se muestra.
-- **"Personalizar este pastel"** en un pastel de vitrina vendido completo abre "Diseña tu pastel" como pastel de vitrina con su tipo, su pan y su relleno bloqueados (sección 3.4). Red velvet y nuez, que son solo por encargo, abren el pedido normal por kilos, prellenado y editable (D59).
+- **Blueberry y nuez** (D78): "Tres leches de blueberry" se vende completo ($350), en rebanada ($35) y mini ($130), en la vitrina y por encargo. "Tres leches de nuez" es solo por encargo y su precio es PENDIENTE (desde el 20 de noviembre de 2026 el producto está desactivado y no sale en el catálogo: la nuez es solo un sabor del diseñador; la pastelería puede reactivarlo en el admin): un precio vacío en el admin (`CatalogPrice.amount`) se muestra como "[Precio por confirmar]" y esa presentación no se puede pedir. Una presentación de la vitrina o de las rebanadas con el precio vacío no se muestra.
+- **"Personalizar este pastel"** en un pastel de vitrina vendido completo abre "Diseña tu pastel" como pastel de vitrina con su tipo, su pan y su relleno bloqueados (sección 3.4). Red velvet y nuez, que son solo por encargo, abrían el pedido normal por kilos, prellenado y editable (D59); desde el 20 de noviembre de 2026 no tienen ficha en el catálogo.
 - Las gelatinas en vaso aparecen en el catálogo con la etiqueta "Solo en vitrina"; no se pueden encargar.
 - Fotos de producto: se resuelven en la etapa de frontend.
 - **Pasteles de la casa (portada):** la pastelería elige en el admin qué productos salen, con "destacado en la portada" en la lista de productos (puede ser un pastel o un postre). Salen hasta 4 de los marcados, en el orden de la lista; si marca menos de 4, salen solo esos. Si no marca ninguno, salen los primeros 4 pasteles activos del catálogo, en el mismo orden. Al inicio no hay ninguno marcado: qué productos son "de la casa" lo decide la pastelería. Ver D45 en [`proyecto/decisiones.md`](proyecto/decisiones.md).
@@ -157,7 +157,7 @@ Si el tamaño chico que rinde para esas personas no está disponible (por ejempl
 
 **Desde la ficha ("Personalizar este pastel").** El tipo, el pan y el relleno del producto quedan bloqueados: en la barra de pasos aparecen hechos y con candado, con un mensaje flotante, y el recorrido empieza en la cobertura. El precio es el del producto. Funciona en todo pastel de vitrina vendido completo. Red velvet y nuez, que son solo por encargo, abren el pedido normal por kilos, prellenado y editable (D59); se pueden pedir en tamaño de vitrina solo armándolos desde "Diseña tu pastel".
 
-**Desde el catálogo.** La tarjeta del pastel mini lleva "Diseña tu pastel mini", que abre el diseñador con el mini elegido.
+**Desde el catálogo.** No hay tarjeta del pastel mini (desde el 20 de noviembre de 2026): cada ficha de pastel ofrece la presentación Mini, y `/pedido/disena?tamano=mini` abre el diseñador con el mini elegido.
 
 **Lo común a los tres.** La decoración y la oblea se cobran aparte en cualquier tamaño (sección 4.6), salvo lo que el mini no admite (secciones 4.7, 6.1 y 6.3). El mini y la vitrina llevan 2 días de anticipación y el anticipo de la sección 10, como cualquier diseño, y no llevan base ni depósito (sección 7). En la revisión, el carrito y los pedidos, el tamaño se dice "Pastel mini, ~3 personas" o "Pastel de vitrina, ~19 personas"; el admin y la nota en PDF dicen "Pastel de 4 kg, 30 personas" en los de por kilos.
 

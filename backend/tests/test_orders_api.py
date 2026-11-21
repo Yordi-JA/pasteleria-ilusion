@@ -260,7 +260,7 @@ def test_a_slice_cannot_be_ordered_for_a_date(api):
     assert response.json()["items"]["0"]["offering_id"] == ["Las rebanadas son solo de la vitrina de hoy: no se encargan."]
 
 
-def test_channel_rules_are_checked(api):
+def test_channel_rules_are_checked(api, red_velvet_on_sale):
     showcase_only = post(api, body({"kind": "order", "offering_id": offering("mosaico-con-crema", "cup").id}))
     order_only = post(
         api, body({"kind": "showcase", "offering_id": offering("red-velvet").id}, day=TODAY, slot="12:30")

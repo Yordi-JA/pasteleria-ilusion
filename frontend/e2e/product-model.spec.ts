@@ -130,6 +130,25 @@ test.describe('product model: scene', () => {
     expect(photo.headers()['content-type']).toContain('image/webp')
   })
 
+  test('the Posible and the mold gelatin show their model (D98); without a real photo there is no "Ver la foto"', async ({ page }) => {
+    for (const [slug, title, kind] of [
+      ['posible', 'Posible', 'flan'],
+      ['gelatina-de-molde', 'Gelatina de molde', 'moldRing'],
+    ] as const) {
+      const name = `${title}, ilustración del postre`
+      await open(page, slug, [productDetail(slug)])
+      await waitReady(page, name)
+      await expect(scene(page, name)).toHaveAttribute('data-dessert', kind)
+      await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible()
+      // Gira sola.
+      const before = await num(page, name, 'data-angle')
+      await expect.poll(() => num(page, name, 'data-angle'), { timeout: 4000 }).toBeGreaterThan(before + 2)
+      // Su hueco de foto se queda como respaldo, oculto tras la escena; no hay foto que abrir.
+      await expect(fallback(page)).toBeHidden()
+      await expect(page.getByRole('link', { name: /Ver la foto/ })).toHaveCount(0)
+    }
+  })
+
   test('a cake with its sample is built like its catalog image: on its board, with one tier', async ({ page }) => {
     await open(page, 'tres-leches-de-durazno', [durazno()])
     await waitReady(page, DURAZNO_NAME)
