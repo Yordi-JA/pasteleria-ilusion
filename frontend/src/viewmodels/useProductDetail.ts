@@ -8,6 +8,7 @@ import { formatPrice } from '../models/money.ts'
 import { PRESENTATION_LABELS } from '../models/presentation.ts'
 import { designPrefillHref } from './cakeDesignPrefill.ts'
 import { productKind, showcaseStatus, toProductCardView } from './productCards.ts'
+import { modelLabel, productModel } from './productModel.ts'
 import { PHOTO_PLACEHOLDER, photoView } from './productPhoto.ts'
 import { useAddToCart } from './useAddToCart.ts'
 import { useRemoteData } from './useRemoteData.ts'
@@ -118,8 +119,11 @@ const PRODUCT_FAILURE = 'No se pudo cargar la ficha del producto.'
 /**
  * View-model de la ficha (`/pasteles/:slug`). La vista lo monta con `key={slug}`: al pasar a un relacionado, la
  * elección empieza de nuevo. Pide la ficha (un 404 es "no encontrado", no un error), las opciones de "Diseña tu
- * pastel" (solo para los kilos mínimos y el precio por kilo de un pan de precio completo; si fallan, esos datos
- * quedan pendientes y la ficha sigue) y usa los días de anticipación del marco.
+ * pastel" (para los kilos mínimos, el precio por kilo de un pan de precio completo y el modelo del pastel; si fallan, esos
+ * datos quedan pendientes, el pastel se ve en su foto y la ficha sigue) y usa los días de anticipación del marco.
+ *
+ * Desde D95 la ficha muestra el modelo 3D del producto (`model`) con la misma forma que su imagen del catálogo (`productModel`): el
+ * pastel con su muestra o el postre con su modelo. Sin modelo, la foto o su hueco, como antes.
  */
 export function useProductDetail(slug: string) {
   const load = useCallback((signal: AbortSignal) => getProduct(slug, signal), [slug])
@@ -134,6 +138,11 @@ export function useProductDetail(slug: string) {
   const [quantity, setQuantity] = useState(1)
 
   const product = state.status === 'ready' ? state.data : null
+  // Aparte de `view`: la forma cambia solo con el producto y las opciones, no con cada elección, así la escena no se rearma.
+  const model = useMemo(() => {
+    const shape = product ? productModel(product, options).shape : null
+    return product && shape ? { shape, label: modelLabel(product) } : null
+  }, [options, product])
 
   const view = useMemo(() => {
     if (!product) return null
@@ -189,10 +198,12 @@ export function useProductDetail(slug: string) {
             }
           : null,
       related: product.related.map((card) => toProductCardView(card)),
+      /** El modelo 3D que gira en el encabezado, con su nombre accesible; `null` sin modelo (se ve `photo`). */
+      model,
       offering,
       fulfillment,
     }
-  }, [offeringId, options, optionsState.status, product, quantity, store, wanted])
+  }, [model, offeringId, options, optionsState.status, product, quantity, store, wanted])
 
   const addToOrder = useCallback(() => {
     if (!product || !view?.offering || !view.fulfillment) return

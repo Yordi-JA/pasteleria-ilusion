@@ -1,4 +1,5 @@
-import { useRef } from 'react'
+import { useId, useRef } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import { useParams } from 'react-router'
 import AddToCartNotice from '../components/AddToCartNotice.tsx'
 import Breadcrumb from '../components/Breadcrumb.tsx'
@@ -7,6 +8,8 @@ import ButtonLink from '../components/ButtonLink.tsx'
 import Card from '../components/Card.tsx'
 import ChoiceOption from '../components/ChoiceOption.tsx'
 import Duya from '../components/Duya.tsx'
+import { focusRing } from '../components/focus.ts'
+import HeroCake from '../components/HeroCake.tsx'
 import LeadDays from '../components/LeadDays.tsx'
 import LoadErrorNotice from '../components/LoadErrorNotice.tsx'
 import Notice from '../components/Notice.tsx'
@@ -18,6 +21,7 @@ import Reveal from '../components/Reveal.tsx'
 import Skeleton, { LoadingRegion } from '../components/Skeleton.tsx'
 import TextLink from '../components/TextLink.tsx'
 import type { ProductCardView } from '../viewmodels/productCards.ts'
+import { useHeroCake } from '../viewmodels/useHeroCake.ts'
 import { usePageTitle } from '../viewmodels/usePageTitle.ts'
 import { useProductDetail } from '../viewmodels/useProductDetail.ts'
 import type { ProductDetailView } from '../viewmodels/useProductDetail.ts'
@@ -29,16 +33,16 @@ const NOT_FOUND = 'No encontramos este producto'
 type Ready = NonNullable<ProductDetailView['view']>
 
 /**
- * Encabezado sobre `fresa` (Ficha.dc.html): la foto a la izquierda, que se apoya en la guirnalda y la cruza, y a la
- * derecha las migas, el tipo, el nombre (`h1`), la descripción y los precios. En móvil el texto va primero.
+ * Encabezado sobre `fresa` (Ficha.dc.html): la foto a la izquierda (`media`), que se apoya en la guirnalda y la cruza, y a la derecha
+ * las migas, el tipo, el nombre (`h1`) y la descripción, con lo que se agregue al final (`after`). En móvil el texto va primero.
  */
-function Hero({ view }: { view: Ready }) {
+function HeroLayout({ view, heading, media, after }: { view: Ready; heading?: RefObject<HTMLHeadingElement | null>; media: ReactNode; after?: ReactNode }) {
   return (
     <section aria-labelledby="ficha-titulo" className="bg-fresa">
       <div className={`${column} grid grid-cols-2 items-end gap-12 pt-10 max-[960px]:grid-cols-1 max-[960px]:gap-6`}>
         {/* La foto baja 21 px sobre la guirnalda (la cruza) y queda encima de ella. */}
         <div className="relative z-[2] -mb-[21px] max-[960px]:order-1">
-          <ProductPhoto photo={view.photo} shape="tiers3" onFresa className="mx-auto w-full max-w-[460px]" />
+          {media}
           <div aria-hidden="true" className="mx-auto -mt-3 h-4 w-[62%] rounded-[50%] bg-mermelada/[.16] blur-[12px]" />
         </div>
         <div className="flex flex-col gap-4 pb-12 max-[960px]:pb-0">
@@ -53,14 +57,62 @@ function Hero({ view }: { view: Ready }) {
               ))}
             </p>
           )}
-          <h1 id="ficha-titulo" className="font-display text-display max-[600px]:text-titulo-1">
+          {/* Enfocable desde el código: recibe el foco si la escena lo tenía y desaparece. */}
+          <h1 ref={heading} id="ficha-titulo" tabIndex={-1} className="font-display text-display outline-none max-[600px]:text-titulo-1">
             {view.name}
           </h1>
           {view.description && <p className="max-w-[520px] text-cuerpo text-mermelada-suave">{view.description}</p>}
+          {after}
         </div>
       </div>
     </section>
   )
+}
+
+/**
+ * El encabezado con el modelo 3D del producto en el lugar de la foto (D95): la escena de la portada (`HeroCake`, D48) en la caja de
+ * la foto, que gira sola, se arrastra, gira con las flechas, se pausa fuera de pantalla y respeta "reducir movimiento". Mientras
+ * llega, sin WebGL 2 o si falla, se ve la foto real o su hueco. Con la foto real, "Ver la foto" la abre aparte, bajo la descripción;
+ * guarda su lugar desde el principio (sin saltos) y solo se ve con la escena dibujada, porque sin ella la foto ya está a la vista.
+ */
+function ModelHero({ view, model }: { view: Ready; model: NonNullable<Ready['model']> }) {
+  const heading = useRef<HTMLHeadingElement>(null)
+  const cake = useHeroCake({ shape: model.shape })
+  const hintId = useId()
+  const media = (
+    <div className="mx-auto w-full max-w-[460px]">
+      <p id={hintId} className="sr-only">
+        Arrástralo para girarlo. Usa las flechas izquierda y derecha para girarlo.
+      </p>
+      <HeroCake
+        cake={cake}
+        hintId={hintId}
+        size="product"
+        testId="ficha-modelo"
+        label={model.label}
+        onFocusEscape={() => heading.current?.focus()}
+        // La caja de la escena es más baja que la de la foto: la foto (o su hueco) cabe por su alto, centrada.
+        fallback={<ProductPhoto photo={view.photo} shape="tiers3" onFresa className="mx-auto aspect-[360/300] !h-full !w-auto" />}
+      />
+    </div>
+  )
+  const photoLink = view.photo.src && (
+    <a
+      href={view.photo.src}
+      target="_blank"
+      rel="noopener"
+      className={`-my-2 inline-flex min-h-11 items-center self-start rounded-sm text-etiqueta underline underline-offset-4 ${focusRing} ${cake.status === 'ready' ? '' : 'invisible'}`}
+    >
+      Ver la foto<span className="sr-only"> (se abre en otra pestaña)</span>
+    </a>
+  )
+  return <HeroLayout view={view} heading={heading} media={media} after={photoLink} />
+}
+
+/** El encabezado: con el modelo 3D del producto si lo tiene (D95); si no, con su foto o su hueco. */
+function Hero({ view }: { view: Ready }) {
+  if (view.model) return <ModelHero view={view} model={view.model} />
+  return <HeroLayout view={view} media={<ProductPhoto photo={view.photo} shape="tiers3" onFresa className="mx-auto w-full max-w-[460px]" />} />
 }
 
 /** "Elige tu pastel": presentación, cuándo, cantidad y "Agregar al pedido" (el botón principal de la ficha). */

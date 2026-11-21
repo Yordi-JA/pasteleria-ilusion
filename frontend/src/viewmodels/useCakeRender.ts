@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getCakeDesignOptions } from '../models/cakeDesign.ts'
 import { getProduct } from '../models/catalog.ts'
 import type { CaptureStill } from '../three/CakeStill.tsx'
-import type { CakeShape } from '../three/cakeShape.ts'
-import { sampleShape } from './sampleDesign.ts'
+import { isDessert, type SceneShape } from '../three/dessertShape.ts'
+import { productModel } from './productModel.ts'
 import { useRemoteData } from './useRemoteData.ts'
 
 /**
@@ -21,8 +21,10 @@ declare global {
 
 /**
  * View-model de la ruta que genera la imagen fija de un pastel (D86, solo en desarrollo): pide la ficha y las opciones de
- * "Diseña tu pastel", arma la forma con `sampleShape` y, cuando la escena ya dibujó, deja la captura en `window.__captureModel`.
- * Las pruebas leen lo que se armó en `probe` (el color de la cobertura, cuántos pisos van peinados y la fruta).
+ * "Diseña tu pastel", arma la forma con `productModel` (el pastel con su muestra o, desde D95, el postre con su modelo; la misma
+ * forma que muestra la ficha) y, cuando la escena ya dibujó, deja la captura en `window.__captureModel`. Un producto que la API no
+ * tiene no da imagen. Las pruebas leen lo que se armó en `probe` (el color de la cobertura, cuántos pisos van peinados, la fruta y
+ * el postre).
  */
 export function useCakeRender(slug: string) {
   const load = useCallback(
@@ -38,10 +40,10 @@ export function useCakeRender(slug: string) {
     if (state.status !== 'ready') return null
     const { product, options } = state.data
     if (!product) return { shape: null, error: 'No encontramos este pastel.' }
-    return sampleShape(product, options)
+    return productModel(product, options)
   }, [state])
 
-  const [drawn, setDrawn] = useState<CakeShape | null>(null)
+  const [drawn, setDrawn] = useState<SceneShape | null>(null)
   const capture = useRef<CaptureStill | null>(null)
   const onCapture = useCallback((take: CaptureStill | null) => {
     capture.current = take
@@ -71,8 +73,11 @@ export function useCakeRender(slug: string) {
     shape,
     onReady,
     onCapture,
-    probe: shape
+    probe: shape && isDessert(shape)
+      ? { dessert: shape.kind }
+      : shape
       ? {
+          dessert: 'none',
           coverage: typeof shape.tiers[0]?.frosting === 'string' ? shape.tiers[0].frosting : '',
           combed: shape.tiers.filter((tier) => tier.comb).length,
           fruit: shape.topping ? shape.topping.layout : 'none',

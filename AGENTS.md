@@ -82,7 +82,7 @@ El diagrama, los contratos y la justificación están en [`docs/proyecto/arquite
 ## Cómo trabajar
 
 - Antes de cada pantalla, abre su fila en `docs/mapa-de-vistas.md`, mira sus capturas de escritorio y móvil y lee las reglas que le aplican.
-- El 3D es un complemento. Ponlo solo en los 8 pasos de "Diseña tu pastel" y en las vistas que enumera `docs/libro-de-marca.md` (sección "Presencia de marca"), en escritorio y en móvil como lo muestra el mockup. No lo agregues en ninguna otra vista, tampoco en la elección del pedido ni en el envío de referencia.
+- El 3D es un complemento. Ponlo solo en los 8 pasos de "Diseña tu pastel", en la ficha de un producto que tiene modelo (D95, en el lugar de la foto, con la foto como respaldo) y en las vistas que enumera `docs/libro-de-marca.md` (sección "Presencia de marca"), en escritorio y en móvil como lo muestra el mockup. No lo agregues en ninguna otra vista, tampoco en la elección del pedido ni en el envío de referencia.
 - Al terminar una pantalla, compárala en el navegador contra las capturas, con la ventana a 1440 px y a 390 px, y revisa contraste y teclado. Las capturas de escritorio miden 1200 px de ancho (el ancho del contenido); los tableros del lienzo miden 1440 px.
 - Haz cambios pequeños y verificables.
 - Cuando una regla cambie, actualiza el documento que la define, no solo el código.

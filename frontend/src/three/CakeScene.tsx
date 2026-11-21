@@ -7,8 +7,12 @@ import { focusRing, focusRingOnColor } from '../components/focus.ts'
 import CakeModel from './CakeModel.tsx'
 import type { CakeMotion } from './CakeModel.tsx'
 import type { CakeShape, Viewpoint } from './cakeShape.ts'
-import { BOARD, boardRadius, contentOf, fitScale, lookAtHeight, PLATE_GAP, referenceContent, standScale } from './cakeMetrics.ts'
+import { BOARD, boardRadius, contentOf, fitScale, lookAtHeight, PLATE_GAP, referenceContent, standScale, viewExtent } from './cakeMetrics.ts'
 import type { Content } from './cakeMetrics.ts'
+import { dessertContent, dessertRadius, dessertView } from './dessertLayout.ts'
+import DessertModel from './DessertModel.tsx'
+import { isDessert } from './dessertShape.ts'
+import type { SceneShape } from './dessertShape.ts'
 import { brandColor } from './palette.ts'
 import { encodeThumbnail } from './snapshot.ts'
 import {
@@ -66,10 +70,43 @@ const BOARD_FRAME = { plate: 0.74, width: 5 }
  * El encuadre de un pastel sobre su charola, a partir del de la portada o de uno propio (`custom`). Con uno propio, su `plate` dice
  * dónde queda la charola (la escena chica de `/entrar` y `/registro`, tanda 9); si no, al 74 % de `BOARD_FRAME`.
  */
-function boardFraming(base: SceneFraming, shape: CakeShape, custom: boolean): SceneFraming {
-  const width = 2 * boardRadius(shape)
+function boardFraming(base: SceneFraming, width: number, custom: boolean): SceneFraming {
   const plate = custom ? base.plate : BOARD_FRAME.plate
   return width > 0 ? { ...base, plate, scale: (base.scale * BOARD_FRAME.width) / width } : base
+}
+
+/**
+ * Lo que la escena mide de lo que dibuja (D95): lo que ocupa (para encuadrar), el pastel de referencia de la vista libre, el ancho por
+ * el que se encuadra lo que va sobre la mesa (la charola o la huella del postre; 0 si va sobre la base con columna) y la sombra de
+ * contacto. Es el único lugar donde la escena distingue un pastel por pisos de un postre; el resto los trata igual.
+ */
+type Measure = {
+  content: Content
+  reference: Content
+  footprint: number
+  shadow: { y: number; scale: number }
+  elevation: number
+  /** Solo con `fitPlate`: el encuadre propio de un postre (`dessertView`), en lugar del de la caja. */
+  fit?: { plate: number; top: number }
+}
+
+function measure(shape: SceneShape): Measure {
+  if (isDessert(shape)) {
+    const content = dessertContent(shape)
+    const radius = dessertRadius(shape)
+    // La sombra va bajo lo más bajo del postre (la charola del flan, el fondo del vaso) y la cámara, a la altura de su foto.
+    const lowest = Math.min(...content.circles.map(({ y }) => y))
+    const view = dessertView(shape)
+    return { content, reference: content, footprint: 2 * radius, shadow: { y: lowest - 0.005, scale: (radius * 1.15) / 1.8 }, elevation: view.scene, fit: view.fit }
+  }
+  const onBoard = Boolean(shape.board) && !shape.stand
+  return {
+    content: contentOf(shape),
+    reference: referenceContent(shape),
+    footprint: onBoard ? 2 * boardRadius(shape) : 0,
+    shadow: shadowPlacement(shape),
+    elevation: CAMERA_ELEVATION,
+  }
 }
 
 /** Constante de tiempo (s) con la que la cámara de la vista libre se acerca a su encuadre cuando cambia el pastel. */
@@ -85,7 +122,8 @@ const SNAPSHOT_VIEW = { angle: -20, elevation: 30 }
 export type TakeSnapshot = () => string | null
 
 export type CakeSceneProps = {
-  shape: CakeShape
+  /** Un pastel por pisos o, desde D95, un postre. */
+  shape: SceneShape
   /** Nombre accesible de la escena. */
   label: string
   /** `id` del texto que describe cómo girarlo (`aria-describedby`). */
@@ -99,8 +137,13 @@ export type CakeSceneProps = {
   onKeyboardFocusChange?: (keyboard: boolean) => void
   /** Si la escena tiene el foco cuando se pierde el contexto, lo pasa a otro control antes de desaparecer. */
   onFocusEscape?: () => void
-  /** Encuadre propio; sin él, el de la portada. Con `freeLook` no se usa. */
+  /** Encuadre propio; sin él, el de la portada. Con `freeLook` o `fitPlate` no se usa. */
   framing?: SceneFraming
+  /**
+   * Encuadre a lo que se dibuja (la ficha, D95): el pastel o el postre llena la caja, sea del tamaño que sea, con su base a esta
+   * fracción del alto de la caja. Sin él, `framing`. Con `freeLook` no se usa.
+   */
+  fitPlate?: number
   /**
    * Vista libre ("Diseña tu pastel"): arrastrar en vertical cambia la elevación de la cámara, las flechas de arriba y
    * abajo también, y la cámara se encuadra al pastel (escala fija para un pastel grande de un piso, más lejos solo si no
@@ -149,6 +192,32 @@ function frameCamera(camera: PerspectiveCamera, width: number, height: number, f
   camera.fov = (2 * Math.atan(visibleHeight / 2 / CAMERA_DISTANCE) * 180) / Math.PI
   camera.position.set(0, target.y + CAMERA_DISTANCE * Math.sin(elevation), CAMERA_DISTANCE * Math.cos(elevation))
   camera.lookAt(target)
+  camera.updateProjectionMatrix()
+}
+
+/**
+ * El encuadre a lo que se dibuja (`fitPlate`): la cámara va casi el doble de lejos que la de la portada, con un ángulo más cerrado,
+ * para que la perspectiva casi no agrande lo de adelante y el objeto llene la caja sin recortarse; el aire que queda a los lados y
+ * arriba es solo el de la perspectiva que sí hay.
+ */
+const FIT_DISTANCE = 20
+const FIT_MARGIN = { width: 1.06, top: 1.06 }
+
+/**
+ * Coloca la cámara a `elevationDeg` grados (15°, la de la portada, para un pastel; la de su foto para un postre) para que lo que se
+ * dibuja llene la caja (D95): la escala más grande con la que cabe a lo ancho y, con su base a `plate` del alto de la caja, también
+ * arriba. La base proyectada queda justo en `plate`: la vista del plano
+ * vertical de la cámara de un punto es `(y - centro) · cos(elevación) - z · sen(elevación)`, y `viewExtent` da el borde de abajo.
+ */
+function fitCamera(camera: PerspectiveCamera, width: number, height: number, content: Content, plate: number, elevationDeg: number, topMargin = FIT_MARGIN.top) {
+  const box = Math.max(1, height)
+  const { top, bottom, halfWidth } = viewExtent(content, elevationDeg)
+  const scale = Math.max(1, Math.min(width / (2 * halfWidth * FIT_MARGIN.width), (plate * box) / ((top - bottom) * topMargin)))
+  const elevation = (elevationDeg * Math.PI) / 180
+  const centerY = (bottom + ((plate - 0.5) * box) / scale) / Math.cos(elevation)
+  camera.fov = (2 * Math.atan(box / scale / 2 / FIT_DISTANCE) * 180) / Math.PI
+  camera.position.set(0, centerY + FIT_DISTANCE * Math.sin(elevation), FIT_DISTANCE * Math.cos(elevation))
+  camera.lookAt(0, centerY, 0)
   camera.updateProjectionMatrix()
 }
 
@@ -226,16 +295,25 @@ function ContactShadow({ y, scale }: { y: number; scale: number }) {
   )
 }
 
-/** Vuelve a encuadrar cada vez que cambia el tamaño del lienzo. Sin encuadre fijo (vista libre), no hace nada. */
-function useFraming(framing: SceneFraming | null) {
+/**
+ * Vuelve a encuadrar cada vez que cambia el tamaño del lienzo o lo que se dibuja. Sin encuadre fijo (vista libre), no hace nada; con
+ * `fit`, encuadra a lo que se dibuja (`fitCamera`).
+ */
+function useFraming(framing: SceneFraming | null, fit: { content: Content; plate: number; elevation: number; top?: number } | null) {
   const get = useThree((state) => state.get)
   const size = useThree((state) => state.size)
   const invalidate = useThree((state) => state.invalidate)
+  const fitContent = fit?.content
+  const fitPlate = fit?.plate
+  const fitElevation = fit?.elevation ?? CAMERA_ELEVATION
+  const fitTop = fit?.top
   useLayoutEffect(() => {
-    if (!framing) return
-    frameCamera(get().camera as PerspectiveCamera, size.width, size.height, framing)
+    const camera = get().camera as PerspectiveCamera
+    if (fitContent && fitPlate !== undefined) fitCamera(camera, size.width, size.height, fitContent, fitPlate, fitElevation, fitTop)
+    else if (framing) frameCamera(camera, size.width, size.height, framing)
+    else return
     invalidate()
-  }, [framing, get, invalidate, size.height, size.width])
+  }, [fitContent, fitElevation, fitPlate, fitTop, framing, get, invalidate, size.height, size.width])
 }
 
 /**
@@ -253,7 +331,8 @@ export function SceneLights() {
 }
 
 type RigProps = {
-  shape: CakeShape
+  shape: SceneShape
+  measured: Measure
   running: boolean
   spin: RefObject<Spin>
   tilt: RefObject<Tilt>
@@ -261,20 +340,19 @@ type RigProps = {
   reducedMotion: boolean
   onReady: () => void
   framing: SceneFraming
+  fitPlate?: number
   freeLook: boolean
   /** Si el pastel gira solo; con `false` se queda donde está (la vista superior del paso 7). */
   autoSpin: boolean
   onSnapshot?: (take: TakeSnapshot | null) => void
 }
 
-function Rig({ shape, running, spin, tilt, container, reducedMotion, onReady, framing, freeLook, autoSpin, onSnapshot }: RigProps) {
+function Rig({ shape, measured, running, spin, tilt, container, reducedMotion, onReady, framing, fitPlate, freeLook, autoSpin, onSnapshot }: RigProps) {
   const cake = useRef<Group>(null)
   const motion = useRef<CakeMotion>({ separation: 0 })
   const probe = useRef<Probe>({ frames: 0, angle: NaN, separation: NaN, elevation: NaN, scale: NaN })
   const freeView = useRef<FreeView>({ scale: 0, centerY: 0 })
-  const content = useMemo(() => contentOf(shape), [shape])
-  const reference = useMemo(() => referenceContent(shape), [shape])
-  const shadow = shadowPlacement(shape)
+  const { content, reference, shadow } = measured
   const ready = useRef(false)
   // El primer cuadro tras una pausa (o el primero de todos) trae un intervalo enorme; solo ese se acota.
   const resumed = useRef(true)
@@ -293,7 +371,12 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, onReady, fr
       idleTimer.current = null
     }
   }, [running, reducedMotion, invalidate])
-  useFraming(freeLook ? null : framing)
+  useFraming(
+    freeLook ? null : framing,
+    !freeLook && fitPlate !== undefined
+      ? { content, plate: measured.fit?.plate ?? fitPlate, elevation: measured.elevation, top: measured.fit?.top }
+      : null,
+  )
   useSnapshot(onSnapshot, cake, content)
 
   useFrame((state, delta) => {
@@ -340,7 +423,7 @@ function Rig({ shape, running, spin, tilt, container, reducedMotion, onReady, fr
     <>
       <SceneLights />
       <group ref={cake}>
-        <CakeModel shape={shape} motion={motion} animateColors={!reducedMotion} animateSize={!reducedMotion} />
+        {isDessert(shape) ? <DessertModel shape={shape} /> : <CakeModel shape={shape} motion={motion} animateColors={!reducedMotion} animateSize={!reducedMotion} />}
       </group>
       <ContactShadow y={shadow.y} scale={shadow.scale} />
     </>
@@ -412,16 +495,18 @@ export default function CakeScene({
   onKeyboardFocusChange,
   onFocusEscape,
   framing: framingProp,
+  fitPlate,
   freeLook = false,
   viewpoint,
   onColor = false,
   onSnapshot,
 }: CakeSceneProps) {
   const baseFraming = framingProp ?? FRAME
-  const onBoard = !freeLook && Boolean(shape.board) && !shape.stand
+  const measured = useMemo(() => measure(shape), [shape])
+  const onBoard = !freeLook && measured.footprint > 0
   const framing = useMemo(
-    () => (onBoard ? boardFraming(baseFraming, shape, framingProp !== undefined) : baseFraming),
-    [baseFraming, framingProp, onBoard, shape],
+    () => (onBoard ? boardFraming(baseFraming, measured.footprint, framingProp !== undefined) : baseFraming),
+    [baseFraming, framingProp, measured.footprint, onBoard],
   )
   const container = useRef<HTMLDivElement>(null)
   const spin = useRef(createSpin(viewpoint?.angle ?? INITIAL_ANGLE, viewpoint?.elevation ?? ELEVATION.initial))
@@ -516,9 +601,10 @@ export default function CakeScene({
       aria-describedby={describedBy}
       tabIndex={0}
       data-running={import.meta.env.DEV ? String(running) : undefined}
-      data-tiers={import.meta.env.DEV ? String(shape.tiers.length) : undefined}
-      data-board={import.meta.env.DEV ? String(Boolean(shape.board)) : undefined}
-      data-decoration={import.meta.env.DEV ? (shape.decoration?.kind ?? 'none') : undefined}
+      data-tiers={import.meta.env.DEV ? String(isDessert(shape) ? 0 : shape.tiers.length) : undefined}
+      data-board={import.meta.env.DEV ? String(!isDessert(shape) && Boolean(shape.board)) : undefined}
+      data-decoration={import.meta.env.DEV ? (isDessert(shape) ? 'none' : (shape.decoration?.kind ?? 'none')) : undefined}
+      data-dessert={import.meta.env.DEV ? (isDessert(shape) ? shape.kind : 'none') : undefined}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -555,6 +641,7 @@ export default function CakeScene({
       >
         <Rig
           shape={shape}
+          measured={measured}
           running={running}
           spin={spin}
           tilt={tilt}
@@ -562,6 +649,7 @@ export default function CakeScene({
           reducedMotion={reducedMotion}
           onReady={onReady}
           framing={framing}
+          fitPlate={fitPlate}
           freeLook={freeLook}
           autoSpin={viewpoint?.autoSpin ?? true}
           onSnapshot={freeLook ? onSnapshot : undefined}

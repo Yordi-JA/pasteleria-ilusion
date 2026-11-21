@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react'
+import type { ReactNode } from 'react'
 import { HOME_CAKE_LABEL, HOME_CAKE_STILL } from '../viewmodels/homeCake.ts'
 import type { SceneFraming } from '../three/CakeScene.tsx'
 import type { HeroCakeView } from '../viewmodels/useHeroCake.ts'
@@ -52,10 +53,15 @@ export function StaticCake({
   )
 }
 
-/** Alto de la caja: el de la portada o el de la escena chica del catálogo (`.escena.chica` del mockup). */
+/**
+ * Alto de la caja: el de la portada, el de la escena chica del catálogo (`.escena.chica` del mockup) o, en la ficha (D95), una caja
+ * del ancho de la foto del producto y un poco más baja (460/340 en vez de 360/300): un pastel o una tarta son más anchos que altos y,
+ * en la caja de la foto, quedaban con una franja de aire encima. La foto de respaldo cabe adentro por su alto.
+ */
 const BOX_HEIGHT = {
   hero: 'h-[600px] max-[960px]:h-[460px] max-[600px]:h-[380px]',
   compact: 'h-[420px] max-[960px]:h-[360px] max-[600px]:h-[320px]',
+  product: 'aspect-[460/340] w-full',
 } as const
 
 /**
@@ -66,7 +72,15 @@ const BOX_HEIGHT = {
 const SCENE_FRAMING: Record<keyof typeof BOX_HEIGHT, SceneFraming | undefined> = {
   hero: undefined,
   compact: { plate: 0.76, width: 500, height: 440, scale: 0.88 },
+  product: undefined,
 }
+
+/**
+ * En la ficha (D95) cada producto mide otra cosa (un pastel de 25 cm, un vaso de 9 cm de alto, un flan sobre su charola): la escena
+ * lo encuadra a lo que dibuja (`fitPlate`), tan grande como cabe, y lo apoya al 94 % del alto de la caja, sobre la sombra de la foto,
+ * que cruza la guirnalda.
+ */
+const SCENE_FIT: Record<keyof typeof BOX_HEIGHT, number | undefined> = { hero: undefined, compact: undefined, product: 0.94 }
 
 /**
  * El pastel fijo en la caja de la escena chica, sin 3D: para las vistas de acceso que el libro de marca no enumera en
@@ -95,6 +109,7 @@ export default function HeroCake({
   onColor = false,
   label = HOME_CAKE_LABEL,
   stillTiers = HOME_CAKE_STILL,
+  fallback,
 }: {
   cake: HeroCakeView
   /** `id` de la pista de cómo girarlo, que describe la escena. */
@@ -110,12 +125,26 @@ export default function HeroCake({
   label?: string
   /** Los colores de los pisos del dibujo fijo, para que coincida con el pastel 3D: por omisión, los del pastel de la marca. */
   stillTiers?: readonly [StillTierColor, StillTierColor]
+  /**
+   * Lo que se ve mientras llega la escena y cuando no hay 3D, en lugar del dibujo fijo: en la ficha, la foto real del producto o su
+   * hueco (D95). Sale como el dibujo fijo cuando la escena dibuja.
+   */
+  fallback?: ReactNode
 }) {
   const { observeBox, ...scene } = cake
   const ready = scene.status === 'ready'
   return (
     <div ref={observeBox} data-testid={testId} data-state={scene.status} className={`relative ${BOX_HEIGHT[size]}`}>
-      <StaticCake hidden={ready} testId={`${testId}-fijo`} tiers={stillTiers} />
+      {fallback ? (
+        <div
+          data-testid={`${testId}-fijo`}
+          className={`absolute inset-0 transition-[opacity,visibility] duration-150 ease-entrada motion-reduce:transition-none ${ready ? 'invisible opacity-0' : ''}`}
+        >
+          {fallback}
+        </div>
+      ) : (
+        <StaticCake hidden={ready} testId={`${testId}-fijo`} tiers={stillTiers} />
+      )}
       {scene.status !== 'fallback' && (
         <SceneBoundary onError={scene.onChunkError}>
           <Suspense fallback={null}>
@@ -126,6 +155,7 @@ export default function HeroCake({
               <CakeScene
                 shape={scene.shape}
                 framing={SCENE_FRAMING[size]}
+                fitPlate={SCENE_FIT[size]}
                 label={label}
                 describedBy={hintId}
                 reducedMotion={scene.reducedMotion}

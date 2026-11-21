@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { TakeSnapshot } from '../three/CakeScene.tsx'
-import type { CakeShape, Viewpoint } from '../three/cakeShape.ts'
+import type { Viewpoint } from '../three/cakeShape.ts'
+import type { SceneShape } from '../three/dessertShape.ts'
 
 /** `loading`: se ve el pastel fijo mientras llega la escena; `ready`: ya se dibujó; `fallback`: queda el pastel fijo. */
 export type CakeSceneStatus = 'loading' | 'ready' | 'fallback'
@@ -47,7 +48,7 @@ type CakeState = {
  * el foco del teclado. `visibleMargin` amplía la caja que cuenta como "en pantalla" (hoy ninguna escena lo
  * necesita: desde D90 el lienzo de la portada ya no sube sobre su caja). `viewpoint` es desde dónde se ve el pastel (la vista previa de "Diseña tu pastel", por paso).
  */
-export function useCakeScene(shape: CakeShape, visibleMargin = '0px', viewpoint?: Viewpoint) {
+export function useCakeScene<S extends SceneShape>(shape: S, visibleMargin = '0px', viewpoint?: Viewpoint) {
   const reducedMotion = useSyncExternalStore(subscribeReducedMotion, prefersReducedMotion)
   const visibleTab = useSyncExternalStore(subscribeVisibility, tabVisible)
   const [cake, setCake] = useState<CakeState>(() => ({ status: supportsWebGL2() ? 'loading' : 'fallback', retryable: false }))
@@ -111,4 +112,4 @@ export function useCakeScene(shape: CakeShape, visibleMargin = '0px', viewpoint?
   }
 }
 
-export type CakeSceneView = ReturnType<typeof useCakeScene>
+export type CakeSceneView<S extends SceneShape = SceneShape> = ReturnType<typeof useCakeScene<S>>

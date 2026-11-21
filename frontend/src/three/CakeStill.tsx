@@ -4,8 +4,11 @@ import type { PerspectiveCamera } from 'three'
 import CakeModel from './CakeModel.tsx'
 import type { CakeMotion } from './CakeModel.tsx'
 import { SceneLights } from './CakeScene.tsx'
-import type { CakeShape } from './cakeShape.ts'
 import { contentOf, lookAtHeight, viewExtent } from './cakeMetrics.ts'
+import { dessertContent, dessertView } from './dessertLayout.ts'
+import DessertModel from './DessertModel.tsx'
+import { isDessert } from './dessertShape.ts'
+import type { SceneShape } from './dessertShape.ts'
 import { captureStill } from './stillFraming.ts'
 
 /**
@@ -31,7 +34,8 @@ const FRAMES_BEFORE_READY = 3
 export type CaptureStill = () => string
 
 type CakeStillProps = {
-  shape: CakeShape
+  /** Un pastel por pisos o, desde D95, un postre. */
+  shape: SceneShape
   onReady: () => void
   /** Recibe la función que toma la imagen (y `null` al desmontarse la escena). */
   onCapture: (capture: CaptureStill | null) => void
@@ -42,15 +46,17 @@ function StillRig({ shape, onReady, onCapture }: CakeStillProps) {
   const frames = useRef(0)
   const get = useThree((state) => state.get)
   const invalidate = useThree((state) => state.invalidate)
-  const content = useMemo(() => contentOf(shape), [shape])
+  const content = useMemo(() => (isDessert(shape) ? dessertContent(shape) : contentOf(shape)), [shape])
+  // Un postre se ve desde donde se tomó su foto (`dessertView`); el pastel, desde `STILL_VIEW`.
+  const elevation = isDessert(shape) ? dessertView(shape).still : STILL_VIEW.elevation
 
   // La cámara quieta: mira al centro del pastel con su base a esa elevación, con el ancho o el alto que pida, el que sea mayor.
   useLayoutEffect(() => {
     const lens = get().camera as PerspectiveCamera
-    const { top, bottom, halfWidth } = viewExtent(content, STILL_VIEW.elevation)
+    const { top, bottom, halfWidth } = viewExtent(content, elevation)
     const needed = Math.max(top - bottom, 2 * halfWidth) * STILL_MARGIN
-    const angle = (STILL_VIEW.elevation * Math.PI) / 180
-    const centerY = lookAtHeight(content, STILL_VIEW.elevation)
+    const angle = (elevation * Math.PI) / 180
+    const centerY = lookAtHeight(content, elevation)
     lens.fov = (2 * Math.atan(needed / 2 / STILL_VIEW.distance) * 180) / Math.PI
     lens.aspect = 1
     lens.position.set(0, centerY + STILL_VIEW.distance * Math.sin(angle), STILL_VIEW.distance * Math.cos(angle))
@@ -58,7 +64,7 @@ function StillRig({ shape, onReady, onCapture }: CakeStillProps) {
     lens.updateProjectionMatrix()
     frames.current = 0
     invalidate()
-  }, [content, get, invalidate])
+  }, [content, elevation, get, invalidate])
 
   useFrame(() => {
     frames.current += 1
@@ -80,7 +86,7 @@ function StillRig({ shape, onReady, onCapture }: CakeStillProps) {
     <>
       <SceneLights />
       <group rotation-y={(STILL_VIEW.angle * Math.PI) / 180}>
-        <CakeModel shape={shape} motion={motion} />
+        {isDessert(shape) ? <DessertModel shape={shape} /> : <CakeModel shape={shape} motion={motion} />}
       </group>
     </>
   )

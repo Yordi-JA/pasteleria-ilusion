@@ -1,4 +1,4 @@
-import type { CakeShape } from '../three/cakeShape.ts'
+import type { SceneShape } from '../three/dessertShape.ts'
 import { HOME_CAKE } from './homeCake.ts'
 import { useCakeScene } from './useCakeScene.ts'
 import type { CakeSceneStatus, CakeSceneView } from './useCakeScene.ts'
@@ -12,7 +12,7 @@ export type HeroCakeStatus = CakeSceneStatus
  * festones sobre el stand ya no se usa. Desde D90 los pisos no se separan con el scroll en ninguna vista, así que solo cuenta su
  * caja para saber si se ve.
  */
-export function useHeroCake({ shape = HOME_CAKE }: { shape?: CakeShape } = {}) {
+export function useHeroCake({ shape = HOME_CAKE }: { shape?: SceneShape } = {}) {
   return useCakeScene(shape)
 }
 
