@@ -58,16 +58,17 @@ def slugs(items):
 
 def test_catalog_lists_every_active_product_in_order():
     catalog = product_repo.list_catalog(on_date=TODAY)
-    assert len(catalog) == 26
+    # 26 sembrados menos la nuez (`0061`) y Red velvet (`0062`), desactivados.
+    assert len(catalog) == 24
     assert catalog[0].slug == "tres-leches-de-durazno"
     assert catalog[-1].slug == "gelatina-de-duvalin"
     assert [p.slug for p in catalog] == list(
-        Product.objects.order_by("sort_order", "name").values_list("slug", flat=True)
+        Product.objects.filter(is_active=True).order_by("sort_order", "name").values_list("slug", flat=True)
     )
 
 
 def test_catalog_filters_by_category():
-    assert len(product_repo.list_catalog(on_date=TODAY, category="cake")) == 16
+    assert len(product_repo.list_catalog(on_date=TODAY, category="cake")) == 14
     assert len(product_repo.list_catalog(on_date=TODAY, category="dessert")) == 10
 
 
@@ -77,7 +78,7 @@ def test_catalog_search_ignores_case_and_looks_in_name_and_summary():
     # "flan" está en el nombre (Flan napolitano) y en la descripción corta (Imposible, Posible).
     flan = set(slugs(product_repo.list_catalog(on_date=TODAY, search="flan")))
     assert {"flan-napolitano", "imposible", "posible", "tres-leches-con-flan-y-cajeta"} <= flan
-    assert len(product_repo.list_catalog(on_date=TODAY, search="   ")) == 26
+    assert len(product_repo.list_catalog(on_date=TODAY, search="   ")) == 24
     assert product_repo.list_catalog(on_date=TODAY, search="no existe") == []
 
 
@@ -175,7 +176,7 @@ def test_product_detail_uses_two_queries(django_assert_num_queries):
         product_repo.get_product_by_slug("choco-pinguino", TODAY)
 
 
-def test_red_velvet_detail_is_order_only_with_one_offering():
+def test_red_velvet_detail_is_order_only_with_one_offering(red_velvet_on_sale):
     product = product_repo.get_product_by_slug("red-velvet", TODAY)
     assert product.sales_channel == "order_only"
     assert [(o.presentation, o.price, o.approx_weight_kg) for o in product.offerings] == [
@@ -183,7 +184,7 @@ def test_red_velvet_detail_is_order_only_with_one_offering():
     ]
 
 
-def test_inactive_design_options_are_not_offered_as_presets():
+def test_inactive_design_options_are_not_offered_as_presets(red_velvet_on_sale):
     """"Personalizar este pastel" no debe preelegir lo que "Diseña tu pastel" ya no ofrece."""
     from core_pasteleria.models import FillingBase
 
@@ -280,7 +281,7 @@ def test_order_only_products_never_show_up_in_the_showcase_even_with_stock_writt
     assert slugs(product_repo.list_showcase(TODAY, category="cake")) == ["tres-leches-de-fresa"]
 
 
-def test_order_only_products_report_no_stock_in_the_catalog_and_the_detail():
+def test_order_only_products_report_no_stock_in_the_catalog_and_the_detail(red_velvet_on_sale):
     write_stock_outside_the_admin("red-velvet", "whole", 5)
     catalog = {p.slug: p for p in product_repo.list_catalog(on_date=TODAY)}
     assert [o.stock for o in catalog["red-velvet"].offerings] == [None]
@@ -728,7 +729,7 @@ def test_memory_repo_answers_featured_and_dated_related_like_postgres():
         assert call(product_repo) == call(in_memory)
 
 
-def test_memory_repo_never_lists_order_only_products_in_the_showcase():
+def test_memory_repo_never_lists_order_only_products_in_the_showcase(red_velvet_on_sale):
     write_stock_outside_the_admin("red-velvet", "whole", 5)
     load_stock("tres-leches-de-fresa", "whole", 4)
     in_memory = memory_product_repo(TODAY)

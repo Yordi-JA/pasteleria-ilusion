@@ -3,9 +3,7 @@ import IllustratedHeader from '../components/IllustratedHeader.tsx'
 import LeadDays from '../components/LeadDays.tsx'
 import LoadErrorNotice from '../components/LoadErrorNotice.tsx'
 import { ORDER_LINK } from '../components/navigation.ts'
-import Card from '../components/Card.tsx'
-import ProductCard, { compactGrid, featureCard, featureGrid, featurePhotoSlot } from '../components/ProductCard.tsx'
-import ProductPhoto from '../components/ProductPhoto.tsx'
+import ProductCard, { compactGrid, featureGrid } from '../components/ProductCard.tsx'
 import ProductGridSkeleton from '../components/ProductGridSkeleton.tsx'
 import Reveal from '../components/Reveal.tsx'
 import { LoadingRegion } from '../components/Skeleton.tsx'
@@ -49,32 +47,6 @@ function SectionTitle({ id, title, count }: { id: string; title: string; count: 
   )
 }
 
-/**
- * El pastel mini como una tarjeta más de la cuadrícula, con la forma de las demás (tanda 1, D77): antes era una franja de
- * aviso bajo los pasteles. No es un producto con ficha: desde la tanda 2, "Diseña tu pastel mini" abre el diseñador con el mini
- * ya elegido.
- */
-function MiniCard({ price, href }: { price: string; href: string }) {
-  return (
-    <Card as="article" large className={featureCard}>
-      {/* La misma caja que la foto de las demás tarjetas, con el mini más chico y apoyado abajo. */}
-      <div className={featurePhotoSlot}>
-        <div className="flex aspect-[360/300] w-full items-end justify-center">
-          <ProductPhoto photo={{ src: null, alt: 'Pastel mini', placeholder: 'Foto del pastel' }} shape="round" className="w-full max-w-[200px]" />
-        </div>
-        <div aria-hidden="true" className="mx-auto -mt-2.5 h-3.5 w-[40%] rounded-[50%] bg-mermelada/[.16] blur-[10px]" />
-      </div>
-      <p className="flex min-h-[26px] items-center text-nota text-mermelada-suave">Sabores normales</p>
-      <h3 className="font-display text-titulo-2">Pastel mini</h3>
-      <p className="flex-1 text-cuerpo text-mermelada-suave">Para unas 3 personas.</p>
-      <p className="text-etiqueta tabular-nums">{price}</p>
-      <ButtonLink to={href} variant="secondary" className="mt-1.5 w-full">
-        Diseña tu pastel mini
-      </ButtonLink>
-    </Card>
-  )
-}
-
 function CakesSection({ catalog }: { catalog: CatalogView }) {
   return (
     <section aria-labelledby="catalogo-pasteles" className="bg-nata">
@@ -88,11 +60,6 @@ function CakesSection({ catalog }: { catalog: CatalogView }) {
               <ProductCard product={product} />
             </li>
           ))}
-          {catalog.miniPrice && (
-            <li>
-              <MiniCard price={catalog.miniPrice} href={catalog.miniDesignHref} />
-            </li>
-          )}
         </Reveal>
       </div>
     </section>

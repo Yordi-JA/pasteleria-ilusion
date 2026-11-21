@@ -281,7 +281,7 @@ def test_the_source_product_only_goes_with_the_showcase_size(api):
     assert "source_product" in response.json()
 
 
-def test_the_product_card_says_if_it_can_be_customized_as_a_showcase_cake(api):
+def test_the_product_card_says_if_it_can_be_customized_as_a_showcase_cake(api, red_velvet_on_sale):
     Product.objects.filter(slug="tres-leches-de-fresa").update(bread=None)
     durazno = api.get("/api/v1/products/tres-leches-de-durazno/").json()
     fresa = api.get("/api/v1/products/tres-leches-de-fresa/").json()
@@ -456,16 +456,19 @@ def test_the_blueberry_cake_is_in_the_catalog(api):
     assert prices == {"whole": "350.00", "slice": "35.00", "mini": "130.00"}
 
 
-def test_the_walnut_cake_is_order_only_with_its_price_pending(api):
-    data = api.get("/api/v1/products/tres-leches-de-nuez/").json()
-    assert (data["sales_channel"], data["filling_flavor"]) == ("order_only", "nuez")
-    whole = data["offerings"][0]
-    assert (whole["presentation"], whole["price"], whole["price_pending"]) == ("whole", None, True)
-    card = next(card for card in api.get("/api/v1/products/").json() if card["slug"] == "tres-leches-de-nuez")
-    assert card["offerings"][0]["price"] is None
+def test_the_walnut_cake_is_order_only_with_its_price_pending_and_hidden_from_the_catalog(api):
+    # Desde la `0061` la fila sigue (order_only, precio PENDIENTE) pero no sale en el catálogo ni tiene ficha.
+    walnut = Product.objects.get(slug="tres-leches-de-nuez")
+    assert (walnut.sales_channel, walnut.filling_flavor.slug, walnut.is_active) == ("order_only", "nuez", False)
+    whole = walnut.offerings.get()
+    assert (whole.presentation, whole.price.amount) == ("whole", None)
+    assert api.get("/api/v1/products/tres-leches-de-nuez/").status_code == 404
+    assert all(card["slug"] != "tres-leches-de-nuez" for card in api.get("/api/v1/products/").json())
 
 
 def test_the_walnut_cake_without_price_is_never_charged(customer_api, bakery_clock):
+    # Aun reactivado en el admin (la `0061` lo desactiva), el precio PENDIENTE no se cobra como $0.
+    Product.objects.filter(slug="tres-leches-de-nuez").update(is_active=True)
     walnut = ProductOffering.objects.get(product__slug="tres-leches-de-nuez", presentation="whole")
     response = customer_api.post(
         ORDERS,

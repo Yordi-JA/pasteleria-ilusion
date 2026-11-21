@@ -116,8 +116,11 @@ def test_catalog_lists_every_active_product_as_a_card_in_admin_order(api):
     response = api.get(PRODUCTS_URL)
     assert response.status_code == 200
     cards = response.json()
-    assert slugs(cards) == list(Product.objects.order_by("sort_order", "name").values_list("slug", flat=True))
-    assert len(cards) == 26
+    assert slugs(cards) == list(
+        Product.objects.filter(is_active=True).order_by("sort_order", "name").values_list("slug", flat=True)
+    )
+    # 26 productos sembrados menos «Tres leches de nuez» (`0061`) y «Red velvet» (`0062`), que están desactivados.
+    assert len(cards) == 24
     assert all(set(card) == CARD_FIELDS for card in cards)
     assert all(set(offering) == CARD_OFFERING_FIELDS for card in cards for offering in card["offerings"])
 
@@ -157,7 +160,7 @@ def test_catalog_card_carries_what_the_card_shows_with_money_as_a_string(api):
     }
 
 
-def test_catalog_card_of_a_dessert_has_no_cake_fields(api):
+def test_catalog_card_of_a_dessert_has_no_cake_fields(api, red_velvet_on_sale):
     cards = {card["slug"]: card for card in api.get(PRODUCTS_URL).json()}
     mosaico = cards["mosaico-con-crema"]
     assert (mosaico["category"], mosaico["sales_channel"]) == ("dessert", "showcase_only")
@@ -169,7 +172,7 @@ def test_catalog_card_of_a_dessert_has_no_cake_fields(api):
 def test_catalog_filters_by_category(api):
     cakes = api.get(PRODUCTS_URL, {"category": "cake"}).json()
     desserts = api.get(PRODUCTS_URL, {"category": "dessert"}).json()
-    assert (len(cakes), len(desserts)) == (16, 10)
+    assert (len(cakes), len(desserts)) == (14, 10)
     assert {card["category"] for card in cakes} == {"cake"}
     assert {card["category"] for card in desserts} == {"dessert"}
 
@@ -180,7 +183,7 @@ def test_catalog_search_ignores_case_and_spaces_and_combines_with_the_category(a
     flan = slugs(api.get(PRODUCTS_URL, {"category": "dessert", "search": "flan"}).json())
     assert {"flan-napolitano", "imposible", "posible"} <= set(flan)
     assert "tres-leches-con-flan-y-cajeta" not in flan
-    assert len(api.get(PRODUCTS_URL, {"search": "   "}).json()) == 26
+    assert len(api.get(PRODUCTS_URL, {"search": "   "}).json()) == 24
     assert api.get(PRODUCTS_URL, {"search": "no-hay-un-pastel-asi"}).json() == []
 
 
@@ -192,7 +195,7 @@ def test_catalog_rejects_an_unknown_category(api, params):
 
 
 def test_catalog_with_an_empty_category_lists_everything_like_the_all_filter(api):
-    assert len(api.get(PRODUCTS_URL, {"category": ""}).json()) == 26
+    assert len(api.get(PRODUCTS_URL, {"category": ""}).json()) == 24
 
 
 def test_catalog_rejects_a_search_longer_than_a_product_name(api):
@@ -244,7 +247,7 @@ def test_catalog_marks_the_sliced_cake_while_it_has_slices_left_today(api):
     assert (detail["sliced_today"], detail["in_showcase_today"]) == (True, False)
 
 
-def test_catalog_never_marks_an_order_only_product_in_the_showcase(api):
+def test_catalog_never_marks_an_order_only_product_in_the_showcase(api, red_velvet_on_sale):
     write_stock_outside_the_admin("red-velvet", "whole", 5)
     cards = {card["slug"]: card for card in api.get(PRODUCTS_URL).json()}
     assert cards["red-velvet"]["in_showcase_today"] is False
@@ -321,7 +324,7 @@ def test_product_detail_tells_sold_out_from_not_loaded(api):
     assert [(o["presentation"], o["stock"]) for o in offerings] == [("whole", 0), ("slice", None)]
 
 
-def test_product_detail_gives_the_presets_for_customizing_it(api):
+def test_product_detail_gives_the_presets_for_customizing_it(api, red_velvet_on_sale):
     red_velvet = api.get(product_url("red-velvet")).json()
     assert (red_velvet["cake_type"], red_velvet["bread"], red_velvet["filling_base"]) == ("seco", "red_velvet", None)
     assert red_velvet["sales_channel"] == "order_only"
@@ -330,7 +333,7 @@ def test_product_detail_gives_the_presets_for_customizing_it(api):
     assert (imposible["cake_type"], imposible["bread"], imposible["filling_flavor"]) == (None, None, None)
 
 
-def test_product_detail_does_not_preset_options_that_design_your_cake_no_longer_offers(api):
+def test_product_detail_does_not_preset_options_that_design_your_cake_no_longer_offers(api, red_velvet_on_sale):
     from core_pasteleria.models import Bread, FillingBase
 
     Bread.objects.filter(slug="red_velvet").update(is_active=False)
