@@ -65,3 +65,41 @@ export function resolveColor(value: ShapeColor): string {
   const mixed = a.map((channel, i) => Math.round(channel + (b[i] - channel) * value.amount))
   return `#${mixed.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
 }
+
+/** Tono, saturación y luminosidad (de 0 a 1) de un color sRGB de 0 a 255. */
+function toHsl([r, g, b]: [number, number, number]): [number, number, number] {
+  const [rn, gn, bn] = [r / 255, g / 255, b / 255]
+  const max = Math.max(rn, gn, bn)
+  const min = Math.min(rn, gn, bn)
+  const l = (max + min) / 2
+  if (max === min) return [0, 0, l]
+  const d = max - min
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+  const h = max === rn ? (gn - bn) / d + (gn < bn ? 6 : 0) : max === gn ? (bn - rn) / d + 2 : (rn - gn) / d + 4
+  return [h / 6, s, l]
+}
+
+function fromHsl([h, s, l]: [number, number, number]): string {
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+  const p = 2 * l - q
+  const hue = (t: number) => {
+    const u = (t + 1) % 1
+    if (u < 1 / 6) return p + (q - p) * 6 * u
+    if (u < 1 / 2) return q
+    if (u < 2 / 3) return p + (q - p) * (2 / 3 - u) * 6
+    return p
+  }
+  const rgb = s === 0 ? [l, l, l] : [hue(h + 1 / 3), hue(h), hue(h - 1 / 3)]
+  return `#${rgb.map((channel) => Math.round(Math.min(1, Math.max(0, channel)) * 255).toString(16).padStart(2, '0')).join('')}`
+}
+
+/**
+ * Un cubo de gelatina envuelto por el líquido de su vaso (D95): se aclara hacia el líquido (`amount` de 0 a 1) como en la mezcla de
+ * `resolveColor`, pero conserva su tono y casi toda su saturación. Mezclar en línea recta un verde con un rosa los apaga a gris (son
+ * opuestos); así el verde sigue verde, solo más claro y suave.
+ */
+export function veilColor(cube: ShapeColor, liquid: ShapeColor, amount: number): string {
+  const own = toHsl(channels(resolveColor(cube)))
+  const mixed = toHsl(channels(resolveColor({ mix: [cube, liquid], amount })))
+  return fromHsl([own[0], Math.max(mixed[1], own[1] * 0.85), mixed[2]])
+}

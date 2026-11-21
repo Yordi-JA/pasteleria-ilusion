@@ -20,6 +20,7 @@ from core_pasteleria.models import (
 )
 
 seed_module = importlib.import_module("core_pasteleria.migrations.0009_seed_catalog")
+cup_gelatins_module = importlib.import_module("core_pasteleria.migrations.0059_seed_cup_gelatins")
 
 pytestmark = pytest.mark.django_db
 
@@ -230,15 +231,16 @@ def test_empty_photo_is_allowed_and_means_pending():
 # --- Semilla ---
 
 
-def test_seeded_products_are_16_cakes_and_8_desserts():
-    # Los 14 del mockup, más "Tres leches de blueberry" y "Tres leches de nuez" (tanda 2 de correcciones).
+def test_seeded_products_are_16_cakes_and_10_desserts():
+    # Los 14 del mockup, más "Tres leches de blueberry" y "Tres leches de nuez" (tanda 2 de correcciones). Postres: los 8 del
+    # mockup, más el mosaico normal y el de yogurt de durazno (`0059_seed_cup_gelatins`).
     assert Product.objects.filter(category="cake").count() == 16
-    assert Product.objects.filter(category="dessert").count() == 8
+    assert Product.objects.filter(category="dessert").count() == 10
 
 
-def test_seeded_catalog_prices_are_the_20_cells_of_section_2_and_the_pending_walnut():
+def test_seeded_catalog_prices_are_the_cells_of_section_2_and_the_pending_walnut():
     prices = {p.name: p.amount for p in CatalogPrice.objects.all()}
-    assert len(prices) == 21
+    assert len(prices) == 23
     assert prices == {
         "Pastel de sabor normal, completo": Decimal("350"),
         "Pastel de sabor normal, rebanada": Decimal("35"),
@@ -258,7 +260,10 @@ def test_seeded_catalog_prices_are_the_20_cells_of_section_2_and_the_pending_wal
         "Tarta de frutas, mini": Decimal("35"),
         "Gelatina de molde": Decimal("290"),
         "Gelatina Mosaico con crema (vaso)": Decimal("20"),
-        "Gelatina Mosaico con yogurt (vaso)": Decimal("20"),
+        # `0059_seed_cup_gelatins`: el de yogurt pasa a ser el de fresa; el normal y el de durazno, nuevos.
+        "Gelatina Mosaico normal (vaso)": Decimal("20"),
+        "Gelatina Mosaico con yogurt de fresa (vaso)": Decimal("20"),
+        "Gelatina Mosaico con yogurt de durazno (vaso)": Decimal("20"),
         "Gelatina de Duvalín (vaso)": Decimal("25"),
         # PENDIENTE (tanda 2): el catálogo dice "[Precio por confirmar]" y no se puede pedir.
         "Pastel de nuez, completo": None,
@@ -281,8 +286,8 @@ def test_seeded_weights_and_servings_match_the_rules_and_pending_ones_are_empty(
     assert info("Red velvet, completo") == (None, None)
 
 
-def test_seeded_offerings_are_51_and_each_priced_by_group():
-    assert ProductOffering.objects.count() == 51
+def test_seeded_offerings_are_53_and_each_priced_by_group():
+    assert ProductOffering.objects.count() == 53
     by_product = {}
     for offering in ProductOffering.objects.select_related("product", "price"):
         by_product.setdefault(offering.product.slug, {})[offering.presentation] = offering.price.amount
@@ -306,7 +311,9 @@ def test_seeded_offerings_are_51_and_each_priced_by_group():
     assert by_product["tarta-de-frutas"] == {"large": Decimal("290"), "mini": Decimal("35")}
     assert by_product["gelatina-de-molde"] == {"whole": Decimal("290")}
     assert by_product["mosaico-con-crema"] == {"cup": Decimal("20")}
-    assert by_product["mosaico-con-yogurt"] == {"cup": Decimal("20")}
+    assert by_product["gelatina-mosaico"] == {"cup": Decimal("20")}
+    assert by_product["mosaico-con-yogurt-de-fresa"] == {"cup": Decimal("20")}
+    assert by_product["mosaico-con-yogurt-de-durazno"] == {"cup": Decimal("20")}
     assert by_product["gelatina-de-duvalin"] == {"cup": Decimal("25")}
     # Tanda 2: blueberry en el grupo de sabor normal, con su mini; la nuez con su precio PENDIENTE.
     assert by_product["tres-leches-de-blueberry"] == normal
@@ -325,9 +332,9 @@ def test_there_is_no_mini_with_cheese_or_flan():
 
 def test_cup_gelatins_are_showcase_only():
     cups = Product.objects.filter(offerings__presentation="cup")
-    assert cups.count() == 3
+    assert cups.count() == 5
     assert set(cups.values_list("sales_channel", flat=True)) == {"showcase_only"}
-    assert Product.objects.filter(sales_channel="showcase_only").count() == 3
+    assert Product.objects.filter(sales_channel="showcase_only").count() == 5
 
 
 def test_red_velvet_and_walnut_are_the_only_order_only_cakes():
@@ -388,10 +395,14 @@ def test_seed_can_run_again_without_duplicating_or_overwriting():
     Product.objects.filter(slug="imposible").update(summary="Editado por la pastelería.")
     ProductOffering.objects.filter(product__slug="posible", presentation="slice").delete()
     seed_module.seed_catalog(apps, None)
-    # Con los dos pasteles, el precio y las tres presentaciones de la tanda 2 (`0045_seed_design_sizes`).
-    assert Product.objects.count() == 24
-    assert CatalogPrice.objects.count() == 21
-    assert ProductOffering.objects.count() == 51
+    # La `0009` vuelve a sembrar el «Mosaico con yogurt» que la `0059` renombró; la `0059`, que corre después (como en
+    # `tests/conftest.py`), lo quita.
+    cup_gelatins_module.seed(apps, None)
+    # Con los dos pasteles, el precio y las tres presentaciones de la tanda 2 (`0045_seed_design_sizes`), y los dos vasos
+    # nuevos con su precio (`0059_seed_cup_gelatins`).
+    assert Product.objects.count() == 26
+    assert CatalogPrice.objects.count() == 23
+    assert ProductOffering.objects.count() == 53
     assert CatalogPrice.objects.get(name="Pastel mini").amount == Decimal("140.00")
     assert Product.objects.get(slug="imposible").summary == "Editado por la pastelería."
 

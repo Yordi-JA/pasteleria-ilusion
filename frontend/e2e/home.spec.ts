@@ -36,6 +36,7 @@ const stored = (page: Page) => page.evaluate((key) => JSON.parse(localStorage.ge
 
 const NATA = 'rgb(255, 244, 244)'
 const MERMELADA = 'rgb(94, 25, 33)'
+const FRESA = 'rgb(249, 193, 193)'
 
 /**
  * Los pisos de `<main>` en orden, de sus hijos directos: `field:<campo>` para cada campo de color y
@@ -80,14 +81,14 @@ test.describe('portada with data', () => {
 
   test('the three data sections follow the mockup order with their copy', async ({ page }) => {
     await openHome(page)
-    await expect(page.locator('main').getByRole('heading', { level: 2 })).toHaveText(['Pasteles de la casa', 'Vitrina', 'Rebanadas de hoy'])
+    await expect(page.locator('main').getByRole('heading', { level: 2 })).toHaveText(['Pasteles de la casa', 'Vitrina', 'Hechos en la casa', 'Rebanadas de hoy'])
     await expect(featured(page)).toContainText('Combinaciones de la casa. Pídelas así o cambia lo que quieras al realizar tu pedido.')
     await expect(showcase(page)).toContainText('Pasteles y postres listos para llevar.')
     await expect(slices(page)).toContainText('Viernes 6 de noviembre, hasta agotar existencias.')
     await expect(slices(page).locator('img[src*="ilusion-simbolo"]')).toHaveCount(1)
   })
 
-  test('color floors: fresa, nata, mermelada, nata, with a guirnalda of the field above on each change', async ({ page }) => {
+  test('color floors: fresa, nata, mermelada, fresa, nata, with a guirnalda of the field above on each change', async ({ page }) => {
     await openHome(page)
     await expect(showcase(page)).toBeVisible()
     expect(await floors(page)).toEqual([
@@ -96,7 +97,9 @@ test.describe('portada with data', () => {
       'field:nata',
       `duya:#fff4f4:${MERMELADA}`,
       'field:mermelada',
-      `duya:#5e1921:${NATA}`,
+      `duya:#5e1921:${FRESA}`,
+      'field:fresa',
+      `duya:#f9c1c1:${NATA}`,
       'field:nata',
     ])
     // La guirnalda del marco cuelga de nata: el último campo de la portada es nata.
@@ -321,11 +324,19 @@ test.describe('adding to the order', () => {
 test.describe('hidden sections and states', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
-  test('nothing loaded in the vitrina today hides it with its guirnaldas, and nata meets nata without a border', async ({ page }) => {
+  test('nothing loaded in the vitrina today hides it with its guirnaldas, and the photos keep the nata fields apart', async ({ page }) => {
     await openHome(page, { showcase: [todayStock([])] })
     await expect(slices(page).getByRole('article').first()).toBeVisible()
     await expect(showcase(page)).toHaveCount(0)
-    expect(await floors(page)).toEqual(['field:fresa', `duya:#f9c1c1:${NATA}`, 'field:nata', 'field:nata'])
+    expect(await floors(page)).toEqual([
+      'field:fresa',
+      `duya:#f9c1c1:${NATA}`,
+      'field:nata',
+      `duya:#fff4f4:${FRESA}`,
+      'field:fresa',
+      `duya:#f9c1c1:${NATA}`,
+      'field:nata',
+    ])
   })
 
   test('no slices today hides the section, and a nata field keeps the vitrina away from the footer', async ({ page }) => {
@@ -339,7 +350,9 @@ test.describe('hidden sections and states', () => {
       'field:nata',
       `duya:#fff4f4:${MERMELADA}`,
       'field:mermelada',
-      `duya:#5e1921:${NATA}`,
+      `duya:#5e1921:${FRESA}`,
+      'field:fresa',
+      `duya:#f9c1c1:${NATA}`,
       'field:nata',
     ])
   })
@@ -352,15 +365,17 @@ test.describe('hidden sections and states', () => {
       'field:fresa',
       `duya:#f9c1c1:${MERMELADA}`,
       'field:mermelada',
-      `duya:#5e1921:${NATA}`,
+      `duya:#5e1921:${FRESA}`,
+      'field:fresa',
+      `duya:#f9c1c1:${NATA}`,
       'field:nata',
     ])
   })
 
-  test('with nothing at all the hero closes on nata', async ({ page }) => {
+  test('with nothing at all the hero meets the photos and they close on nata', async ({ page }) => {
     await openHome(page, { featured: [ok([])], showcase: [todayStock([])], slices: [todayStock([])] })
     await expect(page.locator('main [aria-busy="true"]')).toHaveCount(0)
-    expect(await floors(page)).toEqual(['field:fresa', `duya:#f9c1c1:${NATA}`, 'field:nata'])
+    expect(await floors(page)).toEqual(['field:fresa', 'field:fresa', `duya:#f9c1c1:${NATA}`, 'field:nata'])
   })
 
   test('everything sold out in the vitrina shows the sold-out copy with its two exits', async ({ page }) => {

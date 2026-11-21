@@ -58,7 +58,7 @@ def slugs(items):
 
 def test_catalog_lists_every_active_product_in_order():
     catalog = product_repo.list_catalog(on_date=TODAY)
-    assert len(catalog) == 24
+    assert len(catalog) == 26
     assert catalog[0].slug == "tres-leches-de-durazno"
     assert catalog[-1].slug == "gelatina-de-duvalin"
     assert [p.slug for p in catalog] == list(
@@ -68,7 +68,7 @@ def test_catalog_lists_every_active_product_in_order():
 
 def test_catalog_filters_by_category():
     assert len(product_repo.list_catalog(on_date=TODAY, category="cake")) == 16
-    assert len(product_repo.list_catalog(on_date=TODAY, category="dessert")) == 8
+    assert len(product_repo.list_catalog(on_date=TODAY, category="dessert")) == 10
 
 
 def test_catalog_search_ignores_case_and_looks_in_name_and_summary():
@@ -77,7 +77,7 @@ def test_catalog_search_ignores_case_and_looks_in_name_and_summary():
     # "flan" está en el nombre (Flan napolitano) y en la descripción corta (Imposible, Posible).
     flan = set(slugs(product_repo.list_catalog(on_date=TODAY, search="flan")))
     assert {"flan-napolitano", "imposible", "posible", "tres-leches-con-flan-y-cajeta"} <= flan
-    assert len(product_repo.list_catalog(on_date=TODAY, search="   ")) == 24
+    assert len(product_repo.list_catalog(on_date=TODAY, search="   ")) == 26
     assert product_repo.list_catalog(on_date=TODAY, search="no existe") == []
 
 

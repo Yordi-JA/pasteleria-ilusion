@@ -7,6 +7,8 @@
 //
 //   npm run render:modelos                      # los pasteles que muestran la imagen del modelo en el catálogo
 //   npm run render:modelos -- tres-leches-de-fresa tres-leches-de-cajeta   # solo esos, aunque aún no se muestren
+//   npm run render:modelos -- mosaico-con-crema tarta-de-frutas flan-napolitano   # los postres (D95): el catálogo no los
+//                                                                                   # lista, porque su imagen no está en la API
 //   RENDER_BASE_URL=http://127.0.0.1:5191 npm run render:modelos           # otro servidor de desarrollo
 //
 // WebGL va por software (SwiftShader), como en las pruebas: la misma imagen en cualquier equipo.

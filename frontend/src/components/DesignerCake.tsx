@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react'
+import type { CakeShape } from '../three/cakeShape.ts'
 import type { CakeSceneView } from '../viewmodels/useCakeScene.ts'
 import SceneBoundary from './SceneBoundary.tsx'
 
@@ -32,7 +33,7 @@ function PreviewDrawing() {
  * previa…" (`CotizadorCargando`); sin WebGL o si la escena falla, solo el dibujo, sin prometer un pastel que no
  * llegará. La escena aparece en cuanto dibuja su primer cuadro, como en la portada.
  */
-export default function DesignerCake({ scene, hintId }: { scene: CakeSceneView; hintId: string }) {
+export default function DesignerCake({ scene, hintId }: { scene: CakeSceneView<CakeShape>; hintId: string }) {
   const { observeBox, ...view } = scene
   const ready = view.status === 'ready'
   return (

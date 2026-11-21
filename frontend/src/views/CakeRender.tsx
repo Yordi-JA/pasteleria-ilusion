@@ -19,6 +19,7 @@ export default function CakeRender() {
     <main
       data-testid="render-modelo"
       data-state={view.status}
+      data-dessert={view.probe?.dessert}
       data-coverage={view.probe?.coverage}
       data-combed={view.probe?.combed}
       data-fruit={view.probe?.fruit}

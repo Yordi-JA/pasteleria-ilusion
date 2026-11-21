@@ -1,45 +1,19 @@
 import { useEffect, useMemo } from 'react'
-import { BufferGeometry, CatmullRomCurve3, Color, DoubleSide, Float32BufferAttribute, SRGBColorSpace, TubeGeometry, Vector2, Vector3 } from 'three'
-import type { CakeShape } from './cakeShape.ts'
+import { CatmullRomCurve3, DoubleSide, TubeGeometry, Vector2, Vector3 } from 'three'
+import type { CakeShape, ShapeColor } from './cakeShape.ts'
 import { boardRadius, PLATE_GAP } from './cakeMetrics.ts'
 import { FINISH_LOOKS, FINISH_TILE, finishEnvironment, useFinishTexture } from './finish.ts'
 import type { FruitMesh } from './fruit.ts'
 import { resolveColor } from './palette.ts'
 import { boardProfile } from './sampleDetails.ts'
 import type { SampleDetailsLayout } from './sampleDetails.ts'
+import { useGeometry } from './vertexGeometry.ts'
 
 /**
  * Dibuja lo que solo llevan las imágenes del catálogo (tanda 4b): la charola negra y los detalles de las fotos que colocó
  * `sampleDetails.ts` (tapa, anillo, franja, conchas, migas o virutas, espolvoreado e hilos). Cada malla se arma una vez, con los
  * colores de la comida en sus vértices; las geometrías se liberan al desmontar. Sin trabajo por cuadro.
  */
-
-/** La geometría de three de una malla de `sampleDetails.ts`, con los colores sRGB pasados a lineal; `uvTile` agrega coordenadas planas. */
-function toGeometry(mesh: FruitMesh, uvTile?: number): BufferGeometry {
-  const linear: number[] = []
-  const color = new Color()
-  for (let i = 0; i < mesh.colors.length; i += 3) {
-    color.setRGB(mesh.colors[i], mesh.colors[i + 1], mesh.colors[i + 2], SRGBColorSpace)
-    linear.push(color.r, color.g, color.b)
-  }
-  const geometry = new BufferGeometry()
-  geometry.setAttribute('position', new Float32BufferAttribute(mesh.positions, 3))
-  geometry.setAttribute('normal', new Float32BufferAttribute(mesh.normals, 3))
-  geometry.setAttribute('color', new Float32BufferAttribute(linear, 3))
-  if (uvTile) {
-    const uv: number[] = []
-    for (let i = 0; i < mesh.positions.length; i += 3) uv.push(mesh.positions[i] / uvTile, mesh.positions[i + 2] / uvTile)
-    geometry.setAttribute('uv', new Float32BufferAttribute(uv, 2))
-  }
-  geometry.setIndex(mesh.indices)
-  return geometry
-}
-
-function useGeometry(mesh: FruitMesh | null, uvTile?: number): BufferGeometry | null {
-  const geometry = useMemo(() => (mesh ? toGeometry(mesh, uvTile) : null), [mesh, uvTile])
-  useEffect(() => () => geometry?.dispose(), [geometry])
-  return geometry
-}
 
 /** Brillo de cada parte: rugosidad y cuánto refleja el entorno de los acabados. */
 const LOOKS = {
@@ -61,17 +35,24 @@ function VertexMesh({ mesh, look }: { mesh: FruitMesh | null; look: { roughness:
   )
 }
 
-/** La charola de cartón negro bajo el piso de abajo, un poco brillante, con su cara de arriba al pie del pastel. */
-export function Board({ shape }: { shape: CakeShape }) {
-  const radius = boardRadius(shape)
+/**
+ * La charola de cartón de ese radio y ese color, un poco brillante, con su cara de arriba a la altura `PLATE_GAP`. La usan los
+ * pasteles (`Board`) y, desde D95, el flan napolitano.
+ */
+export function BoardDisc({ radius, color }: { radius: number; color: ShapeColor }) {
   const profile = useMemo(() => boardProfile(radius).map(([x, y]) => new Vector2(x, y)), [radius])
-  if (!shape.board) return null
   return (
     <mesh position-y={PLATE_GAP}>
       <latheGeometry args={[profile, 96]} />
-      <meshStandardMaterial color={resolveColor(shape.board.color)} roughness={0.3} envMap={finishEnvironment()} envMapIntensity={0.55} />
+      <meshStandardMaterial color={resolveColor(color)} roughness={0.3} envMap={finishEnvironment()} envMapIntensity={0.55} />
     </mesh>
   )
+}
+
+/** La charola de cartón negro bajo el piso de abajo, un poco brillante, con su cara de arriba al pie del pastel. */
+export function Board({ shape }: { shape: CakeShape }) {
+  if (!shape.board) return null
+  return <BoardDisc radius={boardRadius(shape)} color={shape.board.color} />
 }
 
 function Cap({ cap }: { cap: NonNullable<SampleDetailsLayout['cap']> }) {

@@ -92,3 +92,8 @@ CLAUDE.local.md
 
 # Configuración local del plugin de diseño impeccable
 .impeccable/
+
+# Fotos originales de pedidos reales y del catálogo (tienen nombres y una persona):
+# solo se versionan las versiones optimizadas de frontend/public/fotos/
+assets/Pedidos/
+assets/Catalogo/
