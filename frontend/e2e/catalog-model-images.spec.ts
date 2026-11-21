@@ -2,13 +2,14 @@ import { expect, test } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
 import { mockCakeDesignOptions } from './support/cake-design.ts'
 import { featuredProducts, mockCatalog, ok, sliceItems, stockItem, todayStock } from './support/catalog.ts'
-import { durazno, mockProductDetails, mockProducts, productCards } from './support/products.ts'
+import { cupCards, durazno, mockProductDetails, mockProducts, productCards, tartaCard } from './support/products.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 
 /**
  * Las imágenes fijas del modelo (D86): la tarjeta del catálogo, los pasteles de la casa y la vitrina de la portada muestran la
  * imagen del modelo cuando la API la da (`model_image`); si no, la foto; sin ninguna, el hueco. Su texto alternativo dice que es
- * la ilustración del pastel, no una foto. La ficha, la página de la vitrina y las rebanadas conservan la foto real.
+ * la ilustración del pastel, no una foto. La ficha, la página de la vitrina y las rebanadas conservan la foto real. Los postres con
+ * modelo (D95) siguen la misma regla con la imagen de su `slug` (al final).
  */
 
 // Archivos que existen en `public/fotos/`: una imagen que no carga cae al hueco, y la prueba no debe depender de eso.
@@ -194,6 +195,93 @@ test.describe('la fila de pasteles (tanda 6)', () => {
     const { model, photoBox, pending } = await photoBoxes(page)
     for (const box of [model, photoBox, pending]) expect(Math.abs(box.width - 288)).toBeLessThanOrEqual(1)
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  })
+})
+
+/**
+ * Los postres con modelo (D95): la API no da su imagen (`model_image` es solo de los pasteles), así que la tarjeta la toma por su
+ * `slug` de `dessertSamples.ts`, con el archivo que guarda `npm run render:modelos`. Un postre sin modelo conserva su foto o su hueco.
+ */
+test.describe('los postres con modelo (D95)', () => {
+  const DESSERT_MODELS = [
+    ['imposible', 'Imposible'],
+    ['flan-napolitano', 'Flan napolitano'],
+    ['mosaico-con-crema', 'Mosaico con crema'],
+    ['tarta-de-frutas', 'Tarta de frutas'],
+    ['gelatina-mosaico', 'Mosaico normal'],
+    ['mosaico-con-yogurt-de-durazno', 'Mosaico con yogurt de durazno'],
+    ['mosaico-con-yogurt-de-fresa', 'Mosaico con yogurt de fresa'],
+    ['gelatina-de-duvalin', 'Gelatina de Duvalín'],
+  ] as const
+  const IMPOSIBLE_PHOTO = 'imposible.webp'
+
+  /** La imagen ya cargó, con las medidas de la imagen del modelo (`MODEL_FRAME`, 1200 × 1000): el archivo existe. */
+  async function expectModelFile(image: Locator) {
+    await image.scrollIntoViewIfNeeded()
+    await expect
+      .poll(() => image.evaluate((img) => [(img as HTMLImageElement).naturalWidth, (img as HTMLImageElement).naturalHeight]))
+      .toEqual([1200, 1000])
+  }
+
+  test('the catalog shows each dessert model as an illustration, before its photo; a dessert without a model keeps its slot', async ({ page }) => {
+    const posible = { ...productCards.find((entry) => entry.slug === 'imposible')!, slug: 'posible', name: 'Posible', summary: 'Flan con pan de vainilla.' }
+    await mockProducts(page, {
+      cards: withImages([
+        ...productCards.map((entry) => (entry.slug === 'imposible' ? { ...entry, photo: IMPOSIBLE_PHOTO } : entry)),
+        tartaCard,
+        ...cupCards,
+        posible,
+      ]),
+    })
+    await page.goto('/catalogo')
+
+    for (const [slug, name] of DESSERT_MODELS) {
+      const image = card(page, name).getByRole('img', { name: `${name}, ilustración del postre`, exact: true })
+      await expectImage(image, `${slug}-modelo.webp`)
+      await expectModelFile(image)
+    }
+    // La imagen del modelo va antes que la foto real, como en los pasteles: la foto del Imposible no sale en su tarjeta.
+    await expect(page.locator(`img[src="/fotos/${IMPOSIBLE_PHOTO}"]`)).toHaveCount(0)
+    await expect(page.getByRole('img', { name: /ilustración del postre/ })).toHaveCount(DESSERT_MODELS.length)
+
+    const withoutModel = card(page, 'Posible')
+    await expect(withoutModel.getByRole('img', { name: 'Foto del postre pendiente' })).toBeVisible()
+    await expect(withoutModel.locator('img')).toHaveCount(0)
+  })
+
+  test('the home page uses the dessert model in the featured cards and in its showcase', async ({ page }) => {
+    const [first, second, imposible, ...rest] = featuredProducts
+    await mockCatalog(page, {
+      featured: [ok([{ ...imposible, photo: IMPOSIBLE_PHOTO }, first, second, ...rest])],
+      showcase: [
+        todayStock([
+          stockItem(50, 'flan-napolitano', 'Flan napolitano', 'dessert', 'whole', '360.00', { stock: 2 }),
+          stockItem(70, 'gelatina-de-molde', 'Gelatina de molde', 'dessert', 'whole', '290.00', { stock: 5 }),
+        ]),
+      ],
+    })
+    await page.goto('/')
+
+    // El primero va en la tarjeta grande, con la caja de la imagen del modelo.
+    const featuredSection = page.getByRole('region', { name: 'Pasteles de la casa', exact: true })
+    const large = featuredSection.getByRole('img', { name: 'Imposible, ilustración del postre', exact: true })
+    await expectImage(large, 'imposible-modelo.webp')
+    await expectModelFile(large)
+    const box = (await large.boundingBox())!
+    expect(Math.abs(box.width / box.height - 1.2)).toBeLessThan(0.01)
+
+    const showcase = page.getByRole('region', { name: 'Vitrina', exact: true })
+    await expectImage(showcase.getByRole('img', { name: 'Flan napolitano, ilustración del postre', exact: true }), 'flan-napolitano-modelo.webp')
+    await expect(showcase.getByRole('img', { name: 'Foto del postre pendiente' })).toHaveCount(1)
+  })
+
+  test('the showcase page keeps the dessert photo or its slot', async ({ page }) => {
+    await mockCatalog(page, {
+      showcase: [todayStock([stockItem(50, 'flan-napolitano', 'Flan napolitano', 'dessert', 'whole', '360.00', { stock: 2 })])],
+    })
+    await page.goto('/vitrina')
+    await expect(page.getByRole('img', { name: 'Foto del postre pendiente' })).toBeVisible()
+    await expect(page.getByRole('img', { name: /ilustración/ })).toHaveCount(0)
   })
 })
 

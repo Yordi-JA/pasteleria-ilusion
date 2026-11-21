@@ -77,10 +77,11 @@ const SCENE_FRAMING: Record<keyof typeof BOX_HEIGHT, SceneFraming | undefined> =
 
 /**
  * En la ficha (D95) cada producto mide otra cosa (un pastel de 25 cm, un vaso de 9 cm de alto, un flan sobre su charola): la escena
- * lo encuadra a lo que dibuja (`fitPlate`), tan grande como cabe, y lo apoya al 94 % del alto de la caja, sobre la sombra de la foto,
- * que cruza la guirnalda.
+ * lo encuadra a lo que dibuja (`fitPlate`), tan grande como cabe, y lo apoya al 88 % del alto de la caja (20 de noviembre: al 94 % el
+ * pastel se veía bajo, casi sobre la guirnalda), con su sombra de contacto debajo, dentro de la caja. Los vasos llevan su propio
+ * encuadre (`dessertView`).
  */
-const SCENE_FIT: Record<keyof typeof BOX_HEIGHT, number | undefined> = { hero: undefined, compact: undefined, product: 0.94 }
+const SCENE_FIT: Record<keyof typeof BOX_HEIGHT, number | undefined> = { hero: undefined, compact: undefined, product: 0.88 }
 
 /**
  * El pastel fijo en la caja de la escena chica, sin 3D: para las vistas de acceso que el libro de marca no enumera en

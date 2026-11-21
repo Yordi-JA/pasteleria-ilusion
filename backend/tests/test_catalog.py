@@ -371,8 +371,9 @@ def test_choco_pinguino_and_red_velvet_keep_their_definition_after_getting_a_bre
 
 
 def test_pending_data_is_left_empty():
-    # PENDIENTE: pan de los demás pasteles, fotos, conservación y transporte.
-    assert not Product.objects.exclude(photo="").exists()
+    # PENDIENTE: pan de los demás pasteles, fotos, conservación y transporte. La única foto sembrada es la del Imposible
+    # (`0060_seed_imposible_photo`); las demás las pone la pastelería en el admin.
+    assert list(Product.objects.exclude(photo="").values_list("slug", "photo")) == [("imposible", "imposible.webp")]
     assert not Product.objects.exclude(storage_notes="").exists()
     assert not Product.objects.exclude(transport_notes="").exists()
     assert not ProductOffering.objects.exclude(photo="").exists()

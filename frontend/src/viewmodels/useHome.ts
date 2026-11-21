@@ -7,8 +7,9 @@ import { offeringLabel, PRESENTATION_LABELS } from '../models/presentation.ts'
 import { availableFirst, showcaseView, toSliceItem } from './todayItems.ts'
 import type { ShowcaseFilter } from './todayItems.ts'
 import { useAddOne } from './useAddToCart.ts'
+import { useClosingField } from './useClosingField.ts'
 import type { AddFeedback, Addable } from './useAddToCart.ts'
-import { catalogImageView, PHOTO_PLACEHOLDER } from './productPhoto.ts'
+import { catalogImageView } from './productPhoto.ts'
 import type { PhotoView } from './productPhoto.ts'
 import { useRemoteData } from './useRemoteData.ts'
 import type { RemoteData } from './useRemoteData.ts'
@@ -69,7 +70,7 @@ function toFeaturedItem(card: ProductCard): FeaturedItemView {
     name: card.name,
     summary: card.summary,
     price: offering && (offering.presentation === 'whole' ? amount : `${PRESENTATION_LABELS[offering.presentation]}, ${amount}`),
-    photo: catalogImageView(card.modelImage, card.photo, card.name, PHOTO_PLACEHOLDER[card.category]),
+    photo: catalogImageView(card),
     addable: priced && { offering: toCartOffering(card, priced), label: offeringLabel(card.name, priced.presentation) },
   }
 }
@@ -151,18 +152,19 @@ export function useSlicesSection() {
 
 /**
  * Las tres secciones de datos de la portada, cada una con su carga, su reintento y su aviso, y los campos de color
- * que dependen de cuáles aparecen. `afterHero` es el campo del que cuelgan los 21 px de la guirnalda del hero.
- * `closingField` dice si la página necesita un campo `nata` antes de la guirnalda: la guirnalda cuelga de `nata`
- * y el pie es `mermelada`, así que "Hechos en la casa" (`fresa`, que siempre está) no queda pegado a ellos sin las
- * rebanadas. `afterHero` es `fresa` cuando no hay otra sección entre el hero y las fotos: no lleva borde.
+ * que dependen de cuáles aparecen. `afterHero` es el campo del que cuelgan los 21 px de la guirnalda del hero; es
+ * `fresa` cuando no hay otra sección entre el hero y las fotos: no lleva borde. Sin rebanadas, "Hechos en la casa"
+ * (`fresa`, que siempre está) es el último campo y la guirnalda del marco cuelga de él, directo sobre el pie: un campo
+ * `nata` de cierre ahí sería una franja vacía entre las fotos y el pie. La vitrina (`mermelada`) nunca toca el pie,
+ * porque las fotos siempre van entre las dos.
  */
 export function useHome() {
   const featured = useFeaturedSection()
   const showcase = useShowcaseSection()
   const slices = useSlicesSection()
   const afterHero: 'nata' | 'mermelada' | 'fresa' = featured.visible ? 'nata' : showcase.visible ? 'mermelada' : 'fresa'
-  const closingField = !slices.visible
-  return { featured, showcase, slices, afterHero, closingField }
+  useClosingField(slices.visible ? 'nata' : 'fresa')
+  return { featured, showcase, slices, afterHero }
 }
 
 export type FeaturedSection = ReturnType<typeof useFeaturedSection>

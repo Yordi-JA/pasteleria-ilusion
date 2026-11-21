@@ -8,6 +8,7 @@ import {
   shortenCatalogTimeout,
   SHOWCASE_PATH,
   showcaseItems,
+  SLICES_PATH,
   sliceItems,
   stockItem,
   todayStock,
@@ -53,6 +54,10 @@ const floors = (page: Page) =>
       return `field:${el.getAttribute('data-campo')}`
     }),
   )
+
+/** El color del campo del que cuelga la guirnalda del marco, la que va justo antes del pie. */
+const closingGarland = (page: Page) =>
+  page.locator('.duya:has(+ footer)').evaluate((el) => getComputedStyle(el).getPropertyValue('--c').trim())
 
 /** Los nombres (h3) de las tarjetas, para comparar con `toHaveText`, que espera a que lleguen los datos. */
 const articleNames = (list: Locator) => list.getByRole('article').getByRole('heading', { level: 3 })
@@ -104,6 +109,7 @@ test.describe('portada with data', () => {
     ])
     // La guirnalda del marco cuelga de nata: el último campo de la portada es nata.
     await expect(slices(page)).toHaveCSS('background-color', 'rgb(255, 244, 244)')
+    expect(await closingGarland(page)).toBe('#fff4f4')
   })
 
   test('Pasteles de la casa: one large card and three in a list, with the API prices and the catalog link', async ({ page }) => {
@@ -128,7 +134,9 @@ test.describe('portada with data', () => {
     // Sin pastel completo se ofrece la primera presentación, con su nombre.
     await expect(cards.nth(3)).toContainText('Vaso, $45.50')
     await expect(cards.nth(0).getByRole('img', { name: 'Foto del pastel pendiente' })).toBeVisible()
-    await expect(cards.nth(2).getByRole('img', { name: 'Foto del postre pendiente' })).toBeVisible()
+    // El Imposible tiene modelo (D95): su tarjeta muestra la ilustración; la gelatina de mosaico, sin modelo, su hueco.
+    await expect(cards.nth(2).getByRole('img', { name: 'Imposible, ilustración del postre', exact: true })).toBeVisible()
+    await expect(cards.nth(3).getByRole('img', { name: 'Foto del postre pendiente' })).toBeVisible()
     await expect(section.getByRole('link', { name: 'Ver el catálogo completo' })).toHaveAttribute('href', '/catalogo')
   })
 
@@ -184,7 +192,9 @@ test.describe('portada with data', () => {
     await expect(soldOut.getByRole('heading')).toHaveText('Imposible')
     await expect(soldOut).toContainText('Agotada por hoy')
     await expect(soldOut.getByRole('button')).toHaveCount(0)
-    await expect(desserts.first().getByRole('img', { name: 'Foto del postre pendiente' })).toBeVisible()
+    // El flan napolitano tiene modelo (D95); la gelatina de molde, no.
+    await expect(desserts.first().getByRole('img', { name: 'Flan napolitano, ilustración del postre', exact: true })).toBeVisible()
+    await expect(desserts.nth(2).getByRole('img', { name: 'Foto del postre pendiente' })).toBeVisible()
     await expectRequestCountStays(requests.showcase, before)
   })
 
@@ -339,11 +349,11 @@ test.describe('hidden sections and states', () => {
     ])
   })
 
-  test('no slices today hides the section, and a nata field keeps the vitrina away from the footer', async ({ page }) => {
+  test('no slices today hides the section, and the photos close the page with no nata strip before the footer', async ({ page }) => {
     await openHome(page, { slices: [todayStock([])] })
     await expect(showcase(page).getByRole('listitem').first()).toBeVisible()
     await expect(slices(page)).toHaveCount(0)
-    // El último `field:nata` es el campo de cierre: la guirnalda del marco cuelga de él.
+    // Las fotos (`fresa`) son el último campo: la guirnalda del marco cuelga de ellas, sin una franja `nata` en medio.
     expect(await floors(page)).toEqual([
       'field:fresa',
       `duya:#f9c1c1:${NATA}`,
@@ -352,9 +362,33 @@ test.describe('hidden sections and states', () => {
       'field:mermelada',
       `duya:#5e1921:${FRESA}`,
       'field:fresa',
-      `duya:#f9c1c1:${NATA}`,
-      'field:nata',
     ])
+    expect(await closingGarland(page)).toBe('#f9c1c1')
+    const galleryBottom = await region(page, 'Hechos en la casa').evaluate((el) => el.getBoundingClientRect().bottom)
+    const garlandTop = await page.locator('.duya:has(+ footer)').evaluate((el) => el.getBoundingClientRect().top)
+    expect(garlandTop).toBeCloseTo(galleryBottom, 0)
+  })
+
+  test('slices that fail and come back empty keep their nata field, so the closing guirnalda stays nata', async ({ page }) => {
+    let failing = true
+    await mockStoreInfo(page, fullStoreInfo)
+    await mockCatalog(page)
+    await page.route(
+      (url) => url.pathname === SLICES_PATH,
+      async (route) => {
+        const { status, body } = failing ? serverError : { status: 200, body: { date: '2026-11-06', items: [] } }
+        await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
+      },
+    )
+    await page.goto('/')
+    const retry = slices(page).getByRole('button', { name: 'Volver a intentar' })
+    await expect(retry).toBeVisible()
+    expect(await closingGarland(page)).toBe('#fff4f4')
+    failing = false
+    await retry.click()
+    // Vacía después de un error, la sección sigue con su frase (D47): el campo de cierre sigue siendo nata.
+    await expect(slices(page)).toContainText('Hoy no hay rebanadas cargadas.')
+    expect(await closingGarland(page)).toBe('#fff4f4')
   })
 
   test('no featured products hides Pasteles de la casa and the guirnalda falls on the vitrina', async ({ page }) => {
@@ -372,10 +406,18 @@ test.describe('hidden sections and states', () => {
     ])
   })
 
-  test('with nothing at all the hero meets the photos and they close on nata', async ({ page }) => {
+  test('with nothing at all the hero meets the photos and they close the page on fresa', async ({ page }) => {
     await openHome(page, { featured: [ok([])], showcase: [todayStock([])], slices: [todayStock([])] })
     await expect(page.locator('main [aria-busy="true"]')).toHaveCount(0)
-    expect(await floors(page)).toEqual(['field:fresa', 'field:fresa', `duya:#f9c1c1:${NATA}`, 'field:nata'])
+    expect(await floors(page)).toEqual(['field:fresa', 'field:fresa'])
+    expect(await closingGarland(page)).toBe('#f9c1c1')
+  })
+
+  test('with only the house cakes, the photos follow them and close the page on fresa', async ({ page }) => {
+    await openHome(page, { showcase: [todayStock([])], slices: [todayStock([])] })
+    await expect(page.locator('main [aria-busy="true"]')).toHaveCount(0)
+    expect(await floors(page)).toEqual(['field:fresa', `duya:#f9c1c1:${NATA}`, 'field:nata', `duya:#fff4f4:${FRESA}`, 'field:fresa'])
+    expect(await closingGarland(page)).toBe('#f9c1c1')
   })
 
   test('everything sold out in the vitrina shows the sold-out copy with its two exits', async ({ page }) => {

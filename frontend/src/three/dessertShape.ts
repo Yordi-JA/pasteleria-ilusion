@@ -51,12 +51,17 @@ export type MiniTartShape = {
 }
 
 /**
- * El flan napolitano desmoldado (`assets/Catalogo/Napolitano.jpeg`): el flan con la cara de arriba bañada en caramelo y el caramelo
- * oscuro que escurre por el costado y forma un charco. Va sobre la charola de los pasteles (el usuario la prefirió al recipiente
- * transparente de la foto).
+ * Un flan desmoldado: el flan con la cara de arriba bañada en caramelo y el caramelo que escurre por el costado y forma un charco. El
+ * flan napolitano (`assets/Catalogo/Napolitano.jpeg`) es el individual; el Imposible (`assets/Catalogo/Imposible.jpg`), el del tamaño
+ * de un pastel, con el pan de chocolate abajo. Va sobre la charola de los pasteles (el usuario la prefirió al recipiente transparente
+ * de la foto del napolitano).
  */
 export type FlanShape = {
   kind: 'flan'
+  /** `individual` (el napolitano) o `whole` (del tamaño de un pastel, el Imposible); sin él, `individual`. */
+  size?: 'individual' | 'whole'
+  /** El pan bajo el flan (el pan de chocolate del Imposible); sin él, el flan solo. Su alto lo da el tamaño. */
+  bread?: ShapeColor
   /** El flan, con las burbujitas tostadas del costado. */
   custard: ShapeColor
   /** La cara de arriba, bañada en caramelo (más clara y anaranjada que el charco). */

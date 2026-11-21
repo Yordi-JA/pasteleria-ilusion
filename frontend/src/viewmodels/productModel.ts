@@ -2,6 +2,7 @@ import type { CakeDesignOptions } from '../models/cakeDesign.ts'
 import type { ProductDetail } from '../models/catalog.ts'
 import type { SceneShape } from '../three/dessertShape.ts'
 import { dessertSample } from './dessertSamples.ts'
+import { modelAlt } from './productPhoto.ts'
 import { sampleShape } from './sampleDesign.ts'
 
 /**
@@ -27,5 +28,5 @@ export function productModel(product: ProductDetail, options: CakeDesignOptions 
  * ilustración y no una foto: "Tres leches de durazno, ilustración del pastel".
  */
 export function modelLabel(product: Pick<ProductDetail, 'name' | 'category'>): string {
-  return `${product.name}, ilustración del ${product.category === 'cake' ? 'pastel' : 'postre'}`
+  return modelAlt(product.name, product.category)
 }
