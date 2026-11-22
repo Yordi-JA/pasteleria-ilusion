@@ -9,8 +9,8 @@
 {% include "core_pasteleria/emails/_detail.html" with label="Válida hasta" value=valid_until %}
 {% endblock %}
 {% block extra %}{% if request.quote_note %}
-<p style="margin:20px 0 4px 0;font-size:14px;font-weight:600;color:#5e1921;">Nota de la pastelería</p>
-<p style="margin:0;color:#664243;">{{ request.quote_note|linebreaksbr }}</p>
+<p class="ink" style="margin:20px 0 4px 0;font-size:14px;font-weight:600;color:#5e1921;">Nota de la pastelería</p>
+<p class="ink-soft" style="margin:0;color:#664243;">{{ request.quote_note|linebreaksbr }}</p>
 {% endif %}{% endblock %}
 {% block next %}Si te gusta, entra a tu cuenta, elige la hora y quién recoge y paga el anticipo. Si quieres un cambio, escríbenos por WhatsApp.{% endblock %}
 {% block button %}Ver mi cotización{% endblock %}
