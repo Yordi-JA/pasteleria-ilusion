@@ -31,7 +31,8 @@ type CartLineItemProps = {
 export default function CartLineItem({ line, stamp, askingEdit, onQuantity, onRemove, onEdit, onConfirmEdit, onCancelEdit }: CartLineItemProps) {
   const isDesign = line.key.kind === 'design'
   return (
-    <li className="flex gap-4 border-b border-relieve py-6 first:pt-0 last:border-b-0 last:pb-0 max-[600px]:gap-3">
+    // `data-linea`: la llave con que `useListShift` recorre las líneas que quedan al quitar una.
+    <li data-linea={line.id} className="flex gap-4 border-b border-relieve py-6 first:pt-0 last:border-b-0 last:pb-0 max-[600px]:gap-3">
       {/* Un pastel diseñado lleva la miniatura de su vista previa (tanda 4); una línea del catálogo, la imagen de su tarjeta. */}
       <LinePhoto thumbnail={line.thumbnail} placeholder="Foto del pastel" className="h-[100px] w-[100px] px-2 max-[600px]:h-[72px] max-[600px]:w-[72px]" />
       <div className="grid min-w-0 flex-1 grid-cols-[1fr_auto] gap-x-4 gap-y-3 max-[600px]:grid-cols-1">

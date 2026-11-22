@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import ButtonLink from '../components/ButtonLink.tsx'
 import Card from '../components/Card.tsx'
@@ -8,6 +8,7 @@ import LineDrawing from '../components/LineDrawing.tsx'
 import TextLink from '../components/TextLink.tsx'
 import { usePageTitle } from '../viewmodels/usePageTitle.ts'
 import { useCartPage } from '../viewmodels/useCartPage.ts'
+import { useListShift } from '../viewmodels/useListShift.ts'
 import CartLineItem from './cart/CartLineItem.tsx'
 import CartSummary from './cart/CartSummary.tsx'
 
@@ -15,11 +16,17 @@ const TITLE = 'Tu carrito'
 
 const column = 'mx-auto w-full max-w-[1200px] px-6 max-[600px]:px-4'
 
-/** El carrito vacío (mockup de CarritoVacio): la rebanada, la frase y las dos salidas. */
-function EmptyCart({ headingRef }: { headingRef: RefObject<HTMLHeadingElement | null> }) {
+/**
+ * El carrito vacío (mockup de CarritoVacio): la rebanada, la frase y las dos salidas. Con `arriving` (se acaba de quitar la última
+ * línea, 22 de noviembre) la tarjeta sube 8 px y aparece en 250 ms; al abrir `/carrito` ya vacío se pinta tal cual.
+ */
+function EmptyCart({ headingRef, arriving }: { headingRef: RefObject<HTMLHeadingElement | null>; arriving: boolean }) {
   return (
     <div className={`${column} py-12`}>
-      <Card large className="mx-auto flex max-w-[532px] flex-col items-center gap-4 px-10 py-12 text-center max-[600px]:px-6">
+      <Card
+        large
+        className={`mx-auto flex max-w-[532px] flex-col items-center gap-4 px-10 py-12 text-center max-[600px]:px-6 ${arriving ? 'motion-safe:animate-aparece' : ''}`}
+      >
         <LineDrawing drawing="rebanada" size={96} className="text-mermelada opacity-50" />
         <h2 ref={headingRef} tabIndex={-1} className={`rounded-sm font-display text-titulo-2 ${focusRing}`}>
           Tu carrito está vacío
@@ -46,6 +53,9 @@ export default function Cart() {
   const emptyHeading = useRef<HTMLHeadingElement>(null)
   const headings = useMemo(() => ({ products: productsHeading, empty: emptyHeading }), [])
   const cart = useCartPage(headings)
+  // Si la página se abrió ya vacía: entonces el carrito vacío no entra, porque nada se quitó.
+  const [openedEmpty] = useState(cart.empty)
+  const linesList = useListShift<HTMLUListElement>(cart.lines.map((line) => line.id))
   // El símbolo va una vez: junto a la primera base.
   const stampLine = cart.lines.find((line) => line.base)?.id
 
@@ -63,15 +73,17 @@ export default function Cart() {
         {cart.announcement}
       </p>
       {cart.empty ? (
-        <EmptyCart headingRef={emptyHeading} />
+        <EmptyCart headingRef={emptyHeading} arriving={!openedEmpty} />
       ) : (
         <div className={`${column} grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] items-start gap-8 py-12 max-[900px]:grid-cols-1`}>
           <section aria-labelledby="carrito-productos" className="flex flex-col gap-4">
             <h2 id="carrito-productos" ref={productsHeading} tabIndex={-1} className={`self-start rounded-sm font-display text-titulo-2 ${focusRing}`}>
               Productos
             </h2>
-            <Card large>
-              <ul>
+            {/* `overflow-clip`: mientras las líneas que quedan suben a su lugar, la última todavía está abajo; se recorta en la
+                orilla de la tarjeta en lugar de pasar sobre "Seguir comprando" y el pie. */}
+            <Card large className="overflow-clip">
+              <ul ref={linesList}>
                 {cart.lines.map((line) => (
                   <CartLineItem
                     key={line.id}
