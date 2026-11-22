@@ -21,7 +21,13 @@ export function useScrollOverflow<Viewport extends HTMLElement, Content extends 
     const observer = new ResizeObserver(measure)
     observer.observe(outer)
     observer.observe(inner)
-    return () => observer.disconnect()
+    // Una fila que entra desplazada (la de "Tu pastel", 8 px abajo) cuenta en `scrollHeight` mientras se mueve: al terminar,
+    // sin otro cambio de tamaño, se mide de nuevo.
+    outer.addEventListener('animationend', measure)
+    return () => {
+      observer.disconnect()
+      outer.removeEventListener('animationend', measure)
+    }
   }, [])
   return { viewport, content, overflowing }
 }

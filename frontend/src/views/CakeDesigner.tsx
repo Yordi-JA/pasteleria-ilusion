@@ -188,7 +188,7 @@ function Designer({ designer, hintId }: { designer: CakeDesignerView; hintId: st
                   keyboardFocus={designer.scene.keyboardFocus}
                   onRetry={designer.retryPrice}
                 />
-                <SummaryCard rows={view.summary} />
+                <SummaryCard rows={view.summary} step={current} />
               </>
             )}
           </div>
