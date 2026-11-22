@@ -74,7 +74,7 @@ const navLink =
 /** La barra de la compra. `back` es a dónde regresa: por omisión, al carrito; aceptando una cotización, a ella (D70). */
 export function CheckoutHeader({ back = { to: '/carrito', label: 'Volver al carrito' } }: { back?: { to: string; label: string } }) {
   return (
-    <header className="sticky top-4 z-30 mt-5 max-[600px]:mt-3">
+    <header className="barra-sitio sticky top-4 z-30 mt-5 max-[600px]:mt-3">
       <div className={barColumn}>
         <div data-testid="barra" className={`flex min-h-16 items-center justify-between gap-4 rounded-lg border border-relieve bg-betun ${barPadding}`}>
           <Link to="/" className={`block shrink-0 rounded-sm ${focusRing}`}>
@@ -114,7 +114,7 @@ export default function SiteHeader({
   const signedIn = session.status === 'authenticated'
 
   return (
-    <header className="sticky top-4 z-30 mt-5 max-[600px]:mt-3">
+    <header className="barra-sitio sticky top-4 z-30 mt-5 max-[600px]:mt-3">
       <div className={barColumn}>
         <div
           data-testid="barra"
