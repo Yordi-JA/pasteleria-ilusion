@@ -20,14 +20,16 @@ Los diagramas son imágenes SVG hechas en Excalidraw con la paleta Fresa y merme
 
 ## Diagrama de contexto
 
-![Diagrama de contexto. El cliente usa el frontend; el personal usa el admin de Django y el frontend. El frontend habla con el backend (/api/v1/) por HTTP con JSON y JWT. El backend usa PostgreSQL, Mercado Pago y Stripe en sandbox, Google Identity Services, el envío de correos y una API de distancias, estos dos últimos por definir. La tarea programada cancel_unpaid_cash_orders actúa sobre la API.](diagramas/contexto.svg)
+![Diagrama de contexto. El cliente usa el frontend. El personal usa el admin de Django para los precios, la vitrina, los pedidos y las bases, con el pago en efectivo y la base devuelta; las vistas del personal dentro del sitio quedan como trabajo a futuro. El frontend habla con el backend (/api/v1/) por HTTP con JSON y JWT. El backend usa PostgreSQL, Mercado Pago y Stripe en sandbox, Google Identity Services y el envío de correos con Brevo por SMTP. La API de rutas para la entrega a domicilio, con la distancia para la tarifa de envío, queda como trabajo a futuro. La tarea programada cancel_expired_orders actúa sobre la API.](diagramas/contexto.svg)
 
 Notas del diagrama:
 
+- Las cajas y flechas punteadas en café son trabajo a futuro: no están en el sitio.
 - El efectivo en la pastelería no usa un servicio externo: deja el pedido apartado.
-- El personal registra "Base devuelta" en el admin, cambiando el estado de la base prestada (D64 y D69). La página de verificación de la nota (`/nota/:token`) solo verifica ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 11).
-- La API de distancias sigue sin elegir. Las reglas sugieren una API de rutas como Google Distance Matrix ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 8).
-- El proveedor de correo tampoco está definido.
+- El personal trabaja solo en el admin de Django (D64). Ahí registra el pago en efectivo de un apartado, marca la base como devuelta (D69) y pone el precio de un envío de referencia. Las vistas del personal dentro del sitio quedan como trabajo a futuro. La página de verificación de la nota (`/nota/:token`) solo verifica ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 11).
+- La entrega a domicilio se coordina por WhatsApp (D66). La API de rutas que calcularía la distancia y la tarifa de envío, como Google Distance Matrix ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 8), queda como trabajo a futuro.
+- Los correos salen por SMTP con Brevo (D70). La configuración no se ata al proveedor.
+- La tarea programada es el comando `cancel_expired_orders` (antes planeado como `cancel_unpaid_cash_orders`, D63). Heroku Scheduler lo corre cada 10 minutos.
 
 ## Capas de una petición
 
