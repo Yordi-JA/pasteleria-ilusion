@@ -281,6 +281,10 @@ class FruitLayout(models.TextChoices):
     DIAGONAL = "diagonal", "En filas diagonales que llenan la tapa"
     STRIPES = "stripes", "En franjas de atrás hacia el frente, con rosetones entre ellas"
     FANS = "fans", "Montón de abanicos: las primeras frutas de la lista son las que más hay, paradas"
+    COVER = "cover", "Cubre la parte libre de la tapa, encimada: las primeras frutas de la lista son las que más hay"
+    BACK = "back", "Cubre la mitad de atrás de la tapa, encimada"
+    COLUMNS = "columns", "En filas de atrás hacia el frente que cubren la tapa"
+    CROWN = "crown", "Corona: la primera fruta al centro y las demás sobre seis rosetones del borde"
 
 
 class FruitKind(models.TextChoices):
@@ -297,6 +301,14 @@ class FruitKind(models.TextChoices):
     BANANA = "banana", "Plátano"
     PINEAPPLE = "pineapple", "Piña"
     APPLE_SLICE = "apple_slice", "Manzana en rodajas"
+    APPLE_WEDGE = "apple_wedge", "Manzana roja en láminas grandes"
+    CITRUS = "citrus", "Limón en rodajas"
+    APPLE_SHEET = "apple_sheet", "Manzana roja en láminas finas, con un hilo de cáscara"
+    CHERRY = "cherry", "Cereza con rabito"
+    BLACK_GRAPE = "black_grape", "Uva negra"
+    PEAR_FLOWER = "pear_flower", "Pera tallada en flor"
+    BLACK_GRAPES = "black_grapes", "Racimo de uvas negras"
+    MINT = "mint", "Hojas de menta"
 
 
 class SampleSideTexture(models.TextChoices):
@@ -305,6 +317,7 @@ class SampleSideTexture(models.TextChoices):
     LACE = "lace", "Encaje de duya (zigzag cerrado)"
     SPATULA = "spatula", "Marcas de espátula"
     RIDGES = "ridges", "Crestas diagonales"
+    BRUSHED = "brushed", "Pinceladas diagonales: la franja de abajo sube en brochazos"
 
 
 class SampleDrizzle(models.TextChoices):
@@ -313,6 +326,10 @@ class SampleDrizzle(models.TextChoices):
     LACE = "lace", "Encaje sobre la tapa"
     THREADS = "threads", "Hilos sobre el borde de arriba"
     SCRIBBLE = "scribble", "Garabato en un lado de la tapa"
+    LATTICE = "lattice", "Celosía de garabatos alrededor de la tapa"
+    WEB = "web", "Telaraña plumeada en toda la tapa"
+    FEATHERS = "feathers", "Plumas en espiral en toda la tapa"
+    MARBLE = "marble", "Jaspeado en espiral en toda la tapa"
 
 
 class SampleShells(models.TextChoices):
@@ -323,6 +340,11 @@ class SampleShells(models.TextChoices):
     TOP = "top", "Amontonadas en media tapa"
     BACK = "back", "Grandes, en la mitad de atrás"
     FULL = "full", "Cubriendo toda la tapa"
+    OPEN = "open", "Tulipanes abiertos, recostados alrededor del borde"
+    HALF = "half", "Rizos en media tapa; la fruta va en la otra media"
+    CURL = "curl", "Un rizo grande de listón junto a la fruta"
+    PLAQUES = "plaques", "Placas de chocolate de pie, en abanico detrás de la fruta"
+    RIM = "rim", "Conchas finas apiladas alrededor de la orilla, con la fruta al centro"
 
 
 class SampleSideBits(models.TextChoices):
@@ -332,6 +354,8 @@ class SampleSideBits(models.TextChoices):
     FLAKES = "flakes", "Virutas de chocolate"
     SHAVINGS = "shavings", "Virutas de chocolate grandes y tupidas"
     SEEDS = "seeds", "Semillas de la mermelada"
+    PLATES = "plates", "Lajas pegadas al costado que asoman sobre la orilla"
+    DRIPS = "drips", "Escurridos desde la orilla"
 
 
 # --- Clases base ---

@@ -494,7 +494,7 @@ export default function CakeModel({ shape, motion, animateColors = false, animat
     const sample = sampleDetailsLayout(shape, top)
     const fruit = fruitLayout(shape, top, sample?.avoid)
     // Lo que cambian las fotos en el borde (solo las imágenes del catálogo): el arco sin rosetones y las hileras entre las franjas.
-    if (top) placed[placed.length - 1] = sampleDecoration(top, sample?.edgeGap ?? null, fruit?.dividers)
+    if (top) placed[placed.length - 1] = sampleDecoration(top, sample?.edgeGap ?? null, fruit?.dividers, fruit?.keepRosettes)
     return { densityScale: scale, decorations: placed, fruit, details: sample }
   })
   const surface = useMemo(

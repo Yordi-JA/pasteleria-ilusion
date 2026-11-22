@@ -38,6 +38,18 @@ new_cakes = importlib.import_module("core_pasteleria.migrations.0064_seed_bluebe
 
 pytestmark = pytest.mark.django_db
 
+
+# La `0067` rediseña después las 8 muestras y la `0069` cambia otra vez fresa y cajeta y agrega zarzamora y chocolate; estas pruebas
+# revisan las semillas de antes, así que cada una parte de lo que ellas dejaron (las reversas lo devuelven tal cual).
+redesign = importlib.import_module("core_pasteleria.migrations.0067_seed_redesigned_samples")
+new_designs = importlib.import_module("core_pasteleria.migrations.0069_seed_new_flavor_samples")
+
+
+@pytest.fixture(autouse=True)
+def _before_the_redesign():
+    new_designs.unseed(apps, None)
+    redesign.unseed(apps, None)
+
 TODAY = date(2026, 11, 6)
 NOON_TODAY = datetime(2026, 11, 6, 18, 0, tzinfo=dt_timezone.utc)
 

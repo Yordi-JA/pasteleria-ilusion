@@ -175,17 +175,24 @@ export type CakeLid = {
 /**
  * Las frutas frescas que la pastelería pone en la cara de arriba (las fotos del catálogo): fresa (en mitades o entera), kiwi,
  * durazno en almíbar, manzana roja en abanico, uva verde, carambola, pera, physalis, plátano, piña en trozos y manzana en rodajas
- * (`apple_slice`, rodajas planas de manzana amarilla o roja, como en la foto de flan y zarzamora).
+ * (`apple_slice`, rodajas planas de manzana amarilla o roja, como en la foto de flan y zarzamora), láminas grandes de manzana roja
+ * (`apple_wedge`, como en queso y chocolate; `apple_sheet`, finas, con un hilo de cáscara, como en galleta y flan y cajeta) y limón en
+ * rodajas (`citrus`, flan y cajeta); cerezas con rabito (`cherry`), uvas negras sueltas (`black_grape`) y pera tallada en flor
+ * (`pear_flower`), de las fotos nuevas de fresa, cajeta, zarzamora y chocolate, y un racimo de uvas negras (`black_grapes`) y hojas de
+ * menta (`mint`), de zarzamora y chocolate.
  */
-export type FruitKind = 'strawberry' | 'kiwi' | 'peach' | 'apple' | 'grape' | 'starfruit' | 'pear' | 'physalis' | 'banana' | 'pineapple' | 'apple_slice'
+export type FruitKind = 'strawberry' | 'kiwi' | 'peach' | 'apple' | 'grape' | 'starfruit' | 'pear' | 'physalis' | 'banana' | 'pineapple' | 'apple_slice' | 'apple_wedge' | 'citrus' | 'apple_sheet' | 'cherry' | 'black_grape' | 'pear_flower' | 'black_grapes' | 'mint'
 
 /**
  * Cómo se acomoda la fruta: `mound`, un montón al centro; `ring`, una vuelta junto a la orilla, por dentro del borde de duya;
  * `rows`, en filas de una fruta cada una; `diagonal`, esas filas giradas, en diagonal sobre toda la tapa (flan y zarzamora);
  * `stripes`, una franja de cada fruta de atrás hacia el frente, con una hilera de rosetones entre cada dos (blueberry); `fans`, un
- * montón donde mandan las primeras frutas de la lista, en láminas paradas como abanicos (queso y zarzamora).
+ * montón donde mandan las primeras frutas de la lista, en láminas paradas como abanicos (queso y zarzamora); `cover`, fruta encimada
+ * que cubre la parte libre de la tapa, donde las primeras frutas de la lista son las que más hay (galleta, cajeta, capuchino); `back`,
+ * lo mismo en la mitad de atrás (durazno); `columns`, filas de atrás hacia el frente que cubren la tapa (flan y cajeta); `crown`, la
+ * primera fruta al centro y una pieza de las demás sobre seis rosetones del borde (la foto nueva de fresa, con sus cerezas).
  */
-export type FruitLayoutKind = 'mound' | 'ring' | 'rows' | 'diagonal' | 'stripes' | 'fans'
+export type FruitLayoutKind = 'mound' | 'ring' | 'rows' | 'diagonal' | 'stripes' | 'fans' | 'cover' | 'back' | 'columns' | 'crown'
 
 /**
  * Lo que va sobre la tapa del último piso además del mensaje y la oblea (tanda 4b): por ahora, fruta fresca. Solo para las
@@ -212,24 +219,33 @@ export type CakeTopping = {
  */
 export type CakeBoard = { color: ShapeColor }
 
-/** La textura del costado de la cobertura: encaje de duya (zigzag cerrado), marcas de espátula o crestas diagonales. */
-export type SideTextureKind = 'lace' | 'spatula' | 'ridges'
+/**
+ * La textura del costado de la cobertura: encaje de duya (zigzag cerrado), marcas de espátula, crestas diagonales o pinceladas
+ * diagonales (durazno: con franja de abajo, la franja sube en brochazos de su color sobre la cobertura).
+ */
+export type SideTextureKind = 'lace' | 'spatula' | 'ridges' | 'brushed'
 /**
  * Los hilos: encaje de chocolate sobre la tapa, hilos de cajeta sobre las piezas del borde de arriba o un garabato de lazos en un
- * lado de la tapa, junto a la orilla y sin rosetones ahí (queso y zarzamora).
+ * lado de la tapa, junto a la orilla y sin rosetones ahí (queso y zarzamora), una celosía de garabatos alrededor de toda la tapa
+ * (durazno), o un dibujo de toda la tapa (`topPattern.ts`): la telaraña plumeada (fresa), las plumas en espiral (cajeta) o el jaspeado
+ * en espiral (zarzamora).
  */
-export type DrizzleKind = 'lace' | 'threads' | 'scribble'
+export type DrizzleKind = 'lace' | 'threads' | 'scribble' | 'lattice' | 'web' | 'feathers' | 'marble'
 /**
  * Dónde van las conchas de chocolate: huevos abiertos alrededor del borde de arriba, tulipanes cerrados alrededor del borde, cuencos
  * amontonados en la mitad de atrás de la tapa, huevos grandes en un arco de la mitad de atrás (queso y zarzamora) o huevos boca abajo
- * y rizos que cubren toda la tapa (choco-pingüino).
+ * y rizos que cubren toda la tapa (choco-pingüino); tulipanes abiertos y recostados alrededor del borde (capuchino), rizos en media
+ * tapa con la fruta en la otra media (queso y chocolate), un rizo grande de listón junto a la fruta (cajeta), placas de chocolate de pie
+ * en abanico, con puntos, rejilla o rayas del segundo color (cajeta y zarzamora nuevas), o conchas finas apiladas alrededor de la orilla
+ * con la fruta al centro (chocolate).
  */
-export type ShellPlace = 'edge' | 'tulips' | 'top' | 'back' | 'full'
+export type ShellPlace = 'edge' | 'tulips' | 'top' | 'back' | 'full' | 'open' | 'half' | 'curl' | 'plaques' | 'rim'
 /**
  * Lo pegado al costado: migas de galleta (también en la tapa), virutas de chocolate, virutas grandes y tupidas (choco-pingüino) o las
- * semillas de la mermelada.
+ * semillas de la mermelada; lajas grandes pegadas al costado que asoman sobre la orilla (chocolate en fresa, azúcar en cajeta) o
+ * escurridos de la mermelada desde la orilla (zarzamora).
  */
-export type SideBitsKind = 'crumbs' | 'flakes' | 'shavings' | 'seeds'
+export type SideBitsKind = 'crumbs' | 'flakes' | 'shavings' | 'seeds' | 'plates' | 'drips'
 
 /**
  * Lo que tienen las fotos de la pastelería y "Diseña tu pastel" no ofrece (tanda 4b): solo en las imágenes del catálogo, en el

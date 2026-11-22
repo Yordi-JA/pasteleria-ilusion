@@ -14,7 +14,8 @@ import { seededRandom } from './seededRandom.ts'
  * Las piezas son de pocos triángulos pero se reconocen por su forma y sus colores, como en las 8 fotos de la pastelería: mitades
  * de fresa con el corte claro, fresas enteras con sus hojitas, rodajas de kiwi con su anillo de semillas, medias lunas de durazno
  * en almíbar, manzana roja en abanico, racimos de uva verde, estrellas de carambola, rebanadas de pera, physalis con su cáscara,
- * trozos de piña con sus fibras y rodajas planas de manzana amarilla o roja (las fotos de blueberry y de flan y zarzamora).
+ * trozos de piña con sus fibras, rodajas planas de manzana amarilla o roja (las fotos de blueberry y de flan y zarzamora), láminas
+ * grandes de manzana roja, gruesas o finas, y rodajas de limón (las de galleta, queso y chocolate y flan y cajeta).
  * Cada pieza se arma en cm y se escala con los moldes (`CakeTopping.unitsPerCm`): una fresa mide lo mismo en un mini de 14 cm que
  * en un pastel de 4 kg. Todo sale de una semilla fija: la misma forma da siempre el mismo acomodo.
  */
@@ -33,6 +34,14 @@ export type FruitPiece =
   | 'pineappleChunk'
   | 'appleRoundGolden'
   | 'appleRoundRed'
+  | 'appleWedge'
+  | 'citrusSlice'
+  | 'appleSheet'
+  | 'cherry'
+  | 'blackGrape'
+  | 'pearFlower'
+  | 'blackGrapeCluster'
+  | 'mintLeaves'
 
 /** Las seis frutas que más salen en las fotos del catálogo; uva y physalis solo en la de cajeta. */
 export const DEFAULT_FRUITS: readonly FruitKind[] = ['strawberry', 'apple', 'kiwi', 'peach', 'starfruit', 'pear']
@@ -51,13 +60,21 @@ const KIND_PIECES: Record<FruitKind, readonly FruitPiece[]> = {
   pineapple: ['pineappleChunk'],
   // Como en la foto de flan y zarzamora: casi todas de manzana amarilla y, una de cada tres, de manzana roja.
   apple_slice: ['appleRoundGolden', 'appleRoundGolden', 'appleRoundRed'],
+  apple_wedge: ['appleWedge'],
+  citrus: ['citrusSlice'],
+  apple_sheet: ['appleSheet'],
+  cherry: ['cherry'],
+  black_grape: ['blackGrape'],
+  pear_flower: ['pearFlower'],
+  black_grapes: ['blackGrapeCluster'],
+  mint: ['mintLeaves'],
 }
 
 /**
  * El tono de cada fruta, para el contraste del montón: dos piezas vecinas no son del mismo tono (una fresa junto a una manzana
  * roja se pierden), como en las fotos, donde la pastelería alterna rojos, verdes y amarillos.
  */
-const TONE: Record<FruitKind, 'red' | 'green' | 'orange' | 'yellow' | 'pale'> = {
+const TONE: Record<FruitKind, 'red' | 'green' | 'orange' | 'yellow' | 'pale' | 'dark'> = {
   strawberry: 'red',
   apple: 'red',
   kiwi: 'green',
@@ -69,6 +86,14 @@ const TONE: Record<FruitKind, 'red' | 'green' | 'orange' | 'yellow' | 'pale'> = 
   banana: 'pale',
   pineapple: 'yellow',
   apple_slice: 'pale',
+  apple_wedge: 'pale',
+  citrus: 'yellow',
+  apple_sheet: 'pale',
+  cherry: 'red',
+  black_grape: 'dark',
+  pear_flower: 'pale',
+  black_grapes: 'dark',
+  mint: 'green',
 }
 
 /**
@@ -116,9 +141,9 @@ const FRUIT_COLORS = {
   appleFleshEdge: '#efe0bd',
   appleSkin: '#b3202c',
   appleSkinWall: '#a51c27',
-  grape: '#b8cf5c',
-  grapeLight: '#d2e27e',
-  grapeShade: '#9fb84a',
+  grape: '#a3b448',
+  grapeLight: '#c1cc6a',
+  grapeShade: '#83952f',
   starfruitCore: '#f6ecb0',
   starfruitInner: '#f3e08a',
   starfruitTip: '#e6c53a',
@@ -147,6 +172,29 @@ const FRUIT_COLORS = {
   appleRoundFleshEdge: '#ead48a',
   appleRoundGoldenSkin: '#c9ae3c',
   appleRoundRedSkin: '#7e1c2a',
+  appleWedgeFlesh: '#f6eed6',
+  appleWedgeFleshEdge: '#efe1bd',
+  appleWedgeSkin: '#c92f3a',
+  appleWedgeSkinWall: '#a9232d',
+  citrusCore: '#f7efc4',
+  citrusFlesh: '#f3d94f',
+  citrusMembrane: '#f9efb8',
+  citrusPith: '#f8f1d2',
+  citrusRind: '#e8c11d',
+  citrusRindWall: '#d2aa16',
+  cherryDark: '#7a0612',
+  cherry: '#c8101e',
+  cherryLight: '#f05a5f',
+  cherryStem: '#6b3f1d',
+  blackGrapeShade: '#150b14',
+  blackGrape: '#271627',
+  blackGrapeLight: '#5e4a62',
+  pearFlowerCore: '#efe2a4',
+  pearFlowerFlesh: '#f4ecc6',
+  pearFlowerEdge: '#e2d48c',
+  mint: '#3f8a2e',
+  mintLight: '#6cae45',
+  mintVein: '#2f6d22',
 } as const satisfies Record<string, DataColor>
 
 type FruitColor = keyof typeof FRUIT_COLORS
@@ -560,6 +608,151 @@ function appleRound(skin: FruitColor): FruitMesh {
 const appleRoundGolden = () => appleRound('appleRoundGoldenSkin')
 const appleRoundRed = () => appleRound('appleRoundRedSkin')
 
+/**
+ * Una lámina grande de manzana roja, cortada a lo largo (las fotos de galleta, queso y chocolate y flan y cajeta): una media luna ancha
+ * y delgada, casi una "D", con la carne clara y una orilla delgada de cáscara roja en el lado curvo.
+ */
+function appleWedge(): FruitMesh {
+  const mesh = new MeshBuilder()
+  crescent(mesh, {
+    outer: 3.4,
+    span: 2.5,
+    width: 2.55,
+    inner: 0.28,
+    rim: 0.38,
+    across: [[0, rgb('appleWedgeFleshEdge')], [0.15, rgb('appleWedgeFlesh')], [0.78, rgb('appleWedgeFlesh')], [0.85, rgb('appleWedgeFleshEdge')], [0.88, rgb('appleWedgeSkin')], [1, rgb('appleWedgeSkin')]],
+    outerWall: rgb('appleWedgeSkinWall'),
+    innerWall: rgb('appleWedgeFleshEdge'),
+  })
+  return mesh.build()
+}
+
+/**
+ * Una lámina fina de manzana roja (las fotos de galleta y de flan y cajeta): la misma "D" que `appleWedge`, más delgada, con la cara
+ * casi toda de pulpa clara y solo un hilo de cáscara roja en la orilla, que se ve en cada lámina encimada.
+ */
+function appleSheet(): FruitMesh {
+  const mesh = new MeshBuilder()
+  crescent(mesh, {
+    outer: 3.4,
+    span: 2.5,
+    width: 2.55,
+    inner: 0.18,
+    rim: 0.24,
+    across: [[0, rgb('appleWedgeFleshEdge')], [0.12, rgb('appleWedgeFlesh')], [0.9, rgb('appleWedgeFlesh')], [0.94, rgb('appleWedgeFleshEdge')], [0.965, rgb('appleWedgeSkin')], [1, rgb('appleWedgeSkin')]],
+    outerWall: rgb('appleWedgeSkin'),
+    innerWall: rgb('appleWedgeFleshEdge'),
+  })
+  return mesh.build()
+}
+
+/** Una cereza en almíbar con su rabito (la foto nueva de fresa, una sobre cada roseta): la bolita roja brillante y el rabito café. */
+function cherry(): FruitMesh {
+  const mesh = new MeshBuilder()
+  ellipsoid(mesh, [0, 1.05, 0], [1.1, 1.05, 1.1], 10, 8, [rgb('cherryDark'), rgb('cherry'), rgb('cherryLight')])
+  // El rabito: dos tiras cruzadas que suben curvas desde la punta, para que se vea desde cualquier lado.
+  for (const turn of [0, Math.PI / 2]) {
+    const [c, s] = [Math.cos(turn), Math.sin(turn)]
+    const steps = 5
+    const points: Vec3[][] = [[], []]
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps
+      const [x, y] = [0.7 * t * t, 2.0 + 2.1 * t]
+      for (const [k, side] of [-0.07, 0.07].entries()) points[k].push([x * c - side * s, y, x * s + side * c])
+    }
+    mesh.grid(points, points.map((row) => row.map(() => rgb('cherryStem'))))
+  }
+  return mesh.build()
+}
+
+/** Una uva negra suelta (cajeta, zarzamora y chocolate nuevos): un óvalo casi negro con su brillo morado. */
+function blackGrape(): FruitMesh {
+  const mesh = new MeshBuilder()
+  ellipsoid(mesh, [0, 0.95, 0], [0.95, 0.95, 1.2], 10, 8, [rgb('blackGrapeShade'), rgb('blackGrape'), rgb('blackGrapeLight')])
+  return mesh.build()
+}
+
+/**
+ * Una pera tallada en flor (cajeta, zarzamora y chocolate nuevos; en la de chocolate es plátano, del mismo color): siete pétalos en
+ * punta que se abren desde un centro redondo, la pulpa clara y la orilla un poco más amarilla.
+ */
+function pearFlower(): FruitMesh {
+  const mesh = new MeshBuilder()
+  // El centro descansa en la tapa (y = 0); los pétalos salen de un poco más arriba.
+  ellipsoid(mesh, [0, 0.6, 0], [0.75, 0.6, 0.75], 8, 6, [rgb('pearFlowerEdge'), rgb('pearFlowerCore'), rgb('pearFlowerCore')])
+  const petals = 7
+  for (let k = 0; k < petals; k++) {
+    const a = (k / petals) * Math.PI * 2
+    const out = [Math.sin(a), Math.cos(a)]
+    const side = [Math.cos(a), -Math.sin(a)]
+    const rows = 4
+    const points: Vec3[][] = []
+    const colors: RGB[][] = []
+    for (let i = 0; i <= rows; i++) {
+      const t = i / rows
+      // Del centro a la punta: sale y sube, y se angosta hasta la punta.
+      const reach = 0.45 + 1.75 * t
+      const y = 0.25 + 2.1 * t - 0.5 * t * t
+      const half = 0.85 * Math.sin(Math.PI * Math.min(1, t * 0.95 + 0.05)) ** 0.8
+      points.push([-1, 0, 1].map((u): Vec3 => [out[0] * reach + side[0] * half * u, y - 0.15 * Math.abs(u), out[1] * reach + side[1] * half * u]))
+      colors.push([-1, 0, 1].map((u) => mixRgb(rgb('pearFlowerFlesh'), rgb('pearFlowerEdge'), 0.4 * Math.abs(u) + 0.4 * t)))
+    }
+    mesh.grid(points, colors)
+  }
+  return mesh.build()
+}
+
+/** Un racimo de seis uvas negras juntas (zarzamora y chocolate): cuatro abajo, en vuelta, y dos encima. */
+function blackGrapeCluster(): FruitMesh {
+  const mesh = new MeshBuilder()
+  const tones: [RGB, RGB, RGB] = [rgb('blackGrapeShade'), rgb('blackGrape'), rgb('blackGrapeLight')]
+  const radii: Vec3 = [0.9, 0.85, 1.1]
+  for (let k = 0; k < 4; k++) {
+    const a = (k / 4) * Math.PI * 2 + 0.4
+    ellipsoid(mesh, [Math.sin(a) * 1.05, 0.85, Math.cos(a) * 1.05], radii, 8, 6, tones)
+  }
+  ellipsoid(mesh, [0.45, 2.3, 0.1], radii, 8, 6, tones)
+  ellipsoid(mesh, [-0.5, 2.25, -0.2], radii, 8, 6, tones)
+  return mesh.build()
+}
+
+/** Tres hojas de menta (zarzamora): óvalos en punta que salen del centro y suben un poco, verdes con la vena más oscura. */
+function mintLeaves(): FruitMesh {
+  const mesh = new MeshBuilder()
+  for (let k = 0; k < 3; k++) {
+    const a = (k / 3) * Math.PI * 2 + 0.3
+    const out = [Math.sin(a), Math.cos(a)]
+    const side = [Math.cos(a), -Math.sin(a)]
+    const points: Vec3[][] = []
+    const colors: RGB[][] = []
+    for (let i = 0; i <= 5; i++) {
+      const t = i / 5
+      const reach = 0.2 + 2.6 * t
+      const y = 1.1 * t * t
+      const half = 0.95 * Math.sin(Math.PI * t) ** 0.7
+      points.push([-1, 0, 1].map((u): Vec3 => [out[0] * reach + side[0] * half * u, y + 0.12 * (1 - Math.abs(u)), out[1] * reach + side[1] * half * u]))
+      colors.push([-1, 0, 1].map((u) => (u === 0 ? rgb('mintVein') : mixRgb(rgb('mint'), rgb('mintLight'), 0.4 + 0.3 * t))))
+    }
+    mesh.grid(points, colors)
+  }
+  return mesh.build()
+}
+
+/** Una rodaja de limón (flan y cajeta): la cáscara amarilla, la orilla blanca y los gajos con sus membranas claras hacia el centro. */
+function citrusSlice(): FruitMesh {
+  const mesh = new MeshBuilder()
+  const rings = [0, 0.1, 0.5, 0.8, 0.87, 0.93, 1]
+  const columns = 30
+  const color = (ring: number, column: number): RGB => {
+    if (ring <= 1) return rgb('citrusCore')
+    if (ring <= 3) return column % 3 === 0 ? rgb('citrusMembrane') : rgb('citrusFlesh')
+    if (ring === 4) return rgb('citrusPith')
+    return rgb('citrusRind')
+  }
+  slice(mesh, (a) => [Math.sin(a) * 2.5, Math.cos(a) * 2.4], rings, color, columns, 0.42, rgb('citrusRindWall'))
+  return mesh.build()
+}
+
 const BUILDERS: Record<FruitPiece, () => FruitMesh> = {
   strawberryHalf,
   strawberryWhole,
@@ -574,6 +767,14 @@ const BUILDERS: Record<FruitPiece, () => FruitMesh> = {
   pineappleChunk,
   appleRoundGolden,
   appleRoundRed,
+  appleWedge,
+  citrusSlice,
+  appleSheet,
+  cherry,
+  blackGrape,
+  pearFlower,
+  blackGrapeCluster,
+  mintLeaves,
 }
 
 export const FRUIT_PIECES = Object.keys(BUILDERS) as readonly FruitPiece[]
@@ -641,7 +842,12 @@ export type FruitPlacement = {
  */
 export type FruitDividers = { p: Vec3[]; scale: number }
 
-export type FruitLayout = { layout: FruitLayoutKind; placements: FruitPlacement[]; triangles: number; dividers?: FruitDividers }
+/**
+ * La fruta, con lo que cambia en la decoración: `dividers`, las hileras de rosetones entre las franjas; `keepRosettes`, los rosetones del
+ * borde que se quedan (los índices en la lista de la decoración; la corona de la foto nueva de fresa lleva solo seis, cada uno con su
+ * cereza). Sin ellos, la decoración no cambia.
+ */
+export type FruitLayout = { layout: FruitLayoutKind; placements: FruitPlacement[]; triangles: number; dividers?: FruitDividers; keepRosettes?: number[] }
 
 /**
  * Lo que se aparta en la tapa por el mensaje o la oblea, en unidades de escena y en coordenadas del piso (la `z` hacia el frente,
@@ -1009,15 +1215,22 @@ const ROW_SPACING = 0.9
 /**
  * Cómo van las filas: `turn` gira todo el bloque sobre el centro de la tapa (las filas diagonales); `snug` es la parte del alcance de
  * cada pieza que cuenta contra la orilla (con menos de 1 las filas llegan hasta los rosetones, como en la foto de flan y zarzamora);
- * `flat` usa solo las piezas planas. Sin nada, las filas a lo ancho de flan y cajeta.
+ * `flat` usa solo las piezas planas; `across` pone de través en su fila las piezas alargadas (`ACROSS_RATIO`: las láminas de manzana de
+ * flan y cajeta, encimadas a lo largo de la fila), y las demás quedan como siempre; `fill` abre las filas hasta llenar la tapa de una
+ * orilla a la otra (hasta `FILL_STRETCH` más separadas). Sin nada, las filas a lo ancho de flan y cajeta.
  */
-type RowsOptions = { turn?: number; snug?: number; flat?: boolean }
+type RowsOptions = { turn?: number; snug?: number; flat?: boolean; across?: boolean; fill?: boolean }
+
+/** Una pieza es alargada (y con `across` va de través) si mide de largo esta parte más que de ancho. */
+const ACROSS_RATIO = 1.6
+const FILL_STRETCH = 1.35
 
 /**
  * Filas de atrás hacia el frente, cada una de una fruta, en el orden de la lista, con el bloque centrado en la tapa. Una fruta que
  * no cabe en una fila de esta tapa (el abanico en un mini) se salta.
  */
-function rows(context: Context, fruits: readonly FruitKind[], { turn = 0, snug = 1, flat = false }: RowsOptions = {}) {
+function rows(context: Context, fruits: readonly FruitKind[], { turn = 0, snug = 1, flat = false, across = false, fill = false }: RowsOptions = {}) {
+  const crossed = (size: PieceSize) => across && size.halfX > size.halfZ * ACROSS_RATIO
   const [cos, sin] = [Math.cos(turn), Math.sin(turn)]
   // Del marco de las filas a la tapa: el giro de three sobre y. Con `turn` en 0 deja el punto igual.
   const toLid = (x: number, z: number): [number, number] => [x * cos + z * sin, -x * sin + z * cos]
@@ -1038,16 +1251,22 @@ function rows(context: Context, fruits: readonly FruitKind[], { turn = 0, snug =
   const plan: { kind: FruitKind; reach: number; width: number; depth: number; z: number }[] = []
   for (let i = 0; ; i++) {
     const kind = usable[i % usable.length]
-    const depth = largestOf(kind, (size) => size.halfZ)
+    const depth = largestOf(kind, (size) => (crossed(size) ? size.halfX : size.halfZ))
     const reach = reachOf(kind)
     const last = plan[plan.length - 1]
     // Entre filas cuenta el fondo; en las orillas del bloque, el alcance, para que la primera y la última quepan en la tapa.
     const z = last ? last.z + (last.depth + depth) * rowSpacing : reach * snug
     if (z + reach * snug > 2 * free.halfZ) break
-    plan.push({ kind, reach, width: largestOf(kind, (size) => size.halfX + size.height * Math.sin(ROW_TILT)), depth, z })
+    plan.push({ kind, reach, width: largestOf(kind, (size) => (crossed(size) ? size.halfZ : size.halfX) + size.height * Math.sin(ROW_TILT)), depth, z })
   }
   const last = plan[plan.length - 1]
   if (!last) return
+  if (fill && plan.length > 1) {
+    // Lo que sobra entre la última fila y la orilla se reparte entre las filas.
+    const first = plan[0].z
+    const stretch = Math.min(FILL_STRETCH, 1 + (2 * free.halfZ - last.z - last.reach * snug) / (last.z - first))
+    for (const row of plan) row.z = first + (row.z - first) * stretch
+  }
   const offset = -(last.z + last.reach * snug) / 2
   for (const row of plan) {
     const lineZ = row.z + offset
@@ -1063,7 +1282,7 @@ function rows(context: Context, fruits: readonly FruitKind[], { turn = 0, snug =
       if (!fits(context, px, pz, piece.reach * snug)) continue
       // Cada una un poco más arriba que la anterior, recargada sobre ella.
       const y = context.top + (i % 2) * LIFT_JITTER_CM * context.units
-      const placement: FruitPlacement = { kind: row.kind, piece: piece.piece, p: [px, y, pz], yaw: (random() - 0.5) * 0.2 + turn, tilt: ROW_TILT, toward: toLid(-1, 0), scale: piece.scale, reach: piece.reach, tint: (random() - 0.5) * 0.12 }
+      const placement: FruitPlacement = { kind: row.kind, piece: piece.piece, p: [px, y, pz], yaw: (random() - 0.5) * 0.2 + turn + (crossed(pieceSize(piece.piece)) ? Math.PI / 2 : 0), tilt: ROW_TILT, toward: toLid(-1, 0), scale: piece.scale, reach: piece.reach, tint: (random() - 0.5) * 0.12 }
       if (!place(context, placement)) return
     }
   }
@@ -1158,7 +1377,206 @@ function stripes(context: Context, fruits: readonly FruitKind[], rosette: number
   return dividers
 }
 
-const SEEDS: Record<FruitLayoutKind, number> = { mound: 20261118, ring: 20261119, rows: 20261120, diagonal: 20261121, stripes: 20261122, fans: 20261123 }
+/**
+ * Las filas de atrás hacia el frente de la foto de flan y cajeta: las filas de `rows` giradas un cuarto de vuelta, más los 20° con que
+ * la imagen fija gira el pastel (como las franjas, `STRIPE.turn`), y un poco más, como en la foto, donde suben hacia la derecha. Llegan
+ * hasta el borde (`snug`) y lo llenan de una orilla a la otra (`fill`), solo llevan piezas planas y las láminas de manzana van de
+ * través en su fila (`across`), encimadas de atrás hacia el frente como en la foto; las fresas, el limón y el kiwi, como siempre.
+ */
+export const COLUMNS = { turn: Math.PI / 2 + 0.5, snug: 0.3, flat: true, across: true, fill: true } as const satisfies RowsOptions
+
+/**
+ * La fruta encimada que cubre la tapa (`cover`, las fotos de galleta, cajeta, choco vainilla, capuchino, fresa y queso y chocolate):
+ * - `lead`: cuántas veces salen las primeras frutas de la lista contra una de las demás (la manzana en láminas de galleta, las uvas de
+ *   cajeta); las demás llenan entre ellas.
+ * - `share`: la parte de la tapa libre que cubre, de 1 a 2 de lo tupido (`CakeTopping.density`): con 1, el centro, como en fresa,
+ *   donde la fruta deja ver el anillo; con 2 o más, toda.
+ * - `layers`: la capa de abajo, casi plana y encimada, y las de encima, más paradas, cada una sobre una pieza plana de la de abajo;
+ *   una capa más por cada punto de lo tupido.
+ * - `packing`: cuánto se enciman las piezas de una capa (la parte de la suma de sus alcances que deben separarse sus centros).
+ * - `flat` y `upright`: la inclinación de las piezas de la capa de abajo y de las de encima (desde, más hasta).
+ * - `spread`: cuánto puede pasar una fruta de su parte, por su peso, antes de ceder su turno a las demás.
+ * - `leadPacking`: las frutas que mandan se enciman más entre ellas, en abanico, y no se apartan de su mismo tono (las láminas de
+ *   manzana de galleta van una sobre otra).
+ * - `largest`: una pieza no va donde ocupa más que esta parte del radio de la fruta; solo piezas planas, sin la fresa entera de pie.
+ * - `grow`: las piezas son un poco más grandes que en el montón, como en las fotos, donde la fruta cubre la tapa en pocas capas.
+ * - `edge`: la parte del alcance de una pieza que cuenta contra la orilla de la región y contra lo que se aparta (el alcance es el
+ *   círculo que la envuelve; una lámina no lo llena), así la fruta llega hasta el borde como en las fotos.
+ * - `topLeads`: en las capas de encima, la parte de las veces que una fruta que no manda cede su turno: arriba se ven sobre todo las
+ *   que mandan, como las láminas de manzana de galleta.
+ */
+const COVER = {
+  lead: [3, 2],
+  share: [0.6, 1] as const,
+  layers: 2,
+  packing: 0.38,
+  flat: [0.05, 0.2] as const,
+  upright: [0.22, 0.33] as const,
+  spread: 1,
+  leadPacking: 0.7,
+  largest: 0.95,
+  grow: 1.12,
+  edge: 0.5,
+  topLeads: 0.6,
+}
+
+/** Una región de la tapa: los puntos `p` con `p · toward` de al menos `from` del radio de la fruta (`toward` de largo 1). */
+type CoverRegion = { toward: readonly [number, number]; from: number }
+
+/** La mitad de atrás de durazno: 20° a la izquierda de atrás (la imagen fija gira el pastel -20°), hasta un poco antes del centro. */
+const BACK_ANGLE = Math.PI + 0.35
+
+/** Dónde va la fruta encimada: en toda la parte libre (`cover`) o en la mitad de atrás (`back`). */
+export const COVER_REGIONS: Record<'cover' | 'back', CoverRegion | null> = {
+  cover: null,
+  back: { toward: [Math.sin(BACK_ANGLE), Math.cos(BACK_ANGLE)], from: -0.12 },
+}
+
+/**
+ * La fruta encimada que cubre la parte libre de la tapa o una región de ella. La capa de abajo se reparte por toda la región, casi
+ * plana y con las piezas encimadas; cada capa de encima pone sus piezas sobre una plana de la de abajo, más paradas y recargadas
+ * hacia afuera. Se aparta de lo que ocupan los detalles (`KeepOut`, como los rizos de media tapa) y del mensaje y la oblea.
+ */
+function cover(context: Context, fruits: readonly FruitKind[], region: CoverRegion | null) {
+  const { free, random, dense } = context
+  const share = lerp(COVER.share[0], COVER.share[1], Math.min(1, dense))
+  const [rx, rz] = [free.halfX * share, free.halfZ * share]
+  const radius = Math.min(rx, rz)
+  const [cx, cz] = region ? [region.toward[0] * radius * 0.45, region.toward[1] * radius * 0.45] : moundCenter(context)
+  const weights = fruits.map((_, i) => COVER.lead[i] ?? 1)
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0)
+  const next = kindSequence(fruits, random, weights)
+  const layers = COVER.layers + Math.round(dense)
+  const giveUp = Math.round(GIVE_UP * (1 + dense))
+  const counts = new Map<FruitKind, number>()
+  const weightOf = (kind: FruitKind) => weights[fruits.indexOf(kind)]
+  const overused = (kind: FruitKind) => (counts.get(kind) ?? 0) > 2 + (COVER.spread * weightOf(kind) * context.placements.length) / totalWeight
+  /** Dentro de la región la pieza completa (con un tercio de margen en el corte de la región: ahí se enciman con lo de junto). */
+  const inside = (x: number, z: number, reach: number) => {
+    const within = context.form === 'round' ? Math.hypot(x, z) + reach <= radius : Math.abs(x) + reach <= rx && Math.abs(z) + reach <= rz
+    return within && (!region || x * region.toward[0] + z * region.toward[1] >= region.from * radius + reach * 0.35)
+  }
+  let below: FruitPlacement[] = []
+  for (let layer = 0; layer < layers; layer++) {
+    const supports = below.filter((placement) => pieceSize(placement.piece).height * placement.scale <= SUPPORT_MAX_HEIGHT_CM * context.units)
+    if (layer > 0 && supports.length === 0) break
+    const current: FruitPlacement[] = []
+    let failures = 0
+    while (failures < giveUp) {
+      const kind = next()
+      if (overused(kind) || (layer > 0 && weightOf(kind) === 1 && random() < COVER.topLeads)) {
+        failures++
+        continue
+      }
+      let placed = false
+      for (let attempt = 0; attempt < TRIES && !placed; attempt++) {
+        const tilt = layer === 0 ? COVER.flat[0] + random() * COVER.flat[1] : COVER.upright[0] + random() * COVER.upright[1]
+        const sample = candidate(context, kind, tilt, true)
+        const piece = { ...sample, scale: sample.scale * COVER.grow, reach: sample.reach * COVER.grow }
+        if (piece.reach > COVER.largest * radius) break
+        // Abajo, en cualquier lugar de la región; arriba, sobre una pieza plana de la capa de abajo.
+        const support = layer > 0 ? supports[Math.floor(random() * supports.length)] : null
+        const a = random() * Math.PI * 2
+        const d = Math.sqrt(random())
+        const [x, z] = support
+          ? [support.p[0] + Math.sin(a) * d * support.reach * 0.6, support.p[2] + Math.cos(a) * d * support.reach * 0.6]
+          : [Math.sin(a) * d * rx, Math.cos(a) * d * rz]
+        const leads = weightOf(kind) > 1
+        const packing = COVER.packing * (leads ? COVER.leadPacking : 1)
+        const edge = piece.reach * COVER.edge
+        if (!inside(x, z, edge) || !fits(context, x, z, edge) || crowded(current, x, z, piece.reach, packing)) continue
+        if (!leads && attempt < TRIES - 4 && sameToneNear(current, kind, x, z, piece.reach)) continue
+        const y = support ? support.p[1] + pieceSize(support.piece).height * support.scale * 0.85 : context.top + random() * LIFT_JITTER_CM * context.units
+        const placement: FruitPlacement = {
+          kind,
+          piece: piece.piece,
+          p: [x, y, z],
+          yaw: random() * Math.PI * 2,
+          tilt,
+          toward: away(x - cx, z - cz, random),
+          scale: piece.scale,
+          reach: piece.reach,
+          tint: (random() - 0.5) * 0.12,
+        }
+        if (!place(context, placement)) return
+        current.push(placement)
+        counts.set(kind, (counts.get(kind) ?? 0) + 1)
+        placed = true
+      }
+      failures = placed ? 0 : failures + 1
+    }
+    below = current
+  }
+}
+
+/**
+ * La corona de la foto nueva de fresa: la primera fruta de la lista, una sola pieza (la más alta: la fresa entera) al centro, y sobre
+ * `count` rosetones del borde repartidos parejo (los demás se quitan, `keepRosettes`), una pieza de las demás frutas (las cerezas).
+ * Sin rosetones, las piezas van en una vuelta junto a la orilla.
+ */
+const CROWN = { count: 6, center: 1.2, onRosette: 0.075, edge: 0.88 }
+
+function crown(context: Context, fruits: readonly FruitKind[], decoration: TierDecoration | undefined): number[] | undefined {
+  const { random, units, top } = context
+  const [first, ...rest] = fruits
+  const others = rest.length > 0 ? rest : [first]
+  const tallest = [...KIND_PIECES[first]].sort((a, b) => pieceSize(b).height - pieceSize(a).height)[0]
+  const center: FruitPlacement = {
+    kind: first,
+    piece: tallest,
+    p: [0, top, 0],
+    yaw: random() * Math.PI * 2,
+    tilt: 0,
+    toward: [0, 1],
+    scale: units * CROWN.center,
+    reach: units * CROWN.center * pieceSize(tallest).radius,
+    tint: 0,
+  }
+  if (!place(context, center)) return undefined
+  const all = decoration?.parts.find((part) => part.shape === 'rosette')?.placements ?? []
+  const rosettes = all.filter((placement) => placement.p[1] > top - 0.045)
+  const count = rosettes.length > 0 ? Math.min(CROWN.count, rosettes.length) : CROWN.count
+  const spots: { p: Vec3; index: number }[] = Array.from({ length: count }, (_, i) => {
+    if (rosettes.length > 0) {
+      const chosen = rosettes[Math.floor((i * rosettes.length) / count)]
+      return { p: [chosen.p[0], chosen.p[1] + CROWN.onRosette * chosen.s[1], chosen.p[2]], index: all.indexOf(chosen) }
+    }
+    const a = (i / count) * Math.PI * 2
+    const r = context.free.halfX * CROWN.edge
+    return { p: [Math.sin(a) * r, top, Math.cos(a) * r], index: -1 }
+  })
+  for (const [i, spot] of spots.entries()) {
+    const kind = others[i % others.length]
+    const piece = KIND_PIECES[kind][0]
+    const scale = units * (MAX_SCALE - 0.16 + random() * 0.16)
+    const placement: FruitPlacement = {
+      kind,
+      piece,
+      p: spot.p,
+      yaw: random() * Math.PI * 2,
+      tilt: 0.1 + random() * 0.15,
+      toward: away(spot.p[0], spot.p[2], random),
+      scale,
+      reach: scale * pieceSize(piece).radius,
+      tint: (random() - 0.5) * 0.08,
+    }
+    if (!place(context, placement)) break
+  }
+  return rosettes.length > 0 ? spots.map((spot) => spot.index) : undefined
+}
+
+const SEEDS: Record<FruitLayoutKind, number> = {
+  mound: 20261118,
+  ring: 20261119,
+  rows: 20261120,
+  diagonal: 20261121,
+  stripes: 20261122,
+  fans: 20261123,
+  cover: 20261124,
+  back: 20261125,
+  columns: 20261126,
+  crown: 20261127,
+}
 
 /**
  * La fruta del último piso de `shape`, en las coordenadas de ese piso; `null` sin fruta. `decoration` es la decoración ya colocada
@@ -1196,7 +1614,14 @@ export function fruitLayout(shape: CakeShape, decoration?: TierDecoration, avoid
     rows: () => rows(context, fruits),
     diagonal: () => rows(context, fruits, DIAGONAL),
     stripes: () => stripes(context, fruits, rosette),
+    cover: () => cover(context, fruits, COVER_REGIONS.cover),
+    back: () => cover(context, fruits, COVER_REGIONS.back),
+    columns: () => rows(context, fruits, COLUMNS),
+    crown: () => {
+      keepRosettes = crown(context, fruits, decoration)
+    },
   }
+  let keepRosettes: number[] | undefined
   const dividers = layouts[layout]()
-  return { layout, placements: context.placements, triangles: context.triangles, ...(dividers ? { dividers } : {}) }
+  return { layout, placements: context.placements, triangles: context.triangles, ...(dividers ? { dividers } : {}), ...(keepRosettes ? { keepRosettes } : {}) }
 }
