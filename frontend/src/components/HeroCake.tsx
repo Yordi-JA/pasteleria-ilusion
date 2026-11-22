@@ -4,6 +4,7 @@ import { HOME_CAKE_LABEL, HOME_CAKE_STILL } from '../viewmodels/homeCake.ts'
 import type { SceneFraming } from '../three/CakeScene.tsx'
 import type { HeroCakeView } from '../viewmodels/useHeroCake.ts'
 import SceneBoundary from './SceneBoundary.tsx'
+import Skeleton from './Skeleton.tsx'
 
 // La escena 3D va en su propio chunk: three y react-three-fiber no frenan el primer render de la portada.
 const CakeScene = lazy(() => import('../three/CakeScene.tsx'))
@@ -14,8 +15,9 @@ export type StillTierColor = keyof typeof TIER_FILL
 
 /**
  * El pastel fijo: el dibujo de pisos de la marca (`assets/motivos/dibujo-pisos.svg`) con los colores del pastel 3D (por
- * omisión, los dos pisos en la crema `betun` del pastel de `homeCake.ts`) y su sombra de contacto. Se ve mientras llega la escena y
- * cuando no hay WebGL o se pierde el contexto. Es decorativo: el `h1` y el lema ya dicen de qué es la página.
+ * omisión, los dos pisos en la crema `betun` del pastel de `homeCake.ts`) y su sombra de contacto. Se ve cuando no hay WebGL 2, el
+ * chunk de la escena falla o se pierde el contexto (mientras llega la escena, `HeroCake` muestra un esqueleto), y siempre en las
+ * vistas de acceso sin 3D (`StaticCakeBox`). Es decorativo: el `h1` y el lema ya dicen de qué es la página.
  */
 export function StaticCake({
   hidden = false,
@@ -110,9 +112,15 @@ export function StaticCakeBox({ testId }: { testId: string }) {
 
 /**
  * Lugar del pastel de la marca: en la portada, con la altura de la escena del mockup (600 px, 460 px hasta 960 px de
- * ancho y 380 px en móvil); en `/entrar` y `/registro`, la de la escena chica (`size="compact"`, D59). La caja no cambia de tamaño: adentro, el pastel fijo cede su lugar a la escena 3D
- * (`src/three/CakeScene.tsx`, D48) en cuanto dibuja su primer cuadro. La escena entra en 250 ms (opacidad y escala
- * de 0.97 a 1, con la curva `ease-entrada`) y el pastel fijo sale en 150 ms; con "reducir movimiento", sin transición.
+ * ancho y 380 px en móvil); en `/entrar` y `/registro`, la de la escena chica (`size="compact"`, D59). La caja no cambia de tamaño.
+ *
+ * Mientras llega la escena 3D (`src/three/CakeScene.tsx`, D48), la caja muestra un esqueleto de carga de su tamaño, con `aria-busy`
+ * (22 de noviembre; antes, el pastel fijo o la foto, que parecían la escena sin moverse). En cuanto la escena dibuja su primer
+ * cuadro, entra en 250 ms (opacidad y escala de 0.97 a 1, con la curva `ease-entrada`) y el esqueleto sale en 150 ms. El respaldo
+ * (el pastel fijo o `fallback`) solo aparece cuando la escena no puede dibujarse: sin WebGL 2 (desde el principio, sin esqueleto),
+ * si el chunk falla o si se pierde el contexto, y también si la escena tarda más de `SLOW_SCENE_MS` (un chunk que no resuelve ni
+ * falla), así que el esqueleto nunca se queda. En ese último caso la escena sigue montada: si llega tarde, entra con su transición
+ * encima del respaldo. Con "reducir movimiento", sin transición y el esqueleto sin brillo.
  */
 export default function HeroCake({
   cake,
@@ -139,25 +147,32 @@ export default function HeroCake({
   label?: string
   /** Los colores de los pisos del dibujo fijo, para que coincida con el pastel 3D: por omisión, los del pastel de la marca. */
   stillTiers?: readonly [StillTierColor, StillTierColor]
-  /**
-   * Lo que se ve mientras llega la escena y cuando no hay 3D, en lugar del dibujo fijo: en la ficha, la foto real del producto o su
-   * hueco (D95). Sale como el dibujo fijo cuando la escena dibuja.
-   */
+  /** El respaldo cuando no hay 3D, en lugar del dibujo fijo: en la ficha, la foto recortada del producto o su hueco (D95). */
   fallback?: ReactNode
 }) {
   const { observeBox, ...scene } = cake
   const ready = scene.status === 'ready'
+  // Tras `SLOW_SCENE_MS` cargando (un chunk colgado), el esqueleto cede al respaldo; la escena sigue montada por si llega.
+  const loading = scene.status === 'loading' && !scene.slow
+  const still = scene.status === 'fallback' || scene.slow
   return (
-    <div ref={observeBox} data-testid={testId} data-state={scene.status} className={`relative ${BOX_HEIGHT[size]}`}>
+    <div ref={observeBox} data-testid={testId} data-state={scene.status} aria-busy={loading || undefined} className={`relative ${BOX_HEIGHT[size]}`}>
+      <div
+        data-testid={`${testId}-cargando`}
+        aria-hidden="true"
+        className={`absolute inset-0 transition-[opacity,visibility] duration-150 ease-entrada motion-reduce:transition-none ${loading ? '' : 'invisible opacity-0'}`}
+      >
+        <Skeleton tone={onColor ? 'mermelada' : 'fresa'} radius="md" className="h-full w-full" />
+      </div>
       {fallback ? (
         <div
           data-testid={`${testId}-fijo`}
-          className={`absolute inset-0 transition-[opacity,visibility] duration-150 ease-entrada motion-reduce:transition-none ${ready ? 'invisible opacity-0' : ''}`}
+          className={`absolute inset-0 transition-[opacity,visibility] duration-150 ease-entrada motion-reduce:transition-none ${still ? '' : 'invisible opacity-0'}`}
         >
           {fallback}
         </div>
       ) : (
-        <StaticCake hidden={ready} testId={`${testId}-fijo`} tiers={stillTiers} bottom={size === 'compact'} />
+        <StaticCake hidden={!still} testId={`${testId}-fijo`} tiers={stillTiers} bottom={size === 'compact'} />
       )}
       {scene.status !== 'fallback' && (
         <SceneBoundary onError={scene.onChunkError}>

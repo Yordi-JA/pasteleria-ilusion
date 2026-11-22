@@ -3,7 +3,7 @@ import { HOME_CAKE } from './homeCake.ts'
 import { useCakeScene } from './useCakeScene.ts'
 import type { CakeSceneStatus, CakeSceneView } from './useCakeScene.ts'
 
-/** `loading`: se ve el pastel fijo mientras llega la escena; `ready`: ya se dibujó; `fallback`: queda el pastel fijo. */
+/** `loading`: se ve el esqueleto mientras llega la escena; `ready`: ya se dibujó; `fallback`: queda el pastel fijo (o la foto). */
 export type HeroCakeStatus = CakeSceneStatus
 
 /**

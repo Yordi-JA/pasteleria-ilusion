@@ -8,6 +8,9 @@ export type CakeSceneStatus = 'loading' | 'ready' | 'fallback'
 
 const REDUCED_MOTION = '(prefers-reduced-motion: reduce)'
 
+/** Cuánto se espera la escena antes de dar por lenta la carga (22 de noviembre): después se ve el respaldo, no el esqueleto. */
+export const SLOW_SCENE_MS = 8000
+
 function subscribeReducedMotion(onChange: () => void) {
   const query = window.matchMedia(REDUCED_MOTION)
   query.addEventListener('change', onChange)
@@ -76,6 +79,19 @@ export function useCakeScene<S extends SceneShape>(shape: S, visibleMargin = '0p
     return () => document.removeEventListener('visibilitychange', retry)
   }, [cake.retryable])
 
+  // Si la escena tarda demasiado (el chunk se queda colgado, sin resolver ni fallar), quien la muestra pone su respaldo en lugar del
+  // esqueleto; la escena sigue montada y, si llega tarde, entra encima del respaldo. Solo corre mientras carga.
+  const [slow, setSlow] = useState(false)
+  const loading = cake.status === 'loading'
+  useEffect(() => {
+    if (!loading) return
+    const timer = setTimeout(() => setSlow(true), SLOW_SCENE_MS)
+    return () => {
+      clearTimeout(timer)
+      setSlow(false)
+    }
+  }, [loading])
+
   const onReady = useCallback(
     () => setCake((current) => (current.status === 'loading' ? { status: 'ready', retryable: false } : current)),
     [],
@@ -98,6 +114,8 @@ export function useCakeScene<S extends SceneShape>(shape: S, visibleMargin = '0p
   return {
     observeBox,
     status: cake.status,
+    /** Sigue cargando después de `SLOW_SCENE_MS`: el esqueleto cede su lugar al respaldo. */
+    slow: loading && slow,
     shape,
     viewpoint,
     reducedMotion,

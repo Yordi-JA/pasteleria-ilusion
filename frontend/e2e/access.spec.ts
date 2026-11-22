@@ -493,13 +493,43 @@ test.describe('the cake of the access pages (tanda 8)', () => {
     })
   }
 
-  test('the still drawing while the scene loads has two tiers in the cream of the cake', async ({ page }) => {
-    await page.route('**/src/three/**', () => {})
+  test('while the scene loads a skeleton fills the box of the cake, and it gives way to the scene', async ({ page }) => {
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    await page.route('**/src/three/CakeScene.tsx*', async (route) => {
+      await gate
+      await route.continue()
+    })
+    await withoutGoogle(page)
+    await mockAuth(page)
+    await page.goto('/entrar')
+    const cake = page.getByTestId('pastel-acceso')
+    const loading = page.getByTestId('pastel-acceso-cargando')
+    await expect(cake).toHaveAttribute('data-state', 'loading')
+    await expect(cake).toHaveAttribute('aria-busy', 'true')
+    await expect(loading).toBeVisible()
+    await expect(page.getByTestId('pastel-acceso-fijo')).toBeHidden()
+    const rect = (await cake.boundingBox())!
+    const block = (await loading.boundingBox())!
+    expect(block.width).toBeCloseTo(rect.width, 0)
+    expect(block.height).toBeCloseTo(rect.height, 0)
+    release()
+    await expect(cake).toHaveAttribute('data-state', 'ready', { timeout: 30_000 })
+    await expect(loading).toBeHidden()
+    await expect(cake).not.toHaveAttribute('aria-busy', 'true')
+  })
+
+  test('the still drawing, when the scene cannot load, has two tiers in the cream of the cake', async ({ page }) => {
+    await page.route('**/src/three/CakeScene.tsx*', (route) => route.abort())
     await withoutGoogle(page)
     await mockAuth(page)
     await page.goto('/entrar')
     const still = page.getByTestId('pastel-acceso-fijo')
+    await expect(page.getByTestId('pastel-acceso')).toHaveAttribute('data-state', 'fallback')
     await expect(still).toBeVisible()
+    await expect(page.getByTestId('pastel-acceso-cargando')).toBeHidden()
     await expect(still.locator('rect')).toHaveCount(2)
     for (const rect of await still.locator('rect').all()) await expect(rect).toHaveClass(/fill-betun/)
   })
