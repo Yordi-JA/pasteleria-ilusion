@@ -18,6 +18,14 @@ import { StateCard } from './payment/PaymentStates.tsx'
 const TITLE = 'Tu pedido está apartado'
 
 const column = 'mx-auto w-full max-w-[1200px] px-6 max-[600px]:px-4'
+// El cierre de la compra en efectivo entra como la confirmación: el número del pedido, su tarjeta y el resumen suben 12 px
+// y aparecen escalonados (450 ms, 80 ms entre piezas). Con "reducir movimiento" se pintan tal cual.
+const ENTRANCE = {
+  title: 'motion-safe:animate-home-entrada',
+  card: 'motion-safe:animate-home-entrada [--entrada-retraso:80ms]',
+  summary: 'motion-safe:animate-home-entrada [--entrada-retraso:160ms]',
+}
+
 const grid = `${column} grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-start gap-x-8 gap-y-12 py-12 max-[900px]:grid-cols-1`
 
 function ReservedSkeleton() {
@@ -125,10 +133,10 @@ export default function OrderReserved() {
     body = (
       <div className={grid}>
         <section aria-labelledby="apartado-pedido" className="flex flex-col gap-4">
-          <h2 id="apartado-pedido" className="font-display text-titulo-2">
+          <h2 id="apartado-pedido" className={`font-display text-titulo-2 ${ENTRANCE.title}`}>
             Pedido #{orderId}
           </h2>
-          <Card large className="flex flex-col gap-6">
+          <Card large className={`flex flex-col gap-6 ${ENTRANCE.card}`}>
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               {view.created && <p className="text-cuerpo text-mermelada-suave">Hecho el {view.created}</p>}
               <p className="text-nota font-semibold">Apartado, falta tu pago</p>
@@ -148,7 +156,7 @@ export default function OrderReserved() {
             </div>
           </Card>
         </section>
-        <PaymentSummary summary={view.summary} variant="reserved" />
+        <PaymentSummary summary={view.summary} variant="reserved" className={ENTRANCE.summary} />
       </div>
     )
   }

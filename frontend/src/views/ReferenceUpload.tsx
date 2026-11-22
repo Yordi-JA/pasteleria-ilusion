@@ -121,9 +121,17 @@ const STATUS_WORDS: Record<ReferencePhoto['status'], string | null> = { ready: n
 function PhotoRow({ photo, onRemove, onUnreadable }: { photo: ReferencePhoto; onRemove: () => void; onUnreadable: () => void }) {
   const failed = photo.status === 'error'
   return (
-    <li className={`flex items-center gap-3 rounded-md bg-betun p-2 pr-3 ${failed ? 'border-2 border-error' : 'border border-relieve'}`}>
+    // La fila llega con el movimiento de las listas (8 px) y la miniatura se asienta como la perla del carrito: la foto quedó.
+    <li
+      className={`flex items-center gap-3 rounded-md bg-betun p-2 pr-3 motion-safe:animate-aparece ${failed ? 'border-2 border-error' : 'border border-relieve'}`}
+    >
       {photo.url ? (
-        <img src={photo.url} alt={`Vista previa de ${photo.name}`} onError={onUnreadable} className="h-12 w-12 shrink-0 rounded-sm object-cover" />
+        <img
+          src={photo.url}
+          alt={`Vista previa de ${photo.name}`}
+          onError={onUnreadable}
+          className="h-12 w-12 shrink-0 rounded-sm object-cover motion-safe:animate-asienta"
+        />
       ) : (
         <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-sm bg-harina text-nota text-mermelada-suave">
           Foto

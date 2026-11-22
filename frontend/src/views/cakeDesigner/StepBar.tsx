@@ -162,7 +162,7 @@ export default function StepBar({ steps, current, mobileTip = null }: { steps: S
           </p>
           {/* En móvil no se ven los círculos: el candado del paso incluido va junto al paso actual. */}
           {lock && (
-            <Toggletip label={lock.label} text={lock.text}>
+            <Toggletip label={lock.label} text={lock.text} align="end">
               <LockSimple size={20} aria-hidden="true" />
             </Toggletip>
           )}

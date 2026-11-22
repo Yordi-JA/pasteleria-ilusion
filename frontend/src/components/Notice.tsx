@@ -55,6 +55,10 @@ const titleColors: Record<NoticeTone, string> = {
   error: 'text-error',
 }
 
+// Un aviso vivo es uno que llega como respuesta (un error al enviar, "Procesando pago…"): baja 8 px y aparece en vez de empujar la
+// forma de golpe. Uno con `live={false}` es fijo de la página o va dentro de una región que ya lo anima (`AddToCartNotice`).
+const LIVE_ENTRANCE = 'motion-safe:animate-aviso-entrada'
+
 // Un aviso con role status o alert se anuncia solo si se inserta de forma dinámica; uno presente al cargar la página no se lee.
 export default function Notice({ tone = 'info', title, children, className = '', live = true, markerClassName = '' }: NoticeProps) {
   const marker =
@@ -69,7 +73,7 @@ export default function Notice({ tone = 'info', title, children, className = '',
   return (
     <div
       role={live ? (tone === 'error' ? 'alert' : 'status') : undefined}
-      className={`flex flex-col gap-1.5 rounded-md px-5 py-4 text-cuerpo text-mermelada ${surfaces[tone]} ${borders[tone]} ${className}`}
+      className={`flex flex-col gap-1.5 rounded-md px-5 py-4 text-cuerpo text-mermelada ${surfaces[tone]} ${borders[tone]} ${live ? LIVE_ENTRANCE : ''} ${className}`}
     >
       <div className="flex items-center gap-2.5">
         <span className={`flex size-5 shrink-0 items-center justify-center ${markerClassName}`}>{marker}</span>

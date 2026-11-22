@@ -301,6 +301,30 @@ test('a slow old answer never replaces the newer one', async ({ page }) => {
   await expect(kilos(page)).toHaveText('Aprox. 7 kg para 47 personas')
 })
 
+// El mensaje del candado sigue en el acomodo cerrado (`invisible`, para animar su salida). En móvil el candado va junto al borde
+// derecho: alineado a su orilla, el mensaje no se sale de la pantalla, ni cerrado ni abierto.
+test('on a phone the step lock tooltip stays inside the screen, closed and open', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await open(page)
+  await toBreadStep(page)
+  await page.getByRole('radio', { name: 'Choco-pingüino' }).check()
+  await expect(total(page)).toHaveText('$1,500 MXN')
+  await proceed(page)
+  await expect(stepTitle(page)).toHaveText('5. Cobertura')
+  const lock = page.getByRole('navigation', { name: 'Pasos de Diseña tu pastel' }).getByRole('button', { name: 'Relleno incluido' })
+  const tip = page.getByRole('tooltip').filter({ hasText: 'ya trae su relleno' })
+  await expect(lock).toBeVisible()
+  await expect(tip).toBeHidden()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  await lock.focus()
+  await expect(tip).toBeVisible()
+  const box = await tip.boundingBox()
+  expect(box).not.toBeNull()
+  expect(box!.x).toBeGreaterThanOrEqual(0)
+  expect(box!.x + box!.width).toBeLessThanOrEqual(390)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+})
+
 test('choco-pingüino skips the filling step and envinado asks to choose another bread', async ({ page }) => {
   await open(page)
   await toBreadStep(page)

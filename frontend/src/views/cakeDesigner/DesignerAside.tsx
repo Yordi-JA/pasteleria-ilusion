@@ -238,7 +238,8 @@ export function SummaryDisclosure({ rows }: { rows: SummaryRow[] }) {
         Ver tu pastel ({rows.length} {rows.length === 1 ? 'elegido' : 'elegidos'})
         <CaretDown size={18} aria-hidden="true" className="shrink-0 motion-safe:transition-transform group-open:rotate-180" />
       </summary>
-      <div className="px-4 pb-2">
+      {/* Al abrir, la lista baja 8 px y aparece; sin animar la altura, que D80 deja fuera (solo `transform` y `opacity`). */}
+      <div className="px-4 pb-2 motion-safe:group-open:animate-aparece">
         <SummaryList rows={rows} />
       </div>
     </details>
