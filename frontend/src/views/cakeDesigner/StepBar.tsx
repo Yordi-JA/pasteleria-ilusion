@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { focusRing } from '../../components/focus.ts'
 import Toggletip from '../../components/Toggletip.tsx'
 import type { StepStatus } from '../../viewmodels/cakeDesignSteps.ts'
+import { useArrivals } from '../../viewmodels/useArrivals.ts'
 
 export type StepItem = {
   number: number
@@ -48,14 +49,40 @@ const SEGMENT: Record<StepStatus, string> = {
   upcoming: 'bg-relieve',
 }
 
-function Circle({ step }: { step: StepItem }) {
+/**
+ * El avance que acaba de dar "Continuar" se asienta (22 de noviembre): la palomita del paso completado crece desde 0.6 y aparece
+ * (el círculo y su anillo no se mueven), y 60 ms después la línea que lo une con el siguiente se llena de izquierda a derecha,
+ * en 250 ms; en móvil se llena el segmento del paso nuevo. Los estados "!" y el candado no se animan: son avisos y se ven de
+ * inmediato. Al regresar o al recargar no se mueve nada (`useArrivals`).
+ */
+const CHECK_ARRIVING = 'motion-safe:animate-asienta'
+const LINE_ARRIVING = 'origin-left motion-safe:animate-tramo-lleno [--entrada-retraso:60ms]'
+const SEGMENT_ARRIVING = 'origin-left motion-safe:animate-tramo-lleno'
+
+/** Las llaves de lo que puede llegar: la palomita, la línea llena y el segmento con color de cada paso. */
+function progressKeys(steps: StepItem[]): string[] {
+  return steps.flatMap((step, index) => {
+    const keys: string[] = []
+    if (step.status === 'complete') keys.push(`${step.number}:palomita`)
+    if (isFilled(steps, index)) keys.push(`${step.number}:linea`)
+    if (step.status !== 'upcoming') keys.push(`${step.number}:segmento`)
+    return keys
+  })
+}
+
+/** La línea que va de este paso al siguiente se pinta llena si el siguiente ya se alcanzó o este se completó. */
+function isFilled(steps: StepItem[], index: number): boolean {
+  return index < steps.length - 1 && (steps[index + 1].status !== 'upcoming' || steps[index].status === 'complete')
+}
+
+function Circle({ step, arriving = false }: { step: StepItem; arriving?: boolean }) {
   return (
     <span
       aria-hidden="true"
       className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border-[1.5px] text-nota font-semibold ${CIRCLE[step.status]}`}
     >
       {step.status === 'complete' ? (
-        <Check size={14} weight="bold" />
+        <Check size={14} weight="bold" className={arriving ? CHECK_ARRIVING : undefined} />
       ) : step.status === 'included' ? (
         <LockSimple size={14} />
       ) : step.status === 'attention' ? (
@@ -78,6 +105,7 @@ export default function StepBar({ steps, current, mobileTip = null }: { steps: S
   const included = steps.find((step) => step.tip)
   // En móvil va un solo candado: el del pastel de origen, que junta tipo, pan y relleno, o el del paso incluido.
   const lock = mobileTip ?? (included?.tip ? { label: included.tipLabel ?? `${included.short} incluido`, text: included.tip } : null)
+  const arrived = useArrivals(progressKeys(steps), current)
   return (
     <nav aria-label="Pasos de Diseña tu pastel">
       <ol className="grid grid-cols-8 max-[600px]:hidden">
@@ -89,7 +117,7 @@ export default function StepBar({ steps, current, mobileTip = null }: { steps: S
                   <Circle step={step} />
                 </Toggletip>
               ) : (
-                <Circle step={step} />
+                <Circle step={step} arriving={arrived.has(`${step.number}:palomita`)} />
               )}
               <span className={`text-nota ${step.status === 'current' || step.status === 'complete' ? 'font-semibold text-mermelada' : 'text-mermelada-suave'}`}>
                 {step.short}
@@ -99,14 +127,19 @@ export default function StepBar({ steps, current, mobileTip = null }: { steps: S
               </span>
             </>
           )
-          const filled = index < total - 1 && (steps[index + 1].status !== 'upcoming' || step.status === 'complete')
+          const filled = isFilled(steps, index)
           return (
             <li key={step.number} className="relative flex justify-center" aria-current={step.status === 'current' ? 'step' : undefined}>
               {index < total - 1 && (
-                <span
-                  aria-hidden="true"
-                  className={`absolute left-[calc(50%+22px)] right-[calc(-50%+22px)] top-[21px] h-px ${filled ? 'bg-mermelada' : 'bg-relieve'}`}
-                />
+                // El riel `relieve` siempre; el tramo `mermelada` va encima cuando está lleno, para llenarse sobre el riel.
+                <span aria-hidden="true" className="absolute left-[calc(50%+22px)] right-[calc(-50%+22px)] top-[21px] h-px bg-relieve">
+                  {filled && (
+                    <span
+                      data-testid="tramo-lleno"
+                      className={`block h-full bg-mermelada ${arrived.has(`${step.number}:linea`) ? LINE_ARRIVING : ''}`}
+                    />
+                  )}
+                </span>
               )}
               {step.reachable ? (
                 <Link
@@ -136,10 +169,12 @@ export default function StepBar({ steps, current, mobileTip = null }: { steps: S
         </div>
         <ol aria-hidden="true" className="grid grid-cols-8 gap-1.5">
           {steps.map((step) => (
-            <li
-              key={step.number}
-              className={`h-1.5 rounded-full ${SEGMENT[step.status]}`}
-            />
+            // El riel `relieve` queda abajo y el color va encima, para que el segmento nuevo se llene sobre él.
+            <li key={step.number} className="h-1.5 overflow-hidden rounded-full bg-relieve">
+              <span
+                className={`block h-full rounded-full ${SEGMENT[step.status]} ${arrived.has(`${step.number}:segmento`) ? SEGMENT_ARRIVING : ''}`}
+              />
+            </li>
           ))}
         </ol>
       </div>
