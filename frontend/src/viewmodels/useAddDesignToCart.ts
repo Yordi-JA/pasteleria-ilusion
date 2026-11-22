@@ -108,7 +108,8 @@ export function useAddDesignToCart() {
             ? 'Tu pastel quedó en tu pedido, pero no pudimos guardar tu imagen en este navegador: tendrás que elegirla otra vez.'
             : replaced
               ? 'Tu pastel quedó en tu pedido en lugar del que editaste.'
-              : 'Tu pastel quedó en tu pedido.',
+              : // El título ya lo dice: sin detalle, el aviso es un solo renglón (correcciones del 21 de noviembre).
+                '',
         })
         return true
       } finally {

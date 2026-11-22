@@ -1,7 +1,8 @@
-import { useId } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { Link } from 'react-router'
 import AddToCartNotice from '../../components/AddToCartNotice.tsx'
 import Button from '../../components/Button.tsx'
+import ButtonLink from '../../components/ButtonLink.tsx'
 import ColorSwatches from '../../components/ColorSwatches.tsx'
 import { focusRing } from '../../components/focus.ts'
 import Notice from '../../components/Notice.tsx'
@@ -123,32 +124,38 @@ export default function ReviewStep({ review, onOccasion, onRetry }: ReviewStepPr
   )
 }
 
-type ReviewFeedbackProps = {
-  /** Aviso de "Agregar al pedido" y lo que sigue: agregado, o diseñar otro. */
-  feedback: DesignFeedback | null
-  added: boolean
-  onStartOver: () => void
+/**
+ * El aviso de "Agregar al pedido" ("Agregado al pedido" o el error). Va en el pie de la tarjeta del paso, junto al botón que lo
+ * provoca (`notice` de `StepCard`), no al final del contenido que se desplaza: ahí quedaría fuera de la vista al hacer clic
+ * (tanda 3). La región queda siempre montada para que el aviso se anuncie (`AddToCartNotice`).
+ */
+export function ReviewFeedback({ feedback }: { feedback: DesignFeedback | null }) {
+  return <AddToCartNotice feedback={feedback} />
 }
 
 /**
- * El aviso de "Agregar al pedido" ("Agregado al pedido" o el error) con "Ir a mi pedido" y "Diseñar otro pastel". Va en el pie
- * de la tarjeta del paso, junto al botón que lo provoca (`notice` de `StepCard`), no al final del contenido que se desplaza:
- * ahí quedaría fuera de la vista al hacer clic (tanda 3).
+ * Lo que sigue cuando el pastel ya quedó en el pedido: "Ir a mi pedido" como el botón principal y "Diseñar otro pastel" como
+ * enlace. Toman el lugar de "Agregar al pedido" y "Atrás" (`actions` de `StepCard`): antes se veían los cuatro juntos, con el
+ * aviso, y el botón de agregar ya no hacía nada (correcciones del 21 de noviembre). Para cambiar algo quedan "Cambiar" en cada
+ * renglón y la barra de pasos.
  */
-export function ReviewFeedback({ feedback, added, onStartOver }: ReviewFeedbackProps) {
+export function AddedActions({ onStartOver }: { onStartOver: () => void }) {
+  const actions = useRef<HTMLDivElement>(null)
+  // El botón que se tocó ("Agregar al pedido") ya no existe: el foco pasa al que sigue, no se pierde en la página. `autoFocus`
+  // no sirve aquí: React solo lo aplica a campos y botones, no a un enlace.
+  useEffect(() => actions.current?.querySelector('a')?.focus({ preventScroll: true }), [])
   return (
-    <>
-      <AddToCartNotice feedback={feedback} />
-      {added && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <Link to="/carrito" className={`inline-flex min-h-11 items-center rounded-sm text-etiqueta underline underline-offset-4 ${focusRing}`}>
-            Ir a mi pedido
-          </Link>
-          <Button variant="secondary" onClick={onStartOver}>
-            Diseñar otro pastel
-          </Button>
-        </div>
-      )}
-    </>
+    <div ref={actions} className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <ButtonLink to="/carrito">
+        Ir a mi pedido
+      </ButtonLink>
+      <button
+        type="button"
+        onClick={onStartOver}
+        className={`inline-flex min-h-11 cursor-pointer items-center rounded-sm px-4 text-etiqueta underline underline-offset-4 hover:decoration-2 ${focusRing}`}
+      >
+        Diseñar otro pastel
+      </button>
+    </div>
   )
 }

@@ -201,7 +201,8 @@ test.describe('step 8 of "Diseña tu pastel"', () => {
   test('the pearl flies, the counter waits for it, and the notice is the same', async ({ page }) => {
     await openReview(page)
     await expectFlightThenLanding(page, designButton(page), notice(page.getByTestId('tarjeta-paso')), '1')
-    await expect(notice(page.getByTestId('tarjeta-paso'))).toContainText('Tu pastel quedó en tu pedido.')
+    // Un solo renglón: el título ya dice que quedó en el pedido (correcciones del 21 de noviembre).
+    await expect(notice(page.getByTestId('tarjeta-paso'))).toHaveText('Agregado al pedido')
   })
 
   test('with reduced motion nothing flies and the counter changes at once', async ({ page }) => {
@@ -218,8 +219,10 @@ test.describe('step 8 of "Diseña tu pastel"', () => {
     await designButton(page).click()
     await expect(counter(page)).toHaveText('1')
     await expect(pearls(page)).toHaveCount(0)
-    await designButton(page).click()
-    await expect(notice(page.getByTestId('tarjeta-paso'))).toContainText('Ya está en tu pedido')
+    // Ya en el pedido, el pie ofrece "Ir a mi pedido" en lugar de otro "Agregar al pedido" (correcciones del 21 de noviembre):
+    // no hay segundo clic que mande otra perla.
+    await expect(designButton(page)).toHaveCount(0)
+    await expect(page.getByTestId('tarjeta-paso').getByRole('link', { name: 'Ir a mi pedido' })).toBeVisible()
     await expect(pearls(page)).toHaveCount(0)
     await expect(counter(page)).toHaveText('1')
   })

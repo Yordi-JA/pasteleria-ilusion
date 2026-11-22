@@ -95,6 +95,23 @@ test.describe('after adding the cake to the cart', () => {
     expect((await storedCart(page)).items).toHaveLength(1)
   })
 
+  test('after adding, the footer only says it was added and offers what comes next', async ({ page }) => {
+    await addDesignFromReview(page)
+    // Correcciones del 21 de noviembre: un aviso de un renglón y dos acciones, en lugar del aviso con su detalle, los dos enlaces,
+    // "Agregar al pedido" (que ya no hacía nada) y "Atrás".
+    await expect(notice(page)).toHaveText('Agregado al pedido')
+    await expect(card(page).getByRole('button', { name: 'Agregar al pedido' })).toHaveCount(0)
+    await expect(card(page).getByRole('button', { name: 'Atrás' })).toHaveCount(0)
+    const goToOrder = card(page).getByRole('link', { name: 'Ir a mi pedido' })
+    await expect(goToOrder).toHaveAttribute('href', '/carrito')
+    // El botón que se tocó ya no existe: el foco pasa a lo que sigue.
+    await expect(goToOrder).toBeFocused()
+    await expect(card(page).getByRole('button', { name: 'Diseñar otro pastel' })).toBeVisible()
+    // Para cambiar algo quedan los "Cambiar" de cada renglón: es otro pastel, y vuelve "Agregar al pedido".
+    await page.getByTestId('desglose').getByRole('link', { name: /^Cambiar/ }).first().click()
+    await expect(stepTitle(page)).not.toHaveText('8. Revisión')
+  })
+
   test('opening Diseña tu pastel again from the menu starts from step 1 with an empty draft', async ({ page }) => {
     await addDesignFromReview(page)
     await openDesignerFromMenu(page)

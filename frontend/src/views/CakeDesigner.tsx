@@ -13,7 +13,7 @@ import DecorationStep from './cakeDesigner/DecorationStep.tsx'
 import { MobileBar, MobileHint, PreviewHint, PriceCard, SummaryCard, SummaryDisclosure } from './cakeDesigner/DesignerAside.tsx'
 import LidStep from './cakeDesigner/LidStep.tsx'
 import PrefillNotice from './cakeDesigner/PrefillNotice.tsx'
-import ReviewStep, { ReviewFeedback } from './cakeDesigner/ReviewStep.tsx'
+import ReviewStep, { AddedActions, ReviewFeedback } from './cakeDesigner/ReviewStep.tsx'
 import SizeStep from './cakeDesigner/SizeStep.tsx'
 import StepBar from './cakeDesigner/StepBar.tsx'
 import StepCard from './cakeDesigner/StepCard.tsx'
@@ -138,6 +138,9 @@ function Designer({ designer, hintId }: { designer: CakeDesignerView; hintId: st
   // La revisión no confirma nada: su botón agrega el pastel al pedido. Y ya trae el desglose con "Cambiar" en cada renglón:
   // no repite el total, "Tu pastel" ni la barra de abajo en móvil.
   const review = current === REVIEW_STEP
+  // Recién agregado en esta visita (hay aviso y el pastel que se ve está en el pedido): el pie cambia a lo que sigue. Al abrir con
+  // "Editar pedido" un pastel sin cambios, sin aviso todavía, quedan "Agregar al pedido" y "Atrás", como antes.
+  const justAdded = review && designer.order.added && designer.order.feedback !== null
   const onContinue = review ? actions.addToOrder : actions.proceed
   return (
     <>
@@ -190,7 +193,8 @@ function Designer({ designer, hintId }: { designer: CakeDesignerView; hintId: st
             titleRef={designer.stepTitle}
             direction={designer.direction}
             error={designer.stepError}
-            notice={review ? <ReviewFeedback feedback={designer.order.feedback} added={designer.order.added} onStartOver={actions.startOver} /> : undefined}
+            notice={review ? <ReviewFeedback feedback={designer.order.feedback} /> : undefined}
+            actions={justAdded ? <AddedActions onStartOver={actions.startOver} /> : undefined}
             continueLabel={view.continueLabel}
             continueDisabled={view.continueDisabled}
             busy={view.proceeding || (review && designer.order.busy)}

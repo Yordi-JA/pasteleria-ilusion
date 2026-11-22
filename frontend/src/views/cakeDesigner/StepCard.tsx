@@ -15,6 +15,11 @@ type StepCardProps = {
   error: string | null
   /** Lo que responde el botón y va junto a él, en el pie fijo: el aviso de "Agregar al pedido" de la revisión. */
   notice?: ReactNode
+  /**
+   * Los botones que toman el lugar de "Continuar" y "Atrás" cuando el paso ya hizo lo suyo: tras "Agregar al pedido", "Ir a mi
+   * pedido" y "Diseñar otro pastel" (correcciones del 21 de noviembre). Sin ellos, "Continuar" y "Atrás".
+   */
+  actions?: ReactNode
   continueLabel: string
   continueDisabled?: boolean
   /** "Continuar" espera algo (los kilos del paso 1): el botón se desactiva y lo dice con `aria-busy`. */
@@ -28,8 +33,9 @@ const ENTER = { forward: 'motion-safe:animate-paso-derecha', back: 'motion-safe:
 
 /**
  * La tarjeta del paso actual, siempre en el mismo lugar: título con número, "Paso N de 8", el contenido y "Continuar"
- * con "Atrás". Al cambiar de paso, el foco llega al título (lo pone el view-model). En escritorio el título y los botones
- * quedan siempre a la vista y solo el contenido se desplaza (tanda 3); como la tarjeta se vuelve a montar con cada paso
+ * con "Atrás". Al cambiar de paso, el foco llega al título (lo pone el view-model). En escritorio la tarjeta baja con la
+ * página en todos los pasos (no se queda pegada a la barra) y, si el contenido no cabe, solo él se desplaza, con el título y
+ * los botones a la vista (tanda 3); como la tarjeta se vuelve a montar con cada paso
  * (`key` en `CakeDesigner`), el contenido nuevo empieza arriba. El contenido es una región con nombre y, solo cuando
  * desborda, una parada del tabulador, para bajar con las flechas lo que no tiene controles (una nota al final).
  */
@@ -46,6 +52,7 @@ export default function StepCard({
   onContinue,
   onBack,
   notice,
+  actions,
   children,
 }: StepCardProps) {
   const { viewport, content, overflowing } = useScrollOverflow<HTMLDivElement, HTMLDivElement>()
@@ -82,18 +89,20 @@ export default function StepCard({
             {error}
           </p>
         )}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <Button onClick={onContinue} disabled={continueDisabled} aria-busy={busy || undefined}>
-            {continueLabel}
-          </Button>
-          <button
-            type="button"
-            onClick={onBack}
-            className={`inline-flex min-h-11 items-center rounded-sm px-4 text-etiqueta hover:underline hover:underline-offset-4 ${focusRing}`}
-          >
-            Atrás
-          </button>
-        </div>
+        {actions ?? (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <Button onClick={onContinue} disabled={continueDisabled} aria-busy={busy || undefined}>
+              {continueLabel}
+            </Button>
+            <button
+              type="button"
+              onClick={onBack}
+              className={`inline-flex min-h-11 items-center rounded-sm px-4 text-etiqueta hover:underline hover:underline-offset-4 ${focusRing}`}
+            >
+              Atrás
+            </button>
+          </div>
+        )}
       </div>
     </section>
   )
