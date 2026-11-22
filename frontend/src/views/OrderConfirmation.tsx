@@ -81,7 +81,7 @@ export default function OrderConfirmation() {
               <h3 id="confirmacion-avance" className="font-display text-titulo-3">
                 Cómo va tu pedido
               </h3>
-              <OrderTimeline steps={view.steps} labelledBy="confirmacion-avance" />
+              <OrderTimeline steps={view.steps} labelledBy="confirmacion-avance" celebrate />
               {view.pickup && store.status !== 'loading' && (
                 <p className="text-cuerpo text-mermelada-suave">
                   Recoges en Pastelería Ilusión, {store.address ?? <Pending what="Dirección" />}.

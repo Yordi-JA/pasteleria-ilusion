@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { mockAuth, signedIn } from './support/auth.ts'
 import { accountOrder, mockNote, mockOrderDetail } from './support/account-orders.ts'
 import { NOW } from './support/checkout.ts'
@@ -109,5 +110,51 @@ test.describe('at 390 px', () => {
     await expect(headings).toHaveText(['Pedido #57', 'Resumen'])
     const width = await page.evaluate(() => document.documentElement.scrollWidth)
     expect(width).toBeLessThanOrEqual(390)
+  })
+})
+
+test.describe('the timeline settles once, step by step', () => {
+  const markers = (page: Page) =>
+    page.getByRole('list', { name: 'Cómo va tu pedido' }).getByTestId('marcador-hito')
+
+  async function openReady(page: Page) {
+    await signedIn(page)
+    await mockOrderDetail(page, 57, { status: 200, body: accountOrder({ status: 'ready_for_delivery', status_changed_at: '2026-11-13T18:09:00Z' }) })
+    await mockNote(page, 57)
+    await page.goto(CONFIRMATION)
+    await expect(markers(page)).toHaveCount(4)
+  }
+
+  const motion = (locator: Locator) =>
+    locator.evaluate((element) => {
+      const style = getComputedStyle(element)
+      return { name: style.animationName, duration: style.animationDuration, delay: style.animationDelay, easing: style.animationTimingFunction }
+    })
+
+  test('done and current markers arrive one after the other and the done lines run down; pending ones stay still', async ({ page }) => {
+    await openReady(page)
+    // Recibido y En preparación, hechos; Listo para recoger, en curso; Entregado, pendiente.
+    const easing = 'cubic-bezier(0.23, 1, 0.32, 1)'
+    expect(await motion(markers(page).nth(0))).toEqual({ name: 'hito', duration: '0.45s', delay: '0s', easing })
+    expect(await motion(markers(page).nth(1))).toEqual({ name: 'hito', duration: '0.45s', delay: '0.06s', easing })
+    expect(await motion(markers(page).nth(2))).toEqual({ name: 'hito', duration: '0.45s', delay: '0.12s', easing })
+    expect((await motion(markers(page).nth(3))).name).toBe('none')
+    const lines = page.getByRole('list', { name: 'Cómo va tu pedido' }).getByTestId('linea-hito')
+    expect(await motion(lines.nth(0))).toEqual({ name: 'hito-tramo', duration: '0.45s', delay: '0.06s', easing })
+    expect((await motion(lines.nth(1))).name).toBe('hito-tramo')
+    // La línea del paso en curso al pendiente no baja: todavía no se llega ahí.
+    expect((await motion(lines.nth(2))).name).toBe('none')
+    // Los títulos no se mueven: son lo que se lee.
+    expect(await page.getByRole('list', { name: 'Cómo va tu pedido' }).getByRole('listitem').first().evaluate((element) => getComputedStyle(element).animationName)).toBe('none')
+    await expect.poll(() => page.getByRole('list', { name: 'Cómo va tu pedido' }).evaluate((element) => element.getAnimations({ subtree: true }).length)).toBe(0)
+    await expect(markers(page).nth(2)).toHaveCSS('opacity', '1')
+    await expect(markers(page).nth(2)).toHaveCSS('transform', 'none')
+  })
+
+  test('with reduced motion the timeline is there at once', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await openReady(page)
+    for (const marker of await markers(page).all()) expect((await motion(marker)).name).toBe('none')
+    expect(await page.getByRole('list', { name: 'Cómo va tu pedido' }).evaluate((element) => element.getAnimations({ subtree: true }).length)).toBe(0)
   })
 })

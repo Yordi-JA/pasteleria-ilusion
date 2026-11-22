@@ -234,3 +234,11 @@ test.describe('at 390 px', () => {
     expect(width).toBeLessThanOrEqual(390)
   })
 })
+
+test('the timeline of the detail does not animate: it is looked up again and again', async ({ page }) => {
+  await mockOrderDetail(page, 57, { status: 200, body: accountOrder({ status: 'ready_for_delivery' }) })
+  await page.goto(DETAIL)
+  const timeline = page.getByRole('main').getByTestId('marcador-hito')
+  await expect(timeline).toHaveCount(4)
+  for (const marker of await timeline.all()) expect(await marker.evaluate((element) => getComputedStyle(element).animationName)).toBe('none')
+})
