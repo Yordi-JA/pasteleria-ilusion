@@ -206,6 +206,33 @@ test.describe('on a desktop', () => {
   })
 })
 
+/** Tras "Continuar", el título del paso nuevo queda bajo la barra superior fija, no detrás de ella. */
+async function expectTitleBelowHeader(page: Page) {
+  await page.evaluate(() => window.scrollTo(0, 0))
+  const next = card(page).getByRole('button', { name: 'Continuar', exact: true })
+  await next.scrollIntoViewIfNeeded()
+  await next.click()
+  await expect(stepTitle(page)).toHaveText(/^3\. /)
+  await expect(stepTitle(page)).toBeFocused()
+  const header = page.getByRole('banner')
+  await expect.poll(async () => {
+    const title = (await stepTitle(page).boundingBox())!
+    const bar = (await header.boundingBox())!
+    return title.y >= bar.y + bar.height
+  }).toBe(true)
+}
+
+for (const size of [{ width: 1440, height: 900 }, { width: 1440, height: 700 }, { width: 390, height: 844 }]) {
+  test.describe(`${size.width}x${size.height}`, () => {
+    test.use({ viewport: size })
+
+    test('after "Continuar" the title of the new step sits below the fixed top bar', async ({ page }) => {
+      await open(page, 2)
+      await expectTitleBelowHeader(page)
+    })
+  })
+}
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 

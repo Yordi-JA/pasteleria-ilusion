@@ -63,7 +63,7 @@ export default function StepCard({
       className={`flex min-w-0 flex-col rounded-lg border border-relieve bg-betun ${DESKTOP_COLUMN} ${direction ? ENTER[direction] : ''}`}
     >
       <div className="mx-6 flex shrink-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1 pb-4 pt-6 max-[600px]:mx-4 max-[600px]:pt-4">
-        <h2 id="paso-titulo" ref={titleRef} tabIndex={-1} className="font-display text-titulo-2 outline-none">
+        <h2 id="paso-titulo" ref={titleRef} tabIndex={-1} className="scroll-mt-28 font-display text-titulo-2 outline-none">
           {number}. {title}
         </h2>
         <p className="text-nota text-mermelada-suave">
