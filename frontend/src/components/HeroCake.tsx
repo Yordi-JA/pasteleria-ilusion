@@ -21,17 +21,20 @@ export function StaticCake({
   hidden = false,
   testId = 'pastel-portada-fijo',
   tiers = HOME_CAKE_STILL,
+  bottom = false,
 }: {
   hidden?: boolean
   testId?: string
   /** El color del piso de abajo y el de arriba: por omisión, los del pastel de la marca (`HOME_CAKE_STILL`). */
   tiers?: readonly [StillTierColor, StillTierColor]
+  /** Apoyado en el borde de abajo de la caja, como el pastel 3D de la escena chica, en vez de al centro. */
+  bottom?: boolean
 }) {
   return (
     <div
       data-testid={testId}
       aria-hidden="true"
-      className={`absolute inset-0 flex flex-col items-center justify-center transition-[opacity,visibility] duration-150 ease-entrada motion-reduce:transition-none ${hidden ? 'invisible opacity-0' : ''}`}
+      className={`absolute inset-0 flex flex-col items-center ${bottom ? 'justify-end' : 'justify-center'} transition-[opacity,visibility] duration-150 ease-entrada motion-reduce:transition-none ${hidden ? 'invisible opacity-0' : ''}`}
     >
       <svg
         viewBox="8 4 48 52"
@@ -54,24 +57,34 @@ export function StaticCake({
 }
 
 /**
- * Alto de la caja: el de la portada, el de la escena chica del catálogo (`.escena.chica` del mockup) o, en la ficha (D95), una caja
+ * Alto de la caja: el de la portada, el de la escena chica de `/entrar` y `/registro` o, en la ficha (D95), una caja
  * del ancho de la foto del producto y un poco más baja (460/340 en vez de 360/300): un pastel o una tarta son más anchos que altos y,
  * en la caja de la foto, quedaban con una franja de aire encima. La foto de respaldo cabe adentro por su alto.
  */
 const BOX_HEIGHT = {
-  hero: 'h-[600px] max-[960px]:h-[460px] max-[600px]:h-[380px]',
-  compact: 'h-[420px] max-[960px]:h-[360px] max-[600px]:h-[320px]',
+  hero: 'h-[600px] max-[960px]:h-[460px] max-[600px]:h-[380px] [@media(min-width:961px)_and_(max-height:860px)]:h-[clamp(440px,calc(100svh-230px),600px)]',
+  compact: 'aspect-[500/440] w-[min(100cqw,calc(100cqh*500/440))]',
   product: 'aspect-[460/340] w-full',
 } as const
 
+/*
+ * En una pantalla de escritorio baja (hasta 860 px de alto), la caja de la portada mide lo que queda bajo la barra, entre 440 y
+ * 600 px, para que el hero completo quepa a la vista (`HomeHero`).
+ *
+ * La escena chica (correcciones del 21 de noviembre) ya no tiene un alto fijo: es la caja de 500 × 440 más grande que cabe en
+ * su lugar, que debe ser un contenedor de tamaño (`container-type: size`, ver `AccessLayout`). Así llena el espacio que la
+ * tarjeta deja libre en la columna y queda apoyada en su borde de abajo, sin aire.
+ */
+
 /**
  * Encuadre de la escena en cada caja. La portada usa el de `CakeScene` (sin encuadre propio). La escena chica de `/entrar` y
- * `/registro` (tanda 9) llena su caja: el pastel cabe en una caja del mockup de 500 × 440 px, a la escala de la portada, y la
- * charola queda al 76 % del alto (tanda 10), con lugar debajo para la sombra; la caja va arriba en su columna, así el pastel empieza justo bajo el texto. En una caja angosta (móvil, 320 px) manda el ancho y deja margen a los lados. Con el de la portada se veía chico y bajo, con aire arriba.
+ * `/registro` (tanda 9) llena su caja: el pastel cabe en una caja del mockup de 500 × 440 px. Desde las correcciones del 21 de
+ * noviembre la charola va al 83 % del alto y la escala sube a 0.96: la sombra de contacto termina en el borde de abajo de la caja
+ * y la rosa más alta casi toca el de arriba (con la charola al 76 % quedaban unos 40 px vacíos abajo).
  */
 const SCENE_FRAMING: Record<keyof typeof BOX_HEIGHT, SceneFraming | undefined> = {
   hero: undefined,
-  compact: { plate: 0.76, width: 500, height: 440, scale: 0.88 },
+  compact: { plate: 0.82, width: 500, height: 440, scale: 0.96 },
   product: undefined,
 }
 
@@ -90,7 +103,7 @@ const SCENE_FIT: Record<keyof typeof BOX_HEIGHT, number | undefined> = { hero: u
 export function StaticCakeBox({ testId }: { testId: string }) {
   return (
     <div className={`relative ${BOX_HEIGHT.compact}`}>
-      <StaticCake testId={testId} />
+      <StaticCake testId={testId} bottom />
     </div>
   )
 }
@@ -144,7 +157,7 @@ export default function HeroCake({
           {fallback}
         </div>
       ) : (
-        <StaticCake hidden={ready} testId={`${testId}-fijo`} tiers={stillTiers} />
+        <StaticCake hidden={ready} testId={`${testId}-fijo`} tiers={stillTiers} bottom={size === 'compact'} />
       )}
       {scene.status !== 'fallback' && (
         <SceneBoundary onError={scene.onChunkError}>

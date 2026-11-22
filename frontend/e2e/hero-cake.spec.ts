@@ -65,6 +65,8 @@ test.describe('hero cake: fallback', () => {
     await expect(box(page)).toHaveAttribute('data-state', 'loading')
     await expect(scene(page)).toHaveCount(0)
     await expect(hint(page)).toBeHidden()
+    // La caja de 600 px es la de una pantalla alta: con 860 px de alto o menos se acorta para que quepa el hero (`home.spec.ts`).
+    await page.setViewportSize({ width: 1440, height: 900 })
     expect((await box(page).boundingBox())!.height).toBeCloseTo(600, 0)
   })
 
@@ -119,6 +121,8 @@ test.describe('hero cake: scene', () => {
     await expect(fallback(page)).toBeHidden()
     await expect(hint(page)).toBeVisible()
     await expect(hint(page).getByText(DRAG_HINT, { exact: true })).not.toHaveClass(/sr-only/)
+    // La caja de 600 px es la de una pantalla alta: con 860 px de alto o menos se acorta para que quepa el hero (`home.spec.ts`).
+    await page.setViewportSize({ width: 1440, height: 900 })
     expect((await box(page).boundingBox())!.height).toBeCloseTo(600, 0)
     // El 3D no se anuncia en la página.
     await expect(page.locator('main')).not.toContainText(/3D/)
