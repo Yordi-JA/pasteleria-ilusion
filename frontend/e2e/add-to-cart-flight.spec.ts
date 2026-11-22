@@ -238,3 +238,88 @@ test.describe('step 8 of "Diseña tu pastel"', () => {
     await expect(counter(page)).toHaveText('1')
   })
 })
+
+/** El aviso de adentro de la región (se vuelve a montar con cada `id`) y el lugar de su marcador, la perla o el ícono. */
+const noticeBox = (section: Locator) => notice(section).locator(':scope > div')
+const noticeMarker = (section: Locator) => noticeBox(section).locator(':scope > div:first-child > span:first-child')
+
+/** El nombre, la duración y la curva de la animación de CSS de un elemento, leídos en ese momento. */
+const animationOf = (locator: Locator) =>
+  locator.evaluate((element) => {
+    const style = getComputedStyle(element)
+    return { name: style.animationName, duration: style.animationDuration, easing: style.animationTimingFunction }
+  })
+
+/** Espera a que el elemento termine de moverse y devuelve cómo quedó. */
+async function settled(locator: Locator) {
+  await expect.poll(() => locator.evaluate((element) => element.getAnimations().length)).toBe(0)
+  return locator.evaluate((element) => {
+    const style = getComputedStyle(element)
+    return { opacity: style.opacity, transform: style.transform }
+  })
+}
+
+const ENTRANCE = { duration: '0.25s', easing: 'cubic-bezier(0.23, 1, 0.32, 1)' }
+
+test.describe('the "Agregado al pedido" notice', () => {
+  test('the first notice slides in once; a replacement keeps its box still and only settles its pearl', async ({ page }) => {
+    await openHome(page)
+    await addTo(featured(page), 'Tres leches de durazno').click()
+    await expect(notice(featured(page))).toContainText('Tres leches de durazno')
+    expect(await animationOf(noticeBox(featured(page)))).toEqual({ name: 'aviso-entrada', ...ENTRANCE })
+    expect((await animationOf(noticeMarker(featured(page)))).name).toBe('none')
+    expect(await settled(noticeBox(featured(page)))).toEqual({ opacity: '1', transform: 'none' })
+    // Otro clic reemplaza el aviso: la caja ya no baja, la perla del marcador se asienta desde 0.6.
+    await addTo(featured(page), 'Imposible').click()
+    await expect(notice(featured(page))).toContainText('Imposible')
+    expect((await animationOf(noticeBox(featured(page)))).name).toBe('none')
+    expect(await animationOf(noticeMarker(featured(page)))).toEqual({ name: 'asienta', ...ENTRANCE })
+    expect(await settled(noticeMarker(featured(page)))).toEqual({ opacity: '1', transform: 'none' })
+    // La región viva sigue siendo la misma: solo se animó lo de adentro.
+    await expect(notice(featured(page))).toHaveAttribute('role', 'status')
+  })
+
+  test('after the notice goes away, the next one slides in again', async ({ page }) => {
+    await openHome(page)
+    await addTo(featured(page), 'Tres leches de durazno').click()
+    await landAll(page)
+    await expect(counter(page)).toHaveText('1')
+    // Vaciar el carrito (otra pestaña) quita el aviso, porque ya no diría la verdad.
+    await page.evaluate(() => {
+      localStorage.removeItem('ilusion.cart.v1')
+      window.dispatchEvent(new StorageEvent('storage', { key: 'ilusion.cart.v1' }))
+    })
+    await expect(noticeBox(featured(page))).toHaveCount(0)
+    await addTo(featured(page), 'Tres leches de durazno').click()
+    expect((await animationOf(noticeBox(featured(page)))).name).toBe('aviso-entrada')
+  })
+
+  test('with reduced motion the notice and its pearl appear without moving', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await openHome(page)
+    await addTo(featured(page), 'Tres leches de durazno').click()
+    await expect(notice(featured(page))).toContainText('Agregado al pedido')
+    expect((await animationOf(noticeBox(featured(page)))).name).toBe('none')
+    await addTo(featured(page), 'Imposible').click()
+    await expect(notice(featured(page))).toContainText('Imposible')
+    expect((await animationOf(noticeMarker(featured(page)))).name).toBe('none')
+    expect(await noticeBox(featured(page)).evaluate((element) => element.getAnimations({ subtree: true }).length)).toBe(0)
+  })
+
+  test('step 8: the notice slides in after adding, and coming back to step 8 shows it still', async ({ page }) => {
+    await openReview(page)
+    const footer = page.getByTestId('tarjeta-paso')
+    await designButton(page).click()
+    await expect(notice(footer)).toHaveText('Agregado al pedido')
+    expect(await animationOf(noticeBox(footer))).toEqual({ name: 'aviso-entrada', ...ENTRANCE })
+    const steps = page.getByRole('navigation', { name: 'Pasos de Diseña tu pastel' })
+    await steps.getByRole('link', { name: /Mensaje y oblea/ }).click()
+    await expect(page.locator('#paso-titulo')).toHaveText('7. Mensaje y oblea')
+    await steps.getByRole('link', { name: /Revisión/ }).click()
+    await expect(page.locator('#paso-titulo')).toHaveText('8. Revisión')
+    // El aviso ya se había visto: vuelve tal cual, sin bajar otra vez.
+    await expect(notice(footer)).toHaveText('Agregado al pedido')
+    expect((await animationOf(noticeBox(footer))).name).toBe('none')
+    expect((await animationOf(noticeMarker(footer))).name).toBe('none')
+  })
+})
