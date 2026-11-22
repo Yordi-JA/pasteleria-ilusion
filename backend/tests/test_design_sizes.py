@@ -449,7 +449,8 @@ def test_blueberry_is_a_normal_flavor_priced_like_zarzamora(api):
 def test_the_blueberry_cake_is_in_the_catalog(api):
     data = api.get("/api/v1/products/tres-leches-de-blueberry/").json()
     assert (data["cake_type"], data["filling_base"], data["filling_flavor"]) == ("tres_leches", "normal", "blueberry")
-    assert data["sales_channel"] == "showcase_and_order" and data["photo"] is None
+    # Su foto real llegó con la `0064`.
+    assert data["sales_channel"] == "showcase_and_order" and data["photo"] == "tres-leches-de-blueberry.webp"
     assert data["summary"] == "Relleno de blueberry y cobertura de crema pastelera."
     prices = {offering["presentation"]: offering["price"] for offering in data["offerings"]}
     # Como los demás sabores normales, también en mini (ronda 2).

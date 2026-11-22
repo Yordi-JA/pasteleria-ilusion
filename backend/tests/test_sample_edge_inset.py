@@ -14,6 +14,7 @@ from rest_framework.test import APIClient
 from core_pasteleria.models import OBSERVED_IN_PHOTO, DecorationOption, Product, ProductSampleDesign
 
 inset_seed = importlib.import_module("core_pasteleria.migrations.0056_seed_sample_edge_inset")
+new_cakes = importlib.import_module("core_pasteleria.migrations.0064_seed_blueberry_pinguino_zarzamora_samples")
 
 pytestmark = pytest.mark.django_db
 
@@ -55,6 +56,8 @@ def test_the_inset_says_it_was_observed_and_only_draws_in_the_image():
 def test_the_seed_moves_in_only_the_three_cakes():
     # La `0058` acerca después los tulipanes de capuchino a 0.08 y mete las conchas de queso y chocolate.
     later = {"tres-leches-de-capuchino": 0.08, "tres-leches-con-queso-y-chocolate": 0.06}
+    # Los cuatro pasteles de la `0064` llegan con sus piezas del borde ya en su lugar.
+    later.update({slug: new_cakes.seeded(slug)["edge_inset"] for slug in new_cakes.SAMPLES})
     for sample in ProductSampleDesign.objects.select_related("product"):
         assert sample.edge_inset == later.get(sample.product.slug, SEEDED.get(sample.product.slug, 0.0)), sample.product.slug
 

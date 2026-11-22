@@ -13,6 +13,7 @@ from rest_framework.test import APIClient
 from core_pasteleria.models import DecorationOption, Product, ProductSampleDesign
 
 fuller_seed = importlib.import_module("core_pasteleria.migrations.0058_seed_fuller_fruit")
+new_cakes = importlib.import_module("core_pasteleria.migrations.0064_seed_blueberry_pinguino_zarzamora_samples")
 
 pytestmark = pytest.mark.django_db
 
@@ -23,6 +24,8 @@ FINAL = {
     "tres-leches-de-capuchino": (3.0, 0.08),
     "tres-leches-con-queso-y-chocolate": (2.0, 0.06),
     "tres-leches-con-flan-y-cajeta": (2.0, 0.0),
+    # Los cuatro pasteles de la `0064`, con lo que siembra.
+    **{slug: (new_cakes.seeded(slug)["fruit_density"], new_cakes.seeded(slug)["edge_inset"]) for slug in new_cakes.SAMPLES},
 }
 
 
