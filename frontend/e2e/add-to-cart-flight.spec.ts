@@ -93,6 +93,17 @@ const land = (page: Page) =>
     flying?.finish()
   })
 
+/**
+ * Termina el vuelo de todas las perlas en el aire. Solo las perlas: la página tiene animaciones infinitas (la galería,
+ * el brillo de los esqueletos) y `finish()` lanza un error con ellas.
+ */
+const landAll = (page: Page) =>
+  page.evaluate(() => {
+    for (const animation of document.getAnimations()) {
+      if ((animation.effect as KeyframeEffect | null)?.target?.getAttribute('data-testid') === 'perla-carrito') animation.finish()
+    }
+  })
+
 async function expectFlightThenLanding(page: Page, button: Locator, notices: Locator, expectedCount: string) {
   await button.click()
   await expect(pearls(page)).toHaveCount(1)
@@ -174,7 +185,7 @@ test.describe('catalog product', () => {
     const slice = addTo(slices(page), 'Rebanada de tres leches con flan y cajeta')
     await slice.click()
     await expect(pearls(page)).toHaveCount(1)
-    await page.evaluate(() => document.getAnimations().forEach((animation) => animation.finish()))
+    await landAll(page)
     await expect(pearls(page)).toHaveCount(0)
     await expect(counter(page)).toHaveText('1')
     // Solo quedaba 1: el segundo clic no agrega nada.
@@ -191,7 +202,7 @@ test.describe('catalog product', () => {
     await page.getByRole('banner').getByRole('link', { name: 'Cuenta' }).click()
     await expect(page).toHaveURL(/\/entrar/)
     await expect(counter(page)).toHaveCount(0)
-    await page.evaluate(() => document.getAnimations().forEach((animation) => animation.finish()))
+    await landAll(page)
     await expect(pearls(page)).toHaveCount(0)
     await expect(counter(page)).toHaveText('1')
   })

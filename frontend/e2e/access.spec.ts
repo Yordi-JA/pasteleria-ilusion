@@ -3,6 +3,9 @@ import type { Page } from '@playwright/test'
 import { ana, CSRF_TOKEN, mockAuth, mockGoogleIdentity, opened, rejected, sessionBody, signedIn, withoutGoogle } from './support/auth.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 import { durazno, seedCart, storedCart } from './support/checkout.ts'
+import { mockOrderList, orderPage } from './support/account-orders.ts'
+import { mockReferenceList } from './support/references.ts'
+import { loanPage, mockStandLoans } from './support/stand-notes.ts'
 
 /** Acceso de clientes (D62): `/entrar`, `/registro`, la sesión en el marco y las rutas de la cuenta. */
 
@@ -20,6 +23,11 @@ const cartLine = {
 
 test.beforeEach(async ({ page }) => {
   await mockStoreInfo(page)
+  // Las pantallas de la cuenta piden sus listas con la sesión: sin simularlas irían al Django real, que rechaza el token
+  // falso (401, renovación, 401) y cierra la sesión antes de que la prueba llegue a "Cerrar sesión".
+  await mockOrderList(page, { 1: { status: 200, body: orderPage([]) } })
+  await mockReferenceList(page)
+  await mockStandLoans(page, { status: 200, body: loanPage([]) })
 })
 
 async function fillLogin(page: Page, email: string, password: string) {
