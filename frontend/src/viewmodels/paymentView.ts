@@ -123,7 +123,7 @@ export function orderSummary(
   if (!reserved) rows.push({ label: 'Pagas hoy', amount: price(payment.payToday), strong: true })
   if (!isZero(payment.payOnDelivery)) rows.push({ label: 'Resto, el día de la entrega', amount: price(payment.payOnDelivery) })
   return {
-    items: order.items.map((item, index) => ({ ...itemView(item, index), thumbnail: designThumbnail(thumbnails, order.items, index) })),
+    items: order.items.map((item, index) => ({ ...itemView(item, index), thumbnail: orderLineThumbnail(thumbnails, order.items, index) })),
     delivery: `Recoger en la pastelería ${whenText(order)}`,
     hasDeposit: !isZero(payment.baseDeposit),
     total: `${price(order.subtotal)} MXN`,
@@ -133,11 +133,12 @@ export function orderSummary(
 }
 
 /**
- * La miniatura que guardó el carrito para la línea `index` (`orderThumbnails` de `checkout.ts`), solo en un pastel diseñado y
- * solo si la lista es de estas líneas (el mismo largo); si no, `null` y se ve el hueco de la foto.
+ * La miniatura que guardó el carrito para la línea `index` (`orderThumbnails` de `checkout.ts`): la del pastel diseñado o la
+ * imagen de una línea del catálogo, solo si la lista es de estas líneas (el mismo largo). Una referencia nunca sale del carrito,
+ * así que no lleva ninguna. Sin ella, `null` y se ve el hueco de la foto.
  */
-export function designThumbnail(thumbnails: (string | null)[], items: { kind: string }[], index: number): string | null {
-  return thumbnails.length === items.length && items[index].kind === 'design' ? (thumbnails[index] ?? null) : null
+export function orderLineThumbnail(thumbnails: (string | null)[], items: { kind: string }[], index: number): string | null {
+  return thumbnails.length === items.length && items[index].kind !== 'reference' ? (thumbnails[index] ?? null) : null
 }
 
 /** "el lunes 16 de noviembre a las 3:30 pm", como la entrega. */

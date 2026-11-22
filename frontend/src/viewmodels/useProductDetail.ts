@@ -9,7 +9,7 @@ import { PRESENTATION_LABELS } from '../models/presentation.ts'
 import { designPrefillHref } from './cakeDesignPrefill.ts'
 import { productKind, showcaseStatus, toProductCardView } from './productCards.ts'
 import { modelLabel, productModel } from './productModel.ts'
-import { PHOTO_PLACEHOLDER, photoView } from './productPhoto.ts'
+import { PHOTO_PLACEHOLDER, photoView, withCartImage } from './productPhoto.ts'
 import { useAddToCart } from './useAddToCart.ts'
 import { useRemoteData } from './useRemoteData.ts'
 import { useStoreDetails } from './useStoreInfo.ts'
@@ -212,7 +212,7 @@ export function useProductDetail(slug: string) {
     if (!isPriced(offering)) return
     // Defensa: una rebanada nunca se encarga (la opción ya va desactivada).
     if (offering.presentation === 'slice' && fulfillment === 'order') return
-    add(toCartOffering(product, offering, fulfillment), view.quantity, fulfillment === 'showcase' ? (offering.stock ?? 0) : undefined)
+    add(withCartImage(toCartOffering(product, offering, fulfillment), product), view.quantity, fulfillment === 'showcase' ? (offering.stock ?? 0) : undefined)
   }, [add, product, view])
 
   return {

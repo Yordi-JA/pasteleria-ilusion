@@ -1,5 +1,5 @@
 type LinePhotoProps = {
-  /** La miniatura del pastel diseñado (`data:` en WebP o JPEG); `null` deja el hueco. */
+  /** La miniatura del pastel diseñado (`data:` en WebP o JPEG) o la imagen de la tarjeta del catálogo (`/fotos/`); `null` deja el hueco. */
   thumbnail: string | null
   /** Lo que dice el hueco: "Foto del pastel" en el carrito, "Foto" en los resúmenes. */
   placeholder: string
@@ -8,8 +8,8 @@ type LinePhotoProps = {
 }
 
 /**
- * La foto de una línea del carrito o de un resumen (tanda 4): la miniatura del pastel diseñado o, sin ella, el hueco de
- * siempre. Las dos son decorativas (`alt=""` y `aria-hidden`): el nombre de la línea, junto a ellas, ya dice qué es, y la
+ * La foto de una línea del carrito o de un resumen (tanda 4): la miniatura del pastel diseñado o la imagen del catálogo (la del
+ * modelo o la foto) y, sin ella, el hueco de siempre. Las dos son decorativas (`alt=""` y `aria-hidden`): el nombre de la línea, junto a ellas, ya dice qué es, y la
  * lista de lo elegido describe el pastel mejor que una imagen chica. El pastel queda centrado y entero sobre `harina`.
  */
 export default function LinePhoto({ thumbnail, placeholder, className }: LinePhotoProps) {

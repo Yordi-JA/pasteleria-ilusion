@@ -9,7 +9,7 @@ import { bakeryMoment, formatDateInSentence } from '../models/dates.ts'
 import { formatPrice } from '../models/money.ts'
 import type { OrderPayment } from '../models/orders.ts'
 import { offeringLabel, PRESENTATION_LABELS } from '../models/presentation.ts'
-import { designThumbnail, whenText } from './paymentView.ts'
+import { orderLineThumbnail, whenText } from './paymentView.ts'
 import { flavorSentence } from './referenceFlavorView.ts'
 
 /** Las perlas del pedido (libro de marca): un paso por estado desde que se paga. */
@@ -144,7 +144,7 @@ function firstReturnBy(stands: OrderStand[]): string | null {
 export function paidSummary(order: AccountOrder, thumbnails: (string | null)[] = []): PaidSummaryView {
   const returnBy = firstReturnBy(order.stands)
   return {
-    items: order.items.map((item, index) => ({ ...itemView(item, index), thumbnail: designThumbnail(thumbnails, order.items, index) })),
+    items: order.items.map((item, index) => ({ ...itemView(item, index), thumbnail: orderLineThumbnail(thumbnails, order.items, index) })),
     total: `${price(order.subtotal)} MXN`,
     rows: summaryRows(order.payment, isPaid(order.status)),
     depositNote: returnBy ? `Te lo devolvemos si regresas la base antes del ${dateOf(returnBy)} con tu nota.` : null,

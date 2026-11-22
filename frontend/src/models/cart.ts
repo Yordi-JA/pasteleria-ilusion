@@ -1,3 +1,4 @@
+import { photoUrl } from './catalog.ts'
 import { normalizeHex } from './color.ts'
 import { PRICE_PATTERN } from './money.ts'
 import { ownerClaim, parseOwner } from './owner.ts'
@@ -31,6 +32,12 @@ export type CartOffering = {
   /** Slug del producto, para el enlace a `/pasteles/:slug`. */
   slug: string
   fulfillment: Fulfillment
+  /**
+   * El archivo en `/fotos/` de la imagen que mostraba la tarjeta al agregarla (`cartImageFile`: la del modelo o, sin ella, la
+   * foto): el carrito, la entrega, el pago y la confirmación la muestran en lugar del hueco, como la miniatura de un pastel
+   * diseñado. Falta en las líneas de antes y en un producto sin imagen: entonces se ve el hueco. No va al servidor.
+   */
+  image?: string
 }
 
 // Los adaptadores de la API al carrito (`toCartOffering` para las tarjetas y la ficha, que dan un encargo, y
@@ -186,7 +193,9 @@ function parseOffering(raw: Record<string, unknown>): CartOffering | null {
   const slug = cleanText(raw.slug, MAX_TEXT_LENGTH, SLUG)
   if (!isWholeBetween(offeringId, 1, Number.MAX_SAFE_INTEGER) || !isOfferingPresentation(presentation)) return null
   if (!isFulfillment(fulfillment) || !name || !unitPrice || !slug) return null
-  return { offeringId, name, presentation, unitPrice, slug, fulfillment }
+  const offering: CartOffering = { offeringId, name, presentation, unitPrice, slug, fulfillment }
+  // Una imagen dudosa no daña la línea: se ignora y se ve el hueco de la foto.
+  return typeof raw.image === 'string' && photoUrl(raw.image) ? { ...offering, image: raw.image } : offering
 }
 
 /**

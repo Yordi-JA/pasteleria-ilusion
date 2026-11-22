@@ -1,3 +1,4 @@
+import type { CartOffering } from '../models/cart.ts'
 import { photoUrl } from '../models/catalog.ts'
 import type { ProductCategory } from '../models/catalog.ts'
 import { dessertModelImage } from './dessertSamples.ts'
@@ -50,6 +51,20 @@ export function catalogImageView({ slug, name, category, photo, modelImage }: Ca
   const model = modelImage ?? dessertModelImage(slug)
   if (model) return { ...photoView(model, modelAlt(name, category), placeholder), model: true }
   return photoView(photo, name, placeholder)
+}
+
+/**
+ * El archivo de la imagen que el carrito guarda con una línea del catálogo, el mismo orden que `catalogImageView`: la imagen del
+ * modelo (la de la API o la de un postre con modelo) y, sin ella, la foto; `null` sin ninguna (se ve el hueco).
+ */
+export function cartImageFile({ slug, photo, modelImage }: Pick<CatalogImageSource, 'slug' | 'photo' | 'modelImage'>): string | null {
+  return modelImage ?? dessertModelImage(slug) ?? photo
+}
+
+/** La presentación para el carrito con su imagen (`cartImageFile`), si la tiene. */
+export function withCartImage(offering: CartOffering, source: Pick<CatalogImageSource, 'slug' | 'photo' | 'modelImage'>): CartOffering {
+  const image = cartImageFile(source)
+  return image ? { ...offering, image } : offering
 }
 
 /**
