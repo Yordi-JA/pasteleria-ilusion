@@ -50,7 +50,7 @@ BREADS = [
         4, "choco_pinguino", "Choco-pingüino", "full_price_per_kg", "250.00",
         "Crema de chocolate sabor helado", ("tres_leches", "seco"),
     ),
-    bread(5, "red_velvet", "Red velvet", "full_price_per_kg", "280.00", "Relleno típico de red velvet", ("seco",)),
+    bread(5, "red_velvet", "Red velvet", "full_price_per_kg", "280.00", "Betún de queso crema", ("seco",)),
 ]
 
 
