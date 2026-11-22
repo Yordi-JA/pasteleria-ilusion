@@ -212,7 +212,9 @@ export function useProductDetail(slug: string) {
     if (!isPriced(offering)) return
     // Defensa: una rebanada nunca se encarga (la opción ya va desactivada).
     if (offering.presentation === 'slice' && fulfillment === 'order') return
-    add(withCartImage(toCartOffering(product, offering, fulfillment), product), view.quantity, fulfillment === 'showcase' ? (offering.stock ?? 0) : undefined)
+    // Una rebanada no lleva la imagen del modelo (es la del pastel completo): el carrito muestra su foto, como en `toSliceItem`.
+    const image = offering.presentation === 'slice' ? { ...product, modelImage: null } : product
+    add(withCartImage(toCartOffering(product, offering, fulfillment), image), view.quantity, fulfillment === 'showcase' ? (offering.stock ?? 0) : undefined)
   }, [add, product, view])
 
   return {

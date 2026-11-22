@@ -108,12 +108,18 @@ function sizeLabelOf(item: DesignItem): string | null {
   return typeof label === 'string' && label.trim() !== '' && label.length <= 80 ? label : null
 }
 
+/** El renglón del paso 7 que guardó `designLine` ("Mensaje y oblea: Mensaje: Feliz día, color elegido. Oblea: …"). */
+const MESSAGE_ROW = 'Mensaje y oblea: '
+
 /**
  * Lo elegido sin el "parecido a" del color (21 de noviembre): un pastel guardado antes trae "Crema pastelera, parecido a
  * amarillo, con peinado lateral" o "color parecido a rosa", y el sitio ya no nombra el color (se ve en su muestra). Se quita al
  * leer, con las mismas palabras de ahora: "Crema pastelera, con peinado lateral", "color elegido".
  */
 export function withoutColorName(detail: string): string {
+  // El mensaje lo escribió quien pide: solo se cambia el color que el sitio puso al final del mensaje (antes de ". Oblea: " o del
+  // final del renglón), nunca un "parecido a" del texto ("Feliz día, parecido a papá").
+  if (detail.startsWith(MESSAGE_ROW)) return detail.replace(/, color parecido a [^,.\n]+(?=\. Oblea: |$)/, ', color elegido')
   return detail.replace(/color parecido a [^,.\n]+/g, 'color elegido').replace(/, parecido a [^,.\n]+/g, '')
 }
 

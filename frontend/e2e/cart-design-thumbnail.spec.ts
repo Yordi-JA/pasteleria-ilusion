@@ -6,6 +6,7 @@ import { cakeDesignOptions, COVERAGE_HEX, mockCakeDesignOptions, mockCakeDesignP
 import { CART_KEY, designLine, durazno, mockCalendar, mockOrders, NOW, placedOrder, seedCart, storedCart } from './support/checkout.ts'
 import { mockPayment, ORDER_ID, orderItems } from './support/payments.ts'
 import { mockCatalog, stockItem, todayStock } from './support/catalog.ts'
+import { mockProductDetails, productDetail } from './support/products.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 
 /**
@@ -203,6 +204,20 @@ test.describe('saved carts', () => {
     await expect(designItem(page)).not.toContainText('parecido a')
   })
 
+  test('the message keeps what the customer wrote: only the color the site added is renamed', async ({ page }) => {
+    await mockStoreInfo(page)
+    const details = [
+      'Mensaje y oblea: Mensaje: Feliz día, parecido a papá, color parecido a negro. Oblea: círculo, foto.jpg',
+      'Mensaje y oblea: Mensaje: Para ti, parecido a nadie',
+    ]
+    await seedCart(page, [{ ...designLine, details }])
+    await page.goto('/carrito')
+    await expect(designItem(page).getByRole('list').getByRole('listitem')).toHaveText([
+      'Mensaje y oblea: Mensaje: Feliz día, parecido a papá, color elegido. Oblea: círculo, foto.jpg',
+      'Mensaje y oblea: Mensaje: Para ti, parecido a nadie',
+    ])
+  })
+
   test('a picture that is not a small JPEG or WebP is ignored, and the line stays', async ({ page }) => {
     await mockStoreInfo(page)
     await seedCart(page, [{ ...designLine, thumbnail: 'data:image/svg+xml;base64,PHN2Zy8+' }])
@@ -312,6 +327,25 @@ test.describe('catalog lines', () => {
     ])
     await page.goto('/carrito')
     await expect(catalogItem(page, 'Tres leches de cajeta').locator('img[src="/fotos/tres-leches-de-cajeta.webp"]')).toBeVisible()
+  })
+
+  test('from the product page, the whole cake keeps the model image and a slice keeps the photo', async ({ page }) => {
+    await mockStoreInfo(page)
+    await mockCakeDesignOptions(page)
+    // El rebanado de hoy (D60): encargar el completo y llevarse una rebanada de la vitrina, en la ficha de un pastel con modelo.
+    const sliced = productDetail('tres-leches-de-durazno', { stock: { 2: 6 }, sliced_today: true, in_showcase_today: false })
+    await mockProductDetails(page, [{ ...sliced, photo: 'tres-leches-de-durazno.webp', model_image: 'tres-leches-de-durazno-modelo.webp' }])
+    await page.goto('/pasteles/tres-leches-de-durazno')
+    const presentation = page.getByRole('group', { name: 'Presentación' })
+    await page.getByRole('button', { name: 'Agregar al pedido' }).click()
+    await presentation.locator('label').filter({ hasText: 'Rebanada' }).click()
+    await page.getByRole('button', { name: 'Agregar al pedido' }).click()
+    const items = (await storedCart(page)).items as { presentation: string; image?: string }[]
+    // La imagen del modelo es la del pastel completo: la rebanada lleva la foto, como en `/rebanadas`.
+    expect(items.map((item) => [item.presentation, item.image])).toEqual([
+      ['whole', 'tres-leches-de-durazno-modelo.webp'],
+      ['slice', 'tres-leches-de-durazno.webp'],
+    ])
   })
 
   test('the delivery summary, the payment summary and the confirmation show the image of a catalog line', async ({ page }) => {
