@@ -127,6 +127,28 @@
   }
 }
 
+/* El menú del sitio en móvil (`components/SiteMenu.tsx`, 22 de noviembre): al abrirse con `showModal()`, el panel entra desde el
+   borde derecho, donde está el botón, en 250 ms, y el velo aparece a la par. Con porcentaje, así no depende de si mide 320 px
+   o el 86 % de la ventana. La salida es inmediata: el cierre por navegación suelta el foco enseguida, y animar el cierre de un
+   `dialog` modal pide `allow-discrete`, que no todos los navegadores traen. El foco entra con `showModal()`, sin esperar, y un
+   navegador sin `@starting-style` abre el menú como antes. */
+@media (prefers-reduced-motion: no-preference) {
+  .menu-panel[open] {
+    transition: transform 250ms theme('transitionTimingFunction.entrada');
+  }
+  .menu-panel[open]::backdrop {
+    transition: opacity 250ms theme('transitionTimingFunction.entrada');
+  }
+  @starting-style {
+    .menu-panel[open] {
+      transform: translateX(100%);
+    }
+    .menu-panel[open]::backdrop {
+      opacity: 0;
+    }
+  }
+}
+
 /* Al imprimir, todo se ve aunque nunca haya llegado a la pantalla. */
 @media print {
   [data-aparicion],

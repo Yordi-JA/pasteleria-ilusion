@@ -147,3 +147,51 @@ test.describe('between 601 and 767px', () => {
     await expect(page.locator('main#contenido')).toBeFocused()
   })
 })
+
+test.describe('the menu panel entrance', () => {
+  /** Las transiciones del panel y de su velo, por propiedad. */
+  const transitions = (page: Page) =>
+    menu(page).evaluate((element) =>
+      element.getAnimations({ subtree: true }).map((animation) => (animation as CSSTransition).transitionProperty),
+    )
+
+  test('the panel slides in from the right edge and the backdrop fades in, then both settle', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    // Se reemplaza la duración por una larga para alcanzar a verla a media entrada sin depender de la máquina.
+    await page.addStyleTag({ content: '.menu-panel[open], .menu-panel[open]::backdrop { transition-duration: 5s !important; }' })
+    await menuButton(page).click()
+    await expect.poll(() => transitions(page)).toEqual(expect.arrayContaining(['transform', 'opacity']))
+    const start = await menu(page).evaluate((element) => new DOMMatrixReadOnly(getComputedStyle(element).transform).m41)
+    expect(start).toBeGreaterThan(0)
+    // El foco no espera a la animación.
+    await expect(menu(page).getByRole('button', { name: 'Cerrar menú' })).toBeFocused()
+    await menu(page).evaluate((element) => element.getAnimations({ subtree: true }).forEach((animation) => animation.finish()))
+    await expect(menu(page)).toHaveCSS('transform', 'none')
+  })
+
+  test('the real entrance takes 250 ms with the site curve', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await openMenu(page)
+    await expect(menu(page)).toHaveCSS('transition-duration', '0.25s')
+    await expect(menu(page)).toHaveCSS('transition-timing-function', 'cubic-bezier(0.23, 1, 0.32, 1)')
+    await expect(menu(page)).toHaveCSS('transform', 'none')
+  })
+
+  test('closing halfway through the entrance just closes, and opening again works', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await page.addStyleTag({ content: '.menu-panel[open], .menu-panel[open]::backdrop { transition-duration: 5s !important; }' })
+    await menuButton(page).click()
+    await page.keyboard.press('Escape')
+    await expect(menu(page)).toBeHidden()
+    await expect(menuButton(page)).toBeFocused()
+    await openMenu(page)
+    await expect(menu(page).getByRole('button', { name: 'Cerrar menú' })).toBeFocused()
+  })
+
+  test('with reduced motion the menu opens in place', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await openMenu(page)
+    expect(await transitions(page)).toEqual([])
+    await expect(menu(page)).toHaveCSS('transform', 'none')
+  })
+})

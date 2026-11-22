@@ -40,7 +40,8 @@ function restoreFocus(button: HTMLElement | null) {
 
 /**
  * Menú del sitio en móvil (mockup MenuSitio): panel a la derecha sobre un velo `mermelada`. Es un `<dialog>`
- * modal, así que el fondo queda inerte; además el foco gira dentro del panel con Tab y Mayús+Tab.
+ * modal, así que el fondo queda inerte; además el foco gira dentro del panel con Tab y Mayús+Tab. Al abrirse, el panel
+ * entra desde el borde derecho y el velo aparece (`menu-panel`, en `index.css`); al cerrarse se va de inmediato.
  */
 export default function SiteMenu({ store, signedIn, onSignOut, isOpen, closedBy, onClose, returnFocusTo }: SiteMenuProps) {
   const dialog = useRef<HTMLDialogElement>(null)
@@ -111,7 +112,7 @@ export default function SiteMenu({ store, signedIn, onSignOut, isOpen, closedBy,
       aria-labelledby="menu-sitio-titulo"
       onKeyDown={trapFocus}
       onClick={closeOnBackdrop}
-      className="m-0 ml-auto h-dvh max-h-none w-80 max-w-[86vw] rounded-l-lg bg-betun p-0 text-mermelada shadow-flotante backdrop:bg-mermelada/45"
+      className="menu-panel m-0 ml-auto h-dvh max-h-none w-80 max-w-[86vw] rounded-l-lg bg-betun p-0 text-mermelada shadow-flotante backdrop:bg-mermelada/45"
     >
       <div className="flex min-h-full flex-col gap-5 p-5">
         <div className="flex items-center justify-between gap-3">
