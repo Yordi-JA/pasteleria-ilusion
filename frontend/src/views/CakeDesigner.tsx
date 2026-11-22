@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useCallback, useId, useRef } from 'react'
 import DesignerCake from '../components/DesignerCake.tsx'
 import Breadcrumb from '../components/Breadcrumb.tsx'
 import LoadErrorNotice from '../components/LoadErrorNotice.tsx'
@@ -133,6 +133,13 @@ function CurrentStep({ designer }: { designer: CakeDesignerView }) {
 
 function Designer({ designer, hintId }: { designer: CakeDesignerView; hintId: string }) {
   const { view, current, actions } = designer
+  // El aviso al que ya se le llevó el foco: aquí, y no en `AddedActions`, porque el pie se vuelve a montar al regresar al paso 8.
+  const focusedFeedback = useRef<number | null>(null)
+  const claimFocus = useCallback((id: number) => {
+    if (focusedFeedback.current === id) return false
+    focusedFeedback.current = id
+    return true
+  }, [])
   if (!view) return null
   const step = DESIGN_STEPS[current - 1]
   // La revisión no confirma nada: su botón agrega el pastel al pedido. Y ya trae el desglose con "Cambiar" en cada renglón:
@@ -140,7 +147,7 @@ function Designer({ designer, hintId }: { designer: CakeDesignerView; hintId: st
   const review = current === REVIEW_STEP
   // Recién agregado en esta visita (hay aviso y el pastel que se ve está en el pedido): el pie cambia a lo que sigue. Al abrir con
   // "Editar pedido" un pastel sin cambios, sin aviso todavía, quedan "Agregar al pedido" y "Atrás", como antes.
-  const justAdded = review && designer.order.added && designer.order.feedback !== null
+  const addedFeedback = review && designer.order.added ? (designer.order.feedback?.id ?? null) : null
   const onContinue = review ? actions.addToOrder : actions.proceed
   return (
     <>
@@ -194,7 +201,11 @@ function Designer({ designer, hintId }: { designer: CakeDesignerView; hintId: st
             direction={designer.direction}
             error={designer.stepError}
             notice={review ? <ReviewFeedback feedback={designer.order.feedback} /> : undefined}
-            actions={justAdded ? <AddedActions onStartOver={actions.startOver} /> : undefined}
+            actions={
+              addedFeedback !== null ? (
+                <AddedActions feedbackId={addedFeedback} claimFocus={claimFocus} onStartOver={actions.startOver} />
+              ) : undefined
+            }
             continueLabel={view.continueLabel}
             continueDisabled={view.continueDisabled}
             busy={view.proceeding || (review && designer.order.busy)}

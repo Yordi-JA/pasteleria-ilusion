@@ -112,6 +112,35 @@ test.describe('after adding the cake to the cart', () => {
     await expect(stepTitle(page)).not.toHaveText('8. Revisión')
   })
 
+  test('coming back to step 8 from the step bar does not move the focus to "Ir a mi pedido" again', async ({ page }) => {
+    await addDesignFromReview(page)
+    await expect(card(page).getByRole('link', { name: 'Ir a mi pedido' })).toBeFocused()
+    const steps = page.getByRole('navigation', { name: 'Pasos de Diseña tu pastel' })
+    await steps.getByRole('link', { name: /Mensaje y oblea/ }).click()
+    await expect(stepTitle(page)).toHaveText('7. Mensaje y oblea')
+    await steps.getByRole('link', { name: /Revisión/ }).click()
+    await expect(stepTitle(page)).toHaveText('8. Revisión')
+    // El mismo pastel, ya en el pedido: el pie sigue con "Ir a mi pedido", pero el foco solo se movió con el aviso nuevo.
+    const goToOrder = card(page).getByRole('link', { name: 'Ir a mi pedido' })
+    await expect(goToOrder).toBeVisible()
+    await expect(goToOrder).not.toBeFocused()
+  })
+
+  test('the same cake opened with "Editar pedido" and added again says it is already in the order', async ({ page }) => {
+    await addDesignFromReview(page)
+    await card(page).getByRole('link', { name: 'Ir a mi pedido' }).click()
+    await page.getByRole('button', { name: /^Editar pedido/ }).click()
+    await expect(stepTitle(page)).toHaveText('8. Revisión')
+    // Sin cambios y sin aviso todavía: quedan "Agregar al pedido" y "Atrás".
+    await card(page).getByRole('button', { name: 'Agregar al pedido' }).click()
+    await expect(notice(page)).toContainText('Ya está en tu pedido')
+    const goToOrder = card(page).getByRole('link', { name: 'Ir a mi pedido' })
+    await expect(goToOrder).toHaveAttribute('href', '/carrito')
+    await expect(goToOrder).toBeFocused()
+    await expect(card(page).getByRole('button', { name: 'Agregar al pedido' })).toHaveCount(0)
+    expect((await storedCart(page)).items).toHaveLength(1)
+  })
+
   test('opening Diseña tu pastel again from the menu starts from step 1 with an empty draft', async ({ page }) => {
     await addDesignFromReview(page)
     await openDesignerFromMenu(page)

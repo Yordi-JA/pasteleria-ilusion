@@ -139,11 +139,24 @@ export function ReviewFeedback({ feedback }: { feedback: DesignFeedback | null }
  * aviso, y el botón de agregar ya no hacía nada (correcciones del 21 de noviembre). Para cambiar algo quedan "Cambiar" en cada
  * renglón y la barra de pasos.
  */
-export function AddedActions({ onStartOver }: { onStartOver: () => void }) {
+export function AddedActions({
+  feedbackId,
+  claimFocus,
+  onStartOver,
+}: {
+  /** El aviso de "Agregado al pedido" (`DesignFeedback.id`) que trajo este pie. */
+  feedbackId: number
+  /** Si este aviso todavía no movió el foco (y lo aparta); lo lleva quien sigue montado entre pasos. */
+  claimFocus: (feedbackId: number) => boolean
+  onStartOver: () => void
+}) {
   const actions = useRef<HTMLDivElement>(null)
-  // El botón que se tocó ("Agregar al pedido") ya no existe: el foco pasa al que sigue, no se pierde en la página. `autoFocus`
-  // no sirve aquí: React solo lo aplica a campos y botones, no a un enlace.
-  useEffect(() => actions.current?.querySelector('a')?.focus({ preventScroll: true }), [])
+  // El botón que se tocó ("Agregar al pedido") ya no existe: el foco pasa al que sigue, no se pierde en la página. Solo con un
+  // aviso nuevo: al volver al paso 8 desde la barra de pasos, el foco se queda donde lo dejó la navegación. `autoFocus` no sirve
+  // aquí: React solo lo aplica a campos y botones, no a un enlace.
+  useEffect(() => {
+    if (claimFocus(feedbackId)) actions.current?.querySelector('a')?.focus({ preventScroll: true })
+  }, [feedbackId, claimFocus])
   return (
     <div ref={actions} className="flex flex-wrap items-center gap-x-3 gap-y-2">
       <ButtonLink to="/carrito">
