@@ -875,4 +875,35 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - El usuario seguía viendo aire entre el texto y el pastel de `/entrar` y `/registro`. Le pregunté cuál aire, y fue ese.
 - En escritorio, la caja del pastel sube 24 px sobre el espacio de la cuadrícula (`-mt-6`): queda a unos 8 px del texto. En móvil no cambia.
 - La prueba de `access.spec.ts` ahora pide que la caja quede a no más de 16 px del texto.
-- Decisión D94. Rama `fix/correcciones-tanda-11`, sin fusionar.
+- Decisión D94. Rama `fix/correcciones-tanda-11`, fusionada en `main` (PR #55).
+
+### Viernes 20 de noviembre: la ficha con el modelo vivo, los postres en 3D y la galería de la portada (D95 a D98)
+
+- La ficha muestra el modelo 3D que gira en el lugar de la foto (D95), con la foto como respaldo sin WebGL 2. Los postres tienen su modelo, una segunda familia de formas (`DessertShape`): gelatinas en vaso con cubos, gelatina de Duvalín en capas, tarta mini y flan. Se actualizó la regla del 3D en el libro de marca y en `AGENTS.md`.
+- La portada suma "Hechos en la casa", una banda de 46 fotos de pedidos de la casa entre la vitrina y las rebanadas, con pausa, y sin movimiento con `prefers-reduced-motion`. Después se quitaron los marcos y la inclinación, y la pausa pasó a un control de solo ícono. Se registra en D95.
+- Cinco gelatinas en vaso (D96): la migración `0059_seed_cup_gelatins` renombra el yogurt de fresa y da de alta el mosaico normal y el yogurt de durazno.
+- Imágenes de los postres en las tarjetas del catálogo, charola de la ficha más arriba, y modelo y foto del Imposible (D97, migración `0060_seed_imposible_photo`). El Posible y la gelatina de molde tienen modelo, y las tarjetas compactas suben el dibujo 12 px (D98). El catálogo quita las tarjetas del pastel mini, de la nuez y de Red velvet (D98, migraciones `0061` y `0062`, reversibles).
+- Pruebas nuevas: `e2e/dessert-render.spec.ts`, `product-model.spec.ts`, `home-gallery.spec.ts`, `test_cup_gelatins_migration.py`, `test_imposible_photo_migration.py`, `test_walnut_cake_migration.py` y `test_red_velvet_cake_migration.py`. Antes de los cambios del 20, `e2e/cake-designer-lid.spec.ts:210` ya fallaba igual en `main`.
+- Decisiones D95, D96, D97 y D98. En `main` con los PR #56, #57 y #58.
+
+### Sábado 21 de noviembre: correcciones del usuario, cuatro pasteles con foto y animaciones (D99)
+
+- Tres leches de blueberry, Choco-pingüino, Tres leches con queso y zarzamora y Tres leches con flan y zarzamora tienen su foto y su imagen del modelo (migraciones `0063` y `0064`). En queso y zarzamora manda un montón de abanicos con manzana roja y pera.
+- Correcciones de interfaz: la barra flotante sobresale 40 px de cada lado del contenido, las fotos de "Hechos en la casa" van al mismo alto, el pastel de `/entrar` y `/registro` llega al final de su espacio, el hero cabe en pantallas de escritorio de 720 a 860 px de alto y las páginas de primer nivel pierden las migas.
+- "Diseña tu pastel": la tarjeta del paso baja con la página en los 8 pasos, las flechas del paso 7 van en una cruz de 44 px, el pie tras agregar solo dice "Agregado al pedido", y el relleno de Red velvet se llama "Betún de queso crema" (migración `0065`). Se quita el "parecido a" de los colores.
+- Carrito, entrega y correos: las líneas muestran la imagen del catálogo, la entrega tiene una sola lista de horas con un control segmentado, la entrega y el pago pierden el WhatsApp de la franja, y los correos fuerzan el tema claro.
+- Animaciones de retroalimentación: el aviso de "Agregado al pedido", la fila del paso confirmado, la palomita de los pasos, el menú móvil, la línea de tiempo de la confirmación, las líneas del carrito al quitar una, las secciones de `/bases` y el botón del carrito de la repisa.
+- Pruebas: `access.spec.ts` y `checkout-payment.spec.ts` simulan las listas de la cuenta y el pedido de la confirmación (fallaban antes porque pedían datos al Django real con un token falso). Pruebas nuevas: `test_blueberry_pinguino_zarzamora_samples.py`, `test_red_velvet_filling_migration.py` y `test_email_color_scheme.py`.
+- Decisión D99. Rama `feat/pasteles-blueberry-pinguino-zarzamora`, sin fusionar.
+
+### Domingo 22 de noviembre: la muestra del modelo, la ficha con la foto original y la transición entre vistas (D100 y D101)
+
+- La muestra del modelo de 8 pasteles se rediseñó para parecerse a su foto (migraciones `0066` y `0067`). Fresa y cajeta cambian al diseño que mandó la pastelería, y zarzamora y chocolate entran con su foto y su muestra (`0068` y `0069`). Las imágenes de los 4 pasteles de D99 y de los 10 postres no cambian.
+- La ficha deja a la derecha el nombre, la descripción y la etiqueta de hoy, sin migas ni "Ver la foto". La tarjeta "Detalles" pasa a "Pastel" con la foto original, y Conservación y Transporte salen de la ficha por decisión del usuario (cambia D59). "Diseña tu pastel" pierde las migas.
+- Mientras llega el pastel 3D, la portada, el acceso y la ficha muestran un esqueleto con `aria-busy`; el respaldo aparece sin WebGL 2, con un chunk que falla, con el contexto perdido o a los 8 s (`SLOW_SCENE_MS`).
+- Al cambiar de ruta, la vista de `<main>` se desvanece en 150 ms y la nueva entra en 220 ms (`document.startViewTransition`, decidida en `viewmodels/routeTransition.ts`). Sin la API queda `useRouteFade`.
+- Avisos que llegan como respuesta, ayuda del candado, resúmenes del teléfono, foto de referencia y pedido apartado con su entrada.
+- Verificación en local: `pytest -n auto --create-db`, 2375 pasaron; `makemigrations --check` sin cambios; la reversa de `0069` a `0066` y la ida otra vez sin errores; `npm run typecheck`, `npm run lint` y `npm run build` sin errores. Playwright, 29 archivos con `--workers=3`: 509 de 514. Tres fallas pasaron al correrlas solas (`cake-designer.spec.ts:670`, `cake-render.spec.ts:99` y `hero-cake.spec.ts:295`); `access.spec.ts:134` y `product-model.spec.ts:98` fallan por tiempo bajo carga, también en `main`. No se verificó en Heroku ni en un teléfono real; la transición solo se probó en Chromium. Pruebas nuevas: `route-transition.spec.ts`, `cake-sample-redesign.spec.ts`, `cake-designer-header.spec.ts`, `test_redesigned_samples.py` y `test_new_flavor_samples.py`.
+- El congelamiento del código pasa al 22 de noviembre, al cerrar las últimas correcciones (D101). Del 22 al martes 24, antes de la clase, solo hay documentación y presentación. Cambió en `AGENTS.md`, `README.md`, `docs/proyecto/plan-de-trabajo.md` (registro de cambios) y en D77.
+- Se actualizaron las decisiones, las reglas de negocio (el relleno de Red velvet), el esquema del catálogo, el libro de marca, el mapa de vistas, `frontend/AGENTS.md` y `docs/proyecto/pruebas.md`.
+- Decisiones D100 y D101. Rama `feat/pasteles-blueberry-pinguino-zarzamora`, sin fusionar; las migraciones `0063` a `0069` no están en Heroku.
