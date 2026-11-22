@@ -49,6 +49,20 @@ function cartLabel(count: number): string {
 
 const iconControl = `h-11 w-11 shrink-0 items-center justify-center rounded-md text-mermelada hover:bg-harina motion-safe:transition-colors ${focusRing}`
 
+/**
+ * El ancho de la barra flotante (correcciones del 21 de noviembre): sobresale 40 px a cada lado de la columna de 1200 px del
+ * contenido, para que al hacer scroll sus orillas no coincidan con las de las tarjetas que pasan debajo. Nunca llega al borde
+ * de la pantalla: deja 8 px a cada lado (en móvil sobresale 8 px de la columna, que ahí tiene 16 px de margen).
+ */
+const barColumn = 'mx-auto w-[min(1232px,calc(100%-16px))]'
+
+/**
+ * El relleno de la barra. Con la barra a su ancho completo, el logo empieza en la orilla de la columna del contenido y el
+ * último ícono termina en la otra: 40 px menos el borde de 1 px, y del lado derecho, además, los 11 px que rodean al ícono en su
+ * área de 44 px.
+ */
+const barPadding = 'py-2 pl-6 pr-3 min-[1248px]:pl-[39px] min-[1248px]:pr-[28px] max-[600px]:pl-4'
+
 const navLink =
   'inline-flex min-h-11 items-center rounded-sm text-etiqueta text-mermelada underline-offset-[6px] hover:underline ' +
   `aria-[current=page]:underline aria-[current=page]:decoration-2 ${focusRing}`
@@ -61,8 +75,8 @@ const navLink =
 export function CheckoutHeader({ back = { to: '/carrito', label: 'Volver al carrito' } }: { back?: { to: string; label: string } }) {
   return (
     <header className="sticky top-4 z-30 mt-5 max-[600px]:mt-3">
-      <div className="mx-auto max-w-[1200px] px-6 max-[600px]:px-4">
-        <div data-testid="barra" className="flex min-h-16 items-center justify-between gap-4 rounded-lg border border-relieve bg-betun py-2 pl-6 pr-3 max-[600px]:pl-4">
+      <div className={barColumn}>
+        <div data-testid="barra" className={`flex min-h-16 items-center justify-between gap-4 rounded-lg border border-relieve bg-betun ${barPadding}`}>
           <Link to="/" className={`block shrink-0 rounded-sm ${focusRing}`}>
             <img src={logo} alt="Pastelería Ilusión, inicio" width={150} height={66} className="h-auto w-[150px] max-[600px]:w-[120px]" />
           </Link>
@@ -101,10 +115,10 @@ export default function SiteHeader({
 
   return (
     <header className="sticky top-4 z-30 mt-5 max-[600px]:mt-3">
-      <div className="mx-auto max-w-[1200px] px-6 max-[600px]:px-4">
+      <div className={barColumn}>
         <div
           data-testid="barra"
-          className="flex min-h-16 items-center gap-8 rounded-lg border border-relieve bg-betun py-2 pl-6 pr-3 max-[960px]:gap-5 max-[600px]:gap-1 max-[600px]:pl-4"
+          className={`flex min-h-16 items-center gap-8 rounded-lg border border-relieve bg-betun ${barPadding} max-[960px]:gap-5 max-[600px]:gap-1`}
         >
           <Link
             ref={logoRef}
