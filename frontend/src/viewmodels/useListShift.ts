@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { prefersReducedMotion } from './reducedMotion.ts'
 
 const SHIFT = { duration: 250, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' } as const
@@ -52,5 +52,22 @@ export function useListShift<List extends HTMLElement>(keys: readonly string[]) 
       item.animate([{ transform: `translateY(${offset}px)` }, { transform: 'none' }], SHIFT)
     }
   })
+  // Si la ventana cambia de tamaño o el teléfono gira, los renglones se reacomodan sin que React renderice: la medida de
+  // antes ya no vale y el siguiente quitar partiría de un desplazamiento falso. Se vuelve a medir, sin animar nada.
+  // Se escucha `resize` de la ventana (el giro del teléfono también la dispara) y no un `ResizeObserver` de la lista: la lista
+  // puede montarse después que el hook (el carrito que deja de estar vacío) y la ventana siempre está.
+  useEffect(() => {
+    const remeasure = () => {
+      const element = list.current
+      if (!element) return
+      const measured = new Map<string, number>()
+      for (const item of Array.from(element.children)) {
+        if (item instanceof HTMLElement && item.dataset.linea) measured.set(item.dataset.linea, item.offsetTop)
+      }
+      tops.current = measured
+    }
+    window.addEventListener('resize', remeasure)
+    return () => window.removeEventListener('resize', remeasure)
+  }, [])
   return list
 }

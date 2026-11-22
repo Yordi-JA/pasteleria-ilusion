@@ -232,8 +232,30 @@ test.describe('removing a line', () => {
     await expect(slice).toContainText('$35')
     await slice.getByRole('button', { name: 'Quitar Rebanada de tres leches de cajeta' }).click()
     await expect(slice).toHaveCount(0)
-    await page.waitForTimeout(100)
+    // `animate()` corre de forma síncrona en el layout effect: al desaparecer la línea ya se anotó todo lo que iba a animarse.
     expect(await shifts(page)).toEqual([])
+  })
+
+  test('after the window is resized, removing a line starts from the real offset, not from the old layout', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await recordShifts(page)
+    await seedCart(page, [durazno, cajetaSlice, designLine])
+    await page.goto('/carrito')
+    await expect(products(page).locator('[data-linea]')).toHaveCount(3)
+    // El giro del teléfono: las líneas se reacomodan sin que React renderice.
+    await page.setViewportSize({ width: 390, height: 844 })
+    const tops = () => products(page).locator('[data-linea]').evaluateAll((items) => items.map((item) => (item as HTMLElement).offsetTop))
+    await expect.poll(async () => (await tops())[0]).toBeGreaterThan(0)
+    const before = await tops()
+    await line(page, 'Tres leches de durazno').getByRole('button', { name: 'Quitar Tres leches de durazno' }).click()
+    await expect(line(page, 'Tres leches de durazno')).toHaveCount(0)
+    const after = await tops()
+    const recorded = await shifts(page)
+    expect(recorded).toHaveLength(2)
+    recorded.forEach((shift, index) => {
+      const from = Number(/translateY\((-?[\d.]+)px\)/.exec(shift.from)?.[1])
+      expect(from).toBeCloseTo(before[index + 1] - after[index], 0)
+    })
   })
 
   test('the empty cart rises in after the last line goes, and not when the page opens empty', async ({ page }) => {
