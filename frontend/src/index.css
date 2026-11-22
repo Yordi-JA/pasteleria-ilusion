@@ -127,6 +127,82 @@
   }
 }
 
+/* El menú del sitio en móvil (`components/SiteMenu.tsx`, 22 de noviembre): al abrirse con `showModal()`, el panel entra desde el
+   borde derecho, donde está el botón, en 250 ms, y el velo aparece a la par. Con porcentaje, así no depende de si mide 320 px
+   o el 86 % de la ventana. La salida es inmediata: el cierre por navegación suelta el foco enseguida, y animar el cierre de un
+   `dialog` modal pide `allow-discrete`, que no todos los navegadores traen. El foco entra con `showModal()`, sin esperar, y un
+   navegador sin `@starting-style` abre el menú como antes. */
+@media (prefers-reduced-motion: no-preference) {
+  .menu-panel[open] {
+    transition: transform 250ms theme('transitionTimingFunction.entrada');
+  }
+  .menu-panel[open]::backdrop {
+    transition: opacity 250ms theme('transitionTimingFunction.entrada');
+  }
+  @starting-style {
+    .menu-panel[open] {
+      transform: translateX(100%);
+    }
+    .menu-panel[open]::backdrop {
+      opacity: 0;
+    }
+  }
+}
+
+/* Transición entre vistas (22 de noviembre, `viewmodels/routeTransition.ts`): al cambiar de ruta, la vista vieja de `<main>` se
+   desvanece en 150 ms y la nueva aparece subiendo 6 px en 220 ms, con la curva `entrada`. Las reglas solo valen con
+   `data-transicion-ruta`, que el historial pone en `<html>` mientras dura la transición, así no tocan ninguna otra. La raíz no
+   entra en la transición: el toldo, la guirnalda y el pie se siguen pintando tal cual, sin foto ni parpadeo, y los clics pasan
+   (`pointer-events: none`). La barra tiene su propio nombre para quedar encima del contenido, sin animación: se ve la barra nueva
+   desde el primer cuadro. El grupo del contenido se queda en el lugar nuevo de `<main>`, sin animar su caja (nada de alto ni de
+   posición), recortado a ella para no tapar la barra ni el pie, y con el fondo `nata` de `<main>` detrás de las dos imágenes; la
+   vieja baja `--transicion-ruta-salida` para salir donde se veía antes del scroll al inicio. Con "reducir movimiento" el
+   historial no la empieza. */
+:root[data-transicion-ruta] {
+  view-transition-name: none;
+}
+:root[data-transicion-ruta] #contenido {
+  view-transition-name: contenido;
+}
+:root[data-transicion-ruta] .barra-sitio {
+  view-transition-name: barra-sitio;
+}
+:root[data-transicion-ruta]::view-transition {
+  pointer-events: none;
+}
+:root[data-transicion-ruta]::view-transition-group(contenido) {
+  animation: none;
+  overflow: clip;
+  background-color: theme('colors.nata');
+}
+:root[data-transicion-ruta]::view-transition-old(contenido) {
+  translate: 0 var(--transicion-ruta-salida, 0px);
+  mix-blend-mode: normal;
+  animation: transicion-ruta-sale 150ms theme('transitionTimingFunction.entrada') both;
+}
+:root[data-transicion-ruta]::view-transition-new(contenido) {
+  mix-blend-mode: normal;
+  animation: transicion-ruta-entra 220ms theme('transitionTimingFunction.entrada') both;
+}
+:root[data-transicion-ruta]::view-transition-group(barra-sitio),
+:root[data-transicion-ruta]::view-transition-new(barra-sitio) {
+  animation: none;
+}
+:root[data-transicion-ruta]::view-transition-old(barra-sitio) {
+  display: none;
+}
+@keyframes transicion-ruta-sale {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes transicion-ruta-entra {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
 /* Al imprimir, todo se ve aunque nunca haya llegado a la pantalla. */
 @media print {
   [data-aparicion],

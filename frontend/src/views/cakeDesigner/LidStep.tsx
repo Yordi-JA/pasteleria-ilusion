@@ -59,25 +59,32 @@ function AddOn({ id, label, description, trailing, checked, disabled, disabledRe
   )
 }
 
-const iconButton = `inline-flex h-11 w-11 items-center justify-center rounded-sm border-2 border-mermelada bg-betun text-mermelada hover:bg-harina ${focusRing}`
+// Las flechas de "Posición" (21 de noviembre): una cruz de cuatro celdas iguales de 44 px dentro de una sola caja, como el control de
+// las personas del paso 1 (borde `mermelada-suave`, fondo `harina` y botones planos que se tiñen de `fresa-claro`), con los íconos de
+// Phosphor del mismo tamaño y peso. Antes cada flecha era un botón con borde grueso y la columna del centro medía lo que "Centrar",
+// así que la cruz quedaba chueca. "Centrar" va a un lado, con su palabra, fuera de la cruz.
+const padButton = `flex h-11 w-11 items-center justify-center rounded-sm text-mermelada hover:bg-fresa-claro ${focusRing}`
+
+const PAD_BUTTONS: { label: string; dx: number; dy: number; Icon: typeof ArrowUp; area: string }[] = [
+  { label: 'Mover hacia arriba', dx: 0, dy: 1, Icon: ArrowUp, area: 'col-start-2 row-start-1' },
+  { label: 'Mover a la izquierda', dx: -1, dy: 0, Icon: ArrowLeft, area: 'col-start-1 row-start-2' },
+  { label: 'Mover a la derecha', dx: 1, dy: 0, Icon: ArrowRight, area: 'col-start-3 row-start-2' },
+  { label: 'Mover hacia abajo', dx: 0, dy: -1, Icon: ArrowDown, area: 'col-start-2 row-start-3' },
+]
 
 function PositionPad({ actions }: { actions: LidStepActions }) {
-  const buttons: { label: string; dx: number; dy: number; icon: ReactNode; area: string }[] = [
-    { label: 'Mover hacia arriba', dx: 0, dy: 1, icon: <ArrowUp size={18} aria-hidden="true" />, area: 'col-start-2 row-start-1' },
-    { label: 'Mover a la izquierda', dx: -1, dy: 0, icon: <ArrowLeft size={18} aria-hidden="true" />, area: 'col-start-1 row-start-2' },
-    { label: 'Mover a la derecha', dx: 1, dy: 0, icon: <ArrowRight size={18} aria-hidden="true" />, area: 'col-start-3 row-start-2' },
-    { label: 'Mover hacia abajo', dx: 0, dy: -1, icon: <ArrowDown size={18} aria-hidden="true" />, area: 'col-start-2 row-start-3' },
-  ]
   return (
     <div role="group" aria-label="Posición" className="flex flex-col gap-2">
       <p className="text-etiqueta">Posición</p>
-      <div className="grid w-fit grid-cols-[44px_auto_44px] grid-rows-3 items-center justify-items-center gap-1">
-        {buttons.map((button) => (
-          <button key={button.label} type="button" aria-label={button.label} onClick={() => actions.nudge(button.dx, button.dy)} className={`${iconButton} ${button.area}`}>
-            {button.icon}
-          </button>
-        ))}
-        <button type="button" onClick={actions.center} className={`col-start-2 row-start-2 inline-flex min-h-11 items-center rounded-sm px-2 text-etiqueta underline underline-offset-4 ${focusRing}`}>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="grid grid-cols-[repeat(3,44px)] grid-rows-[repeat(3,44px)] rounded-md border border-mermelada-suave bg-harina p-1">
+          {PAD_BUTTONS.map(({ label, dx, dy, Icon, area }) => (
+            <button key={label} type="button" aria-label={label} onClick={() => actions.nudge(dx, dy)} className={`${padButton} ${area}`}>
+              <Icon size={18} aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+        <button type="button" onClick={actions.center} className={`inline-flex min-h-11 items-center rounded-sm px-2 text-etiqueta underline underline-offset-4 ${focusRing}`}>
           Centrar
         </button>
       </div>
@@ -154,6 +161,7 @@ export default function LidStep({ view, actions }: LidStepProps) {
   const countId = `${id}-contador`
   const waferShape = wafer.shape
   const circle = waferShape === 'circle'
+  const movable = (view.target === 'wafer' && wafer.enabled) || (view.target === 'message' && Boolean(message.layout))
   const imagePicker = { image: wafer.image, lostName: wafer.lostName, error: wafer.error, onPick: actions.chooseWaferImage, onRemove: actions.removeWaferImage, onUnreadable: actions.unreadableWaferImage }
   return (
     <>
@@ -275,7 +283,8 @@ export default function LidStep({ view, actions }: LidStepProps) {
                   <RangeField label="Giro" value={message.rotation} min={-180} max={180} step={1} text={`${message.rotation}°`} onChange={actions.setMessageRotation} />
                 </>
               )}
-              <PositionPad actions={actions} />
+              {/* Sin nada que mover (la oblea sin agregar o el mensaje vacío), no hay flechas: los chips de arriba dicen qué falta. */}
+              {movable && <PositionPad actions={actions} />}
             </div>
           </div>
           <p id={hintId} className="text-nota text-mermelada-suave">

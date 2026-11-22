@@ -94,6 +94,24 @@ test.describe('on a desktop', () => {
     expect(preview.y + preview.height).toBeLessThanOrEqual(1000)
   })
 
+  test('every step card moves with the page like the one of step 1: none sticks under the header', async ({ page }) => {
+    // Corrección del 21 de noviembre: del paso 2 en adelante la tarjeta se quedaba pegada bajo la barra al bajar.
+    test.slow()
+    await page.setViewportSize({ width: 1440, height: 700 })
+    for (const step of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      if (step === 1) await open(page, 1, { ...DRAFT, confirmed: [1, 2, 3, 4, 5, 6, 7] })
+      else await page.goto(`/pedido/disena?paso=${step}`)
+      await expect(stepTitle(page), `paso ${step}`).toHaveText(new RegExp(`^${step}\\. `))
+      await page.evaluate(() => window.scrollTo(0, 0))
+      expect(await card(page).evaluate((element) => getComputedStyle(element).position), `paso ${step}`).toBe('static')
+      const start = (await card(page).boundingBox())!.y
+      await page.evaluate(() => window.scrollTo(0, 400))
+      await expect.poll(() => pageScroll(page)).toBe(400)
+      // La tarjeta subió lo mismo que la página: no se quedó fija bajo la barra.
+      expect(Math.round((await card(page).boundingBox())!.y), `paso ${step}`).toBe(Math.round(start - 400))
+    }
+  })
+
   test('changing the step brings the content back to the top', async ({ page }) => {
     await open(page, 6)
     await scrollToCard(page)
@@ -187,6 +205,33 @@ test.describe('on a desktop', () => {
     expect(box.y + box.height).toBeLessThanOrEqual(800)
   })
 })
+
+/** Tras "Continuar", el título del paso nuevo queda bajo la barra superior fija, no detrás de ella. */
+async function expectTitleBelowHeader(page: Page) {
+  await page.evaluate(() => window.scrollTo(0, 0))
+  const next = card(page).getByRole('button', { name: 'Continuar', exact: true })
+  await next.scrollIntoViewIfNeeded()
+  await next.click()
+  await expect(stepTitle(page)).toHaveText(/^3\. /)
+  await expect(stepTitle(page)).toBeFocused()
+  const header = page.getByRole('banner')
+  await expect.poll(async () => {
+    const title = (await stepTitle(page).boundingBox())!
+    const bar = (await header.boundingBox())!
+    return title.y >= bar.y + bar.height
+  }).toBe(true)
+}
+
+for (const size of [{ width: 1440, height: 900 }, { width: 1440, height: 700 }, { width: 390, height: 844 }]) {
+  test.describe(`${size.width}x${size.height}`, () => {
+    test.use({ viewport: size })
+
+    test('after "Continuar" the title of the new step sits below the fixed top bar', async ({ page }) => {
+      await open(page, 2)
+      await expectTitleBelowHeader(page)
+    })
+  })
+}
 
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 } })

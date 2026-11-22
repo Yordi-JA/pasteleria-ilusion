@@ -183,7 +183,7 @@ Primero el **tipo de pastel**, después el **pan**, después el **relleno**.
 | Choco-pingüino | **$250/kg, precio completo** (relleno incluido) | **No se combina con envinado.** Salta el paso de relleno |
 | Red velvet | **$280/kg, precio completo** (relleno incluido) | **Solo en pastel seco.** Salta el paso de relleno |
 
-- Choco-pingüino trae un relleno fijo de **crema de chocolate sabor helado**; Red velvet, su **relleno típico de red velvet**. No se cambian ni se les agrega sabor.
+- Choco-pingüino trae un relleno fijo de **crema de chocolate sabor helado**; Red velvet, su **betún de queso crema** (desde el 21 de noviembre de 2026, D99; antes se llamaba "relleno típico de red velvet"). No se cambian ni se les agrega sabor.
 - Confirmado: el Choco-pingüino cuesta $250/kg tanto en tres leches como en seco.
 
 ### 4.4 Relleno: base y sabores

@@ -4,7 +4,6 @@ import type { CakeDesignDraft } from '../models/cakeDesignDraft.ts'
 import { LAYOUT_BOUNDS, messageText, TIER_EDGE_UNITS } from '../models/cakeDesignLayout.ts'
 import type { CakeLid } from '../three/cakeShape.ts'
 import { clampCm, tierSizes, UNITS_PER_CM } from './cakeMolds.ts'
-import { colorPhrase } from './colors.ts'
 import { fitWafer, initialWafer } from './lidGeometry.ts'
 import type { Lid } from './lidGeometry.ts'
 import { BASELINE_BELOW_CENTER, fitMessage, messageFits, messageGeometry } from './messageGeometry.ts'
@@ -156,27 +155,26 @@ export function shapeLabel(shape: WaferShape) {
 }
 
 /**
- * El color del mensaje en palabras, o `null` en el automático (negro, que no hace falta decir): "color parecido a rosa", "color
- * elegido" (sin nombre parecido) o "color más oscuro de tu cobertura". Sin el código (tanda 1): lo muestra la muestra redonda.
+ * El color del mensaje en palabras, o `null` en el automático (negro, que no hace falta decir): "color elegido" o "color más
+ * oscuro de tu cobertura". Sin el código (tanda 1) ni el "parecido a" (21 de noviembre): el color lo muestra la muestra redonda.
  */
-export function messageColorPhrase(draft: CakeDesignDraft, coverage: string | null, references: CakeDesignOptions['coverageColors']): string | null {
+export function messageColorPhrase(draft: CakeDesignDraft): string | null {
   const { mode, value } = draft.message.color
-  const ink = messageInk(draft.message.color, coverage)
-  if (mode === 'custom') return `color ${colorPhrase(ink, references) ?? 'elegido'}`
+  if (mode === 'custom') return 'color elegido'
   if (mode === 'tones') return `color ${value === 'light' ? 'más claro' : 'más oscuro'} de tu cobertura`
   return null
 }
 
 /**
- * El texto de "Tu pastel" para el paso 7: "Mensaje: Feliz cumpleaños Ana, color parecido a rosa. Oblea: círculo, foto.jpg", o que
+ * El texto de "Tu pastel" para el paso 7: "Mensaje: Feliz cumpleaños Ana, color elegido. Oblea: círculo, foto.jpg", o que
  * no lleva ninguno. Un mensaje de varios renglones conserva sus saltos (`
 `): la vista los muestra con `whitespace-pre-line`.
  */
-export function lidSummary(draft: CakeDesignDraft, coverage: string | null, references: CakeDesignOptions['coverageColors']): string {
+export function lidSummary(draft: CakeDesignDraft): string {
   const parts: string[] = []
   const text = messageText(draft.message.text)
   if (draft.messageEnabled && text !== '') {
-    parts.push(['Mensaje: ' + text, messageColorPhrase(draft, coverage, references)].filter(Boolean).join(', '))
+    parts.push(['Mensaje: ' + text, messageColorPhrase(draft)].filter(Boolean).join(', '))
   }
   if (draft.waferEnabled) parts.push(`Oblea: ${[draft.wafer ? shapeLabel(draft.wafer.shape) : null, draft.waferImageName].filter(Boolean).join(', ')}`.replace(/: $/, ''))
   return parts.length ? parts.join('. ') : 'Sin mensaje ni oblea'

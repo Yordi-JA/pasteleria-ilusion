@@ -36,7 +36,8 @@ test.describe('at 1440 px', () => {
   test('the header keeps its copy and actions and shows the tiered-cake drawing, with no 3D scene', async ({ page }) => {
     const sceneRequests = await openCatalog(page)
     await expect(header(page).getByRole('heading', { level: 1 })).toHaveText('Catálogo')
-    await expect(header(page).getByRole('navigation')).toContainText('Inicio')
+    // Sin migas: el catálogo es una página de la barra, que ya dice dónde estás (correcciones del 21 de noviembre).
+    await expect(page.getByRole('navigation', { name: 'Ruta' })).toHaveCount(0)
     await expect(header(page)).toContainText('Cualquier sabor se puede pedir en seco o envinado al personalizarlo.')
     await expect(header(page).getByRole('link', { name: 'Realizar pedido' })).toHaveAttribute('href', '/pedido')
     await expect(header(page)).toContainText(/Pedidos con \d+ días? de anticipación\./)

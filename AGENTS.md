@@ -89,7 +89,7 @@ El diagrama, los contratos y la justificación están en [`docs/proyecto/arquite
 - Cada decisión nueva se registra en `docs/proyecto/decisiones.md`.
 - Al cerrar una tarea, anota el avance en `docs/bitacora.md` y actualiza el estado en `README.md`.
 - Al cerrar una etapa del plan, informa qué quedó, cómo lo verificaste y qué decidiste, y espera el visto bueno antes de seguir con la siguiente. Con el visto bueno, anota la fecha real de cierre y lo que se movió en la tabla "Ejecución real" de [`docs/proyecto/plan-de-trabajo.md`](docs/proyecto/plan-de-trabajo.md). No cambies las fechas del baseline ni las del plan real: un cambio al plan real necesita una decisión nueva en `docs/proyecto/decisiones.md` y una fila en el registro de cambios del plan.
-- El código se congela al terminar el viernes 20 de noviembre de 2026 (D77: pasó del 19 al 20); hasta entonces se siguen haciendo correcciones y mejoras. Del 21 al 23 solo corrige fallas; no agregues funciones ni pantallas. Desde el 24 de noviembre no cambies código.
+- El código se congela el domingo 22 de noviembre de 2026, al cerrar las últimas correcciones (D101: pasó del 19 al 20 con D77 y del 20 al 22); hasta entonces se siguen haciendo correcciones y mejoras. Del 22 al martes 24, antes de la clase, solo documentación y presentación. Desde la clase del martes 24 no cambies código.
 - Si una regla de negocio y el mockup se contradicen, gana la regla y avisas.
 
 ## Git y secretos

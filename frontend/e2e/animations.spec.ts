@@ -8,8 +8,8 @@ import { mockStoreInfo } from './support/store-info.ts'
 /**
  * Movimiento del sitio (D80 y D90): las secciones aparecen al llegar a la vista (suben 8 px y se desvanecen una sola vez),
  * las tarjetas suben en cascada (20 px, 60 ms entre cada una y como máximo 300 ms), la tarjeta destacada sube 4 px con el
- * mouse encima y su pastel un poco más, los botones se hunden a 0.97 al presionarlos y el contenido se desvanece al cambiar
- * de ruta. Con "reducir movimiento" todo aparece sin animación. La API se simula.
+ * mouse encima y su pastel un poco más, los botones se hunden a 0.97 al presionarlos y, sin transiciones de vista, el contenido
+ * se desvanece al cambiar de ruta. Con "reducir movimiento" todo aparece sin animación. La API se simula.
  */
 
 const REVEAL = '[data-aparicion]'
@@ -306,7 +306,12 @@ test.describe('without reduced motion', () => {
     await expect(header).toHaveAttribute('data-aparicion', 'visible')
   })
 
-  test('the route change fades the main content briefly and ends fully visible', async ({ page }) => {
+  test('without view transitions, the route change fades the main content briefly and ends fully visible', async ({ page }) => {
+    // Con `document.startViewTransition` la ruta cambia con la transición entre vistas (`e2e/route-transition.spec.ts`); este
+    // desvanecido es el respaldo de los navegadores que no la tienen.
+    await page.addInitScript(() => {
+      Reflect.deleteProperty(Document.prototype, 'startViewTransition')
+    })
     await openHome(page)
     // Anota cada `animate()` de `<main>`: el desvanecido dura menos de 200 ms y, con la máquina ocupada, puede terminar
     // antes de que la prueba alcance a leer `getAnimations()`.

@@ -27,11 +27,18 @@ test('the hero draws the chosen cake: two combed tiers with roses, on the black 
   await expect(page.getByRole('img', { name: 'Pastel de tres pisos' })).toHaveCount(0)
 })
 
-test('the still drawing while the scene loads has two tiers in the cream of the cake', async ({ page }) => {
+test('while the scene loads there is a skeleton; the still drawing, when the scene cannot load, has two tiers in the cream of the cake', async ({ page }) => {
   await page.route('**/src/three/**', () => {})
   await openHome(page)
+  await expect(page.getByTestId('pastel-portada-cargando')).toBeVisible()
+  await expect(page.getByTestId('pastel-portada-fijo')).toBeHidden()
+  // El chunk que falla deja el dibujo fijo.
+  await page.unroute('**/src/three/**')
+  await page.route('**/src/three/CakeScene.tsx*', (route) => route.abort())
+  await page.reload()
   const still = page.getByTestId('pastel-portada-fijo')
   await expect(still).toBeVisible()
+  await expect(page.getByTestId('pastel-portada-cargando')).toBeHidden()
   await expect(still.locator('rect')).toHaveCount(2)
   for (const rect of await still.locator('rect').all()) await expect(rect).toHaveClass(/fill-betun/)
 })

@@ -24,6 +24,7 @@ async function openHome(page: Page) {
 
 const box = (page: Page) => page.getByTestId('pastel-portada')
 const fallback = (page: Page) => page.getByTestId('pastel-portada-fijo')
+const loadingBlock = (page: Page) => page.getByTestId('pastel-portada-cargando')
 const scene = (page: Page) => page.getByRole('img', { name: NAME, exact: true })
 const hint = (page: Page) => page.locator('#pastel-pista')
 const num = async (page: Page, attr: string) => Number(await scene(page).getAttribute(attr))
@@ -57,15 +58,65 @@ async function setVisibility(page: Page, state: 'hidden' | 'visible') {
 }
 
 test.describe('hero cake: fallback', () => {
-  test('the static cake shows while the scene loads, with no hint and nothing to focus', async ({ page }) => {
-    // El módulo de la escena no llega: la portada se pinta igual, con el pastel fijo.
+  test('a skeleton of the box shows while the scene loads, not the static cake, with no hint and nothing to focus', async ({ page }) => {
+    // El módulo de la escena no llega: la portada se pinta igual, con el esqueleto en la caja del pastel (22 de noviembre). Todo
+    // esto pasa antes de los 8 s de espera; lo que sigue después lo revisa la prueba siguiente, con el reloj adelantado.
     await page.route('**/src/three/**', () => {})
     await openHome(page)
-    await expect(fallback(page)).toBeVisible()
     await expect(box(page)).toHaveAttribute('data-state', 'loading')
+    await expect(box(page)).toHaveAttribute('aria-busy', 'true')
+    await expect(loadingBlock(page)).toBeVisible()
+    await expect(loadingBlock(page).locator('[data-esqueleto]')).toHaveCount(1)
+    await expect(fallback(page)).toBeHidden()
     await expect(scene(page)).toHaveCount(0)
     await expect(hint(page)).toBeHidden()
-    expect((await box(page).boundingBox())!.height).toBeCloseTo(600, 0)
+    // La caja de 600 px es la de una pantalla alta: con 860 px de alto o menos se acorta para que quepa el hero (`home.spec.ts`).
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const rect = (await box(page).boundingBox())!
+    expect(rect.height).toBeCloseTo(600, 0)
+    // El esqueleto mide lo que la caja.
+    const block = (await loadingBlock(page).boundingBox())!
+    expect(block.height).toBeCloseTo(rect.height, 0)
+    expect(block.width).toBeCloseTo(rect.width, 0)
+  })
+
+  test('if the scene chunk hangs, after 8 s the static cake takes the place of the skeleton; a late scene still comes in', async ({ page }) => {
+    await page.clock.install()
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    await page.route('**/src/three/CakeScene.tsx*', async (route) => {
+      await gate
+      await route.continue()
+    })
+    await openHome(page)
+    await expect(loadingBlock(page)).toBeVisible()
+    await expect(box(page)).toHaveAttribute('aria-busy', 'true')
+    await page.clock.fastForward(7000)
+    // Antes de los 8 s, sigue el esqueleto.
+    await expect(loadingBlock(page)).toBeVisible()
+    await expect(fallback(page)).toBeHidden()
+    await page.clock.fastForward(1500)
+    // La escena sigue cargando, pero ya no se espera con el esqueleto: el pastel fijo, sin caja ocupada.
+    await expect(box(page)).toHaveAttribute('data-state', 'loading')
+    await expect(fallback(page)).toBeVisible()
+    await expect(loadingBlock(page)).toBeHidden()
+    await expect(box(page)).not.toHaveAttribute('aria-busy', 'true')
+    // La escena no se desmontó: si llega tarde, entra y el pastel fijo sale.
+    release()
+    await expect(box(page)).toHaveAttribute('data-state', 'ready', { timeout: 30_000 })
+    await expect(fallback(page)).toBeHidden()
+    await expect(scene(page)).toBeVisible()
+  })
+
+  test('if the scene chunk fails, the static cake takes the place of the skeleton', async ({ page }) => {
+    await page.route('**/src/three/CakeScene.tsx*', (route) => route.abort())
+    await openHome(page)
+    await expect(box(page)).toHaveAttribute('data-state', 'fallback')
+    await expect(fallback(page)).toBeVisible()
+    await expect(loadingBlock(page)).toBeHidden()
+    await expect(box(page)).not.toHaveAttribute('aria-busy', 'true')
   })
 
   test('without WebGL the static cake stays and the scene is never requested', async ({ page }) => {
@@ -84,6 +135,7 @@ test.describe('hero cake: fallback', () => {
     await openHome(page)
     await expect(box(page)).toHaveAttribute('data-state', 'fallback')
     await expect(fallback(page)).toBeVisible()
+    await expect(loadingBlock(page)).toBeHidden()
     await expect(scene(page)).toHaveCount(0)
     await expect(hint(page)).toBeHidden()
     expect(sceneRequests).toEqual([])
@@ -113,12 +165,16 @@ test.describe('hero cake: fallback', () => {
 })
 
 test.describe('hero cake: scene', () => {
-  test('replaces the static cake in the same box, with the hint from the mockup', async ({ page }) => {
+  test('replaces the skeleton in the same box, with the hint from the mockup', async ({ page }) => {
     await openReady(page)
     await expect(scene(page)).toBeVisible()
     await expect(fallback(page)).toBeHidden()
+    await expect(loadingBlock(page)).toBeHidden()
+    await expect(box(page)).not.toHaveAttribute('aria-busy', 'true')
     await expect(hint(page)).toBeVisible()
     await expect(hint(page).getByText(DRAG_HINT, { exact: true })).not.toHaveClass(/sr-only/)
+    // La caja de 600 px es la de una pantalla alta: con 860 px de alto o menos se acorta para que quepa el hero (`home.spec.ts`).
+    await page.setViewportSize({ width: 1440, height: 900 })
     expect((await box(page).boundingBox())!.height).toBeCloseTo(600, 0)
     // El 3D no se anuncia en la página.
     await expect(page.locator('main')).not.toContainText(/3D/)

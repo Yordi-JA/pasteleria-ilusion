@@ -432,16 +432,48 @@ const FRUIT_KINDS: Record<FruitKind, true> = {
   pear: true,
   physalis: true,
   banana: true,
+  pineapple: true,
+  apple_slice: true,
+  apple_wedge: true,
+  citrus: true,
+  apple_sheet: true,
+  cherry: true,
+  black_grape: true,
+  pear_flower: true,
+  black_grapes: true,
+  mint: true,
 }
-const FRUIT_LAYOUTS: Record<FruitLayoutKind, true> = { mound: true, ring: true, rows: true }
+const FRUIT_LAYOUTS: Record<FruitLayoutKind, true> = {
+  mound: true,
+  ring: true,
+  rows: true,
+  diagonal: true,
+  stripes: true,
+  fans: true,
+  cover: true,
+  back: true,
+  columns: true,
+  crown: true,
+}
 
 const isFruitKind = (value: unknown): value is FruitKind => typeof value === 'string' && Object.hasOwn(FRUIT_KINDS, value)
 
 // Lo que sabe dibujar la escena en los detalles de la imagen del catálogo (`three/cakeShape.ts`).
-const SIDE_TEXTURES: Record<SideTextureKind, true> = { lace: true, spatula: true, ridges: true }
-const DRIZZLES: Record<DrizzleKind, true> = { lace: true, threads: true }
-const SHELL_PLACES: Record<ShellPlace, true> = { edge: true, tulips: true, top: true }
-const SIDE_BITS: Record<SideBitsKind, true> = { crumbs: true, flakes: true }
+const SIDE_TEXTURES: Record<SideTextureKind, true> = { lace: true, spatula: true, ridges: true, brushed: true }
+const DRIZZLES: Record<DrizzleKind, true> = { lace: true, threads: true, scribble: true, lattice: true, web: true, feathers: true, marble: true }
+const SHELL_PLACES: Record<ShellPlace, true> = {
+  edge: true,
+  tulips: true,
+  top: true,
+  back: true,
+  full: true,
+  open: true,
+  half: true,
+  curl: true,
+  plaques: true,
+  rim: true,
+}
+const SIDE_BITS: Record<SideBitsKind, true> = { crumbs: true, flakes: true, shavings: true, seeds: true, plates: true, drips: true }
 
 function choice<T extends string>(value: unknown, known: Record<T, true>): T | null {
   return typeof value === 'string' && Object.hasOwn(known, value) ? (value as T) : null

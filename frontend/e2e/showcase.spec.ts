@@ -36,7 +36,8 @@ test.describe('vitrina at 1440px', () => {
     await openShowcase(page)
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Vitrina')
     await expect(page).toHaveTitle('Vitrina · Pastelería Ilusión')
-    await expect(page.getByRole('navigation', { name: 'Ruta' })).toContainText('Inicio')
+    // Sin migas: la vitrina es una página de la barra (correcciones del 21 de noviembre).
+    await expect(page.getByRole('navigation', { name: 'Ruta' })).toHaveCount(0)
     await expect(main(page)).toContainText('Viernes 6 de noviembre. Lo que hay hoy en la pastelería para llevar.')
     await expect(page.getByRole('group', { name: 'Filtrar la vitrina' }).getByRole('radio', { name: 'Todo' })).toBeChecked()
     await expect(names(page)).toHaveText([
@@ -252,5 +253,25 @@ test.describe('vitrina notice at 390px', () => {
     await close.click()
     await expect(notice).toBeEmpty()
     await expect(notice).toHaveAttribute('role', 'status')
+  })
+})
+
+test.describe('vitrina, the shelf cart button when pressed', () => {
+  test.use({ viewport: { width: 1440, height: 900 }, reducedMotion: 'no-preference' })
+
+  test('sinks to 0.97 in 100 ms, like the other buttons, and comes back in 150 ms', async ({ page }) => {
+    await openShowcase(page)
+    const add = main(page).getByRole('button', { name: 'Agregar al pedido: Tres leches con queso y zarzamora', exact: true })
+    await add.scrollIntoViewIfNeeded()
+    const box = (await add.boundingBox())!
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.down()
+    await expect(add).toHaveCSS('transform', 'matrix(0.97, 0, 0, 0.97, 0, 0)')
+    expect(await add.evaluate((element) => getComputedStyle(element).transitionDuration)).toBe('0.1s')
+    // Se suelta fuera, para no agregar nada.
+    await page.mouse.move(5, 5)
+    await page.mouse.up()
+    await expect(add).toHaveCSS('transform', 'none')
+    expect(await add.evaluate((element) => getComputedStyle(element).transitionDuration)).toBe('0.15s')
   })
 })

@@ -7,6 +7,7 @@ import type { FruitMesh } from './fruit.ts'
 import { resolveColor } from './palette.ts'
 import { boardProfile } from './sampleDetails.ts'
 import type { SampleDetailsLayout } from './sampleDetails.ts'
+import { useTopPattern } from './topPattern.ts'
 import { useGeometry } from './vertexGeometry.ts'
 
 /**
@@ -18,12 +19,24 @@ import { useGeometry } from './vertexGeometry.ts'
 /** Brillo de cada parte: rugosidad y cuánto refleja el entorno de los acabados. */
 const LOOKS = {
   shells: { roughness: 0.42, env: 0.35 },
+  /** Las conchas finas de media tapa (queso y chocolate): chocolate templado que brilla. */
+  glossyShells: { roughness: 0.2, env: 0.9 },
   band: { roughness: 0.42, env: 0.35 },
   crumbs: { roughness: 0.85, env: 0 },
   flakes: { roughness: 0.5, env: 0.25 },
+  shavings: { roughness: 0.5, env: 0.25 },
+  seeds: { roughness: 0.3, env: 0.5 },
+  plates: { roughness: 0.45, env: 0.3 },
+  drips: { roughness: 0.2, env: 0.8 },
   dust: { roughness: 0.95, env: 0 },
   drizzle: { roughness: 0.22, env: 0.9 },
 } as const
+
+/** Las conchas y placas de chocolate templado, que brillan más: las finas de media tapa y de la orilla, y las placas. */
+const GLOSSY_SHELLS: ReadonlySet<string> = new Set(['half', 'rim', 'plaques'])
+
+/** El grueso de cada hilo: el encaje, el garabato y la celosía son de manga fina; los hilos de cajeta, más gruesos. */
+const DRIZZLE_RADIUS = { lace: 0.007, threads: 0.011, scribble: 0.0055, lattice: 0.0066 } as const
 
 function VertexMesh({ mesh, look }: { mesh: FruitMesh | null; look: { roughness: number; env: number } }) {
   const geometry = useGeometry(mesh)
@@ -94,12 +107,33 @@ function Ring({ mesh }: { mesh: FruitMesh }) {
   )
 }
 
+/** El dibujo de toda la tapa (telaraña, plumas o jaspeado): un disco con la textura transparente, encima de la tapa y sin sombra propia. */
+function TopPattern({ pattern }: { pattern: NonNullable<SampleDetailsLayout['pattern']> }) {
+  const texture = useTopPattern(pattern.kind, resolveColor(pattern.color))
+  if (!texture) return null
+  return (
+    <mesh position-y={pattern.y} rotation-x={-Math.PI / 2}>
+      <circleGeometry args={[pattern.radius, 96]} />
+      <meshStandardMaterial
+        map={texture}
+        transparent
+        depthWrite={false}
+        roughness={0.25}
+        envMap={finishEnvironment()}
+        envMapIntensity={0.7}
+        polygonOffset
+        polygonOffsetFactor={-2}
+      />
+    </mesh>
+  )
+}
+
 function Drizzle({ drizzle }: { drizzle: NonNullable<SampleDetailsLayout['drizzle']> }) {
   const geometries = useMemo(
     () =>
       drizzle.curves.map((points) => {
         const curve = new CatmullRomCurve3(points.map(([x, y, z]) => new Vector3(x, y, z)), drizzle.closed)
-        return new TubeGeometry(curve, points.length, drizzle.kind === 'lace' ? 0.007 : 0.011, 6, drizzle.closed)
+        return new TubeGeometry(curve, points.length, DRIZZLE_RADIUS[drizzle.kind], 6, drizzle.closed)
       }),
     [drizzle],
   )
@@ -122,10 +156,12 @@ export default function SampleDetails({ layout }: { layout: SampleDetailsLayout 
       {layout.cap && <Cap cap={layout.cap} />}
       {layout.ring && <Ring mesh={layout.ring} />}
       <VertexMesh mesh={layout.band} look={LOOKS.band} />
-      <VertexMesh mesh={layout.shells?.mesh ?? null} look={LOOKS.shells} />
-      <VertexMesh mesh={layout.bits?.mesh ?? null} look={layout.bits?.kind === 'crumbs' ? LOOKS.crumbs : LOOKS.flakes} />
+      <VertexMesh mesh={layout.shells?.mesh ?? null} look={GLOSSY_SHELLS.has(layout.shells?.place ?? 'edge') ? LOOKS.glossyShells : LOOKS.shells} />
+      <VertexMesh mesh={layout.bits?.mesh ?? null} look={LOOKS[layout.bits?.kind ?? 'flakes']} />
       <VertexMesh mesh={layout.dust} look={LOOKS.dust} />
       {layout.drizzle && <Drizzle drizzle={layout.drizzle} />}
+      {layout.pattern && <TopPattern pattern={layout.pattern} />}
+      <VertexMesh mesh={layout.glaze} look={LOOKS.drips} />
     </>
   )
 }

@@ -9,7 +9,8 @@ test('/pedido shows both choices with their texts and links', async ({ page }) =
   await page.goto('/pedido')
   await expect(page.getByRole('heading', { level: 1, name: 'Realizar pedido' })).toBeVisible()
   await expect(page.getByText('Elige cómo quieres encargar tu pastel.')).toBeVisible()
-  await expect(page.getByRole('navigation', { name: 'Ruta' }).getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/')
+  // Sin migas: "Realizar pedido" está en la barra, que ya dice dónde estás (correcciones del 21 de noviembre).
+  await expect(page.getByRole('navigation', { name: 'Ruta' })).toHaveCount(0)
 
   const design = page.getByRole('region', { name: 'Diseña tu pastel' })
   await expect(design.getByText('Precio al momento', { exact: true })).toBeVisible()

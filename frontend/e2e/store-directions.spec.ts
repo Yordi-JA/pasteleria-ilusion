@@ -79,10 +79,12 @@ test('the confirmation shows the address marker without the address', async ({ p
   await expect(directions(place)).toHaveCount(0)
 })
 
-test('the WhatsApp number reads as 55 9094 9101 in the footer and the checkout strip, and the link keeps the digits', async ({ page }) => {
+test('the WhatsApp number reads as 55 9094 9101 in the footer, and the delivery link keeps the digits', async ({ page }) => {
   await mockStoreInfo(page, { ...fullStoreInfo, whatsapp: '525590949101' })
   await openDelivery(page)
-  const link = page.getByTestId('franja').getByRole('link', { name: 'WhatsApp 55 9094 9101' })
+  // La entrega ya no lleva la franja del WhatsApp (correcciones del 21 de noviembre): el enlace es el de la entrega a domicilio.
+  await expect(page.getByTestId('franja')).toHaveCount(0)
+  const link = page.getByRole('link', { name: /Escribir por WhatsApp para la entrega a domicilio/ })
   await expect(link).toHaveAttribute('href', 'https://wa.me/525590949101')
   await page.goto('/legal')
   const note = footer(page).getByRole('link', { name: /Escribir por WhatsApp/ })

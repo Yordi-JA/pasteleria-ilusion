@@ -78,7 +78,7 @@ def test_breads_carry_the_price_per_kg_the_interface_shows():
         "tres_leches": Decimal("250.00"), "seco": Decimal("250.00"),
     }
     assert breads["red_velvet"].price_per_kg_from == {"seco": Decimal("280.00")}
-    assert breads["red_velvet"].included_filling == "Relleno típico de red velvet"
+    assert breads["red_velvet"].included_filling == "Betún de queso crema"
 
 
 def test_filling_bases_carry_their_general_price_by_type_and_their_flavors():

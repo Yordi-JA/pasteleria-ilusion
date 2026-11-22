@@ -35,7 +35,8 @@ test.describe('bases at 1440px', () => {
     await openBases(page)
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Bases en préstamo')
     await expect(page).toHaveTitle('Bases en préstamo · Pastelería Ilusión')
-    await expect(header(page).getByRole('navigation', { name: 'Ruta' }).getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/')
+    // Sin migas: es una página de primer nivel, sin otra arriba (correcciones del 21 de noviembre).
+    await expect(page.getByRole('navigation', { name: 'Ruta' })).toHaveCount(0)
     await expect(header(page)).toContainText(LEAD)
 
     await expect(steps(page)).toHaveCount(3)
@@ -172,14 +173,13 @@ test.describe('bases at 1440px', () => {
     await expect(deposits(page)).toHaveCount(6)
   })
 
-  test('the keyboard reaches the breadcrumb and the order button, with a visible focus', async ({ page }) => {
+  test('the keyboard goes from the main content to the order button, with a visible focus', async ({ page }) => {
     await openBases(page)
     await expect(deposits(page)).toHaveCount(6)
-    const home = header(page).getByRole('link', { name: 'Inicio' })
-    await home.focus()
-    await expect(home).toHaveCSS('outline-style', 'solid')
+    // Sin migas, el recorrido empieza en el contenido: `main` recibe el foco al cambiar de ruta (`useRouteFocus`).
+    await page.locator('main').focus()
     const cta = region(page, '¿Tu pedido necesita base?').getByRole('link', { name: 'Realizar pedido' })
-    // Desde las migas, Tab recorre la página hasta el botón sin otras paradas: el contenido no tiene controles.
+    // Desde ahí, Tab recorre la página hasta el botón sin otras paradas: el contenido no tiene controles.
     await page.keyboard.press('Tab')
     await expect(cta).toBeFocused()
     await expect(cta).toHaveCSS('outline-style', 'solid')
@@ -245,5 +245,31 @@ test.describe('bases at 390px', () => {
     await expect(header(page).locator('svg[aria-hidden="true"]')).toBeHidden()
     await expect(region(page, '¿Tu pedido necesita base?').getByRole('link', { name: 'Realizar pedido' })).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  })
+})
+
+test.describe('bases: the sections appear as they reach the view', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+  /** El bloque de `Reveal` que envuelve una sección: el padre de su región. */
+  const reveal = (page: Page, name: string) => region(page, name).locator('xpath=..')
+
+  test('a section below the fold waits hidden and appears once after scrolling', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await openBases(page)
+    await expect(steps(page)).toHaveCount(3)
+    // "Cómo funciona" ya se ve al cargar: no se mueve.
+    await expect(reveal(page, 'Cómo funciona')).not.toHaveAttribute('data-aparicion', 'oculta')
+    await expect(reveal(page, 'Condiciones del préstamo')).toHaveAttribute('data-aparicion', 'oculta')
+    await conditions(page).scrollIntoViewIfNeeded()
+    await expect(reveal(page, 'Condiciones del préstamo')).toHaveAttribute('data-aparicion', 'visible')
+    await expect(reveal(page, 'Condiciones del préstamo')).toHaveCSS('opacity', '1')
+    await expect(reveal(page, 'Condiciones del préstamo')).toHaveCSS('transform', 'none')
+  })
+
+  test('with reduced motion nothing waits hidden', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await openBases(page)
+    await expect(steps(page)).toHaveCount(3)
+    await expect(main(page).locator('[data-aparicion]')).toHaveCount(0)
   })
 })

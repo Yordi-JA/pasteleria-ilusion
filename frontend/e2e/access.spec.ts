@@ -3,6 +3,9 @@ import type { Page } from '@playwright/test'
 import { ana, CSRF_TOKEN, mockAuth, mockGoogleIdentity, opened, rejected, sessionBody, signedIn, withoutGoogle } from './support/auth.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 import { durazno, seedCart, storedCart } from './support/checkout.ts'
+import { mockOrderList, orderPage } from './support/account-orders.ts'
+import { mockReferenceList } from './support/references.ts'
+import { loanPage, mockStandLoans } from './support/stand-notes.ts'
 
 /** Acceso de clientes (D62): `/entrar`, `/registro`, la sesión en el marco y las rutas de la cuenta. */
 
@@ -20,6 +23,11 @@ const cartLine = {
 
 test.beforeEach(async ({ page }) => {
   await mockStoreInfo(page)
+  // Las pantallas de la cuenta piden sus listas con la sesión: sin simularlas irían al Django real, que rechaza el token
+  // falso (401, renovación, 401) y cierra la sesión antes de que la prueba llegue a "Cerrar sesión".
+  await mockOrderList(page, { 1: { status: 200, body: orderPage([]) } })
+  await mockReferenceList(page)
+  await mockStandLoans(page, { status: 200, body: loanPage([]) })
 })
 
 async function fillLogin(page: Page, email: string, password: string) {
@@ -410,6 +418,10 @@ test.describe('mobile (390 px)', () => {
     const cardBox = await card.boundingBox()
     const cakeBox = await cake.boundingBox()
     expect(cakeBox!.y).toBeGreaterThan(cardBox!.y)
+    // El pastel cierra la sección: a todo lo ancho de la columna y a 24 px del final del campo, no a 56 (correcciones del 21 de noviembre).
+    const section = (await page.locator('main section').first().boundingBox())!
+    expect(cakeBox!.width).toBeGreaterThanOrEqual(390 - 32 - 1)
+    expect(section.y + section.height - (cakeBox!.y + cakeBox!.height)).toBeCloseTo(24, 0)
     // Nada se sale de lo ancho de la pantalla.
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
   })
@@ -481,32 +493,106 @@ test.describe('the cake of the access pages (tanda 8)', () => {
     })
   }
 
-  test('the still drawing while the scene loads has two tiers in the cream of the cake', async ({ page }) => {
-    await page.route('**/src/three/**', () => {})
+  test('while the scene loads a skeleton fills the box of the cake, and it gives way to the scene', async ({ page }) => {
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    await page.route('**/src/three/CakeScene.tsx*', async (route) => {
+      await gate
+      await route.continue()
+    })
+    await withoutGoogle(page)
+    await mockAuth(page)
+    await page.goto('/entrar')
+    const cake = page.getByTestId('pastel-acceso')
+    const loading = page.getByTestId('pastel-acceso-cargando')
+    await expect(cake).toHaveAttribute('data-state', 'loading')
+    await expect(cake).toHaveAttribute('aria-busy', 'true')
+    await expect(loading).toBeVisible()
+    await expect(page.getByTestId('pastel-acceso-fijo')).toBeHidden()
+    const rect = (await cake.boundingBox())!
+    const block = (await loading.boundingBox())!
+    expect(block.width).toBeCloseTo(rect.width, 0)
+    expect(block.height).toBeCloseTo(rect.height, 0)
+    release()
+    await expect(cake).toHaveAttribute('data-state', 'ready', { timeout: 30_000 })
+    await expect(loading).toBeHidden()
+    await expect(cake).not.toHaveAttribute('aria-busy', 'true')
+  })
+
+  test('the still drawing, when the scene cannot load, has two tiers in the cream of the cake', async ({ page }) => {
+    await page.route('**/src/three/CakeScene.tsx*', (route) => route.abort())
     await withoutGoogle(page)
     await mockAuth(page)
     await page.goto('/entrar')
     const still = page.getByTestId('pastel-acceso-fijo')
+    await expect(page.getByTestId('pastel-acceso')).toHaveAttribute('data-state', 'fallback')
     await expect(still).toBeVisible()
+    await expect(page.getByTestId('pastel-acceso-cargando')).toBeHidden()
     await expect(still.locator('rect')).toHaveCount(2)
     for (const rect of await still.locator('rect').all()) await expect(rect).toHaveClass(/fill-betun/)
   })
 
-  // Tanda 10: el pastel va arriba, justo debajo del lema (en `/entrar`, que no lleva lista) o de la lista (en `/registro`).
+  // Correcciones del 21 de noviembre: el pastel ya no deja aire debajo. Su lugar mide lo que la tarjeta deja libre bajo el texto,
+  // y el pastel, tan grande como cabe, queda apoyado en el borde de abajo, a la altura del final de la tarjeta.
   for (const [path, above] of [['/entrar', 'Qué gusto verte de nuevo.'], ['/registro', 'Todos tus pedidos en un solo lugar.']] as const) {
-    test(`on desktop ${path} puts the cake in a 480 px column right under the text`, async ({ page }) => {
+    test(`on desktop ${path} rests the cake on the bottom of its place, level with the end of the card`, async ({ page }) => {
       await page.setViewportSize({ width: 1440, height: 1000 })
       await withoutGoogle(page)
       await mockAuth(page)
       await page.goto(path)
-      const box = await page.getByTestId('pastel-acceso').boundingBox()
-      const text = await page.getByText(above, { exact: true }).boundingBox()
-      expect(box!.width).toBe(480)
-      // Tanda 11: la caja sube 24 px sobre el espacio de la cuadrícula (32 px): queda a unos 8 px del texto, sin encimarse.
-      expect(box!.y - (text!.y + text!.height)).toBeGreaterThanOrEqual(0)
-      expect(box!.y - (text!.y + text!.height)).toBeLessThanOrEqual(16)
+      const cake = (await page.getByTestId('pastel-acceso').boundingBox())!
+      const place = (await page.getByTestId('lugar-pastel-acceso').boundingBox())!
+      const text = (await page.getByText(above, { exact: true }).boundingBox())!
+      const card = (await page.locator('main section > div > div').last().boundingBox())!
+      // La caja del pastel, a la proporción de la escena chica (500 × 440), dentro de su lugar y apoyada en su borde de abajo.
+      expect(cake.width / cake.height).toBeCloseTo(500 / 440, 1)
+      expect(cake.width).toBeLessThanOrEqual(place.width + 0.5)
+      expect(cake.height).toBeLessThanOrEqual(place.height + 0.5)
+      expect(Math.abs(cake.y + cake.height - (place.y + place.height))).toBeLessThanOrEqual(1)
+      // El lugar termina donde termina la tarjeta (o la tarjeta, si es más baja, no lo deja sin sus 360 px).
+      expect(place.y + place.height).toBeGreaterThanOrEqual(card.y + card.height - 1)
+      expect(place.height).toBeGreaterThanOrEqual(360)
+      // Bajo el texto, sin encimarse.
+      expect(cake.y).toBeGreaterThanOrEqual(text.y + text.height)
     })
   }
+
+  test('the scene of the cake draws down to the bottom edge of its box, with no strip of air under the board', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await withoutGoogle(page)
+    await mockAuth(page)
+    await page.goto('/entrar')
+    const cake = page.getByTestId('pastel-acceso')
+    await expect(cake).toHaveAttribute('data-state', 'ready', { timeout: 30_000 })
+    await cake.scrollIntoViewIfNeeded()
+    const shot = await cake.screenshot({ animations: 'disabled' })
+    // La última fila con algo dibujado (la charola o su sombra), comparada con el fondo `fresa` (249, 193, 193).
+    const air = await page.evaluate(async (png) => {
+      const image = new Image()
+      image.src = `data:image/png;base64,${png}`
+      await image.decode()
+      const canvas = document.createElement('canvas')
+      canvas.width = image.width
+      canvas.height = image.height
+      const context = canvas.getContext('2d')!
+      context.drawImage(image, 0, 0)
+      const { data } = context.getImageData(0, 0, canvas.width, canvas.height)
+      let last = 0
+      for (let y = 0; y < canvas.height; y++) {
+        let marked = 0
+        for (let x = 0; x < canvas.width; x++) {
+          const i = (y * canvas.width + x) * 4
+          if (Math.abs(data[i] - 249) + Math.abs(data[i + 1] - 193) + Math.abs(data[i + 2] - 193) > 6) marked++
+        }
+        if (marked > 3) last = y
+      }
+      return canvas.height - 1 - last
+    }, shot.toString('base64'))
+    // Antes, con la charola al 76 %, quedaban unos 40 px vacíos dentro de la caja, más hasta 190 px hasta el final de la tarjeta.
+    expect(air).toBeLessThanOrEqual(24)
+  })
 
   test('/recuperar keeps the still cake, in the same colors', async ({ page }) => {
     await mockAuth(page)

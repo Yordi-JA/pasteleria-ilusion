@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { RefObject } from 'react'
 import { useLocation } from 'react-router'
 import { prefersReducedMotion } from './reducedMotion.ts'
+import { supportsRouteTransition } from './routeTransition.ts'
 
 /** Lo que dura el desvanecido al cambiar de ruta, con la curva de entrada del sitio (`ease-entrada`). */
 const FADE = { duration: 180, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' }
@@ -11,6 +12,8 @@ const FADE = { duration: 180, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' }
  * no mueve nada, así el foco y el scroll de `useRouteFocus` no cambian. No corre en la primera carga, ni cuando solo
  * cambian la búsqueda o el ancla (los pasos de "Diseña tu pastel" tienen su propia entrada), ni con "reducir movimiento".
  * Una navegación nueva cancela el desvanecido anterior.
+ * Desde el 22 de noviembre es el respaldo de la transición entre vistas (`routeTransition.ts`): solo corre en un navegador sin
+ * `document.startViewTransition`, para que nunca haya dos animaciones encima.
  */
 export function useRouteFade(main: RefObject<HTMLElement | null>) {
   const { pathname } = useLocation()
@@ -22,7 +25,7 @@ export function useRouteFade(main: RefObject<HTMLElement | null>) {
     // StrictMode corre el efecto dos veces al montar: la segunda vez la ruta es la misma y no hay nada que hacer.
     if (prior === null || prior === pathname) return
     const element = main.current
-    if (!element || typeof element.animate !== 'function' || prefersReducedMotion()) return
+    if (!element || typeof element.animate !== 'function' || supportsRouteTransition() || prefersReducedMotion()) return
     const fade = element.animate([{ opacity: 0 }, { opacity: 1 }], FADE)
     return () => fade.cancel()
   }, [pathname, main])

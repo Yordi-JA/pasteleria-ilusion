@@ -3,7 +3,7 @@ import type { ProductCategory, StockItem } from '../models/catalog.ts'
 import { formatPrice } from '../models/money.ts'
 import { offeringLabel } from '../models/presentation.ts'
 import type { Addable } from './useAddToCart.ts'
-import { catalogImageView, PHOTO_PLACEHOLDER, photoView } from './productPhoto.ts'
+import { catalogImageView, PHOTO_PLACEHOLDER, photoView, withCartImage } from './productPhoto.ts'
 import type { PhotoView } from './productPhoto.ts'
 import { productHref } from './productCards.ts'
 
@@ -85,7 +85,8 @@ export function toShowcaseItem(item: StockItem, { modelImages = false }: Showcas
     photo: image(label),
     soldOut: item.soldOut,
     remaining: item.soldOut ? null : remainingLabel(item.stock),
-    offering: stockItemToCartOffering(item),
+    // El carrito muestra la imagen de la tarjeta del catálogo: la del modelo o, sin ella, la foto.
+    offering: withCartImage(stockItemToCartOffering(item), { slug: item.productSlug, photo: item.photo, modelImage: item.modelImage }),
     maxQuantity: item.stock,
   }
 }
@@ -140,7 +141,8 @@ export function toSliceItem(item: StockItem): SliceItemView {
     remaining: item.soldOut ? null : remainingLabel(item.stock),
     soldOut: item.soldOut,
     photo: photoView(item.photo, offeringLabel(item.productName, item.presentation), 'Foto de la rebanada'),
-    offering: stockItemToCartOffering(item),
+    // Una rebanada no tiene imagen del modelo: el carrito muestra su foto.
+    offering: withCartImage(stockItemToCartOffering(item), { slug: item.productSlug, photo: item.photo, modelImage: null }),
     maxQuantity: item.stock,
     productHref: productHref(item.productSlug),
   }

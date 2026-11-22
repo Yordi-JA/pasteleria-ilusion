@@ -19,15 +19,15 @@ import { useRestoreSession, useSession, useSignInEffect, useSignOut, useSignOutA
 import { useSiteMenu } from '../viewmodels/useSiteMenu.ts'
 import { useStoreInfo } from '../viewmodels/useStoreInfo.ts'
 
-/** La entrega y el pago llevan el marco de la compra (mockup de Entrega y Pago): franja, barra y pie propios. */
+/** La entrega y el pago llevan el marco de la compra (mockup de Entrega y Pago): barra y pie propios. */
 const CHECKOUT_PATHS = new Set(['/pedido/entrega', '/pedido/pago'])
-/** Solo el pago dice quién procesa los pagos (tanda 1, D77). */
+/** Solo el pago lleva franja: quién procesa los pagos (tanda 1, D77); la del WhatsApp se quitó (correcciones del 21 de noviembre). */
 const PAYMENT_PATH = '/pedido/pago'
 
 /**
- * Marco común de todas las rutas: toldo, barra flotante, contenido, guirnalda y pie; la entrega y el pago llevan además la
- * franja de la compra (la franja de los días y el WhatsApp del resto del sitio se quitó en D77: el WhatsApp está en el pie y
- * los días, en las pantallas de pedido). Pide los datos de la pastelería una sola vez y los pasa a esa franja, el menú y el pie. Guarda el carrito y lo
+ * Marco común de todas las rutas: toldo, barra flotante, contenido, guirnalda y pie; el pago lleva además la franja de los
+ * pagos (la franja de los días y el WhatsApp se quitó en D77 y en la entrega el 21 de noviembre: el WhatsApp está en el pie y
+ * los días, en las pantallas de pedido). Pide los datos de la pastelería una sola vez y los pasa al menú y al pie. Guarda el carrito y lo
  * comparte con las pantallas por `CartContext`; el vuelo de la perla al carrito va por `CartFlightContext`; al encabezado le pasa solo el contador (D46).
  * Recupera la sesión al cargar y le pasa al encabezado y al menú si hay cuenta (D62); al cerrarla, vacía el carrito (D77); la guirnalda cuelga del campo
  * con que termina la vista (`useClosingField`).
@@ -76,7 +76,7 @@ export default function SiteLayout() {
               >
                 Saltar al contenido
               </a>
-              {checkout && <CheckoutStrip store={store} payments={location.pathname === PAYMENT_PATH} />}
+              {location.pathname === PAYMENT_PATH && <CheckoutStrip />}
               <div data-testid="toldo" className="toldo" aria-hidden="true" />
               {checkout ? (
                 <CheckoutHeader back={checkoutBack(location.pathname, location.search)} />

@@ -4,6 +4,7 @@
  * real lo calcula el servidor al crear el pedido, así que aquí solo se suman para mostrarlos como estimado.
  */
 import type { CartItem, DesignItem, LineKey, OfferingItem } from '../models/cart.ts'
+import { photoUrl } from '../models/catalog.ts'
 import { formatPrice, PRICE_PATTERN } from '../models/money.ts'
 import { PRESENTATION_LABELS } from '../models/presentation.ts'
 
@@ -31,7 +32,10 @@ export type CartLineView = {
   /** La base que lleva un pastel diseñado y su depósito ya con formato. */
   base: { kg: number | null; deposit: string } | null
   requiresQuote: boolean
-  /** La miniatura del pastel diseñado (tanda 4); `null` en el catálogo y en un pastel sin ella: se ve el hueco de la foto. */
+  /**
+   * La miniatura de la línea: la del pastel diseñado (tanda 4) o la imagen de la tarjeta del catálogo (`OfferingItem.image`); `null`
+   * sin ninguna: se ve el hueco de la foto.
+   */
   thumbnail: string | null
   /** Para cambiar o quitar la línea. */
   key: { kind: 'offering'; line: LineKey } | { kind: 'design'; designId: string }
@@ -93,7 +97,7 @@ function offeringLine(item: OfferingItem): CartLineView {
     kg: null,
     base: null,
     requiresQuote: false,
-    thumbnail: null,
+    thumbnail: item.image ? photoUrl(item.image) : null,
     key: { kind: 'offering', line: { offeringId: item.offeringId, fulfillment: item.fulfillment } },
   }
 }
@@ -102,6 +106,21 @@ function offeringLine(item: OfferingItem): CartLineView {
 function sizeLabelOf(item: DesignItem): string | null {
   const label = item.design.sizeLabel
   return typeof label === 'string' && label.trim() !== '' && label.length <= 80 ? label : null
+}
+
+/** El renglón del paso 7 que guardó `designLine` ("Mensaje y oblea: Mensaje: Feliz día, color elegido. Oblea: …"). */
+const MESSAGE_ROW = 'Mensaje y oblea: '
+
+/**
+ * Lo elegido sin el "parecido a" del color (21 de noviembre): un pastel guardado antes trae "Crema pastelera, parecido a
+ * amarillo, con peinado lateral" o "color parecido a rosa", y el sitio ya no nombra el color (se ve en su muestra). Se quita al
+ * leer, con las mismas palabras de ahora: "Crema pastelera, con peinado lateral", "color elegido".
+ */
+export function withoutColorName(detail: string): string {
+  // El mensaje lo escribió quien pide: solo se cambia el color que el sitio puso al final del mensaje (antes de ". Oblea: " o del
+  // final del renglón), nunca un "parecido a" del texto ("Feliz día, parecido a papá").
+  if (detail.startsWith(MESSAGE_ROW)) return detail.replace(/, color parecido a [^,.\n]+(?=\. Oblea: |$)/, ', color elegido')
+  return detail.replace(/color parecido a [^,.\n]+/g, 'color elegido').replace(/, parecido a [^,.\n]+/g, '')
 }
 
 function designLine(item: DesignItem): CartLineView {
@@ -117,7 +136,7 @@ function designLine(item: DesignItem): CartLineView {
     total: money(toCents(item.total)),
     unitNote: 'Estimado',
     slug: null,
-    details: item.details,
+    details: item.details.map(withoutColorName),
     brief: [sizeLabel ?? (kg ? `${kg} kg` : 'Diseña tu pastel'), item.requiresQuote ? 'decoración por cotizar' : null].filter(Boolean).join(', '),
     kg,
     base: deposit ? { kg, deposit } : null,

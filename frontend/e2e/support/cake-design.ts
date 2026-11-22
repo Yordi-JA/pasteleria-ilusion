@@ -15,7 +15,7 @@ export const PRICE_PATH = '**/api/v1/cake-designs/price/'
 
 /**
  * Los nombres de referencia de la pastelería (`coverage_colors` de las opciones) con su código. Desde que el color de la
- * cobertura, de la decoración y del mensaje es libre (`#rrggbb`), la lista ya no se elige: solo da el "parecido a". Las pruebas
+ * cobertura, de la decoración y del mensaje es libre (`#rrggbb`), la lista ya no se elige ni se nombra (sin "parecido a"). Las pruebas
  * usan estos códigos para armar borradores con colores conocidos.
  */
 export const COVERAGE_HEX: Record<string, string> = {
@@ -199,7 +199,7 @@ export const cakeDesignOptions = {
       "description": "",
       "pricing_mode": "full_price_per_kg",
       "price_per_kg": "280.00",
-      "included_filling": "Relleno típico de red velvet",
+      "included_filling": "Betún de queso crema",
       "preview_color": "#B8363A",
       "preview_color_bottom": "",
       "included_filling_preview_style": "sprinkles",

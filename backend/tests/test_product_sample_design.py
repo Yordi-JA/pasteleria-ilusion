@@ -33,8 +33,22 @@ from core_pasteleria.models import (
 migration = importlib.import_module("core_pasteleria.migrations.0050_seed_product_sample_designs")
 # La `0052` siembra los detalles de la imagen y corrige tres datos de la `0050`; su reversa deja la muestra como la sembró la `0050`.
 details_migration = importlib.import_module("core_pasteleria.migrations.0052_seed_sample_design_details")
+# La `0064` siembra después las muestras de otros cuatro pasteles; la `0050` no las toca.
+new_cakes = importlib.import_module("core_pasteleria.migrations.0064_seed_blueberry_pinguino_zarzamora_samples")
 
 pytestmark = pytest.mark.django_db
+
+
+# La `0067` rediseña después las 8 muestras y la `0069` cambia otra vez fresa y cajeta y agrega zarzamora y chocolate; estas pruebas
+# revisan las semillas de antes, así que cada una parte de lo que ellas dejaron (las reversas lo devuelven tal cual).
+redesign = importlib.import_module("core_pasteleria.migrations.0067_seed_redesigned_samples")
+new_designs = importlib.import_module("core_pasteleria.migrations.0069_seed_new_flavor_samples")
+
+
+@pytest.fixture(autouse=True)
+def _before_the_redesign():
+    new_designs.unseed(apps, None)
+    redesign.unseed(apps, None)
 
 TODAY = date(2026, 11, 6)
 NOON_TODAY = datetime(2026, 11, 6, 18, 0, tzinfo=dt_timezone.utc)
@@ -195,7 +209,7 @@ def test_the_fruits_and_layouts_are_the_ones_the_model_draws():
 
 def test_the_seed_gives_the_eight_products_with_a_photo_their_observed_sample():
     details_migration.unseed(apps, None)
-    assert ProductSampleDesign.objects.count() == len(OBSERVED)
+    assert set(ProductSampleDesign.objects.values_list("product__slug", flat=True)) == set(OBSERVED) | set(new_cakes.SAMPLES)
     for slug, (coverage, decoration_slug, decoration_color, layout, fruits, comb) in OBSERVED.items():
         sample = sample_of(slug)
         assert (
@@ -213,7 +227,7 @@ def test_the_seed_gives_the_eight_products_with_a_photo_their_observed_sample():
 
 def test_running_the_seed_again_changes_nothing():
     migration.seed(apps, None)
-    assert ProductSampleDesign.objects.count() == len(OBSERVED)
+    assert ProductSampleDesign.objects.count() == len(OBSERVED) + len(new_cakes.SAMPLES)
 
 
 def test_the_seed_does_not_overwrite_what_the_admin_changed():
@@ -242,7 +256,7 @@ def test_the_reverse_deletes_only_the_samples_still_as_seeded():
     details_migration.unseed(apps, None)
     ProductSampleDesign.objects.filter(product__slug="tres-leches-de-galleta").update(side_comb=True)
     migration.unseed(apps, None)
-    assert list(ProductSampleDesign.objects.values_list("product__slug", flat=True)) == ["tres-leches-de-galleta"]
+    assert set(ProductSampleDesign.objects.values_list("product__slug", flat=True)) == {"tres-leches-de-galleta", *new_cakes.SAMPLES}
     assert Product.objects.filter(slug="tres-leches-de-fresa").exists()
 
 

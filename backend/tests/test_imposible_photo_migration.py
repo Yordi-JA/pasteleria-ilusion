@@ -12,6 +12,9 @@ from rest_framework.test import APIClient
 from core_pasteleria.models import Product
 
 migration = importlib.import_module("core_pasteleria.migrations.0060_seed_imposible_photo")
+new_cakes = importlib.import_module("core_pasteleria.migrations.0064_seed_blueberry_pinguino_zarzamora_samples")
+# La `0069` pone también las fotos de zarzamora y de chocolate.
+new_flavors = importlib.import_module("core_pasteleria.migrations.0069_seed_new_flavor_samples")
 
 pytestmark = pytest.mark.django_db
 
@@ -31,7 +34,8 @@ def test_the_catalog_and_the_detail_give_the_imposible_photo_and_the_posible_kee
 def test_running_it_again_changes_nothing():
     migration.seed(apps, None)
     assert imposible_photo() == "imposible.webp"
-    assert Product.objects.exclude(photo="").count() == 1
+    # Las únicas otras fotos sembradas son las de los cuatro pasteles de la `0064`.
+    assert set(Product.objects.exclude(photo="").values_list("slug", flat=True)) == {"imposible", *new_cakes.SAMPLES, *new_flavors.NEW_SAMPLES}
 
 
 def test_it_does_not_overwrite_a_photo_set_in_the_admin():

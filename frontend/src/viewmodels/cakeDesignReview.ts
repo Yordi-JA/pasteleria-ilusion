@@ -1,4 +1,4 @@
-import type { CakeDesignOptions, CakeDesignQuote } from '../models/cakeDesign.ts'
+import type { CakeDesignQuote } from '../models/cakeDesign.ts'
 import type { CakeDesignDraft } from '../models/cakeDesignDraft.ts'
 import { messageText } from '../models/cakeDesignLayout.ts'
 import { formatPrice } from '../models/money.ts'
@@ -9,7 +9,6 @@ import { COVERAGE_STEP, DECORATION_STEP, LID_STEP } from './cakeDesignSteps.ts'
 import type { DesignDerived } from './cakeDesignSteps.ts'
 import { messageColorPhrase, shapeLabel } from './cakeLid.ts'
 import { smallSizeLabel } from './cakeSizes.ts'
-import { colorPhrase } from './colors.ts'
 import { messageInk } from './messageColors.ts'
 import type { PriceState } from './useCakeDesignPrice.ts'
 
@@ -83,13 +82,12 @@ function surcharge(value: string): string {
 type ReviewInput = {
   draft: CakeDesignDraft
   design: DesignDerived
-  options: CakeDesignOptions
   price: PriceState
   /** Los días de anticipación de un pedido (de la pastelería); `null` mientras se cargan. */
   leadDays: number | null
 }
 
-export function reviewView({ draft, design, options, price, leadDays }: ReviewInput): ReviewView {
+export function reviewView({ draft, design, price, leadDays }: ReviewInput): ReviewView {
   const quote: CakeDesignQuote | null = price.quote
   const breakdown = quote?.breakdown ?? null
   const ready = Boolean(breakdown) && !price.estimate && !price.updating && !price.failed && !quote?.rejected
@@ -127,14 +125,15 @@ export function reviewView({ draft, design, options, price, leadDays }: ReviewIn
     view.lines.push({
       key: 'coverage',
       title: 'Cobertura de crema pastelera',
-      detail: `Color ${colorPhrase(design.coverage, options.coverageColors) ?? 'elegido'}, ${sideCombPhrase(draft.sideComb)}`,
+      // Sin el "parecido a" (21 de noviembre): el color se ve en su muestra.
+      detail: upperFirst(sideCombPhrase(draft.sideComb)),
       swatches: [design.coverage],
       amount: 'Incluido',
       change: { step: COVERAGE_STEP, label: 'la cobertura' },
     })
   }
   if (design.decoration) {
-    const summary = decorationSummary(draft, design, options)
+    const summary = decorationSummary(draft, design)
     const none = groupOf(design.decoration.slug) === 'none'
     view.lines.push({
       key: 'decoration',
@@ -151,7 +150,7 @@ export function reviewView({ draft, design, options, price, leadDays }: ReviewIn
       key: 'message',
       // Con sus saltos de renglón: la vista los muestra con `whitespace-pre-line`.
       title: `Mensaje: ${message}`,
-      detail: upperFirst(messageColorPhrase(draft, design.coverage, options.coverageColors) ?? 'color negro'),
+      detail: upperFirst(messageColorPhrase(draft) ?? 'color negro'),
       swatches: [messageInk(draft.message.color, design.coverage)],
       amount: 'Incluido',
       change: { step: LID_STEP, label: 'el mensaje' },

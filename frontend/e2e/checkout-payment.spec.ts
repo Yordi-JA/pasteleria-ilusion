@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
+import { accountOrder, mockOrderDetail } from './support/account-orders.ts'
 import { mockAuth, signedIn } from './support/auth.ts'
 import { NOW } from './support/checkout.ts'
 import {
@@ -45,6 +46,9 @@ async function fillCard(page: Page, name = 'Ana López García') {
 test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(NOW)
   await mockStoreInfo(page)
+  // La confirmación pide el pedido con la sesión: sin simularlo iría al Django real, que rechaza el token falso y cierra la
+  // sesión, y la página llevaría a `/entrar` en lugar de quedarse en la confirmación.
+  await mockOrderDetail(page, ORDER_ID, { status: 200, body: accountOrder({ id: ORDER_ID, status: 'received' }) })
 })
 
 test('without a session it asks to sign in and comes back with the order', async ({ page }) => {
@@ -63,6 +67,8 @@ test('shows the order from ?pedido= with the breakdown of the API and the three 
   // El marco de la compra y el paso 3.
   await expect(page.getByRole('banner').getByRole('link', { name: 'Volver al carrito' })).toBeVisible()
   await expect(page.getByTestId('franja')).toContainText('Pagos procesados por Stripe y Mercado Pago')
+  // Sin "¿Dudas con tu pedido?" ni el WhatsApp en la franja (correcciones del 21 de noviembre).
+  await expect(page.getByTestId('franja')).not.toContainText('WhatsApp')
   await expect(page.getByRole('navigation', { name: 'Pasos de tu compra' }).locator('[aria-current="step"]')).toContainText('Pago')
   // La frase sale del porcentaje de la API, sin envío: la entrega a domicilio no existe (D66).
   await expect(page.getByText('Hoy pagas el 50% del pedido y el depósito de la base; el resto, al entregar.')).toBeVisible()

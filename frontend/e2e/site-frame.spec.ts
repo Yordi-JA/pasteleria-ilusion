@@ -399,3 +399,30 @@ test('a malformed or unknown anchor does not break the page', async ({ page }) =
   await page.goto('/catalogo#no-existe')
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Catálogo')
 })
+
+// Correcciones del 21 de noviembre: la barra flotante medía lo mismo que la columna del contenido, y al hacer scroll sus orillas
+// coincidían con las de las tarjetas. Ahora sobresale de la columna a cada lado, sin llegar al borde de la pantalla.
+for (const { width, bar, overhang, logoInset } of [
+  { width: 1440, bar: 1232, overhang: 40, logoInset: 0 },
+  { width: 390, bar: 374, overhang: 8, logoInset: 9 },
+]) {
+  test.describe(`header bar width at ${width}px`, () => {
+    test.use({ viewport: { width, height: 900 } })
+
+    test('the bar is wider than the content column on both sides and stays inside the screen', async ({ page }) => {
+      await mockStoreInfo(page)
+      await page.goto('/catalogo')
+      const box = (await page.getByTestId('barra').boundingBox())!
+      const title = (await page.getByRole('heading', { level: 1 }).boundingBox())!
+      expect(box.width).toBeCloseTo(bar, 0)
+      expect(box.x).toBeCloseTo((width - bar) / 2, 0)
+      // La columna del contenido empieza donde empieza el título.
+      expect(title.x - box.x).toBeCloseTo(overhang, 0)
+      // En escritorio, el logo empieza en la orilla de la columna; en el teléfono, 9 px más adentro (16 px de relleno y 1 px de
+      // borde, menos los 8 px que sobresale la barra).
+      const logo = (await page.getByTestId('logo-barra').boundingBox())!
+      expect(logo.x - title.x).toBeCloseTo(logoInset, 0)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
+    })
+  })
+}

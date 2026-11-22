@@ -277,7 +277,8 @@ test.describe('adding to the order', () => {
       items: [
         // Pasteles de la casa da encargos; la vitrina y las rebanadas, líneas de la vitrina de hoy.
         line(1, 'Tres leches de durazno', 'whole', '350.00', 'tres-leches-de-durazno', 'order'),
-        line(21, 'Imposible', 'whole', '350.00', 'imposible', 'order'),
+        // El Imposible tiene modelo (D95): el carrito guarda la imagen de su tarjeta (correcciones del 21 de noviembre).
+        { ...line(21, 'Imposible', 'whole', '350.00', 'imposible', 'order'), image: 'imposible-modelo.webp' },
         line(30, 'Vaso de gelatina de mosaico', 'cup', '45.50', 'gelatina-de-mosaico', 'order'),
         line(3, 'Mini de tres leches de durazno', 'mini', '130.00', 'tres-leches-de-durazno', 'showcase'),
         line(2, 'Rebanada de tres leches de durazno', 'slice', '35.00', 'tres-leches-de-durazno', 'showcase'),
@@ -581,6 +582,44 @@ test.describe('hidden sections and states', () => {
     ])
     await expect(slices(page)).not.toContainText('Agotada por hoy')
     await expect(slices(page).getByRole('link', { name: 'Ver todas las rebanadas' })).toHaveAttribute('href', '/rebanadas')
+  })
+})
+
+// Correcciones del 21 de noviembre: en una laptop (1366-1536 × 720-800) el hero quedaba bajo y se cortaba abajo. En una pantalla
+// de escritorio baja, el hero completo, con sus dos botones y la pista del pastel, cabe bajo la barra.
+test.describe('hero on a short desktop screen', () => {
+  // `gap`: lo más que puede quedar entre la barra y el logotipo. Antes eran unos 60 px a cualquier alto; ahora, entre más baja la
+  // pantalla, más sube el contenido (con 800 px de alto el hero ya cabía y casi no cambia).
+  for (const [width, height, gap] of [
+    [1510, 745, 36],
+    [1440, 720, 36],
+    [1366, 768, 48],
+    [1536, 800, 60],
+  ]) {
+    test(`at ${width} × ${height} the whole hero is visible under the bar`, async ({ page }) => {
+      await page.setViewportSize({ width, height })
+      await openHome(page)
+      const bar = (await page.getByTestId('barra').boundingBox())!
+      const logo = (await hero(page).locator('h1 img').boundingBox())!
+      const hint = (await page.locator('#pastel-pista').boundingBox())!
+      const cake = (await page.getByTestId('pastel-portada').boundingBox())!
+      for (const name of ['Realizar pedido', 'Ver la vitrina']) {
+        const action = (await hero(page).getByRole('link', { name }).boundingBox())!
+        expect(action.y + action.height).toBeLessThanOrEqual(height - 24)
+      }
+      expect(hint.y + hint.height).toBeLessThanOrEqual(height)
+      expect(cake.y + cake.height).toBeLessThanOrEqual(height)
+      expect(logo.y - (bar.y + bar.height)).toBeLessThanOrEqual(gap)
+      expect(await page.evaluate(() => scrollY)).toBe(0)
+    })
+  }
+
+  test('a taller screen keeps the hero as it was: the 600 px cake and 32 px above', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await openHome(page)
+    expect((await page.getByTestId('pastel-portada').boundingBox())!.height).toBeCloseTo(600, 0)
+    // 32 px arriba, el pastel de 600 px y 24 px abajo.
+    expect((await hero(page).boundingBox())!.height).toBeCloseTo(656, 0)
   })
 })
 

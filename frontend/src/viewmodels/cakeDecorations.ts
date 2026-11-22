@@ -4,7 +4,6 @@ import { normalizeHex } from '../models/color.ts'
 import { formatPrice } from '../models/money.ts'
 import type { CakeDecoration } from '../three/cakeShape.ts'
 import type { Choice } from './cakeDesignChoices.ts'
-import { colorPhrase } from './colors.ts'
 import type { DesignDerived } from './cakeDesignSteps.ts'
 import { automaticTones, chosenTones } from './decorationTones.ts'
 import { dataColor, piecesFor } from './fillingPieces.ts'
@@ -203,14 +202,17 @@ export function decorationShape(draft: CakeDesignDraft, design: DesignDerived, o
   return { kind, main: tones.main, accent: tones.accent }
 }
 
-/** El texto de "Tu pastel" para el paso 6: "Borde de conchas, color automático", "Rosas, color lila". */
-export function decorationSummary(draft: CakeDesignDraft, design: DesignDerived, options: CakeDesignOptions): { value: string; note?: string } | null {
+/**
+ * El texto de "Tu pastel" para el paso 6: "Borde de conchas, color automático", "Rosas, color elegido". El color se ve en su
+ * muestra redonda, sin nombre (21 de noviembre: el "parecido a" no le servía a quien pide).
+ */
+export function decorationSummary(draft: CakeDesignDraft, design: DesignDerived): { value: string; note?: string } | null {
   const decoration = design.decoration
   if (!decoration) return null
   if (decoration.requiresQuote) return { value: draft.decorationImageName ? `${decoration.name}, ${draft.decorationImageName}` : decoration.name, note: 'Por cotizar' }
   if (!hasColor(decoration)) return { value: decoration.name }
   const picked = pickedColor(draft)
-  return { value: `${decoration.name}, color ${picked ? (colorPhrase(picked, options.coverageColors) ?? 'elegido') : 'automático'}` }
+  return { value: `${decoration.name}, color ${picked ? 'elegido' : 'automático'}` }
 }
 
 /** Las muestras del color de la decoración: el color elegido o, en automático, los dos tonos que salen de la cobertura. Sin color, ninguna. */

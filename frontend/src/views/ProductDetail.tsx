@@ -8,7 +8,6 @@ import ButtonLink from '../components/ButtonLink.tsx'
 import Card from '../components/Card.tsx'
 import ChoiceOption from '../components/ChoiceOption.tsx'
 import Duya from '../components/Duya.tsx'
-import { focusRing } from '../components/focus.ts'
 import HeroCake from '../components/HeroCake.tsx'
 import LeadDays from '../components/LeadDays.tsx'
 import LoadErrorNotice from '../components/LoadErrorNotice.tsx'
@@ -34,35 +33,34 @@ type Ready = NonNullable<ProductDetailView['view']>
 
 /**
  * Encabezado sobre `fresa` (Ficha.dc.html): la foto a la izquierda (`media`), que se apoya en la guirnalda y la cruza, y a la derecha
- * las migas, el tipo, el nombre (`h1`) y la descripción, con lo que se agregue al final (`after`). En móvil el texto va primero.
+ * el nombre (`h1`), la descripción y, si los hay, los estados de hoy ("En vitrina hoy", "Rebanado hoy"), que pide la regla de la
+ * ficha (22 de noviembre: sin migas, sin el tipo ni "Ver la foto"; la barra ya dice dónde estás y la foto original va en la tarjeta
+ * "Pastel"). En escritorio el texto va centrado en vertical con la foto o el modelo: con dos piezas,
+ * pegado abajo quedaba a media altura del pastel. En móvil el texto va primero.
  */
-function HeroLayout({ view, heading, media, after }: { view: Ready; heading?: RefObject<HTMLHeadingElement | null>; media: ReactNode; after?: ReactNode }) {
+function HeroLayout({ view, heading, media }: { view: Ready; heading?: RefObject<HTMLHeadingElement | null>; media: ReactNode }) {
   return (
     <section aria-labelledby="ficha-titulo" className="bg-fresa">
-      <div className={`${column} grid grid-cols-2 items-end gap-12 pt-10 max-[960px]:grid-cols-1 max-[960px]:gap-6`}>
+      <div className={`${column} grid grid-cols-2 items-center gap-12 pt-10 max-[960px]:grid-cols-1 max-[960px]:gap-6`}>
         {/* La foto baja 21 px sobre la guirnalda (la cruza) y queda encima de ella. */}
         <div className="relative z-[2] -mb-[21px] max-[960px]:order-1">
           {media}
           <div aria-hidden="true" className="mx-auto -mt-3 h-4 w-[62%] rounded-[50%] bg-mermelada/[.16] blur-[12px]" />
         </div>
-        <div className="flex flex-col gap-4 pb-12 max-[960px]:pb-0">
-          <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Catálogo', to: '/catalogo' }, { label: view.name }]} />
-          {(view.kind || view.statuses.length > 0) && (
-            <p className="flex flex-wrap gap-x-2 text-nota text-mermelada-suave">
-              {view.kind && <span>{view.kind}</span>}
-              {view.statuses.map((status) => (
-                <span key={status} className="font-semibold">
-                  {status}
-                </span>
-              ))}
-            </p>
-          )}
+        <div className="flex flex-col gap-4">
           {/* Enfocable desde el código: recibe el foco si la escena lo tenía y desaparece. */}
           <h1 ref={heading} id="ficha-titulo" tabIndex={-1} className="font-display text-display outline-none max-[600px]:text-titulo-1">
             {view.name}
           </h1>
           {view.description && <p className="max-w-[520px] text-cuerpo text-mermelada-suave">{view.description}</p>}
-          {after}
+          {/* "En vitrina hoy" y "Rebanado hoy" (reglas de negocio, la ficha): texto pequeño, sin pastillas de color. */}
+          {view.statuses.length > 0 && (
+            <p className="flex flex-wrap gap-x-3 text-nota font-semibold text-mermelada-suave">
+              {view.statuses.map((status) => (
+                <span key={status}>{status}</span>
+              ))}
+            </p>
+          )}
         </div>
       </div>
     </section>
@@ -72,8 +70,7 @@ function HeroLayout({ view, heading, media, after }: { view: Ready; heading?: Re
 /**
  * El encabezado con el modelo 3D del producto en el lugar de la foto (D95): la escena de la portada (`HeroCake`, D48) en la caja de
  * la foto, que gira sola, se arrastra, gira con las flechas, se pausa fuera de pantalla y respeta "reducir movimiento". Mientras
- * llega, sin WebGL 2 o si falla, se ve la foto real o su hueco. Con la foto real, "Ver la foto" la abre aparte, bajo la descripción;
- * guarda su lugar desde el principio (sin saltos) y solo se ve con la escena dibujada, porque sin ella la foto ya está a la vista.
+ * llega se ve un esqueleto de la caja; sin WebGL 2 o si falla, la foto recortada o su hueco.
  */
 function ModelHero({ view, model }: { view: Ready; model: NonNullable<Ready['model']> }) {
   const heading = useRef<HTMLHeadingElement>(null)
@@ -96,17 +93,7 @@ function ModelHero({ view, model }: { view: Ready; model: NonNullable<Ready['mod
       />
     </div>
   )
-  const photoLink = view.photo.src && (
-    <a
-      href={view.photo.src}
-      target="_blank"
-      rel="noopener"
-      className={`-my-2 inline-flex min-h-11 items-center self-start rounded-sm text-etiqueta underline underline-offset-4 ${focusRing} ${cake.status === 'ready' ? '' : 'invisible'}`}
-    >
-      Ver la foto<span className="sr-only"> (se abre en otra pestaña)</span>
-    </a>
-  )
-  return <HeroLayout view={view} heading={heading} media={media} after={photoLink} />
+  return <HeroLayout view={view} heading={heading} media={media} />
 }
 
 /** El encabezado: con el modelo 3D del producto si lo tiene (D95); si no, con su foto o su hueco. */
@@ -213,20 +200,23 @@ function PersonalizeCard({ personalize }: { personalize: NonNullable<Ready['pers
   )
 }
 
-/** Conservación y Transporte: lo que falta lleva el marcador de pendiente (regla 1 de AGENTS.md). */
-function DetailsCard({ view }: { view: Ready }) {
+/**
+ * "Pastel" (o "Postre"): la foto original del producto, con su fondo, cuadrada y a todo lo ancho de la tarjeta (22 de noviembre,
+ * en lugar de Conservación y Transporte). Guarda su lugar con su medida antes de llegar y se pide al acercarse, porque queda bajo
+ * el encabezado. Mientras llega, el fondo `harina` de la caja.
+ */
+function OriginalPhotoCard({ photo }: { photo: NonNullable<Ready['originalPhoto']> }) {
   return (
-    <Card large>
-      <dl className="flex flex-col">
-        <div className="flex flex-col gap-1 border-b border-relieve pb-3.5">
-          <dt className="text-etiqueta">Conservación</dt>
-          <dd className="text-cuerpo text-mermelada-suave">{view.storageNotes ?? <Pending what="Conservación" />}</dd>
-        </div>
-        <div className="flex flex-col gap-1 pt-3.5">
-          <dt className="text-etiqueta">Transporte</dt>
-          <dd className="text-cuerpo text-mermelada-suave">{view.transportNotes ?? <Pending what="Transporte" />}</dd>
-        </div>
-      </dl>
+    <Card large className="!p-3">
+      <img
+        src={photo.src}
+        alt={photo.alt}
+        width={photo.width}
+        height={photo.height}
+        loading="lazy"
+        decoding="async"
+        className="block aspect-square h-auto w-full rounded-md bg-harina object-cover"
+      />
     </Card>
   )
 }
@@ -257,12 +247,14 @@ function Body({ detail, view }: { detail: ProductDetailView; view: Ready }) {
           <ChooseCard detail={detail} view={view} />
           {view.personalize && <PersonalizeCard personalize={view.personalize} />}
         </section>
-        <section aria-labelledby="ficha-detalles" className="flex flex-col gap-4">
-          <h2 id="ficha-detalles" className="font-display text-titulo-2">
-            Detalles
-          </h2>
-          <DetailsCard view={view} />
-        </section>
+        {view.originalPhoto && (
+          <section aria-labelledby="ficha-foto" className="flex flex-col gap-4">
+            <h2 id="ficha-foto" className="font-display text-titulo-2">
+              {view.originalPhoto.heading}
+            </h2>
+            <OriginalPhotoCard photo={view.originalPhoto} />
+          </section>
+        )}
       </Reveal>
       {view.related.length > 0 && (
         <section aria-labelledby="ficha-relacionados" className="flex flex-col gap-6">
@@ -282,48 +274,43 @@ function Body({ detail, view }: { detail: ProductDetailView; view: Ready }) {
   )
 }
 
-/** FichaCargando: el encabezado con la foto y las líneas, y abajo los detalles y dos relacionados. */
-function DetailSkeleton() {
+/**
+ * FichaCargando con el armado de la ficha (22 de noviembre): el encabezado con la caja de la foto, el nombre y la descripción, y
+ * abajo "Elige tu pastel" y, si el producto la tiene, la tarjeta de la foto original.
+ */
+function DetailSkeleton({ withPhoto }: { withPhoto: boolean }) {
   return (
     <>
       <div className="bg-fresa">
-        <div className={`${column} grid grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] gap-7 pb-14 pt-8 max-[960px]:grid-cols-1`}>
-          <Skeleton tone="fresa" radius="md" className="aspect-[500/350] w-full max-[960px]:order-1" />
+        <div className={`${column} grid grid-cols-2 items-center gap-12 pb-12 pt-10 max-[960px]:grid-cols-1 max-[960px]:gap-6`}>
+          <Skeleton tone="fresa" radius="md" className="mx-auto aspect-[460/340] w-full max-w-[460px] max-[960px]:order-1" />
           <div className="flex flex-col gap-4">
-            <Skeleton tone="fresa" className="h-3 w-1/3" />
-            <Skeleton tone="fresa" className="h-8 w-5/6" />
-            <Skeleton tone="fresa" className="h-3 w-3/5" />
-            <Skeleton tone="fresa" className="h-5 w-1/4" />
-            <div className="flex flex-col gap-3 rounded-lg bg-betun p-5">
-              <Skeleton className="h-3 w-1/4" />
-              <Skeleton radius="md" className="h-12" />
-              <Skeleton radius="md" className="h-12" />
-              <Skeleton radius="md" className="h-11" />
-            </div>
+            <Skeleton tone="fresa" className="h-12 w-5/6 max-[600px]:h-9" />
+            <Skeleton tone="fresa" className="h-4 w-3/5" />
           </div>
         </div>
       </div>
       <Duya color="fresa" />
-      <div className={`${column} grid grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] gap-7 py-10 max-[960px]:grid-cols-1`}>
-        <Card large className="flex flex-col gap-3">
-          <Skeleton className="h-4 w-1/3" />
-          <Skeleton className="h-3 w-5/6" />
-          <Skeleton className="h-3 w-2/3" />
-          <Skeleton className="h-4 w-1/3" />
-          <Skeleton className="h-3 w-3/4" />
-        </Card>
+      <div className={`${column} grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-start gap-10 pb-20 pt-14 max-[960px]:grid-cols-1 max-[600px]:pb-14`}>
         <div className="flex flex-col gap-4">
-          <Skeleton className="h-5 w-1/2" />
-          <div className="grid grid-cols-2 gap-4">
-            {[1, 2].map((block) => (
-              <Card key={block} className="flex flex-col gap-3">
-                <Skeleton radius="md" className="aspect-[180/100] w-full" />
-                <Skeleton className="h-3 w-2/3" />
-                <Skeleton className="h-3 w-1/3" />
-              </Card>
-            ))}
-          </div>
+          <Skeleton className="h-7 w-1/3" />
+          <Card large className="flex flex-col gap-3">
+            <Skeleton className="h-3 w-1/4" />
+            <Skeleton radius="md" className="h-16" />
+            <Skeleton radius="md" className="h-16" />
+            <Skeleton className="h-3 w-1/3" />
+            <Skeleton radius="md" className="h-16" />
+            <Skeleton radius="md" className="h-11" />
+          </Card>
         </div>
+        {withPhoto && (
+          <div className="flex flex-col gap-4">
+            <Skeleton className="h-7 w-1/4" />
+            <Card large className="!p-3">
+              <Skeleton radius="md" className="aspect-square w-full" />
+            </Card>
+          </div>
+        )}
       </div>
     </>
   )
@@ -375,7 +362,7 @@ function ProductDetailContent({ slug }: { slug: string }) {
   if (status === 'notFound') return <ProductNotFound />
   if (status === 'error') return <ProductError onRetry={detail.retry} />
   return (
-    <LoadingRegion loading={status === 'loading'} label="Cargando el producto…" skeleton={<DetailSkeleton />}>
+    <LoadingRegion loading={status === 'loading'} label="Cargando el producto…" skeleton={<DetailSkeleton withPhoto={detail.withOriginalPhoto} />}>
       {view && (
         <>
           <Hero view={view} />

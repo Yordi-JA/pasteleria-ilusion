@@ -7,9 +7,10 @@ import type { DetailOffering, ProductDetail } from '../models/catalog.ts'
 import { formatPrice } from '../models/money.ts'
 import { PRESENTATION_LABELS } from '../models/presentation.ts'
 import { designPrefillHref } from './cakeDesignPrefill.ts'
-import { productKind, showcaseStatus, toProductCardView } from './productCards.ts'
+import { hasOriginalPhoto, originalPhoto } from './originalPhotos.ts'
+import { showcaseStatus, toProductCardView } from './productCards.ts'
 import { modelLabel, productModel } from './productModel.ts'
-import { PHOTO_PLACEHOLDER, photoView } from './productPhoto.ts'
+import { PHOTO_PLACEHOLDER, photoView, withCartImage } from './productPhoto.ts'
 import { useAddToCart } from './useAddToCart.ts'
 import { useRemoteData } from './useRemoteData.ts'
 import { useStoreDetails } from './useStoreInfo.ts'
@@ -157,7 +158,7 @@ export function useProductDetail(slug: string) {
     const minKg = optionsState.status === 'loading' ? undefined : (options?.limits.minCustomKg ?? null)
     return {
       name: product.name,
-      kind: productKind(product),
+      /** "En vitrina hoy" y "Rebanado hoy" (regla de negocio de la ficha): van bajo la descripción, como texto. */
       statuses: showcaseStatus(product),
       /** Hoy es el rebanado: la ficha dice que hay rebanadas y que el completo se encarga. */
       slicedToday: product.slicedToday && product.salesChannel !== 'order_only',
@@ -179,8 +180,8 @@ export function useProductDetail(slug: string) {
       maxQuantity,
       /** Precio por pieza de la presentación elegida; con más de una, "c/u" (el total lo calcula el backend). */
       unitPrice: offering?.price ? `${formatPrice(offering.price) ?? ''}${shown > 1 ? ' c/u' : ''}` : null,
-      storageNotes: product.storageNotes,
-      transportNotes: product.transportNotes,
+      /** La foto original de la tarjeta "Pastel" (o "Postre"); `null` sin ella, y la tarjeta no aparece. */
+      originalPhoto: originalPhoto(product),
       personalize:
         product.category === 'cake' && product.cakeType
           ? {
@@ -212,11 +213,15 @@ export function useProductDetail(slug: string) {
     if (!isPriced(offering)) return
     // Defensa: una rebanada nunca se encarga (la opción ya va desactivada).
     if (offering.presentation === 'slice' && fulfillment === 'order') return
-    add(toCartOffering(product, offering, fulfillment), view.quantity, fulfillment === 'showcase' ? (offering.stock ?? 0) : undefined)
+    // Una rebanada no lleva la imagen del modelo (es la del pastel completo): el carrito muestra su foto, como en `toSliceItem`.
+    const image = offering.presentation === 'slice' ? { ...product, modelImage: null } : product
+    add(withCartImage(toCartOffering(product, offering, fulfillment), image), view.quantity, fulfillment === 'showcase' ? (offering.stock ?? 0) : undefined)
   }, [add, product, view])
 
   return {
     status: state.status === 'ready' ? (product ? 'ready' : 'notFound') : state.status,
+    /** Si la ficha lleva la tarjeta de la foto original: el esqueleto la dibuja desde antes de que llegue el producto. */
+    withOriginalPhoto: hasOriginalPhoto(slug),
     retry,
     view,
     feedback,

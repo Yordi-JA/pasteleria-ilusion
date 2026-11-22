@@ -72,6 +72,30 @@ test('without a session it asks to sign in and comes back here', async ({ page }
   await expect(page).toHaveURL(/\/entrar\?volver=%2Fpedido%2Fentrega$/)
 })
 
+test('the time is one list of hours: the periods are a one-line segmented filter, not another list', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await signedIn(page)
+  await mockCalendar(page)
+  await seedCart(page, [durazno])
+  await page.goto(DELIVERY)
+  await day(page, 'Lunes 16 de noviembre').click()
+  // Correcciones del 21 de noviembre: mañana, tarde y noche en un solo renglón, también junto al calendario en escritorio.
+  const periods = await Promise.all(['Mañana', 'Tarde', 'Noche'].map(async (name) => (await period(page, name).boundingBox())!))
+  expect(new Set(periods.map((box) => Math.round(box.y))).size).toBe(1)
+  for (const box of periods) expect(box.height).toBeLessThan(56)
+  // El rango no se repite a la vista (las horas lo dicen); queda en el nombre del radio.
+  await expect(period(page, 'Mañana')).toHaveText('Mañana 10:30 am a 1:30 pm')
+  await expect(period(page, 'Mañana').locator('span.sr-only')).toHaveText('10:30 am a 1:30 pm')
+  // La única opción llena es la hora elegida: el periodo elegido no se pinta de `mermelada`.
+  const fill = (locator: ReturnType<typeof period>) => locator.evaluate((element) => getComputedStyle(element).backgroundColor)
+  await period(page, 'Tarde').click()
+  await slot(page, '3:30 pm').click()
+  expect(await fill(period(page, 'Tarde'))).not.toBe(await fill(slot(page, '3:30 pm')))
+  await expect(period(page, 'Tarde')).toHaveCSS('font-weight', '600')
+  // Sin otro bloque de horario general compitiendo con las horas.
+  await expect(page.getByRole('region', { name: 'Fecha y hora' })).not.toContainText('10:00 a 22:30')
+})
+
 test('the checkout frame, the calendar with full days and slots, and who picks up from the account', async ({ page }) => {
   await signedIn(page)
   const calendar = await mockCalendar(page)
@@ -79,13 +103,14 @@ test('the checkout frame, the calendar with full days and slots, and who picks u
   await page.goto(DELIVERY)
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('¿Cómo recibes tu pedido?')
   await expect(page).toHaveTitle('¿Cómo recibes tu pedido? · Pastelería Ilusión')
-  // El marco de la compra: "Volver al carrito" en la barra, sin la navegación del sitio; la franja de los pagos.
+  // El marco de la compra: "Volver al carrito" en la barra, sin la navegación del sitio.
   const banner = page.getByRole('banner')
   await expect(banner.getByRole('link', { name: 'Volver al carrito' })).toHaveAttribute('href', '/carrito')
   await expect(banner.getByRole('navigation', { name: 'Principal' })).toHaveCount(0)
-  // "Pagos procesados por Stripe y Mercado Pago" va solo en el pago (tanda 1); la entrega deja el WhatsApp para dudas.
-  await expect(page.getByTestId('franja')).not.toContainText('Pagos procesados')
-  await expect(page.getByTestId('franja').getByRole('link', { name: /WhatsApp 00 0000 0000/ })).toBeVisible()
+  // La entrega no lleva franja arriba del toldo: ni los pagos (tanda 1) ni el WhatsApp (correcciones del 21 de noviembre).
+  await expect(page.getByTestId('franja')).toHaveCount(0)
+  await expect(page.getByText('¿Dudas con tu pedido?')).toHaveCount(0)
+  await expect(page.getByTestId('toldo')).toBeVisible()
   await expect(page.getByRole('contentinfo')).not.toContainText('Pide un deseo')
   const steps = page.getByRole('navigation', { name: 'Pasos de tu compra' })
   await expect(steps.locator('[aria-current="step"]')).toContainText('Entrega')
@@ -406,7 +431,7 @@ test('without the WhatsApp number the home delivery shows the pending marker', a
     '[Dirección por confirmar]',
     '[número por confirmar]',
   ])
-  await expect(page.getByTestId('franja').locator('[data-pendiente]')).toHaveText('[número por confirmar]')
+  await expect(page.getByTestId('franja')).toHaveCount(0)
 })
 
 test.describe('the two parts in the URL', () => {

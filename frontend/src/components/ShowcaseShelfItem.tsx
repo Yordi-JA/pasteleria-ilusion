@@ -79,11 +79,12 @@ export default function ShowcaseShelfItem({ item, onAdd, field, showRemaining = 
             )}
           </div>
           {item.kind === 'stock' && !item.soldOut && (
+            // Se hunde como los demás botones (`buttonStyles.ts`, D90): a 0.97 en 100 ms y de vuelta en 150 ms.
             <button
               type="button"
               aria-label={`Agregar al pedido: ${item.label}`}
               onClick={() => onAdd(item)}
-              className={`inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-md bg-mermelada text-sobre-color hover:bg-mermelada-profunda motion-safe:transition-[background-color,transform] motion-safe:duration-150 motion-safe:ease-entrada motion-safe:active:scale-95 ${focusRing}`}
+              className={`inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-md bg-mermelada text-sobre-color hover:bg-mermelada-profunda motion-safe:transition-[background-color,transform] motion-safe:duration-150 motion-safe:ease-entrada motion-safe:active:scale-[0.97] motion-safe:active:duration-100 ${focusRing}`}
             >
               <Handbag size={20} weight="regular" aria-hidden="true" />
             </button>

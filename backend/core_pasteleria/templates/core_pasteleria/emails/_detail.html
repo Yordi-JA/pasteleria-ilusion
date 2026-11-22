@@ -1,10 +1,10 @@
-<tr><td colspan="2" style="padding:12px 0;border-top:1px solid #ecd2d2;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-{% if money %}<td valign="baseline" style="font-family:'Instrument Sans','Segoe UI',Helvetica,Arial,sans-serif;font-size:{% if strong %}16px{% else %}14px{% endif %};line-height:1.4;color:{% if strong %}#5e1921{% else %}#664243{% endif %};{% if strong %}font-weight:600;{% endif %}">{{ label }}</td>
-<td valign="baseline" align="right" style="padding-left:12px;white-space:nowrap;font-family:'Instrument Sans','Segoe UI',Helvetica,Arial,sans-serif;font-size:{% if strong %}18px{% else %}16px{% endif %};font-weight:600;line-height:1.4;color:#5e1921;font-variant-numeric:tabular-nums;">{{ value }}</td>
-{% else %}<td style="font-family:'Instrument Sans','Segoe UI',Helvetica,Arial,sans-serif;line-height:1.4;">
-<p style="margin:0 0 2px 0;font-size:14px;color:#664243;">{{ label }}</p>
-<p style="margin:0;font-size:16px;font-weight:600;color:#5e1921;">{{ value|capfirst }}</p>
+<tr><td colspan="2" class="bg-betun" bgcolor="#fffbfb" style="background-color:#fffbfb;padding:12px 0;border-top:1px solid #ecd2d2;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg-betun" bgcolor="#fffbfb" style="background-color:#fffbfb;"><tr>
+{% if money %}<td valign="baseline" class="bg-betun {% if strong %}ink{% else %}ink-soft{% endif %}" bgcolor="#fffbfb" style="background-color:#fffbfb;font-family:'Instrument Sans','Segoe UI',Helvetica,Arial,sans-serif;font-size:{% if strong %}16px{% else %}14px{% endif %};line-height:1.4;color:{% if strong %}#5e1921{% else %}#664243{% endif %};{% if strong %}font-weight:600;{% endif %}">{{ label }}</td>
+<td valign="baseline" align="right" class="ink bg-betun" bgcolor="#fffbfb" style="background-color:#fffbfb;padding-left:12px;white-space:nowrap;font-family:'Instrument Sans','Segoe UI',Helvetica,Arial,sans-serif;font-size:{% if strong %}18px{% else %}16px{% endif %};font-weight:600;line-height:1.4;color:#5e1921;font-variant-numeric:tabular-nums;">{{ value }}</td>
+{% else %}<td class="ink bg-betun" bgcolor="#fffbfb" style="background-color:#fffbfb;font-family:'Instrument Sans','Segoe UI',Helvetica,Arial,sans-serif;line-height:1.4;color:#5e1921;">
+<p class="ink-soft" style="margin:0 0 2px 0;font-size:14px;color:#664243;">{{ label }}</p>
+<p class="ink" style="margin:0;font-size:16px;font-weight:600;color:#5e1921;">{{ value|capfirst }}</p>
 </td>{% endif %}
 </tr></table>
 </td></tr>

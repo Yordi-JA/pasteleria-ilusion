@@ -6,12 +6,12 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="x-apple-disable-message-reformatting">
 <meta name="format-detection" content="telephone=no, address=no, date=no">
-<meta name="color-scheme" content="light">
+<meta name="color-scheme" content="light only">
 <meta name="supported-color-schemes" content="light">
 <title>{% block title %}{% endblock %}</title>
 <!--[if mso]><style>td,p,a,span{font-family:'Segoe UI',Arial,sans-serif !important;}h1,h2,.serif{font-family:Georgia,'Times New Roman',serif !important;}</style><![endif]-->
 <style>
-body{margin:0;padding:0;-webkit-text-size-adjust:100%;}
+body{margin:0;padding:0;-webkit-text-size-adjust:100%;color-scheme:light only;}
 a{color:#5e1921;}
 @media (max-width:480px){
 .shell{padding:28px 20px 32px 20px !important;}
@@ -20,60 +20,77 @@ a{color:#5e1921;}
 .band{padding-left:20px !important;padding-right:20px !important;}
 }
 </style>
+{% comment %}Siempre en el tema claro: los colores de la marca no se leen invertidos. Apple Mail respeta "light only"; los demás leen los
+fondos y colores explícitos de cada contenedor. No se usa prefers-color-scheme: Gmail no lo lee. Cada bloque va aparte porque
+un cliente que no entiende un selector puede descartar todo su bloque, y el de arriba lleva las reglas para el teléfono.{% endcomment %}
+<style>
+:root{color-scheme:light only;supported-color-schemes:light;}
+</style>
+{# Outlook.com y la app de Outlook marcan con data-ogsc y data-ogsb lo que oscurecen: aquí vuelven los colores claros. #}
+<style>
+[data-ogsb] .bg-nata,.bg-nata[data-ogsb]{background-color:#fff4f4 !important;}
+[data-ogsb] .bg-fresa,.bg-fresa[data-ogsb]{background-color:#f9c1c1 !important;}
+[data-ogsb] .bg-betun,.bg-betun[data-ogsb]{background-color:#fffbfb !important;}
+[data-ogsb] .bg-mermelada,.bg-mermelada[data-ogsb]{background-color:#5e1921 !important;}
+[data-ogsc] .ink,.ink[data-ogsc]{color:#5e1921 !important;}
+[data-ogsc] .ink-soft,.ink-soft[data-ogsc]{color:#664243 !important;}
+[data-ogsc] .on-dark,.on-dark[data-ogsc]{color:#fffbfb !important;}
+[data-ogsc] .on-dark-soft,.on-dark-soft[data-ogsc]{color:#f9c1c1 !important;}
+</style>
 </head>
-<body style="margin:0;padding:0;background-color:#fff4f4;">
+<body class="body bg-nata" bgcolor="#fff4f4" style="margin:0;padding:0;background-color:#fff4f4;color:#5e1921;color-scheme:light only;">
 <div data-preheader style="display:none;max-height:0;max-width:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#fff4f4;opacity:0;">{% block preheader %}{% endblock %}&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#fff4f4;">
-<tr><td align="center" class="band" bgcolor="#f9c1c1" style="background-color:#f9c1c1;padding:28px 24px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg-nata" bgcolor="#fff4f4" style="background-color:#fff4f4;color:#5e1921;">
+<tr><td align="center" class="band bg-fresa" bgcolor="#f9c1c1" style="background-color:#f9c1c1;background-image:linear-gradient(#f9c1c1,#f9c1c1);padding:28px 24px;">
 <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;">
-<tr><td align="left">
-<a href="{{ home_url }}" style="display:inline-block;text-decoration:none;"><img src="{{ logo_url }}" width="160" height="70" alt="Pastelería Ilusión" style="display:block;width:160px;height:70px;border:0;outline:none;color:#5e1921;font-family:Georgia,'Times New Roman',serif;font-size:20px;font-weight:600;"></a>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg-fresa" bgcolor="#f9c1c1" style="max-width:600px;background-color:#f9c1c1;background-image:linear-gradient(#f9c1c1,#f9c1c1);">
+<tr><td align="left" class="bg-fresa" bgcolor="#f9c1c1" style="background-color:#f9c1c1;background-image:linear-gradient(#f9c1c1,#f9c1c1);">
+<a href="{{ home_url }}" class="ink" style="display:inline-block;text-decoration:none;color:#5e1921;"><img src="{{ logo_url }}" width="160" height="70" alt="Pastelería Ilusión" style="display:block;width:160px;height:70px;border:0;outline:none;color:#5e1921;font-family:Georgia,'Times New Roman',serif;font-size:20px;font-weight:600;"></a>
 </td></tr>
 </table>
 <!--[if mso]></td></tr></table><![endif]-->
 </td></tr>
-<tr><td align="center" style="padding:0 16px;">
+<tr><td align="center" class="bg-nata" bgcolor="#fff4f4" style="background-color:#fff4f4;padding:0 16px;">
 <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;">
-<tr><td class="shell" style="padding:40px 8px 48px 8px;font-family:'Instrument Sans','Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6;color:#5e1921;">
-<h1 class="title" style="margin:0 0 20px 0;font-family:Fraunces,Georgia,'Times New Roman',serif;font-size:32px;font-weight:500;line-height:1.15;color:#5e1921;">{% block heading %}{% endblock %}</h1>
-<p style="margin:0 0 8px 0;">Hola.</p>
-<p style="margin:0 0 28px 0;">{% block intro %}{% endblock %}</p>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#fffbfb" style="background-color:#fffbfb;border:1px solid #ecd2d2;border-radius:12px;">
-<tr><td class="card" style="padding:8px 24px 12px 24px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg-nata" bgcolor="#fff4f4" style="max-width:600px;background-color:#fff4f4;">
+<tr><td class="shell bg-nata ink" bgcolor="#fff4f4" style="background-color:#fff4f4;padding:40px 8px 48px 8px;font-family:'Instrument Sans','Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6;color:#5e1921;">
+<h1 class="title ink" style="margin:0 0 20px 0;font-family:Fraunces,Georgia,'Times New Roman',serif;font-size:32px;font-weight:500;line-height:1.15;color:#5e1921;">{% block heading %}{% endblock %}</h1>
+<p class="ink" style="margin:0 0 8px 0;color:#5e1921;">Hola.</p>
+<p class="ink" style="margin:0 0 28px 0;color:#5e1921;">{% block intro %}{% endblock %}</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg-betun" bgcolor="#fffbfb" style="background-color:#fffbfb;border:1px solid #ecd2d2;border-radius:12px;">
+<tr><td class="card bg-betun" bgcolor="#fffbfb" style="background-color:#fffbfb;padding:8px 24px 12px 24px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg-betun" bgcolor="#fffbfb" style="background-color:#fffbfb;">
 <tr>
-<td valign="baseline" style="padding:16px 0 14px 0;font-family:Fraunces,Georgia,'Times New Roman',serif;font-size:20px;font-weight:600;line-height:1.3;color:#5e1921;" class="serif">{{ card }}</td>
-<td valign="baseline" align="right" style="padding:16px 0 14px 12px;font-family:'Instrument Sans','Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;font-weight:600;line-height:1.3;color:#5e1921;">{{ status }}</td>
+<td valign="baseline" bgcolor="#fffbfb" style="background-color:#fffbfb;padding:16px 0 14px 0;font-family:Fraunces,Georgia,'Times New Roman',serif;font-size:20px;font-weight:600;line-height:1.3;color:#5e1921;" class="serif ink bg-betun">{{ card }}</td>
+<td valign="baseline" align="right" class="ink bg-betun" bgcolor="#fffbfb" style="background-color:#fffbfb;padding:16px 0 14px 12px;font-family:'Instrument Sans','Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;font-weight:600;line-height:1.3;color:#5e1921;">{{ status }}</td>
 </tr>
 {% block details %}{% endblock %}
 </table>
 </td></tr>
 </table>
 {% block extra %}{% endblock %}
-<h2 class="serif" style="margin:36px 0 8px 0;font-family:Fraunces,Georgia,'Times New Roman',serif;font-size:20px;font-weight:600;line-height:1.3;color:#5e1921;">Qué sigue</h2>
-<p style="margin:0;">{% block next %}{% endblock %}</p>
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 0 0;">
-<tr><td align="center" bgcolor="#5e1921" style="background-color:#5e1921;border-radius:12px;">
-<a href="{{ url }}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 28px;font-family:'Instrument Sans','Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;line-height:20px;color:#fffbfb;text-decoration:none;border-radius:12px;">{% block button %}{% endblock %}</a>
+<h2 class="serif ink" style="margin:36px 0 8px 0;font-family:Fraunces,Georgia,'Times New Roman',serif;font-size:20px;font-weight:600;line-height:1.3;color:#5e1921;">Qué sigue</h2>
+<p class="ink" style="margin:0;color:#5e1921;">{% block next %}{% endblock %}</p>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" class="bg-nata" bgcolor="#fff4f4" style="margin:28px 0 0 0;background-color:#fff4f4;">
+<tr><td align="center" class="bg-mermelada" bgcolor="#5e1921" style="background-color:#5e1921;border-radius:12px;">
+<a href="{{ url }}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 28px;font-family:'Instrument Sans','Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;line-height:20px;color:#fffbfb;text-decoration:none;border-radius:12px;" class="on-dark">{% block button %}{% endblock %}</a>
 </td></tr>
 </table>
-<p style="margin:20px 0 0 0;font-size:14px;line-height:1.5;color:#664243;">Si el botón no abre, copia este enlace en tu navegador:<br><a href="{{ url }}" target="_blank" rel="noopener noreferrer" style="color:#5e1921;text-decoration:underline;word-break:break-all;">{{ url }}</a></p>
+<p class="ink-soft" style="margin:20px 0 0 0;font-size:14px;line-height:1.5;color:#664243;">Si el botón no abre, copia este enlace en tu navegador:<br><a href="{{ url }}" target="_blank" rel="noopener noreferrer" class="ink" style="color:#5e1921;text-decoration:underline;word-break:break-all;">{{ url }}</a></p>
 </td></tr>
 </table>
 <!--[if mso]></td></tr></table><![endif]-->
 </td></tr>
-<tr><td align="center" class="band" bgcolor="#5e1921" style="background-color:#5e1921;padding:36px 24px 40px 24px;">
+<tr><td align="center" class="band bg-mermelada" bgcolor="#5e1921" style="background-color:#5e1921;padding:36px 24px 40px 24px;">
 <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;">
-<tr><td style="font-family:'Instrument Sans','Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#f9c1c1;">
-<p class="serif" style="margin:0;font-family:Fraunces,Georgia,'Times New Roman',serif;font-size:20px;font-weight:500;line-height:1.3;color:#fffbfb;">Pastelería Ilusión</p>
-<p style="margin:2px 0 20px 0;">Pide un deseo. Del pastel nos encargamos.</p>
-<p style="margin:0;color:#fffbfb;">{{ address }}</p>
-{% if directions_url %}<p style="margin:0;"><a href="{{ directions_url }}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:12px 0;line-height:20px;color:#fffbfb;font-weight:600;text-decoration:underline;">Cómo llegar</a></p>{% endif %}
-<p style="margin:4px 0 0 0;">Todos los días, de {{ opens_at|time:"H:i" }} a {{ closes_at|time:"H:i" }}</p>
-<p style="margin:2px 0 0 0;">WhatsApp: {% if whatsapp_url %}<a href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer" style="color:#fffbfb;font-weight:600;text-decoration:underline;">{{ whatsapp }}</a>{% else %}{{ whatsapp }}{% endif %}</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg-mermelada" bgcolor="#5e1921" style="max-width:600px;background-color:#5e1921;">
+<tr><td class="bg-mermelada on-dark-soft" bgcolor="#5e1921" style="background-color:#5e1921;font-family:'Instrument Sans','Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#f9c1c1;">
+<p class="serif on-dark" style="margin:0;font-family:Fraunces,Georgia,'Times New Roman',serif;font-size:20px;font-weight:500;line-height:1.3;color:#fffbfb;">Pastelería Ilusión</p>
+<p class="on-dark-soft" style="margin:2px 0 20px 0;color:#f9c1c1;">Pide un deseo. Del pastel nos encargamos.</p>
+<p class="on-dark" style="margin:0;color:#fffbfb;">{{ address }}</p>
+{% if directions_url %}<p class="on-dark" style="margin:0;color:#fffbfb;"><a href="{{ directions_url }}" target="_blank" rel="noopener noreferrer" class="on-dark" style="display:inline-block;padding:12px 0;line-height:20px;color:#fffbfb;font-weight:600;text-decoration:underline;">Cómo llegar</a></p>{% endif %}
+<p class="on-dark-soft" style="margin:4px 0 0 0;color:#f9c1c1;">Todos los días, de {{ opens_at|time:"H:i" }} a {{ closes_at|time:"H:i" }}</p>
+<p class="on-dark-soft" style="margin:2px 0 0 0;color:#f9c1c1;">WhatsApp: {% if whatsapp_url %}<a href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer" class="on-dark" style="color:#fffbfb;font-weight:600;text-decoration:underline;">{{ whatsapp }}</a>{% else %}{{ whatsapp }}{% endif %}</p>
 </td></tr>
 </table>
 <!--[if mso]></td></tr></table><![endif]-->

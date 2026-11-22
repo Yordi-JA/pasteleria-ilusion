@@ -13,8 +13,21 @@ from rest_framework.test import APIClient
 from core_pasteleria.models import DecorationOption, Product, ProductSampleDesign
 
 fuller_seed = importlib.import_module("core_pasteleria.migrations.0058_seed_fuller_fruit")
+new_cakes = importlib.import_module("core_pasteleria.migrations.0064_seed_blueberry_pinguino_zarzamora_samples")
 
 pytestmark = pytest.mark.django_db
+
+
+# La `0067` rediseña después las 8 muestras y la `0069` cambia otra vez fresa y cajeta y agrega zarzamora y chocolate; estas pruebas
+# revisan las semillas de antes, así que cada una parte de lo que ellas dejaron (las reversas lo devuelven tal cual).
+redesign = importlib.import_module("core_pasteleria.migrations.0067_seed_redesigned_samples")
+new_designs = importlib.import_module("core_pasteleria.migrations.0069_seed_new_flavor_samples")
+
+
+@pytest.fixture(autouse=True)
+def _before_the_redesign():
+    new_designs.unseed(apps, None)
+    redesign.unseed(apps, None)
 
 # Lo que dejan todas las semillas: (fruta tupida, piezas del borde más adentro).
 FINAL = {
@@ -23,6 +36,8 @@ FINAL = {
     "tres-leches-de-capuchino": (3.0, 0.08),
     "tres-leches-con-queso-y-chocolate": (2.0, 0.06),
     "tres-leches-con-flan-y-cajeta": (2.0, 0.0),
+    # Los cuatro pasteles de la `0064`, con lo que siembra.
+    **{slug: (new_cakes.seeded(slug)["fruit_density"], new_cakes.seeded(slug)["edge_inset"]) for slug in new_cakes.SAMPLES},
 }
 
 

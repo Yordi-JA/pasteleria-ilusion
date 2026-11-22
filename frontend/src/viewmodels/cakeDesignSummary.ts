@@ -4,7 +4,6 @@ import { formatPrice } from '../models/money.ts'
 import { reviewView, sideCombPhrase } from './cakeDesignReview.ts'
 import { lidSummary } from './cakeLid.ts'
 import { decorationColorView, decorationGroups, decorationSummary, decorationSwatches } from './cakeDecorations.ts'
-import { colorPhrase } from './colors.ts'
 import { messageInk } from './messageColors.ts'
 import { breadChoices, cakeTypeChoices, fillingChoices, lowerFirst } from './cakeDesignChoices.ts'
 import {
@@ -73,7 +72,7 @@ export type SummaryRow = {
 /** Lo que viene del pastel de vitrina de origen y no se cambia (tanda 2). */
 const FROM_SOURCE = 'Del pastel elegido, no se cambia'
 
-export function summaryRows(draft: CakeDesignDraft, design: DesignDerived, current: number, options: CakeDesignOptions): SummaryRow[] {
+export function summaryRows(draft: CakeDesignDraft, design: DesignDerived, current: number): SummaryRow[] {
   const rows: SummaryRow[] = []
   const shown = (step: number) => step !== current && step <= LAST_BUILT_STEP && (draft.confirmed.includes(step) || isSkipped(step, design))
   const locked = (step: number) => isLocked(step, design)
@@ -109,10 +108,11 @@ export function summaryRows(draft: CakeDesignDraft, design: DesignDerived, curre
     })
   }
   if (shown(5) && design.coverage) {
-    const value = ['Crema pastelera', colorPhrase(design.coverage, options.coverageColors), sideCombPhrase(draft.sideComb)].filter(Boolean).join(', ')
+    // Sin el "parecido a" (21 de noviembre): el color se ve en su muestra.
+    const value = `Crema pastelera, ${sideCombPhrase(draft.sideComb)}`
     rows.push({ step: 5, label: DESIGN_STEPS[4].title, value, canChange: true, swatches: [design.coverage] })
   }
-  const decoration = shown(DECORATION_STEP) ? decorationSummary(draft, design, options) : null
+  const decoration = shown(DECORATION_STEP) ? decorationSummary(draft, design) : null
   if (decoration) {
     rows.push({
       step: DECORATION_STEP,
@@ -128,7 +128,7 @@ export function summaryRows(draft: CakeDesignDraft, design: DesignDerived, curre
     rows.push({
       step: LID_STEP,
       label: DESIGN_STEPS[6].title,
-      value: lidSummary(draft, design.coverage, options.coverageColors),
+      value: lidSummary(draft),
       note: conflicts.wafer ? 'Hay que quitar la oblea' : undefined,
       canChange: true,
       swatches: message ? [messageInk(draft.message.color, design.coverage)] : undefined,
@@ -300,7 +300,7 @@ type ViewInput = {
 export function designerView({ draft, design, options, current, price, plan, tierNotice, proceeding, leadDays }: ViewInput) {
   const conflict = current === 2 && design.cakeType ? conflictTarget(design) : null
   const reachableUpTo = firstIncompleteStep(design, draft)
-  const review = current === REVIEW_STEP ? reviewView({ draft, design, options, price, leadDays }) : null
+  const review = current === REVIEW_STEP ? reviewView({ draft, design, price, leadDays }) : null
   const source = design.locked ? draft.source : null
   return {
     steps: DESIGN_STEPS.map((step, index) => {
@@ -328,7 +328,7 @@ export function designerView({ draft, design, options, current, price, plan, tie
           text: `El tipo, el pan y el relleno vienen de ${source.name}. Para cambiarlos, arma tu pastel desde el principio en Diseña tu pastel.`,
         }
       : null,
-    summary: summaryRows(draft, design, current, options),
+    summary: summaryRows(draft, design, current),
     conflict:
       conflict && design.cakeType
         ? { title: conflictSentence(conflict.target, conflict.issue, design.cakeType, options), target: conflict.target, alsoFilling: conflict.alsoFilling }

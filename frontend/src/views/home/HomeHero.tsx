@@ -12,6 +12,14 @@ import { Field } from './sectionLayout.tsx'
 
 const HINT_ID = 'pastel-pista'
 
+/*
+ * En una pantalla de escritorio baja (más de 960 px de ancho y hasta 860 px de alto, como una laptop de 1366-1536 × 720-800), el
+ * hero completo, con sus dos botones y la pista, cabe bajo la barra (correcciones del 21 de noviembre): 16 px de aire arriba en
+ * vez de 32, 16 px entre las piezas en vez de 24, el logotipo hasta 500 px de ancho en vez de 640 y el pastel a lo que queda de
+ * alto (`HeroCake`, `BOX_HEIGHT.hero`). Las clases van completas para que Tailwind las encuentre; en pantallas más altas y en el
+ * teléfono nada cambia.
+ */
+
 /**
  * La entrada del hero (tanda 7, D90): 450 ms cada pieza, 60 ms de escalón, con la curva `entrada` (`tailwind.config.cjs`). El
  * pastel entra con la frase, a la par del texto. Solo con `motion-safe:`: con "reducir movimiento" no hay ninguna.
@@ -47,10 +55,10 @@ export default function HomeHero() {
   const focusLastAction = () => actions.current?.querySelector<HTMLElement>('a:last-of-type')?.focus()
   return (
     <Field field="fresa" labelledBy="portada-titulo" className="bg-fresa">
-      <div className="mx-auto grid w-full max-w-[1200px] grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] items-center gap-6 px-6 pb-6 pt-8 max-[960px]:grid-cols-1 max-[600px]:px-4">
-        <div className="flex flex-col gap-6">
+      <div className="mx-auto grid w-full max-w-[1200px] grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] items-center gap-6 px-6 pb-6 pt-8 max-[960px]:grid-cols-1 max-[600px]:px-4 [@media(min-width:961px)_and_(max-height:860px)]:pt-4">
+        <div className="flex flex-col gap-6 [@media(min-width:961px)_and_(max-height:860px)]:gap-4">
           <h1 id="portada-titulo" className="-ml-2 leading-none max-[600px]:sr-only">
-            <img ref={heroLogo} src={logo} alt="" width={565} height={247} className={`block h-auto w-full max-w-[640px] max-[600px]:hidden ${enter('logo')}`} />
+            <img ref={heroLogo} src={logo} alt="" width={565} height={247} className={`block h-auto w-full max-w-[640px] max-[600px]:hidden [@media(min-width:961px)_and_(max-height:860px)]:max-w-[500px] ${enter('logo')}`} />
             <span className="sr-only">Pastelería Ilusión</span>
           </h1>
           <p className={`font-display text-titulo-1 text-mermelada ${enter('motto')}`}>Pide un deseo. Del pastel nos encargamos.</p>

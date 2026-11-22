@@ -179,3 +179,110 @@ test.describe('on a phone', () => {
     expect(await label.evaluate((element) => element.getBoundingClientRect().width)).toBeLessThanOrEqual(1)
   })
 })
+
+test.describe('removing a line', () => {
+  type Shift = { line: string; from: string; to: string; duration: unknown; easing: unknown }
+
+  /** Anota cada `animate()` de una línea del carrito: el recorrido dura 250 ms y puede terminar antes de que la prueba lo lea. */
+  const recordShifts = (page: Page) =>
+    page.addInitScript(() => {
+      const shifts: Shift[] = []
+      Reflect.set(window, '__shifts', shifts)
+      const original = Element.prototype.animate
+      Element.prototype.animate = function (this: Element, keyframes, options) {
+        const line = this.getAttribute('data-linea')
+        if (line && Array.isArray(keyframes)) {
+          const timing = typeof options === 'object' ? options : {}
+          shifts.push({ line, from: String(keyframes[0].transform), to: String(keyframes.at(-1)?.transform), duration: timing.duration, easing: timing.easing })
+        }
+        return original.call(this, keyframes, options)
+      }
+    })
+  const shifts = (page: Page) => page.evaluate(() => Reflect.get(window, '__shifts') as Shift[])
+  const emptyCard = (page: Page) => page.getByRole('heading', { level: 2, name: 'Tu carrito está vacío' }).locator('xpath=..')
+
+  test('the lines below slide up into place; the removed one goes at once, and the focus and the announcement stay', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await recordShifts(page)
+    await seedCart(page, [durazno, cajetaSlice, designLine])
+    await page.goto('/carrito')
+    await expect(products(page).getByRole('listitem').filter({ has: page.getByRole('heading', { level: 3 }) })).toHaveCount(3)
+    await line(page, 'Tres leches de durazno').getByRole('button', { name: 'Quitar Tres leches de durazno' }).click()
+    await expect(line(page, 'Tres leches de durazno')).toHaveCount(0)
+    await expect.poll(async () => (await shifts(page)).length).toBe(2)
+    for (const shift of await shifts(page)) {
+      expect(Number(/translateY\((-?[\d.]+)px\)/.exec(shift.from)?.[1])).toBeGreaterThan(0)
+      expect(shift).toMatchObject({ to: 'none', duration: 250, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' })
+    }
+    expect((await shifts(page)).map((shift) => shift.line)).toEqual([`${cajetaSlice.fulfillment}-${cajetaSlice.offeringId}`, `design-${designLine.designId}`])
+    await expect(page.getByRole('heading', { level: 2, name: 'Productos' })).toBeFocused()
+    await expect(page.getByRole('status').filter({ hasText: 'Quitaste Tres leches de durazno de tu pedido.' })).toHaveCount(1)
+    // Al terminar, cada línea queda en su lugar.
+    await expect.poll(() => products(page).locator('[data-linea]').evaluateAll((items) => items.flatMap((item) => item.getAnimations()).length)).toBe(0)
+    await expect(products(page).locator('[data-linea]').first()).toHaveCSS('transform', 'none')
+  })
+
+  test('removing the last line moves nothing above it, and changing a quantity moves nothing', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await recordShifts(page)
+    await seedCart(page, [durazno, { ...cajetaSlice, quantity: 2 }])
+    await page.goto('/carrito')
+    const slice = line(page, 'Rebanada de tres leches de cajeta')
+    await slice.getByRole('button', { name: 'Quitar uno de Rebanada de tres leches de cajeta' }).click()
+    await expect(slice).toContainText('$35')
+    await slice.getByRole('button', { name: 'Quitar Rebanada de tres leches de cajeta' }).click()
+    await expect(slice).toHaveCount(0)
+    // `animate()` corre de forma síncrona en el layout effect: al desaparecer la línea ya se anotó todo lo que iba a animarse.
+    expect(await shifts(page)).toEqual([])
+  })
+
+  test('after the window is resized, removing a line starts from the real offset, not from the old layout', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await recordShifts(page)
+    await seedCart(page, [durazno, cajetaSlice, designLine])
+    await page.goto('/carrito')
+    await expect(products(page).locator('[data-linea]')).toHaveCount(3)
+    // El giro del teléfono: las líneas se reacomodan sin que React renderice.
+    await page.setViewportSize({ width: 390, height: 844 })
+    const tops = () => products(page).locator('[data-linea]').evaluateAll((items) => items.map((item) => (item as HTMLElement).offsetTop))
+    await expect.poll(async () => (await tops())[0]).toBeGreaterThan(0)
+    const before = await tops()
+    await line(page, 'Tres leches de durazno').getByRole('button', { name: 'Quitar Tres leches de durazno' }).click()
+    await expect(line(page, 'Tres leches de durazno')).toHaveCount(0)
+    const after = await tops()
+    const recorded = await shifts(page)
+    expect(recorded).toHaveLength(2)
+    recorded.forEach((shift, index) => {
+      const from = Number(/translateY\((-?[\d.]+)px\)/.exec(shift.from)?.[1])
+      expect(from).toBeCloseTo(before[index + 1] - after[index], 0)
+    })
+  })
+
+  test('the empty cart rises in after the last line goes, and not when the page opens empty', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await seedCart(page, [durazno])
+    await page.goto('/carrito')
+    await line(page, 'Tres leches de durazno').getByRole('button', { name: 'Quitar Tres leches de durazno' }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'Tu carrito está vacío' })).toBeFocused()
+    await expect(emptyCard(page)).toHaveCSS('animation-name', 'aparece')
+    await expect(emptyCard(page)).toHaveCSS('animation-duration', '0.25s')
+    await expect.poll(() => emptyCard(page).evaluate((element) => element.getAnimations().length)).toBe(0)
+    await expect(emptyCard(page)).toHaveCSS('opacity', '1')
+    await page.reload()
+    await expect(emptyCard(page)).toBeVisible()
+    await expect(emptyCard(page)).toHaveCSS('animation-name', 'none')
+  })
+
+  test('with reduced motion the lines jump to their place and the empty cart just appears', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await recordShifts(page)
+    await seedCart(page, [durazno, cajetaSlice])
+    await page.goto('/carrito')
+    await line(page, 'Tres leches de durazno').getByRole('button', { name: 'Quitar Tres leches de durazno' }).click()
+    await expect(line(page, 'Tres leches de durazno')).toHaveCount(0)
+    await line(page, 'Rebanada de tres leches de cajeta').getByRole('button', { name: 'Quitar Rebanada de tres leches de cajeta' }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'Tu carrito está vacío' })).toBeFocused()
+    expect(await shifts(page)).toEqual([])
+    await expect(emptyCard(page)).toHaveCSS('animation-name', 'none')
+  })
+})

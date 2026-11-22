@@ -147,6 +147,10 @@ SEED_MIGRATIONS = [
     ("0060_seed_imposible_photo", "seed"),
     ("0061_seed_hide_walnut_cake", "seed"),
     ("0062_seed_hide_red_velvet_cake", "seed"),
+    ("0064_seed_blueberry_pinguino_zarzamora_samples", "seed"),
+    ("0065_seed_red_velvet_filling", "seed"),
+    ("0067_seed_redesigned_samples", "seed"),
+    ("0069_seed_new_flavor_samples", "seed"),
 ]
 _db_blocker = None
 

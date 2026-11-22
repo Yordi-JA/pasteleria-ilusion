@@ -5,6 +5,7 @@ import Button from '../../components/Button.tsx'
 import ColorSwatches from '../../components/ColorSwatches.tsx'
 import { focusRing } from '../../components/focus.ts'
 import type { PriceView, SummaryRow } from '../../viewmodels/cakeDesignSummary.ts'
+import { useArrivals } from '../../viewmodels/useArrivals.ts'
 import { useBarClearance } from '../../viewmodels/useBarClearance.ts'
 import { useScrollOverflow } from '../../viewmodels/useScrollOverflow.ts'
 import { INNER_FOCUS, SCROLLBAR, SUMMARY_LIST, SUMMARY_SECTION } from './scrollStyles.ts'
@@ -151,11 +152,18 @@ export function MobileBar({ price, continueLabel, onContinue, disabled, busy, on
   )
 }
 
-function SummaryList({ rows }: { rows: SummaryRow[] }) {
+// La fila que "Continuar" acaba de guardar entra con el movimiento de las secciones (8 px, 250 ms), a la par de la tarjeta del
+// paso nuevo: liga lo que se eligió con el lugar donde queda (22 de noviembre).
+const ARRIVING = 'motion-safe:animate-aparece'
+
+function SummaryList({ rows, arrived = new Set<string>() }: { rows: SummaryRow[]; arrived?: ReadonlySet<string> }) {
   return (
     <ul className="flex flex-col">
       {rows.map((row) => (
-        <li key={row.step} className="flex items-center justify-between gap-4 border-t border-relieve py-3">
+        <li
+          key={row.step}
+          className={`flex items-center justify-between gap-4 border-t border-relieve py-3 ${arrived.has(String(row.step)) ? ARRIVING : ''}`}
+        >
           <div className="flex min-w-0 flex-col">
             <p className="text-nota text-mermelada-suave">{row.label}</p>
             {/* `whitespace-pre-line`: el mensaje del pastel conserva sus renglones. */}
@@ -182,15 +190,25 @@ function SummaryList({ rows }: { rows: SummaryRow[] }) {
  * previa, que no pasa del alto de la ventana: si la lista no cabe, solo ella se desplaza (tanda 3), como una región con
  * nombre que, solo cuando desborda, es una parada del tabulador.
  */
-export function SummaryCard({ rows }: { rows: SummaryRow[] }) {
+export function SummaryCard({ rows, step }: { rows: SummaryRow[]; step: number }) {
+  // `step`, el paso actual: una fila nueva se anima solo al avanzar.
+  const arrived = useArrivals(
+    rows.map((row) => String(row.step)),
+    step,
+  )
   if (rows.length === 0) return null
-  return <SummaryPanel rows={rows} />
+  // La primera vez (al dejar el paso 1) llega la tarjeta entera, no una fila dentro de ella.
+  const firstRows = arrived.size === rows.length
+  return <SummaryPanel rows={rows} arrived={firstRows ? undefined : arrived} entering={firstRows} />
 }
 
-function SummaryPanel({ rows }: { rows: SummaryRow[] }) {
+function SummaryPanel({ rows, arrived, entering }: { rows: SummaryRow[]; arrived?: ReadonlySet<string>; entering: boolean }) {
   const { viewport, content, overflowing } = useScrollOverflow<HTMLDivElement, HTMLDivElement>()
   return (
-    <section aria-labelledby="tu-pastel" className={`flex flex-col gap-3 rounded-lg border border-relieve bg-betun py-6 max-[900px]:hidden ${SUMMARY_SECTION}`}>
+    <section
+      aria-labelledby="tu-pastel"
+      className={`flex flex-col gap-3 rounded-lg border border-relieve bg-betun py-6 max-[900px]:hidden ${SUMMARY_SECTION} ${entering ? ARRIVING : ''}`}
+    >
       <h2 id="tu-pastel" className="shrink-0 px-6 font-display text-titulo-3 font-medium">
         Tu pastel
       </h2>
@@ -202,7 +220,7 @@ function SummaryPanel({ rows }: { rows: SummaryRow[] }) {
         className={`min-h-0 px-6 ${SUMMARY_LIST} ${SCROLLBAR} ${INNER_FOCUS}`}
       >
         <div ref={content}>
-          <SummaryList rows={rows} />
+          <SummaryList rows={rows} arrived={arrived} />
         </div>
       </div>
     </section>
@@ -220,7 +238,8 @@ export function SummaryDisclosure({ rows }: { rows: SummaryRow[] }) {
         Ver tu pastel ({rows.length} {rows.length === 1 ? 'elegido' : 'elegidos'})
         <CaretDown size={18} aria-hidden="true" className="shrink-0 motion-safe:transition-transform group-open:rotate-180" />
       </summary>
-      <div className="px-4 pb-2">
+      {/* Al abrir, la lista baja 8 px y aparece; sin animar la altura, que D80 deja fuera (solo `transform` y `opacity`). */}
+      <div className="px-4 pb-2 motion-safe:group-open:animate-aparece">
         <SummaryList rows={rows} />
       </div>
     </details>

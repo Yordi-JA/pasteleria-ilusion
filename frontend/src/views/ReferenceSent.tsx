@@ -63,7 +63,7 @@ export default function ReferenceSent() {
               <h3 className="font-display text-titulo-2">Solicitud #{view.id}</h3>
               <p className="text-nota font-semibold">{view.statusLabel}</p>
             </div>
-            <OrderTimeline steps={view.steps} labelledBy="enviada-sigue" />
+            <OrderTimeline steps={view.steps} labelledBy="enviada-sigue" celebrate />
             <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
               <ButtonLink to={view.quotePath}>Ver mi solicitud</ButtonLink>
               <TextLink to="/catalogo">Seguir viendo el catálogo</TextLink>
@@ -77,7 +77,7 @@ export default function ReferenceSent() {
 
   return (
     <>
-      <IllustratedHeader title={TITLE} titleId="enviada-titulo" drawing="toldo" crumbs={[]}>
+      <IllustratedHeader title={TITLE} titleId="enviada-titulo" drawing="toldo">
         <p className="max-w-[560px] text-cuerpo text-mermelada-suave">
           Te enviaremos la cotización a {sent.email ?? 'tu correo'} en máximo 1 hora. También la verás en tu cuenta.
         </p>

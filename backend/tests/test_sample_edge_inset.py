@@ -14,8 +14,21 @@ from rest_framework.test import APIClient
 from core_pasteleria.models import OBSERVED_IN_PHOTO, DecorationOption, Product, ProductSampleDesign
 
 inset_seed = importlib.import_module("core_pasteleria.migrations.0056_seed_sample_edge_inset")
+new_cakes = importlib.import_module("core_pasteleria.migrations.0064_seed_blueberry_pinguino_zarzamora_samples")
 
 pytestmark = pytest.mark.django_db
+
+
+# La `0067` rediseña después las 8 muestras y la `0069` cambia otra vez fresa y cajeta y agrega zarzamora y chocolate; estas pruebas
+# revisan las semillas de antes, así que cada una parte de lo que ellas dejaron (las reversas lo devuelven tal cual).
+redesign = importlib.import_module("core_pasteleria.migrations.0067_seed_redesigned_samples")
+new_designs = importlib.import_module("core_pasteleria.migrations.0069_seed_new_flavor_samples")
+
+
+@pytest.fixture(autouse=True)
+def _before_the_redesign():
+    new_designs.unseed(apps, None)
+    redesign.unseed(apps, None)
 
 SEEDED = {"tres-leches-de-choco-vainilla": 0.14, "tres-leches-de-capuchino": 0.12, "tres-leches-de-cajeta": 0.08}
 
@@ -55,6 +68,8 @@ def test_the_inset_says_it_was_observed_and_only_draws_in_the_image():
 def test_the_seed_moves_in_only_the_three_cakes():
     # La `0058` acerca después los tulipanes de capuchino a 0.08 y mete las conchas de queso y chocolate.
     later = {"tres-leches-de-capuchino": 0.08, "tres-leches-con-queso-y-chocolate": 0.06}
+    # Los cuatro pasteles de la `0064` llegan con sus piezas del borde ya en su lugar.
+    later.update({slug: new_cakes.seeded(slug)["edge_inset"] for slug in new_cakes.SAMPLES})
     for sample in ProductSampleDesign.objects.select_related("product"):
         assert sample.edge_inset == later.get(sample.product.slug, SEEDED.get(sample.product.slug, 0.0)), sample.product.slug
 

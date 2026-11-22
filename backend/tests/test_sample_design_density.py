@@ -14,8 +14,21 @@ from rest_framework.test import APIClient
 from core_pasteleria.models import OBSERVED_IN_PHOTO, DecorationOption, Product, ProductSampleDesign, SampleShells
 
 density_seed = importlib.import_module("core_pasteleria.migrations.0054_seed_sample_density")
+new_cakes = importlib.import_module("core_pasteleria.migrations.0064_seed_blueberry_pinguino_zarzamora_samples")
 
 pytestmark = pytest.mark.django_db
+
+
+# La `0067` rediseña después las 8 muestras y la `0069` cambia otra vez fresa y cajeta y agrega zarzamora y chocolate; estas pruebas
+# revisan las semillas de antes, así que cada una parte de lo que ellas dejaron (las reversas lo devuelven tal cual).
+redesign = importlib.import_module("core_pasteleria.migrations.0067_seed_redesigned_samples")
+new_designs = importlib.import_module("core_pasteleria.migrations.0069_seed_new_flavor_samples")
+
+
+@pytest.fixture(autouse=True)
+def _before_the_redesign():
+    new_designs.unseed(apps, None)
+    redesign.unseed(apps, None)
 
 PRODUCTS_URL = "/api/v1/products/"
 DENSE = {"tres-leches-de-choco-vainilla", "tres-leches-de-cajeta", "tres-leches-de-capuchino"}
@@ -66,6 +79,8 @@ def test_closed_tulips_are_a_kind_of_shells():
 def test_the_seed_makes_the_fruit_dense_on_the_three_cakes_and_leaves_the_other_five():
     # La `0058` sube capuchino a 3 y llena también queso y chocolate y flan y cajeta.
     later = {"tres-leches-de-capuchino": 3.0, "tres-leches-con-queso-y-chocolate": 2.0, "tres-leches-con-flan-y-cajeta": 2.0}
+    # Los cuatro pasteles de la `0064` llegan con su fruta tupida ya sembrada.
+    later.update({slug: new_cakes.seeded(slug)["fruit_density"] for slug in new_cakes.SAMPLES})
     for sample in ProductSampleDesign.objects.select_related("product"):
         expected = later.get(sample.product.slug, 2.0 if sample.product.slug in DENSE else 1.0)
         assert sample.fruit_density == expected, sample.product.slug

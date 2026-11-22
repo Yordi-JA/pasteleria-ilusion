@@ -3,7 +3,7 @@ import { useRef, useState } from 'react'
 import type { KeyboardEvent, RefObject } from 'react'
 import Card from '../../components/Card.tsx'
 import ChoiceOption from '../../components/ChoiceOption.tsx'
-import { focusRing } from '../../components/focus.ts'
+import { focusRing, focusRingWithin } from '../../components/focus.ts'
 import LoadErrorNotice from '../../components/LoadErrorNotice.tsx'
 import Notice from '../../components/Notice.tsx'
 import Skeleton, { LoadingRegion } from '../../components/Skeleton.tsx'
@@ -222,15 +222,11 @@ export default function DateAndTime({ calendar, onChooseDay, onChooseSlot, error
 
 /**
  * Cómo se acomodan los horarios: `beside`, junto al calendario (una columna angosta en escritorio); `full`, a todo lo ancho
- * de la tarjeta (el día fijo de una cotización). En los dos, hasta 900 px los periodos son un control de tres y los horarios
- * van en tres columnas (tanda 3).
+ * de la tarjeta (el día fijo de una cotización). En los dos, los periodos son un control segmentado de tres; las horas van en
+ * dos columnas junto al calendario y en tres hasta 900 px (tanda 3).
  */
 type SlotLayout = 'beside' | 'full'
 
-const PERIOD_GRID: Record<SlotLayout, string> = {
-  beside: 'grid-cols-1 max-[900px]:grid-cols-3',
-  full: 'grid-cols-3',
-}
 const SLOT_GRID: Record<SlotLayout, string> = {
   beside: 'grid-cols-2 max-[900px]:grid-cols-3',
   full: 'grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] max-[600px]:grid-cols-3',
@@ -241,9 +237,50 @@ const SLOT_GRID: Record<SlotLayout, string> = {
  */
 const CELLS = '[&>div>label]:flex-1 [&>div>label]:justify-center [&>div]:items-stretch'
 
+// El periodo elegido se marca con el fondo `betun`, el borde `mermelada` y el texto en negritas, no con el relleno `mermelada`
+// de la hora elegida: así la única opción llena es la hora, que es lo que se elige (correcciones del 21 de noviembre).
+const segmentEnabled =
+  'cursor-pointer text-mermelada hover:bg-betun has-[:checked]:border-mermelada has-[:checked]:bg-betun has-[:checked]:font-semibold ' +
+  'motion-safe:transition-colors'
+const segmentDisabled = 'cursor-not-allowed text-mermelada-suave'
+
 /**
- * "Horario": mañana, tarde y noche como un control de chips de dos líneas (el periodo y su rango), y las horas del periodo
- * elegido como chips en cuadrícula. El título dice de qué día: "Horario del lunes 16".
+ * Mañana, tarde y noche como un control segmentado de una sola línea (libro de marca, "Horarios": se agrupan para no mostrar
+ * todas las horas juntas). Es un filtro de las horas, no otra lista de horarios: no repite el rango de cada periodo, que las
+ * horas de abajo ya dicen; el rango queda en el nombre accesible, para quien no ve las horas hasta cambiar de periodo. Un periodo
+ * sin horas dice por qué ("Lleno") debajo de su nombre.
+ */
+function PeriodSegments({ periods, selected, onSelect }: { periods: SlotChoices['periods']; selected: string | null; onSelect: (id: SlotChoices['periods'][number]['id']) => void }) {
+  return (
+    <div className="grid grid-cols-3 gap-1 rounded-md border border-relieve bg-harina p-1">
+      {periods.map((option) => {
+        const disabled = !option.available
+        return (
+          <label
+            key={option.id}
+            className={`flex min-h-11 flex-col items-center justify-center rounded-sm border border-transparent px-1 text-center text-etiqueta ${disabled ? segmentDisabled : segmentEnabled} ${focusRingWithin}`}
+          >
+            <input
+              type="radio"
+              name="periodo"
+              className="sr-only"
+              checked={selected === option.id}
+              disabled={disabled}
+              onChange={() => onSelect(option.id)}
+            />
+            <span>{option.label}</span>
+            <span className="sr-only"> {option.range}</span>
+            {disabled && option.disabledReason && <span className="text-[11px] font-normal leading-none">{option.disabledReason}</span>}
+          </label>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * "Horario": mañana, tarde y noche como un control segmentado (`PeriodSegments`) y, debajo, las horas del periodo elegido como
+ * chips en cuadrícula: una sola lista de horas, la que se elige. El título dice de qué día: "Horario del lunes 16".
  */
 export function SlotPicker({
   calendar,
@@ -266,23 +303,9 @@ export function SlotPicker({
   const day = layout === 'beside' ? dayName(calendar.selectedDate) : null
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <fieldset className="flex flex-col gap-3">
+      <fieldset className="flex flex-col">
         <legend className="mb-3 text-etiqueta">{day ? `Horario del ${day}` : 'Horario'}</legend>
-        <div className={`grid gap-2 ${PERIOD_GRID[layout]} ${CELLS}`}>
-          {calendar.periods.map((option) => (
-            <ChoiceOption
-              key={option.id}
-              variant="chip"
-              name="periodo"
-              label={option.label}
-              description={option.range}
-              checked={period?.id === option.id}
-              disabled={!option.available}
-              disabledReason={option.disabledReason ?? undefined}
-              onChange={() => calendar.selectPeriod(option.id)}
-            />
-          ))}
-        </div>
+        <PeriodSegments periods={calendar.periods} selected={period?.id ?? null} onSelect={calendar.selectPeriod} />
       </fieldset>
       {period && (
         <fieldset>

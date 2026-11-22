@@ -25,6 +25,17 @@ const ROUGHNESS: Record<FruitPiece, number> = {
   pearSlice: 0.32,
   physalis: 0.45,
   bananaSlice: 0.38,
+  pineappleChunk: 0.28,
+  appleRoundGolden: 0.3,
+  appleRoundRed: 0.3,
+  appleWedge: 0.3,
+  citrusSlice: 0.26,
+  appleSheet: 0.3,
+  cherry: 0.18,
+  blackGrape: 0.2,
+  pearFlower: 0.3,
+  blackGrapeCluster: 0.2,
+  mintLeaves: 0.4,
 }
 const ENV_INTENSITY = 0.8
 

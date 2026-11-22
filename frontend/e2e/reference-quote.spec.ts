@@ -252,3 +252,23 @@ test('mobile at 390 px: the quote before the reference, no horizontal scroll', a
   const reference = await page.getByRole('heading', { name: 'Tu referencia' }).boundingBox()
   expect(quote && reference && quote.y < reference.y).toBe(true)
 })
+
+test('the sent page settles its timeline once: the sent step, then the review in progress', async ({ page }) => {
+  await mockStoreInfo(page)
+  await signedIn(page)
+  await mockReferenceImages(page)
+  await mockReferences(page)
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto(SENT)
+  const markers = page.getByRole('list', { name: 'Qué sigue' }).getByTestId('marcador-hito')
+  await expect(markers).toHaveCount(4)
+  const motion = (index: number) =>
+    markers.nth(index).evaluate((element) => {
+      const style = getComputedStyle(element)
+      return `${style.animationName} ${style.animationDelay}`
+    })
+  expect(await motion(0)).toBe('hito 0s')
+  expect(await motion(1)).toBe('hito 0.06s')
+  // Lo que falta no se mueve.
+  expect(await motion(2)).toBe('none 0s')
+})

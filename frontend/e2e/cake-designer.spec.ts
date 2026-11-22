@@ -301,6 +301,30 @@ test('a slow old answer never replaces the newer one', async ({ page }) => {
   await expect(kilos(page)).toHaveText('Aprox. 7 kg para 47 personas')
 })
 
+// El mensaje del candado sigue en el acomodo cerrado (`invisible`, para animar su salida). En móvil el candado va junto al borde
+// derecho: alineado a su orilla, el mensaje no se sale de la pantalla, ni cerrado ni abierto.
+test('on a phone the step lock tooltip stays inside the screen, closed and open', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await open(page)
+  await toBreadStep(page)
+  await page.getByRole('radio', { name: 'Choco-pingüino' }).check()
+  await expect(total(page)).toHaveText('$1,500 MXN')
+  await proceed(page)
+  await expect(stepTitle(page)).toHaveText('5. Cobertura')
+  const lock = page.getByRole('navigation', { name: 'Pasos de Diseña tu pastel' }).getByRole('button', { name: 'Relleno incluido' })
+  const tip = page.getByRole('tooltip').filter({ hasText: 'ya trae su relleno' })
+  await expect(lock).toBeVisible()
+  await expect(tip).toBeHidden()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  await lock.focus()
+  await expect(tip).toBeVisible()
+  const box = await tip.boundingBox()
+  expect(box).not.toBeNull()
+  expect(box!.x).toBeGreaterThanOrEqual(0)
+  expect(box!.x + box!.width).toBeLessThanOrEqual(390)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+})
+
 test('choco-pingüino skips the filling step and envinado asks to choose another bread', async ({ page }) => {
   await open(page)
   await toBreadStep(page)
@@ -350,7 +374,7 @@ test('choco-pingüino skips the filling step and envinado asks to choose another
   await expect(page.getByText('No se combina con pastel envinado').first()).toBeVisible()
   await expect(page.getByText('Para usar Choco-pingüino, cambia el tipo de pastel a Tres leches o Seco.')).toBeVisible()
   // Lo demás se conserva: la cobertura lila sigue en "Tu pastel".
-  await expect(shown(page, 'Crema pastelera, parecido a lila, con peinado lateral')).toBeVisible()
+  await expect(shown(page, 'Crema pastelera, con peinado lateral')).toBeVisible()
 })
 
 test('the steps do not repeat their titles nor explain the obvious', async ({ page }) => {
@@ -398,6 +422,16 @@ test('the red velvet conflict sentence comes from the reason code', async ({ pag
   await page.getByRole('link', { name: 'Cambiar tipo de pastel' }).click()
   await page.getByRole('radio', { name: 'Tres leches' }).check()
   await expect(page.getByText('Tu pan Red velvet solo va en pastel seco.')).toBeVisible()
+})
+
+test('the breads with their own filling name it once, like the others: red velvet carries cream cheese frosting', async ({ page }) => {
+  await open(page)
+  await toBreadStep(page, 'Seco')
+  const step = page.getByTestId('tarjeta-paso')
+  await expect(step.getByText('Relleno de betún de queso crema', { exact: true })).toBeVisible()
+  await expect(step.getByText('Relleno de crema de chocolate sabor helado', { exact: true })).toBeVisible()
+  // Sin el texto repetido de antes (21 de noviembre).
+  await expect(step.getByText(/relleno de relleno|típico/i)).toHaveCount(0)
 })
 
 test('envinado also asks to change a fresa con yogurt filling and keeps the bread', async ({ page }) => {
@@ -673,7 +707,9 @@ test('the color of a design is automatic by default, shows the tones of the cove
   // Cualquier color, no solo los 11 de la lista: arranca en el tono principal de la cobertura y se cambia con las barras.
   const chosen = await pickColor(card, '#12ab9f')
   await proceed(page)
-  await expect(shown(page, 'Rosas, color parecido a turquesa')).toBeVisible()
+  // El color va en su muestra, sin "parecido a" (21 de noviembre).
+  await expect(shown(page, 'Rosas, color elegido')).toBeVisible()
+  await expect(page.getByText(/parecido a/)).toHaveCount(0)
   // Atrás: el color elegido sigue y se puede volver a automático.
   await page.getByRole('link', { name: 'Cambiar decoración' }).filter({ visible: true }).first().click()
   await expect(card.getByRole('radio', { name: 'Elegir un color' })).toBeChecked()

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { RefObject } from 'react'
 import type { AddNotice } from '../viewmodels/useAddToCart.ts'
+import { useNoticeEntrance } from '../viewmodels/useNoticeEntrance.ts'
 import { focusRing } from './focus.ts'
 import Notice from './Notice.tsx'
 
@@ -11,6 +12,14 @@ import Notice from './Notice.tsx'
 const stickyClass = 'sticky top-[100px] z-20 max-[600px]:top-[84px] [&:not(:empty)]:mb-8 [&>*]:shadow-flotante'
 // Aire entre el aviso fijo y lo que el teclado enfoca debajo.
 const FOCUS_GAP_PX = 8
+
+/**
+ * La entrada del aviso (22 de noviembre), la otra mitad del vuelo de la perla: el primero baja 8 px y aparece en 250 ms; uno que
+ * reemplaza a otro no mueve la caja otra vez y solo asienta su marcador desde 0.6, el tamaño con que la perla llega al carrito.
+ * La salida es inmediata: "Cerrar" lleva el foco a `#contenido` y la región viva no debe esperar a nadie para vaciarse.
+ */
+const ENTRANCE = { enter: 'motion-safe:animate-aviso-entrada', settle: '' } as const
+const MARKER = { enter: '', settle: 'motion-safe:animate-asienta' } as const
 
 type AddToCartNoticeProps = {
   /** Cada aviso lleva un `id` nuevo: lo agrega al carrito una oferta del catálogo o un pastel diseñado. */
@@ -49,6 +58,7 @@ function useFocusClearance(region: RefObject<HTMLDivElement | null>, noticeId: n
 export default function AddToCartNotice({ feedback, className = '', sticky = false, onDismiss }: AddToCartNoticeProps) {
   const region = useRef<HTMLDivElement>(null)
   useFocusClearance(region, sticky && feedback ? feedback.id : null)
+  const entrance = useNoticeEntrance(feedback ? feedback.id : null)
   const dismiss = () => {
     onDismiss?.()
     // El botón desaparece con el aviso: el foco vuelve al contenido sin mover la página.
@@ -57,7 +67,14 @@ export default function AddToCartNotice({ feedback, className = '', sticky = fal
   return (
     <div ref={region} role="status" data-testid="aviso-carrito" className={`${sticky ? stickyClass : ''} ${className}`}>
       {feedback && (
-        <Notice key={feedback.id} live={false} tone={feedback.tone} title={feedback.title}>
+        <Notice
+          key={feedback.id}
+          live={false}
+          tone={feedback.tone}
+          title={feedback.title}
+          className={entrance ? ENTRANCE[entrance] : ''}
+          markerClassName={entrance ? MARKER[entrance] : ''}
+        >
           {feedback.detail}
           {sticky && onDismiss && (
             <button

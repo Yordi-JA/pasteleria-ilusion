@@ -71,7 +71,7 @@ export const productCards = [
 ]
 
 /** Red velvet: solo por encargo. Desde la `0062` la API ya no lo entrega: no está en la lista por omisión. */
-export const redVelvetCard = card({ slug: 'red-velvet', name: 'Red velvet', category: 'cake', summary: 'Con su relleno típico de red velvet.', sales_channel: 'order_only', cake_type: 'seco', bread: 'red_velvet', offerings: [offering(30, 'whole', '450.00')] })
+export const redVelvetCard = card({ slug: 'red-velvet', name: 'Red velvet', category: 'cake', summary: 'Pan red velvet con su betún de queso crema.', sales_channel: 'order_only', cake_type: 'seco', bread: 'red_velvet', offerings: [offering(30, 'whole', '450.00')] })
 
 type Card = (typeof productCards)[number]
 

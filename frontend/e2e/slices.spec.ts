@@ -32,6 +32,8 @@ test.describe('rebanadas at 1440px', () => {
     await openSlices(page)
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Rebanadas de hoy')
     await expect(page).toHaveTitle('Rebanadas de hoy · Pastelería Ilusión')
+    // Sin migas: es una página de la barra (correcciones del 21 de noviembre).
+    await expect(page.getByRole('navigation', { name: 'Ruta' })).toHaveCount(0)
     await expect(main(page)).toContainText('Viernes 6 de noviembre. Disponibles hasta agotar existencias.')
     await expect(names(page)).toHaveText(['Tres leches de durazno'])
     const slice = card(page, 'Tres leches de durazno')

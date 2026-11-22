@@ -5,6 +5,8 @@ import { signedIn } from './support/auth.ts'
 import { cakeDesignOptions, COVERAGE_HEX, mockCakeDesignOptions, mockCakeDesignPrice } from './support/cake-design.ts'
 import { CART_KEY, designLine, durazno, mockCalendar, mockOrders, NOW, placedOrder, seedCart, storedCart } from './support/checkout.ts'
 import { mockPayment, ORDER_ID, orderItems } from './support/payments.ts'
+import { mockCatalog, stockItem, todayStock } from './support/catalog.ts'
+import { mockProductDetails, productDetail } from './support/products.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 
 /**
@@ -132,7 +134,7 @@ test.describe('adding from step 8', () => {
     })
     await openReview(page)
     await addWithPreview(page)
-    await expect(notice(page)).toContainText('Tu pastel quedó en tu pedido.')
+    await expect(notice(page)).toHaveText('Agregado al pedido')
     const stored = await storedDesign(page)
     expect(stored).toBeTruthy()
     expect(stored.thumbnail).toBeUndefined()
@@ -182,6 +184,38 @@ test.describe('saved carts', () => {
     await expect(designItem(page)).toContainText(designLine.name)
     await expect(designItem(page)).toContainText('Foto del pastel')
     await expect(thumbnailIn(designItem(page))).toHaveCount(0)
+  })
+
+  test('a line saved with the old "parecido a" color names reads without them', async ({ page }) => {
+    await mockStoreInfo(page)
+    const details = [
+      'Cobertura: Crema pastelera, parecido a amarillo, con peinado lateral',
+      'Decoración: Rosas, color parecido a rosa mexicano',
+      'Mensaje y oblea: Mensaje: Feliz día, color parecido a negro. Oblea: círculo, foto.jpg',
+    ]
+    await seedCart(page, [{ ...designLine, details }])
+    await page.goto('/carrito')
+    const list = designItem(page).getByRole('list')
+    await expect(list.getByRole('listitem')).toHaveText([
+      'Cobertura: Crema pastelera, con peinado lateral',
+      'Decoración: Rosas, color elegido',
+      'Mensaje y oblea: Mensaje: Feliz día, color elegido. Oblea: círculo, foto.jpg',
+    ])
+    await expect(designItem(page)).not.toContainText('parecido a')
+  })
+
+  test('the message keeps what the customer wrote: only the color the site added is renamed', async ({ page }) => {
+    await mockStoreInfo(page)
+    const details = [
+      'Mensaje y oblea: Mensaje: Feliz día, parecido a papá, color parecido a negro. Oblea: círculo, foto.jpg',
+      'Mensaje y oblea: Mensaje: Para ti, parecido a nadie',
+    ]
+    await seedCart(page, [{ ...designLine, details }])
+    await page.goto('/carrito')
+    await expect(designItem(page).getByRole('list').getByRole('listitem')).toHaveText([
+      'Mensaje y oblea: Mensaje: Feliz día, parecido a papá, color elegido. Oblea: círculo, foto.jpg',
+      'Mensaje y oblea: Mensaje: Para ti, parecido a nadie',
+    ])
   })
 
   test('a picture that is not a small JPEG or WebP is ignored, and the line stays', async ({ page }) => {
@@ -236,5 +270,106 @@ test.describe('checkout', () => {
     const products = page.getByRole('region', { name: 'Productos' })
     await expect(products.getByText('Pastel de Diseña tu pastel')).toBeVisible()
     await expect(thumbnailIn(products)).toHaveCount(0)
+  })
+})
+
+/**
+ * Las líneas del catálogo (correcciones del 21 de noviembre): el carrito guarda la imagen de la tarjeta (la del modelo o, sin ella,
+ * la foto) y la muestra en el mismo cuadro que la miniatura de un pastel diseñado; sin imagen, el hueco de siempre.
+ */
+test.describe('catalog lines', () => {
+  const catalogItem = (page: Page, name: string) => page.getByRole('main').getByRole('listitem').filter({ has: page.getByRole('heading', { name, exact: true }) })
+
+  test('a line with its image shows it in the cart in the same box as the designed cake', async ({ page }) => {
+    await mockStoreInfo(page)
+    await seedCart(page, [{ ...durazno, image: 'tres-leches-de-durazno-modelo.webp' }, { ...designLine, thumbnail: TINY_WEBP }])
+    await page.goto('/carrito')
+    const image = catalogItem(page, durazno.name).locator('img[src="/fotos/tres-leches-de-durazno-modelo.webp"]')
+    await expect(image).toBeVisible()
+    await expect(catalogItem(page, durazno.name)).not.toContainText('Foto del pastel')
+    // Decorativa, como la miniatura: el nombre de la línea ya dice qué es.
+    await expect(image).toHaveAttribute('alt', '')
+    const [own, design] = await Promise.all([image.boundingBox(), thumbnailIn(designItem(page)).boundingBox()])
+    expect(Math.round(own!.width)).toBe(Math.round(design!.width))
+    expect(Math.round(own!.height)).toBe(Math.round(design!.height))
+  })
+
+  test('an older line without an image, or with one that is not a photo name, keeps the placeholder', async ({ page }) => {
+    await mockStoreInfo(page)
+    await seedCart(page, [durazno, { ...durazno, offeringId: 102, name: 'Tres leches de fresa', image: 'https://ejemplo.com/x.webp' }])
+    await page.goto('/carrito')
+    await expect(catalogItem(page, durazno.name)).toContainText('Foto del pastel')
+    await expect(catalogItem(page, 'Tres leches de fresa')).toContainText('Foto del pastel')
+    await expect(page.getByRole('main').locator('img[src*="ejemplo.com"]')).toHaveCount(0)
+    // La línea dudosa se conserva, sin la imagen.
+    expect((await storedCart(page)).items).toHaveLength(2)
+  })
+
+  test('adding from the showcase keeps the image of its card: the model or, without it, the photo', async ({ page }) => {
+    await mockStoreInfo(page)
+    await mockCatalog(page, {
+      showcase: [
+        todayStock([
+          { ...stockItem(1, 'tres-leches-de-durazno', 'Tres leches de durazno', 'cake', 'whole', '350.00', { photo: 'tres-leches-de-durazno.webp' }), model_image: 'tres-leches-de-durazno-modelo.webp' },
+          stockItem(80, 'tres-leches-de-cajeta', 'Tres leches de cajeta', 'cake', 'whole', '1250.00', { photo: 'tres-leches-de-cajeta.webp' }),
+        ]),
+      ],
+    })
+    await page.goto('/vitrina')
+    const main = page.getByRole('main')
+    for (const name of ['Tres leches de durazno', 'Tres leches de cajeta']) {
+      await main.getByRole('article').filter({ has: page.getByRole('heading', { name, exact: true }) }).getByRole('button', { name: /Agregar/ }).click()
+    }
+    const items = (await storedCart(page)).items as { slug: string; image?: string }[]
+    expect(items.map((item) => [item.slug, item.image])).toEqual([
+      ['tres-leches-de-durazno', 'tres-leches-de-durazno-modelo.webp'],
+      ['tres-leches-de-cajeta', 'tres-leches-de-cajeta.webp'],
+    ])
+    await page.goto('/carrito')
+    await expect(catalogItem(page, 'Tres leches de cajeta').locator('img[src="/fotos/tres-leches-de-cajeta.webp"]')).toBeVisible()
+  })
+
+  test('from the product page, the whole cake keeps the model image and a slice keeps the photo', async ({ page }) => {
+    await mockStoreInfo(page)
+    await mockCakeDesignOptions(page)
+    // El rebanado de hoy (D60): encargar el completo y llevarse una rebanada de la vitrina, en la ficha de un pastel con modelo.
+    const sliced = productDetail('tres-leches-de-durazno', { stock: { 2: 6 }, sliced_today: true, in_showcase_today: false })
+    await mockProductDetails(page, [{ ...sliced, photo: 'tres-leches-de-durazno.webp', model_image: 'tres-leches-de-durazno-modelo.webp' }])
+    await page.goto('/pasteles/tres-leches-de-durazno')
+    const presentation = page.getByRole('group', { name: 'Presentación' })
+    await page.getByRole('button', { name: 'Agregar al pedido' }).click()
+    await presentation.locator('label').filter({ hasText: 'Rebanada' }).click()
+    await page.getByRole('button', { name: 'Agregar al pedido' }).click()
+    const items = (await storedCart(page)).items as { presentation: string; image?: string }[]
+    // La imagen del modelo es la del pastel completo: la rebanada lleva la foto, como en `/rebanadas`.
+    expect(items.map((item) => [item.presentation, item.image])).toEqual([
+      ['whole', 'tres-leches-de-durazno-modelo.webp'],
+      ['slice', 'tres-leches-de-durazno.webp'],
+    ])
+  })
+
+  test('the delivery summary, the payment summary and the confirmation show the image of a catalog line', async ({ page }) => {
+    await page.clock.setFixedTime(NOW)
+    await mockStoreInfo(page)
+    await signedIn(page)
+    await mockCalendar(page)
+    await mockOrders(page, [{ status: 201, body: placedOrder({ items: orderItems }) }])
+    await mockPayment(page)
+    await mockOrderDetail(page, ORDER_ID, { status: 200, body: accountOrder({ id: ORDER_ID }) })
+    const photo = '/fotos/tres-leches-de-durazno-modelo.webp'
+    await seedCart(page, [{ ...durazno, image: 'tres-leches-de-durazno-modelo.webp' }, designLine])
+    await page.goto('/pedido/entrega')
+    await expect(page.getByRole('region', { name: 'Resumen', exact: true }).locator(`img[src="${photo}"]`)).toHaveCount(1)
+
+    await page.getByRole('button', { name: 'Lunes 16 de noviembre' }).click()
+    await page.locator('label').filter({ hasText: /^Tarde/ }).click()
+    await page.locator('label').filter({ hasText: /^3:30 pm$/ }).click()
+    await page.getByRole('button', { name: 'Continuar', exact: true }).click()
+    await page.getByRole('button', { name: 'Continuar al pago' }).click()
+    await expect(page).toHaveURL(`/pedido/pago?pedido=${ORDER_ID}`)
+    await expect(page.getByRole('region', { name: 'Resumen de tu pedido' }).locator(`img[src="${photo}"]`)).toHaveCount(1)
+
+    await page.goto(`/pedido/confirmacion?pedido=${ORDER_ID}`)
+    await expect(page.getByRole('region', { name: 'Resumen', exact: true }).locator(`img[src="${photo}"]`)).toHaveCount(1)
   })
 })

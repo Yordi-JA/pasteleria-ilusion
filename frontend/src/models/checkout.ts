@@ -13,6 +13,7 @@
 import { fingerprintOf } from './attempts.ts'
 import { isThumbnail, MAX_LINES } from './cart.ts'
 import type { CartItem } from './cart.ts'
+import { PHOTO_BASE, photoUrl } from './catalog.ts'
 import type { PlacedOrder } from './orders.ts'
 
 const STORAGE_KEY = 'ilusion.checkout.v1'
@@ -183,10 +184,24 @@ function forgetPaymentKeys() {
 
 const THUMBNAILS_STORAGE_KEY = 'ilusion.orderThumbnails.v1'
 
-/** La miniatura de cada línea del pedido, en el orden de sus líneas (`null` en las que no la llevan). */
+/**
+ * La miniatura de cada línea del pedido, en el orden de sus líneas (`null` en las que no la llevan): la del pastel diseñado o la
+ * dirección de la imagen de una línea del catálogo (`/fotos/<archivo>`).
+ */
 type OrderThumbnails = { orderId: number; thumbnails: (string | null)[] }
 
 let orderThumbnailsMemory: OrderThumbnails | null = null
+
+/** Si el valor es una miniatura que el resumen acepta mostrar: la de un diseño o una imagen de `/fotos/`, nunca otra dirección. */
+function isLineThumbnail(value: unknown): value is string {
+  return isThumbnail(value) || (typeof value === 'string' && value.startsWith(PHOTO_BASE) && photoUrl(value.slice(PHOTO_BASE.length)) === value)
+}
+
+/** La miniatura de una línea del carrito: la del pastel diseñado o la imagen de la tarjeta del catálogo. */
+function lineThumbnail(item: CartItem): string | null {
+  if (item.kind === 'design') return item.thumbnail ?? null
+  return item.image ? photoUrl(item.image) : null
+}
 
 function readOrderThumbnails(): OrderThumbnails | null {
   try {
@@ -194,7 +209,7 @@ function readOrderThumbnails(): OrderThumbnails | null {
     if (typeof raw !== 'object' || raw === null) return null
     const { orderId, thumbnails } = raw as Record<string, unknown>
     if (typeof orderId !== 'number' || !Number.isSafeInteger(orderId) || !Array.isArray(thumbnails) || thumbnails.length > MAX_LINES) return null
-    return { orderId, thumbnails: thumbnails.map((value) => (isThumbnail(value) ? value : null)) }
+    return { orderId, thumbnails: thumbnails.map((value) => (isLineThumbnail(value) ? value : null)) }
   } catch {
     return null
   }
@@ -210,13 +225,13 @@ function storeOrderThumbnails(value: OrderThumbnails | null) {
 }
 
 /**
- * Guarda las miniaturas de los pasteles del pedido recién creado, una por línea en el orden del carrito, que es el orden de
- * las líneas del pedido en el servidor (`OrderItem.position`). El carrito se vacía al crear el pedido, y así el pago, el
- * apartado y la confirmación siguen mostrando el pastel, también al volver de Mercado Pago en la misma pestaña. Va en
+ * Guarda las miniaturas de las líneas del pedido recién creado (los pasteles diseñados y las imágenes del catálogo), una por
+ * línea en el orden del carrito, que es el orden de las líneas del pedido en el servidor (`OrderItem.position`). El carrito se
+ * vacía al crear el pedido, y así el pago, el apartado y la confirmación siguen mostrando cada línea, también al volver de Mercado Pago en la misma pestaña. Va en
  * `sessionStorage` con el id del pedido y las imágenes, nada de la cuenta, y solo el pedido de ahora.
  */
 export function rememberOrderThumbnails(orderId: number, items: CartItem[]) {
-  const thumbnails = items.map((item) => (item.kind === 'design' ? (item.thumbnail ?? null) : null))
+  const thumbnails = items.map(lineThumbnail)
   orderThumbnailsMemory = thumbnails.some(Boolean) ? { orderId, thumbnails } : null
   storeOrderThumbnails(orderThumbnailsMemory)
 }

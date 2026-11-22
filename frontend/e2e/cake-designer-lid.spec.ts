@@ -375,6 +375,44 @@ test('the wafer moves with the position buttons, the keyboard and "Centrar", alw
   expect(await position()).toMatchObject({ x: 0, y: 0 })
 })
 
+// Corrección del 21 de noviembre: la columna del centro medía lo que "Centrar" y la cruz quedaba chueca.
+for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+  test(`at ${viewport.width} px the position arrows are a straight cross of equal 44 px cells, with "Centrar" beside it and only when something can move`, async ({ page }) => {
+    await page.setViewportSize(viewport)
+    await open(page, 7)
+    // Con el mensaje marcado pero vacío no hay nada que acomodar: sin flechas.
+    await card(page).getByLabel('Agregar un mensaje').check()
+    await expect(card(page).getByText('Acomódalos en tu pastel')).toBeVisible()
+    await expect(card(page).getByRole('group', { name: 'Posición', exact: true })).toHaveCount(0)
+    await card(page).getByLabel('Tu mensaje').fill('Feliz cumpleaños Ana')
+    const pad = card(page).getByRole('group', { name: 'Posición', exact: true })
+    await pad.scrollIntoViewIfNeeded()
+    const box = async (name: string) => (await pad.getByRole('button', { name, exact: true }).boundingBox())!
+    const [up, left, right, down] = await Promise.all(['Mover hacia arriba', 'Mover a la izquierda', 'Mover a la derecha', 'Mover hacia abajo'].map(box))
+    for (const cell of [up, left, right, down]) expect([Math.round(cell.width), Math.round(cell.height)], `${viewport.width}`).toEqual([44, 44])
+    // Arriba y abajo en la misma columna; izquierda y derecha en la misma fila, a la misma distancia del centro.
+    expect(Math.round(up.x)).toBe(Math.round(down.x))
+    expect(Math.round(left.y)).toBe(Math.round(right.y))
+    expect(Math.round(up.x - left.x)).toBe(44)
+    expect(Math.round(right.x - up.x)).toBe(44)
+    expect(Math.round(left.y - up.y)).toBe(44)
+    expect(Math.round(down.y - left.y)).toBe(44)
+    // "Centrar" va fuera de la cruz, a la derecha, y mide al menos 44 px de alto.
+    const center = (await pad.getByRole('button', { name: 'Centrar' }).boundingBox())!
+    expect(center.x).toBeGreaterThanOrEqual(right.x + right.width)
+    expect(center.height).toBeGreaterThanOrEqual(44)
+    // Las cuatro flechas usan el mismo ícono de Phosphor del mismo tamaño.
+    const icons = await pad.locator('button svg').evaluateAll((svgs) => svgs.map((svg) => `${svg.getAttribute('width')}x${svg.getAttribute('height')}`))
+    expect(icons).toEqual(['18x18', '18x18', '18x18', '18x18'])
+    // Con el teclado, cada flecha muestra su anillo de foco.
+    await pad.getByRole('button', { name: 'Mover hacia arriba' }).focus()
+    await page.keyboard.press('Tab')
+    await expect(pad.getByRole('button', { name: 'Mover a la izquierda' })).toBeFocused()
+    await expect(pad.getByRole('button', { name: 'Mover a la izquierda' })).toHaveCSS('outline-style', 'solid')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width)
+  })
+}
+
 test('dragging the wafer moves it and a corner resizes it, a handle turns it', async ({ page }) => {
   await open(page, 7)
   await addWafer(page)
@@ -532,7 +570,9 @@ test('the review shows the backend amounts: order, base apart, total, advance, p
   await expect(breakdown).toContainText('15 kg × $255 por kg')
   await expect(page.getByTestId('monto-cake')).toHaveText('$3,825')
   await expect(breakdown).toContainText('Cobertura de crema pastelera')
-  await expect(breakdown).toContainText('Color parecido a lila')
+  // El color va en su muestra, sin "parecido a" (21 de noviembre).
+  await expect(breakdown.locator('li').filter({ hasText: 'Cobertura de crema pastelera' })).toContainText('Con peinado lateral')
+  await expect(breakdown).not.toContainText('parecido a')
   await expect(page.getByTestId('monto-decoration')).toHaveText('+$120')
   await expect(page.getByTestId('monto-message')).toHaveText('Incluido')
   await expect(breakdown).toContainText('Base para 15 kg')
@@ -638,9 +678,9 @@ test('"Agregar al pedido" puts the design in the browser cart with its summary a
     line.images.wafer,
   )
   expect(stored).toEqual({ name: 'cumple.png', size: PNG.length })
-  // El mismo diseño no entra dos veces.
-  await proceed(page, 'Agregar al pedido')
-  await expect(notice).toContainText('Ya está en tu pedido')
+  // El mismo diseño no entra dos veces: tras agregarlo, "Agregar al pedido" deja su lugar a "Ir a mi pedido" (correcciones del
+  // 21 de noviembre).
+  await expect(card(page).getByRole('button', { name: 'Agregar al pedido' })).toHaveCount(0)
   await expect(page.getByRole('banner').getByTestId('contador-carrito')).toHaveText('1')
   await expect(page.getByRole('link', { name: 'Ir a mi pedido' })).toHaveAttribute('href', '/carrito')
 })
@@ -929,7 +969,8 @@ test('two different photos with the same name are two different cakes in the ord
   await proceed(page)
   await proceed(page, 'Agregar al pedido')
   await expect(page.getByTestId('aviso-carrito')).toContainText('Agregado al pedido')
-  await card(page).getByRole('button', { name: 'Atrás' }).click()
+  // Ya agregado, el pie no lleva "Atrás": se vuelve a la oblea con su "Cambiar" (correcciones del 21 de noviembre).
+  await page.getByTestId('desglose').getByRole('link', { name: 'Cambiar la oblea' }).click()
   await card(page).getByRole('button', { name: /^Quitar/ }).click()
   await page.locator('input[type=file]').setInputFiles({ name: 'foto.png', mimeType: 'image/png', buffer: Buffer.concat([PNG, Buffer.alloc(64)]) })
   await expect(card(page).getByText('foto.png', { exact: true })).toBeVisible()
@@ -937,7 +978,7 @@ test('two different photos with the same name are two different cakes in the ord
   await proceed(page, 'Agregar al pedido')
   await expect(page.getByTestId('aviso-carrito')).toContainText('Agregado al pedido')
   await expect(page.getByRole('banner').getByTestId('contador-carrito')).toHaveText('2')
-  // Y el mismo pastel con la misma foto no entra otra vez.
-  await proceed(page, 'Agregar al pedido')
-  await expect(page.getByTestId('aviso-carrito')).toContainText('Ya está en tu pedido')
+  // Y el mismo pastel con la misma foto no entra otra vez: ya no se ofrece "Agregar al pedido".
+  await expect(card(page).getByRole('button', { name: 'Agregar al pedido' })).toHaveCount(0)
+  await expect(page.getByRole('banner').getByTestId('contador-carrito')).toHaveText('2')
 })

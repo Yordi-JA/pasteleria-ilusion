@@ -268,7 +268,8 @@ export function SummaryPanel({ title, ...props }: SummaryProps & { title: string
         </span>
         <CaretDown size={18} aria-hidden="true" className="shrink-0 motion-safe:transition-transform group-open:rotate-180" />
       </summary>
-      <div className="flex flex-col gap-4 px-4 pb-4">
+      {/* Al abrir, el resumen baja 8 px y aparece, como "Tu pastel" en Diseña tu pastel. */}
+      <div className="flex flex-col gap-4 px-4 pb-4 motion-safe:group-open:animate-aparece">
         <SummaryContent {...props} />
       </div>
     </details>

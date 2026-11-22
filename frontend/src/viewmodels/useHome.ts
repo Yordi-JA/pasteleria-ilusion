@@ -9,7 +9,7 @@ import type { ShowcaseFilter } from './todayItems.ts'
 import { useAddOne } from './useAddToCart.ts'
 import { useClosingField } from './useClosingField.ts'
 import type { AddFeedback, Addable } from './useAddToCart.ts'
-import { catalogImageView } from './productPhoto.ts'
+import { catalogImageView, withCartImage } from './productPhoto.ts'
 import type { PhotoView } from './productPhoto.ts'
 import { useRemoteData } from './useRemoteData.ts'
 import type { RemoteData } from './useRemoteData.ts'
@@ -71,7 +71,7 @@ function toFeaturedItem(card: ProductCard): FeaturedItemView {
     summary: card.summary,
     price: offering && (offering.presentation === 'whole' ? amount : `${PRESENTATION_LABELS[offering.presentation]}, ${amount}`),
     photo: catalogImageView(card),
-    addable: priced && { offering: toCartOffering(card, priced), label: offeringLabel(card.name, priced.presentation) },
+    addable: priced && { offering: withCartImage(toCartOffering(card, priced), card), label: offeringLabel(card.name, priced.presentation) },
   }
 }
 

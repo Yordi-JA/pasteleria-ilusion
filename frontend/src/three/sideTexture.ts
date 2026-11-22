@@ -8,7 +8,7 @@ import { seededRandom } from './seededRandom.ts'
  * La textura del costado de la cobertura en las imágenes del catálogo (tanda 4b), como el acabado del relleno (`finish.ts`): un
  * lienzo que se dibuja la primera vez que se pide y se queda. Es una máscara de luminosidad que multiplica el color de la cobertura
  * y le da relieve (`bumpMap`): el encaje de duya (zigzag cerrado) de la foto de fresa, las marcas de espátula y las crestas
- * diagonales de la cajeta. Semillas fijas; se repite sin costura.
+ * diagonales de la cajeta y las pinceladas diagonales de durazno. Semillas fijas; se repite sin costura.
  */
 
 const SIZE = 256
@@ -18,6 +18,7 @@ export const SIDE_TEXTURE_LOOKS: Record<SideTextureKind, { tile: number; bumpSca
   lace: { tile: 0.35, bumpScale: 1.6 },
   spatula: { tile: 0.9, bumpScale: 0.8 },
   ridges: { tile: 0.7, bumpScale: 3 },
+  brushed: { tile: 1.2, bumpScale: 0.35 },
 }
 
 type Context = CanvasRenderingContext2D
@@ -127,7 +128,7 @@ function drawRidges(): HTMLCanvasElement {
       const u = x / SIZE
       const v = y / SIZE
       const wave = 0.5 + 0.5 * Math.sin(Math.PI * 2 * (2 * (u + v) + 0.12 * Math.sin(Math.PI * 2 * v)))
-      const level = 190 + 65 * wave ** 1.6
+      const level = 160 + 95 * wave ** 1.6
       const at = (y * SIZE + x) * 4
       image.data[at] = image.data[at + 1] = image.data[at + 2] = level
       image.data[at + 3] = 255
@@ -137,7 +138,41 @@ function drawRidges(): HTMLCanvasElement {
   return element
 }
 
-const DRAW: Record<SideTextureKind, () => HTMLCanvasElement> = { lace: drawLace, spatula: drawSpatula, ridges: drawRidges }
+/** Pinceladas: barridos alargados e inclinados hacia arriba a la derecha, como los brochazos del costado de durazno. */
+function drawBrushed(): HTMLCanvasElement {
+  const [element, context] = canvas(236)
+  if (!context) return element
+  const random = seededRandom(13)
+  const smears = Array.from({ length: 60 }, () => ({
+    x: random() * SIZE,
+    y: random() * SIZE,
+    rx: 30 + random() * 60,
+    ry: 3 + random() * 8,
+    rotation: -0.75 + (random() - 0.5) * 0.3,
+    light: random() < 0.5,
+    alpha: 0.1 + random() * 0.2,
+  }))
+  tiled(context, () => {
+    for (const smear of smears) {
+      context.save()
+      context.translate(smear.x, smear.y)
+      context.rotate(smear.rotation)
+      context.scale(smear.rx, smear.ry)
+      const gradient = context.createRadialGradient(0, 0, 0, 0, 0, 1)
+      const tone = smear.light ? '255, 255, 255' : '0, 0, 0'
+      gradient.addColorStop(0, `rgba(${tone}, ${smear.light ? smear.alpha * 3 : smear.alpha})`)
+      gradient.addColorStop(1, `rgba(${tone}, 0)`)
+      context.fillStyle = gradient
+      context.beginPath()
+      context.arc(0, 0, 1, 0, Math.PI * 2)
+      context.fill()
+      context.restore()
+    }
+  })
+  return element
+}
+
+const DRAW: Record<SideTextureKind, () => HTMLCanvasElement> = { lace: drawLace, spatula: drawSpatula, ridges: drawRidges, brushed: drawBrushed }
 
 /** El lienzo de una textura del costado. Siempre el mismo dibujo (semilla fija). */
 export function drawSideTexture(kind: SideTextureKind): HTMLCanvasElement {

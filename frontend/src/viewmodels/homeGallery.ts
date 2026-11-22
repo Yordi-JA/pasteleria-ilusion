@@ -54,27 +54,14 @@ const ENTRIES: readonly GalleryEntry[] = [
   [34, 618, 1100, 'Pastel rectangular de cumpleaños con un personaje azul y orilla morada'],
 ]
 
-// Alturas fijas que se repiten cada 5 fotos: cada foto queda con su tamaño, siempre el mismo, sin azar.
-const SCALES = [1, 0.88, 1.1, 0.94, 1.04]
-
-/** Alto de una foto en unidades del alto base: una apaisada ancha mide menos que una vertical, para no dominar la banda. */
-function baseHeight(ratio: number): number {
-  if (ratio <= 1) return 1
-  return ratio <= 1.5 ? 0.8 : 0.62
-}
-
-const DESKTOP_UNIT = 340
-/** El espacio entre fotos (24 px en escritorio) en unidades del alto base. */
-const GAP_UNITS = 24 / DESKTOP_UNIT
-
 /**
- * Las fotos cuelgan como la guirnalda de la duya: el borde de arriba de cada una sigue arcos que bajan al centro y
- * suben en cada unión (la misma curva de `Q 48 52 96 0`, en grande). `ARC_UNITS` es el largo de un arco y `SAG_UNITS`,
- * cuánto baja en el centro, los dos en unidades del alto base. La copia completa lleva un número entero de arcos, así
- * el bucle no deja un salto donde la banda vuelve a empezar.
+ * Todas las fotos van a un mismo alto (`--foto-alto`), con el borde de arriba y el de abajo en la misma línea, y cada una a su
+ * ancho natural: nada se recorta. Antes (20 de noviembre) cada foto llevaba su alto y colgaba en arcos como la guirnalda; la
+ * banda quedaba sin una línea de base que la ordenara y con huecos distintos bajo cada foto (correcciones del 21 de noviembre).
  */
-const ARC_UNITS = 3.6
-const SAG_UNITS = 0.3
+const DESKTOP_UNIT = 300
+/** El espacio entre fotos (24 px en escritorio) en unidades del alto. */
+const GAP_UNITS = 24 / DESKTOP_UNIT
 
 export type GalleryPhoto = {
   id: number
@@ -82,36 +69,20 @@ export type GalleryPhoto = {
   alt: string
   width: number
   height: number
-  /** Alto en múltiplos de `--foto-alto`. */
-  heightUnits: number
-  /** Desnivel desde arriba, en múltiplos de `--foto-alto`. */
-  offsetUnits: number
 }
 
-const sized = ENTRIES.map(([id, width, height, alt], index) => ({
+export const GALLERY_PHOTOS: readonly GalleryPhoto[] = ENTRIES.map(([id, width, height, alt]) => ({
   id,
   src: `/fotos/pedidos/pedido-${String(id).padStart(2, '0')}.webp`,
   alt,
   width,
   height,
-  heightUnits: baseHeight(width / height) * SCALES[index % SCALES.length],
 }))
 
-/** Largo de una copia de la lista, con el espacio que sigue a cada foto, en unidades del alto base. */
-const COPY_UNITS = sized.reduce((sum, photo) => sum + photo.heightUnits * (photo.width / photo.height) + GAP_UNITS, 0)
-const ARC_LENGTH = COPY_UNITS / Math.max(1, Math.round(COPY_UNITS / ARC_UNITS))
+/** Largo de una copia de la lista, con el espacio que sigue a cada foto, en unidades del alto. */
+const COPY_UNITS = GALLERY_PHOTOS.reduce((sum, photo) => sum + photo.width / photo.height + GAP_UNITS, 0)
 
-export const GALLERY_PHOTOS: readonly GalleryPhoto[] = (() => {
-  let start = 0
-  return sized.map((photo) => {
-    const widthUnits = photo.heightUnits * (photo.width / photo.height)
-    const t = ((start + widthUnits / 2) % ARC_LENGTH) / ARC_LENGTH
-    start += widthUnits + GAP_UNITS
-    return { ...photo, offsetUnits: Math.round(SAG_UNITS * 4 * t * (1 - t) * 1000) / 1000 }
-  })
-})()
-
-/** Velocidad de la banda en escritorio, en px por segundo, con el alto base de 340 px. */
+/** Velocidad de la banda en escritorio, en px por segundo, con el alto de 300 px. */
 const SPEED = 36
 
 /** Segundos que tarda la banda en recorrer una copia de la lista (la mitad del recorrido total). */
