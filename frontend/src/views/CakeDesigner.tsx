@@ -1,6 +1,5 @@
 import { useCallback, useId, useRef } from 'react'
 import DesignerCake from '../components/DesignerCake.tsx'
-import Breadcrumb from '../components/Breadcrumb.tsx'
 import LoadErrorNotice from '../components/LoadErrorNotice.tsx'
 import PageHeader from '../components/PageHeader.tsx'
 import Skeleton, { LoadingRegion } from '../components/Skeleton.tsx'
@@ -20,8 +19,6 @@ import StepCard from './cakeDesigner/StepCard.tsx'
 import { PREVIEW_COLUMN } from './cakeDesigner/scrollStyles.ts'
 
 const TITLE = 'Diseña tu pastel'
-
-const CRUMBS = [{ label: 'Inicio', to: '/' }, { label: 'Realizar pedido', to: '/pedido' }, { label: TITLE }]
 
 /** Mientras llegan las opciones: la misma estructura (barra, vista previa, total y tarjeta), como `CotizadorCargando`. */
 function DesignerSkeleton() {
@@ -237,7 +234,7 @@ export default function CakeDesigner() {
   const hintId = useId()
   return (
     <>
-      <PageHeader title={TITLE} before={<Breadcrumb items={CRUMBS} />}>
+      <PageHeader title={TITLE}>
         <p className="text-cuerpo text-mermelada-suave">
           {designer.view?.changedType
             ? 'Cambiaste el tipo de pastel. Revisa cómo afecta a lo que ya elegiste.'

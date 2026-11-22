@@ -1,3 +1,5 @@
+/// <reference lib="dom" />
+// El callback de `evaluate` corre en el navegador y usa sus tipos.
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { mockCakeDesignOptions } from './support/cake-design.ts'
@@ -26,16 +28,25 @@ const presentation = (page: Page) => page.getByRole('group', { name: 'Presentaci
 /** La opción visible: el radio va dentro de su etiqueta. */
 const option = (group: ReturnType<typeof when>, name: string) => group.locator('label').filter({ hasText: name })
 
-test('shows the product with its tags, prices, sizes, pending details and related products', async ({ page }) => {
+test('shows the product with only its name and description on top, prices, sizes, its original photo and related products', async ({ page }) => {
   await mockProductDetails(page, [durazno])
   await page.goto('/pasteles/tres-leches-de-durazno')
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tres leches de durazno')
   await expect(page).toHaveTitle('Tres leches de durazno · Pastelería Ilusión')
   const hero = page.getByRole('region', { name: 'Tres leches de durazno' })
-  await expect(hero).toContainText('En vitrina hoy')
+  await expect(hero).toContainText('Relleno de durazno y cobertura de crema pastelera.')
+  // El nombre, la descripción y el estado de hoy (22 de noviembre): sin migas, sin el tipo ni "Ver la foto".
+  await expect(hero.getByRole('navigation')).toHaveCount(0)
+  await expect(hero.getByText('Tres leches', { exact: true })).toHaveCount(0)
+  await expect(hero.getByRole('link')).toHaveCount(0)
+  // "En vitrina hoy" lo pide la regla de la ficha: texto bajo la descripción, no una pastilla de color.
+  const status = hero.getByText('En vitrina hoy', { exact: true })
+  await expect(status).toBeVisible()
+  const description = (await hero.getByText('Relleno de durazno y cobertura de crema pastelera.').boundingBox())!
+  expect((await status.boundingBox())!.y).toBeGreaterThan(description.y)
+  expect(await status.evaluate((el) => getComputedStyle(el.parentElement!).backgroundColor)).toBe('rgba(0, 0, 0, 0)')
   // El precio va en "Elige tu pastel"; el encabezado no repite precios (tanda 1).
   await expect(hero).not.toContainText('$')
-  await expect(hero.getByRole('navigation', { name: 'Ruta' }).getByRole('link', { name: 'Catálogo' })).toHaveAttribute('href', '/catalogo')
 
   // Sin rebanadas cargadas hoy, la ficha no ofrece "Rebanada": son solo de la vitrina del día (D60).
   await expect(presentation(page).getByRole('radio')).toHaveCount(2)
@@ -44,10 +55,18 @@ test('shows the product with its tags, prices, sizes, pending details and relate
   await expect(option(presentation(page), 'Mini')).toContainText('Unas 3 personas')
   await expect(presentation(page).getByRole('radio', { name: /Completo/ })).toBeChecked()
 
-  // Conservación y Transporte sin dato: el marcador de pendiente, nunca un texto inventado.
-  const details = page.getByRole('region', { name: 'Detalles' })
-  await expect(details).toContainText('[Conservación por confirmar]')
-  await expect(details).toContainText('[Transporte por confirmar]')
+  // "Pastel": la foto original, la tomada con su fondo, no el recorte de la vitrina; Conservación y Transporte ya no van en la ficha.
+  const photoCard = page.getByRole('region', { name: 'Pastel', exact: true })
+  const original = photoCard.getByRole('img', { name: 'Foto del Tres leches de durazno' })
+  await expect(original).toHaveAttribute('src', '/fotos/tres-leches-de-durazno-original.webp')
+  await original.scrollIntoViewIfNeeded()
+  await expect.poll(() => original.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(900)
+  const card = (await original.boundingBox())!
+  // Cuadrada y más alta que la tarjeta de antes (unos 170 px).
+  expect(Math.abs(card.width - card.height)).toBeLessThan(2)
+  expect(card.height).toBeGreaterThan(300)
+  await expect(page.getByRole('region', { name: 'Detalles', exact: true })).toHaveCount(0)
+  await expect(page.locator('main')).not.toContainText(/Conservación|Transporte/)
 
   const related = page.getByRole('region', { name: 'También te puede gustar' })
   await expect(related.getByRole('heading', { level: 3 })).toHaveText(['Tres leches con queso y zarzamora', 'Imposible', 'Choco-pingüino'])
@@ -95,13 +114,16 @@ test('Red velvet is only made to order: the showcase option says why, and no pri
   await mockProductDetails(page, [redVelvet])
   await page.goto('/pasteles/red-velvet')
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Red velvet')
-  await expect(page.getByRole('region', { name: 'Red velvet' })).toContainText('Seco, solo por encargo')
+  // El tipo ya no va sobre el nombre (22 de noviembre): "Solo por encargo" lo dice la opción de la vitrina.
+  await expect(page.getByRole('region', { name: 'Red velvet' })).not.toContainText('Seco, solo por encargo')
   // El precio por kilo solo se ve al armar un pedido (tanda 1).
   await expect(page.getByRole('region', { name: 'Red velvet' })).not.toContainText('por kg')
   await expect(when(page).getByRole('radio', { name: /Hoy, de la vitrina/ })).toBeDisabled()
   await expect(when(page)).toContainText('Solo por encargo')
-  // Con notas de la pastelería, se muestran tal cual.
-  await expect(page.getByRole('region', { name: 'Detalles' })).toContainText('En refrigeración, hasta 3 días.')
+  // Sin foto original no hay tarjeta "Pastel"; las notas de conservación siguen en la API, pero la ficha ya no las muestra.
+  await expect(page.getByRole('heading', { level: 2, name: 'Elige tu pastel' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Pastel', exact: true })).toHaveCount(0)
+  await expect(page.locator('main')).not.toContainText('En refrigeración, hasta 3 días.')
   // Un pan fijo no se ofrece en todos los tipos: no se promete "seco o envinado".
   await expect(page.getByRole('heading', { level: 3, name: '¿Lo quieres más grande o a tu gusto?' })).toBeVisible()
 })
@@ -111,8 +133,9 @@ test('the cake sliced today says so: its slices are taken today and the whole ca
   const sliced = productDetail('tres-leches-de-durazno', { stock: { 2: 6 }, sliced_today: true, in_showcase_today: false, filling_flavor: 'durazno' })
   await mockProductDetails(page, [sliced])
   await page.goto('/pasteles/tres-leches-de-durazno')
+  // El encabezado dice "Rebanado hoy" bajo la descripción, y no "En vitrina hoy".
   const hero = page.getByRole('region', { name: 'Tres leches de durazno' })
-  await expect(hero).toContainText('Rebanado hoy')
+  await expect(hero.getByText('Rebanado hoy', { exact: true })).toBeVisible()
   await expect(hero).not.toContainText('En vitrina hoy')
   // El aviso es el `div` más interno que tiene a la vez el título y el texto (no lleva `role`: ya estaba al cargar).
   const notice = page.locator('div').filter({ has: page.locator('strong', { hasText: 'Hoy se vende en rebanadas' }), hasText: 'Llévate una rebanada' }).last()
@@ -249,8 +272,47 @@ test('while loading: the skeleton with aria-busy and a message for screen reader
   await expect(page).toHaveTitle('Ficha de producto · Pastelería Ilusión')
 })
 
+test('a product without an original photo has no photo card: a dessert shows no "Postre" card either', async ({ page }) => {
+  await mockProductDetails(page, [productDetail('flan-napolitano'), productDetail('tres-leches-de-nuez')])
+  for (const [slug, name] of [
+    ['flan-napolitano', 'Flan napolitano'],
+    ['tres-leches-de-nuez', 'Tres leches de nuez'],
+  ] as const) {
+    await page.goto(`/pasteles/${slug}`)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(name)
+    await expect(page.getByRole('heading', { level: 2, name: 'Elige tu pastel' })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Pastel', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('region', { name: 'Postre', exact: true })).toHaveCount(0)
+    await expect(page.locator('img[src$="-original.webp"]')).toHaveCount(0)
+  }
+})
+
+test('while loading, the skeleton saves the photo card only for a product that has an original photo', async ({ page }) => {
+  await page.route((url) => url.pathname.startsWith(PRODUCTS_PATH), () => undefined)
+  await page.goto('/pasteles/tres-leches-de-fresa')
+  const busy = page.locator('[aria-busy="true"]').first()
+  await expect(busy.locator('[data-esqueleto].aspect-square')).toHaveCount(1)
+  await page.goto('/pasteles/red-velvet')
+  await expect(page.locator('[aria-busy="true"] [data-esqueleto]').first()).toBeVisible()
+  await expect(page.locator('[aria-busy="true"] [data-esqueleto].aspect-square')).toHaveCount(0)
+})
+
 test.describe('on mobile', () => {
   test.use({ viewport: { width: 390, height: 844 } })
+
+  test('the "Pastel" card goes after "Elige tu pastel", square and at full width', async ({ page }) => {
+    await mockProductDetails(page, [durazno])
+    await page.goto('/pasteles/tres-leches-de-durazno')
+    const photo = page.getByRole('region', { name: 'Pastel', exact: true }).getByRole('img', { name: 'Foto del Tres leches de durazno' })
+    await photo.scrollIntoViewIfNeeded()
+    // Las dos medidas con el mismo scroll: `boundingBox` es relativo a la ventana.
+    const choose = (await page.getByRole('heading', { level: 2, name: 'Elige tu pastel' }).boundingBox())!
+    const box = (await photo.boundingBox())!
+    expect(box.y).toBeGreaterThan(choose.y)
+    expect(box.width).toBeGreaterThan(320)
+    expect(Math.abs(box.width - box.height)).toBeLessThan(2)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  })
 
   test('the text goes before the photo and nothing overflows', async ({ page }) => {
     await mockProductDetails(page, [productDetail('tres-leches-de-fresa'), durazno])
