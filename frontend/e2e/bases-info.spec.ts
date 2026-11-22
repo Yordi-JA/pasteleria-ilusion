@@ -247,3 +247,29 @@ test.describe('bases at 390px', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
   })
 })
+
+test.describe('bases: the sections appear as they reach the view', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+  /** El bloque de `Reveal` que envuelve una sección: el padre de su región. */
+  const reveal = (page: Page, name: string) => region(page, name).locator('xpath=..')
+
+  test('a section below the fold waits hidden and appears once after scrolling', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await openBases(page)
+    await expect(steps(page)).toHaveCount(3)
+    // "Cómo funciona" ya se ve al cargar: no se mueve.
+    await expect(reveal(page, 'Cómo funciona')).not.toHaveAttribute('data-aparicion', 'oculta')
+    await expect(reveal(page, 'Condiciones del préstamo')).toHaveAttribute('data-aparicion', 'oculta')
+    await conditions(page).scrollIntoViewIfNeeded()
+    await expect(reveal(page, 'Condiciones del préstamo')).toHaveAttribute('data-aparicion', 'visible')
+    await expect(reveal(page, 'Condiciones del préstamo')).toHaveCSS('opacity', '1')
+    await expect(reveal(page, 'Condiciones del préstamo')).toHaveCSS('transform', 'none')
+  })
+
+  test('with reduced motion nothing waits hidden', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await openBases(page)
+    await expect(steps(page)).toHaveCount(3)
+    await expect(main(page).locator('[data-aparicion]')).toHaveCount(0)
+  })
+})

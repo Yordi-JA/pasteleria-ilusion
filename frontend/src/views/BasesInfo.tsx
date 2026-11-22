@@ -6,6 +6,7 @@ import IllustratedHeader from '../components/IllustratedHeader.tsx'
 import LoadErrorNotice from '../components/LoadErrorNotice.tsx'
 import { ORDER_LINK } from '../components/navigation.ts'
 import Pending from '../components/Pending.tsx'
+import Reveal from '../components/Reveal.tsx'
 import Skeleton, { LoadingRegion } from '../components/Skeleton.tsx'
 import { useBasesInfo } from '../viewmodels/useBasesInfo.ts'
 import type { BasesInfoState, BasesInfoView } from '../viewmodels/useBasesInfo.ts'
@@ -171,15 +172,24 @@ export default function BasesInfo() {
       <div className={column}>
         <LoadingRegion loading={bases.status === 'loading'} label="Cargando las bases…" skeleton={<BasesSkeleton />} className="flex flex-col gap-8">
           {bases.status === 'error' && <LoadErrorNotice title="No se pudieron cargar las bases" onRetry={retry} />}
+          {/* Cada sección aparece al llegar a la vista, como en el resto del sitio (22 de noviembre); lo que ya se ve al cargar no se mueve. */}
           {bases.view && (
             <>
-              <HowItWorks view={bases.view} />
-              <Deposits view={bases.view} />
-              <Conditions view={bases.view} />
+              <Reveal>
+                <HowItWorks view={bases.view} />
+              </Reveal>
+              <Reveal>
+                <Deposits view={bases.view} />
+              </Reveal>
+              <Reveal>
+                <Conditions view={bases.view} />
+              </Reveal>
             </>
           )}
         </LoadingRegion>
-        <OrderCta />
+        <Reveal>
+          <OrderCta />
+        </Reveal>
       </div>
     </>
   )
