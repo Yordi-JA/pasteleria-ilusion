@@ -53,8 +53,9 @@ test.describe('Hechos en la casa, with motion', () => {
     }
   })
 
-  test('the photos are not in a line: each keeps its own ratio, height and offset, the same on every load, with no frame or tilt', async ({ page }) => {
+  test('every photo keeps its ratio at one shared height, on one baseline, the same on every load, with no frame or tilt', async ({ page }) => {
     await openHome(page)
+    // Correcciones del 21 de noviembre: las alturas y los desniveles distintos rompían la armonía de la portada.
     const read = () =>
       gallery(page)
         .locator('ul:not([aria-hidden]) li')
@@ -62,54 +63,67 @@ test.describe('Hechos en la casa, with motion', () => {
           items.map((li) => {
             const style = getComputedStyle(li)
             const img = li.querySelector('img')!
+            const box = li.getBoundingClientRect()
             return {
               marginTop: style.marginTop,
               transform: style.transform,
               border: style.borderTopWidth,
               shadow: style.boxShadow,
-              height: Math.round(li.getBoundingClientRect().height),
+              radius: style.borderTopLeftRadius,
+              top: Math.round(box.top),
+              height: Math.round(box.height),
               ratio: li.clientWidth / li.clientHeight,
               natural: img.width / img.height,
             }
           }),
         )
     const first = await read()
-    expect(new Set(first.map((card) => card.marginTop)).size).toBeGreaterThan(8)
-    expect(new Set(first.map((card) => card.height)).size).toBeGreaterThan(8)
+    expect(new Set(first.map((card) => card.height))).toEqual(new Set([300]))
+    expect(new Set(first.map((card) => card.top)).size).toBe(1)
+    expect(new Set(first.map((card) => card.marginTop))).toEqual(new Set(['0px']))
+    // Las verticales y las apaisadas siguen mezcladas: cada una a su ancho natural.
     expect(first.some((card) => card.natural > 1.3)).toBe(true)
     expect(first.some((card) => card.natural < 0.8)).toBe(true)
     for (const card of first) {
       // La caja de la foto conserva la proporción del archivo: nada recortado a cuadrado.
       expect(card.ratio / card.natural).toBeCloseTo(1, 1)
       // Sin marco, sin sombra y sin inclinación: la foto real con el radio de las tarjetas.
-      expect(card).toMatchObject({ transform: 'none', border: '0px', shadow: 'none' })
+      expect(card).toMatchObject({ transform: 'none', border: '0px', shadow: 'none', radius: '12px' })
     }
     await page.reload()
     expect(await read()).toEqual(first)
   })
 
-  test('the photos hang like the guirnalda: the tops dip and rise again, and the band ends at the lowest photo', async ({ page }) => {
+  test('the band ends at the photos, and the section keeps the spacing of the other sections of the home page', async ({ page }) => {
     await openHome(page)
-    const { tops, gap } = await gallery(page)
-      .locator('ul:not([aria-hidden])')
-      .evaluate((ul) => {
-        const items = [...ul.children] as HTMLElement[]
-        const band = ul.closest('[data-testid="galeria-banda"]')!
-        const style = getComputedStyle(band)
-        const unit = parseFloat(style.getPropertyValue('--foto-alto'))
-        const bottom = Math.max(...items.map((li) => li.getBoundingClientRect().bottom))
-        return {
-          tops: items.map((li) => parseFloat(getComputedStyle(li).marginTop) / unit),
-          gap: band.getBoundingClientRect().bottom - parseFloat(style.paddingBottom) - bottom,
-        }
-      })
-    // Cada arco baja y vuelve a subir: hay fotos arriba del todo (las uniones) y otras bien abajo (el centro del arco).
-    expect(Math.min(...tops)).toBeLessThan(0.05)
-    expect(Math.max(...tops)).toBeGreaterThan(0.2)
-    const turns = tops.slice(1, -1).filter((top, i) => (top - tops[i]) * (tops[i + 2] - top) < 0).length
-    expect(turns).toBeGreaterThan(10)
-    // Sin espacio sobrante bajo la banda: termina donde termina la foto que más baja.
-    expect(Math.abs(gap)).toBeLessThan(1)
+    // El título aparece al llegar a la vista (sube 8 px): se mide ya en su lugar.
+    await gallery(page).getByRole('heading', { level: 2 }).scrollIntoViewIfNeeded()
+    await expect(gallery(page).locator('[data-aparicion]').first()).toHaveAttribute('data-aparicion', 'visible')
+    await page.waitForTimeout(400)
+    const spacing = await gallery(page).evaluate((section) => {
+      const band = section.querySelector<HTMLElement>('[data-testid="galeria-banda"]')!
+      const items = [...band.querySelectorAll('ul:not([aria-hidden]) li')]
+      const bandBox = band.getBoundingClientRect()
+      const photosTop = Math.min(...items.map((li) => li.getBoundingClientRect().top))
+      const photosBottom = Math.max(...items.map((li) => li.getBoundingClientRect().bottom))
+      const heading = section.querySelector('h2')!.getBoundingClientRect()
+      const sectionBox = section.getBoundingClientRect()
+      const padding = parseFloat(getComputedStyle(band).paddingBottom)
+      return {
+        under: bandBox.bottom - padding - photosBottom,
+        titleToPhotos: photosTop - heading.bottom,
+        photosToEnd: sectionBox.bottom - photosBottom,
+        sectionToTitle: heading.top - sectionBox.top,
+      }
+    })
+    // Sin espacio sobrante bajo las fotos: la banda mide lo que ellas más el anillo de foco.
+    expect(Math.abs(spacing.under)).toBeLessThan(1)
+    // 80 px arriba y abajo, como "Pasteles de la casa" y las rebanadas (`py-20`); 32 px del título a las fotos, como la vitrina.
+    expect(spacing.photosToEnd).toBeCloseTo(80, 0)
+    expect(spacing.sectionToTitle).toBeGreaterThanOrEqual(80)
+    expect(spacing.sectionToTitle).toBeLessThan(96)
+    expect(spacing.titleToPhotos).toBeGreaterThanOrEqual(32)
+    expect(spacing.titleToPhotos).toBeLessThan(40)
   })
 
   test('the pause control is a small icon next to the title, named for assistive technology, with the focus ring', async ({ page }) => {
@@ -254,8 +268,16 @@ test.describe('Hechos en la casa, phone', () => {
     await expect(gallery(page)).toBeVisible()
     await gallery(page).scrollIntoViewIfNeeded()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-    const photoHeight = await gallery(page).locator('ul:not([aria-hidden]) li').first().evaluate((li) => li.getBoundingClientRect().height)
-    expect(photoHeight).toBeLessThan(300)
+    const heights = await gallery(page)
+      .locator('ul:not([aria-hidden]) li')
+      .evaluateAll((items) => [...new Set(items.map((li) => Math.round(li.getBoundingClientRect().height)))])
+    expect(heights).toEqual([200])
+    // 56 px bajo las fotos, como las demás secciones en el teléfono (`py-14`).
+    const end = await gallery(page).evaluate((section) => {
+      const bottom = Math.max(...[...section.querySelectorAll('ul:not([aria-hidden]) li')].map((li) => li.getBoundingClientRect().bottom))
+      return section.getBoundingClientRect().bottom - bottom
+    })
+    expect(end).toBeCloseTo(56, 0)
     // El control de pausa conserva los 44 px táctiles y no saca la página por la derecha.
     await expect(pauseButton(page)).toBeVisible()
     const box = (await pauseButton(page).boundingBox())!
