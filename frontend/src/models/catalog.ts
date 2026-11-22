@@ -432,16 +432,18 @@ const FRUIT_KINDS: Record<FruitKind, true> = {
   pear: true,
   physalis: true,
   banana: true,
+  pineapple: true,
+  apple_slice: true,
 }
-const FRUIT_LAYOUTS: Record<FruitLayoutKind, true> = { mound: true, ring: true, rows: true }
+const FRUIT_LAYOUTS: Record<FruitLayoutKind, true> = { mound: true, ring: true, rows: true, diagonal: true, stripes: true }
 
 const isFruitKind = (value: unknown): value is FruitKind => typeof value === 'string' && Object.hasOwn(FRUIT_KINDS, value)
 
 // Lo que sabe dibujar la escena en los detalles de la imagen del catálogo (`three/cakeShape.ts`).
 const SIDE_TEXTURES: Record<SideTextureKind, true> = { lace: true, spatula: true, ridges: true }
-const DRIZZLES: Record<DrizzleKind, true> = { lace: true, threads: true }
-const SHELL_PLACES: Record<ShellPlace, true> = { edge: true, tulips: true, top: true }
-const SIDE_BITS: Record<SideBitsKind, true> = { crumbs: true, flakes: true }
+const DRIZZLES: Record<DrizzleKind, true> = { lace: true, threads: true, scribble: true }
+const SHELL_PLACES: Record<ShellPlace, true> = { edge: true, tulips: true, top: true, back: true, full: true }
+const SIDE_BITS: Record<SideBitsKind, true> = { crumbs: true, flakes: true, shavings: true, seeds: true }
 
 function choice<T extends string>(value: unknown, known: Record<T, true>): T | null {
   return typeof value === 'string' && Object.hasOwn(known, value) ? (value as T) : null

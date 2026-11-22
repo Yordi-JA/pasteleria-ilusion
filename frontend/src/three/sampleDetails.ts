@@ -1,9 +1,9 @@
 import { TIER_EDGE_UNITS } from '../models/cakeDesignLayout.ts'
 import { BOARD } from './cakeMetrics.ts'
-import type { CakeDetails, CakeShape, CakeTier, ShapeColor } from './cakeShape.ts'
-import type { TierDecoration } from './decorationLayout.ts'
+import type { CakeDetails, CakeShape, CakeTier, ShapeColor, ShellPlace, SideBitsKind } from './cakeShape.ts'
+import type { Placement, TierDecoration } from './decorationLayout.ts'
 import { MeshBuilder } from './fruit.ts'
-import type { FruitMesh, KeepOut } from './fruit.ts'
+import type { FruitDividers, FruitMesh, KeepOut } from './fruit.ts'
 import { resolveColor } from './palette.ts'
 import { seededRandom } from './seededRandom.ts'
 
@@ -170,6 +170,12 @@ export type ShellPlacement = {
   bowl: boolean
   /** Tulipán cerrado y redondo arriba (capuchino); sin él, un huevo abierto con la orilla rota. */
   closed: boolean
+  /**
+   * Solo las conchas de `back` y `full`: qué parte de la vuelta tiene la pieza (menos de 1 es un pedazo curvo de cascarón, como los
+   * rizos de choco-pingüino) y si el espolvoreado cae según la cara que de verdad mira hacia arriba (los huevos boca abajo).
+   */
+  arc?: number
+  dustByNormal?: boolean
 }
 
 /**
@@ -178,12 +184,38 @@ export type ShellPlacement = {
  */
 const EDGE_SHELL = { width: 0.18, height: 0.3 }
 const BOWL = { width: 0.15, height: 0.12 }
+/**
+ * Los huevos grandes de chocolate blanco de queso y zarzamora: unos 6 cm de ancho, cuatro en el arco que va del lado izquierdo, un
+ * poco al frente, a la parte de atrás (`BACK_ARC`, en el ángulo de la orilla: 0 es el frente y π/2 la derecha; la imagen fija gira el
+ * pastel -20°, así que el arco va 20° más a la derecha que en la foto), acostados hacia el centro con la boca rota hacia la fruta.
+ */
+const BACK_SHELL = { width: 0.21, height: 0.32, count: 4, ring: 0.62 }
+const BACK_ARC = { from: -0.6, to: -2.9 }
+/**
+ * Choco-pingüino: huevos de chocolate de leche boca abajo (el domo arriba) y pedazos curvos de cascarón que cubren toda la tapa. Van
+ * en capas: cada una reparte sus piezas al azar (con semilla) hasta `reach` del radio, sin que dos centros queden a menos de
+ * `spacing`, y la de encima se levanta `lift` sobre la de abajo, como el montón de la foto.
+ */
+const FULL_SHELL = {
+  width: 0.18,
+  height: 0.29,
+  layers: [
+    { reach: 0.88, spacing: 0.2, lift: 0.02 },
+    { reach: 0.66, spacing: 0.22, lift: 0.13 },
+    { reach: 0.36, spacing: 0.22, lift: 0.23 },
+  ],
+  tries: 400,
+  /** Uno de cada tres es un pedazo curvo de cascarón (un rizo), no un huevo. */
+  curlEvery: 3,
+}
 
 /**
  * Dónde van las conchas: alrededor del borde, apenas inclinadas hacia afuera (capuchino, choco vainilla), o amontonadas en la mitad
  * de atrás de la tapa (queso y chocolate), en dos capas.
  */
-export function shellLayout(tier: CakeTier, place: 'edge' | 'tulips' | 'top', colors: number, inset = 0): ShellPlacement[] {
+export function shellLayout(tier: CakeTier, place: ShellPlace, colors: number, inset = 0): ShellPlacement[] {
+  if (place === 'back') return backShells(tier, colors)
+  if (place === 'full') return fullShells(tier, colors)
   const random = seededRandom(place === 'top' ? 73 : 71)
   const { radius, height } = tier
   if (place !== 'top') {
@@ -245,9 +277,72 @@ export function shellLayout(tier: CakeTier, place: 'edge' | 'tulips' | 'top', co
   return placed
 }
 
+/** Los huevos grandes de la mitad de atrás (queso y zarzamora), del más grande, al frente a la izquierda, al de atrás. */
+function backShells(tier: CakeTier, colors: number): ShellPlacement[] {
+  const random = seededRandom(79)
+  const { radius, height } = tier
+  return Array.from({ length: BACK_SHELL.count }, (_, i) => {
+    const t = i / (BACK_SHELL.count - 1)
+    const a = BACK_ARC.from + (BACK_ARC.to - BACK_ARC.from) * t + (random() - 0.5) * 0.12
+    const ring = radius * (BACK_SHELL.ring + (random() - 0.5) * 0.06)
+    const size = (1.08 - 0.22 * t) * (0.94 + random() * 0.12)
+    return {
+      p: [Math.sin(a) * ring, height - 0.02, Math.cos(a) * ring],
+      yaw: random() * TAU,
+      // Acostados hacia el centro: el fondo del huevo mira a la orilla y la boca, a la fruta.
+      tilt: 0.95 + random() * 0.3,
+      toward: [-Math.sin(a), -Math.cos(a)],
+      width: BACK_SHELL.width * size,
+      height: BACK_SHELL.height * size,
+      color: i % colors,
+      bowl: false,
+      closed: false,
+      dustByNormal: true,
+    }
+  })
+}
+
+/** Los huevos boca abajo y los rizos que cubren la tapa de choco-pingüino, capa por capa. */
+function fullShells(tier: CakeTier, colors: number): ShellPlacement[] {
+  const random = seededRandom(89)
+  const { radius, height } = tier
+  const placed: ShellPlacement[] = []
+  for (const layer of FULL_SHELL.layers) {
+    const centers: [number, number][] = []
+    for (let attempt = 0; attempt < FULL_SHELL.tries; attempt++) {
+      const a = random() * TAU
+      const r = radius * layer.reach * Math.sqrt(random())
+      const [x, z] = [Math.sin(a) * r, Math.cos(a) * r]
+      if (centers.some(([cx, cz]) => Math.hypot(cx - x, cz - z) < layer.spacing)) continue
+      centers.push([x, z])
+      const curl = placed.length % FULL_SHELL.curlEvery === FULL_SHELL.curlEvery - 1
+      const size = 0.88 + random() * 0.24
+      // Un vector hacia afuera con un poco de azar: los huevos se recargan unos en otros como en la foto.
+      const out = a + (random() - 0.5) * 1.2
+      placed.push({
+        p: [x, height - 0.02 + layer.lift, z],
+        yaw: random() * TAU,
+        // Boca abajo, con el domo arriba y la boca rota hacia un lado; los rizos, casi de pie.
+        tilt: curl ? 1.05 + random() * 0.4 : 2.05 + random() * 0.45,
+        toward: [Math.sin(out), Math.cos(out)],
+        width: FULL_SHELL.width * size * (curl ? 1.15 : 1),
+        height: FULL_SHELL.height * size * (curl ? 0.85 : 1),
+        color: placed.length % colors,
+        bowl: false,
+        closed: false,
+        arc: curl ? 0.42 + random() * 0.15 : 1,
+        dustByNormal: true,
+      })
+    }
+  }
+  return placed
+}
+
 /** Lo que la fruta deja libre por las conchas: un margen desde la orilla hasta la orilla de adentro de su vuelta. */
-export function shellAvoid(tier: CakeTier, shells: readonly ShellPlacement[]): { inset: number; areas: KeepOut[] } {
+export function shellAvoid(tier: CakeTier, shells: readonly ShellPlacement[], place: ShellPlace = 'edge'): { inset: number; areas: KeepOut[] } {
   if (shells.length === 0) return { inset: 0, areas: [] }
+  // Los huevos de la mitad de atrás no dan la vuelta: la fruta solo se aparta de cada uno.
+  if (place === 'back') return { inset: 0, areas: shells.map((shell) => ({ kind: 'circle', x: shell.p[0], z: shell.p[2], r: shell.width * 1.05 })) }
   // Todas dan la vuelta (huevos, tulipanes o cuencos): la fruta se queda por dentro de la orilla de adentro de la vuelta.
   const inner = Math.min(...shells.map((s) => Math.hypot(s.p[0], s.p[2]) - s.width * 1.1))
   return { inset: tier.radius - inner, areas: [] }
@@ -297,20 +392,33 @@ export function shellsMesh(shells: readonly ShellPlacement[], colors: readonly S
       shell.bowl
         ? shell.width * (0.3 + 0.7 * Math.sin((Math.PI / 2) * t) ** 0.55)
         : shell.width * Math.sin(Math.PI * (0.06 + (shell.closed ? 0.94 : 0.78) * t)) ** (shell.closed ? 0.55 : 0.7)
+    // Un pedazo de cascarón (`arc` menor que 1) no cierra la vuelta: lleva una columna más y no se une la última con la primera.
+    const arc = shell.arc ?? 1
+    const whole = arc >= 1
+    const span = whole ? columns : columns + 1
     const points: Vec3[][] = []
     const tones: RGB[][] = []
     for (let i = 1; i <= rows; i++) {
       const t = i / rows
       const row: Vec3[] = []
       const rowTones: RGB[] = []
-      for (let j = 0; j < columns; j++) {
-        const a = (j / columns) * TAU
-        const tt = t * rim[j]
+      for (let j = 0; j < span; j++) {
+        const a = (j / columns) * TAU * arc
+        const tt = t * rim[j % columns]
         const r = profile(tt)
         const local: Vec3 = [Math.sin(a) * r, shell.height * tt, Math.cos(a) * r]
         row.push(place(local, shell))
         let color = scaleRgb(base, tone * (0.86 + 0.22 * tt))
-        if (dust) {
+        if (dust && shell.dustByNormal) {
+          // La normal de afuera de la pared a esa altura, girada como la pieza: el azúcar glass cubre lo que mira hacia arriba, con
+          // motas más finas hacia los lados, como en la foto de choco-pingüino.
+          const climb = profile(Math.min(1, tt + 0.02)) - profile(Math.max(0, tt - 0.02))
+          const normal = place([Math.sin(a) * shell.height * 0.04, -climb, Math.cos(a) * shell.height * 0.04], { ...shell, p: [0, 0, 0] })
+          const up = normal[1] / (Math.hypot(...normal) || 1)
+          const speck = random()
+          // Un velo fino y apenas desparejo en todo lo que mira hacia arriba.
+          color = mixRgb(color, dust, Math.min(0.32, Math.max(0, up - 0.15) * 0.4 * (0.6 + 0.8 * speck)))
+        } else if (dust) {
           // Hacia arriba: la normal de afuera, inclinada como la concha, sube; las motas salen de un ruido fijo por vértice.
           const up = place([Math.sin(a) * 0.3, 1, Math.cos(a) * 0.3], { ...shell, p: [0, 0, 0] })[1]
           const speck = random()
@@ -323,8 +431,8 @@ export function shellsMesh(shells: readonly ShellPlacement[], colors: readonly S
       points.push(row)
       tones.push(rowTones)
     }
-    const ids = mesh.grid(points, tones, true)
-    mesh.fan(mesh.vertex(place([0, 0, 0], shell), scaleRgb(base, tone * 0.85)), ids[0].slice().reverse())
+    const ids = mesh.grid(points, tones, whole)
+    if (whole) mesh.fan(mesh.vertex(place([0, 0, 0], shell), scaleRgb(base, tone * 0.85)), ids[0].slice().reverse())
   }
   return mesh.build()
 }
@@ -388,16 +496,54 @@ function flake(mesh: MeshBuilder, at: ReturnType<typeof sidePoint>, size: number
 }
 
 /**
- * Lo pegado al costado: migas de galleta de polvo a trozos de 1 cm por el costado y la tapa (galleta), o virutas de chocolate por
- * el costado, más tupidas arriba y al pie (capuchino) o parejas (queso y chocolate).
+ * Una semilla de zarzamora en la mermelada del costado: un óvalo plano de seis lados, pegado a la superficie y apenas por fuera,
+ * más oscuro al centro.
  */
-export function sideBitsMesh(tier: CakeTier, kind: 'crumbs' | 'flakes', color: ShapeColor, topInset: number): FruitMesh {
+function seed(mesh: MeshBuilder, at: ReturnType<typeof sidePoint>, size: number, color: RGB, random: () => number) {
+  const turn = random() * TAU
+  const long = size * (1.2 + random() * 0.5)
+  const up: Vec3 = [0, 1, 0]
+  const corner = (k: number) => {
+    const a = (k / 6) * TAU
+    const [u, v] = [Math.cos(a) * long, Math.sin(a) * size]
+    return add(add(add(at.p, at.t, u * Math.cos(turn) - v * Math.sin(turn)), up, u * Math.sin(turn) + v * Math.cos(turn)), at.n, 0.0025)
+  }
+  const middle = mesh.vertex(add(at.p, at.n, 0.003), scaleRgb(color, 0.8))
+  const ring = Array.from({ length: 6 }, (_, k) => mesh.vertex(corner(k), color))
+  mesh.fan(middle, ring)
+}
+
+/**
+ * Las virutas grandes y tupidas de choco-pingüino: casi el triple que las virutas de siempre y más grandes, por todo el costado,
+ * algunas más oscuras y otras más claras, como el chocolate rallado de la foto.
+ */
+const SHAVINGS = { perArea: 800, size: [0.03, 0.09] as const }
+
+/** Las semillas de la mermelada de zarzamora en el costado (queso y zarzamora): sueltas por todo el alto, sin juntarse. */
+const SEEDS = { perArea: 150, size: [0.006, 0.012] as const, from: 0.12, to: 0.96 }
+
+/**
+ * Lo pegado al costado: migas de galleta de polvo a trozos de 1 cm por el costado y la tapa (galleta), virutas de chocolate por
+ * el costado, más tupidas arriba y al pie (capuchino) o parejas (queso y chocolate), virutas grandes y tupidas (choco-pingüino) o las
+ * semillas oscuras de la mermelada.
+ */
+export function sideBitsMesh(tier: CakeTier, kind: SideBitsKind, color: ShapeColor, topInset: number): FruitMesh {
   const base = rgbOf(color)
-  const random = seededRandom(kind === 'crumbs' ? 97 : 101)
+  const random = seededRandom({ crumbs: 97, flakes: 101, seeds: 103, shavings: 107 }[kind])
   const mesh = new MeshBuilder()
   const { radius, height } = tier
   const side = TAU * radius * height
-  if (kind === 'crumbs') {
+  if (kind === 'shavings') {
+    for (let i = 0, count = Math.round(side * SHAVINGS.perArea); i < count; i++) {
+      const at = sidePoint(radius, random() * TAU, height * (0.04 + random() * 0.92))
+      flake(mesh, at, SHAVINGS.size[0] + (SHAVINGS.size[1] - SHAVINGS.size[0]) * random() ** 2, scaleRgb(base, 0.8 + random() * 0.9), random)
+    }
+  } else if (kind === 'seeds') {
+    for (let i = 0, count = Math.round(side * SEEDS.perArea); i < count; i++) {
+      const at = sidePoint(radius, random() * TAU, height * (SEEDS.from + random() * (SEEDS.to - SEEDS.from)))
+      seed(mesh, at, SEEDS.size[0] + random() * (SEEDS.size[1] - SEEDS.size[0]), scaleRgb(base, 0.8 + random() * 0.4), random)
+    }
+  } else if (kind === 'crumbs') {
     for (let i = 0, count = Math.round(side * 420); i < count; i++) {
       const y = EDGE * 0.4 + random() * (height - EDGE * 0.8)
       const at = sidePoint(radius, random() * TAU, y)
@@ -518,6 +664,87 @@ export function threadCurves(tier: CakeTier, decoration: TierDecoration | undefi
   })
 }
 
+/**
+ * El arco de la orilla donde va el garabato de queso y zarzamora (en el ángulo de la orilla: 0 es el frente, π/2 la derecha): el lado
+ * izquierdo, de atrás hacia el frente, 20° más a la derecha que en la foto porque la imagen fija gira el pastel -20°. Ahí no van
+ * rosetones, como en la foto.
+ */
+export const SCRIBBLE_ARC = { from: -2.45, to: -0.2 }
+
+/**
+ * El garabato de hilos de queso y zarzamora: dos trazos de lazos que avanzan por el arco `SCRIBBLE_ARC`, uno junto a la orilla y otro
+ * más adentro, como la letra corrida que dibuja la manga. Cada lazo es una trocoide: avanza por la orilla y da una vuelta chica.
+ */
+export function scribbleCurves(tier: CakeTier, lifted: boolean): Vec3[][] {
+  const { radius, height } = tier
+  const y = height + (lifted ? LIFT : 0) + 0.006
+  const flat = radius - EDGE
+  const random = seededRandom(61)
+  // Tres trazos que se cruzan: lazos de tamaño y paso desparejos y un vaivén hacia adentro y hacia afuera, como el de la foto.
+  const strands = [
+    { mid: 0.82, loops: 13, loop: 0.04, wave: 0.07 },
+    { mid: 0.7, loops: 10, loop: 0.055, wave: 0.09 },
+    { mid: 0.76, loops: 7, loop: 0.03, wave: 0.12 },
+  ]
+  return strands.map(({ mid, loops, loop, wave }) => {
+    const points: Vec3[] = []
+    const phases = Array.from({ length: 4 }, () => random() * TAU)
+    const n = loops * 28
+    for (let i = 0; i <= n; i++) {
+      const t = i / n
+      const turn = loops * TAU * (t + 0.035 * Math.sin(t * 23 + phases[0])) + phases[1]
+      const size = loop * (0.55 + 0.55 * (0.5 + 0.5 * Math.sin(t * 11.7 + phases[2])))
+      const base = SCRIBBLE_ARC.from + (SCRIBBLE_ARC.to - SCRIBBLE_ARC.from) * t
+      const sway = wave * (0.65 * Math.sin(t * 7.1 + phases[3]) + 0.35 * Math.sin(t * 17.3 + phases[0]))
+      const r = Math.min(flat - 0.014, Math.max(flat * 0.5, flat * mid + sway - size * Math.cos(turn)))
+      const a = base + (size * Math.sin(turn) * 1.4) / r
+      points.push([Math.sin(a) * r, y, Math.cos(a) * r])
+    }
+    return points
+  })
+}
+
+/** Un arco de la orilla sin rosetones, en el ángulo de la orilla (0 es el frente, π/2 la derecha), de `from` a `to`. */
+export type EdgeGap = { from: number; to: number }
+
+/**
+ * El arco sin rosetones: el del garabato y, con los huevos grandes de la mitad de atrás, todo el lado de atrás e izquierdo hasta el
+ * primer huevo (en la foto de queso y zarzamora los rosetones solo van por el frente y la derecha, alrededor de la fruta). Los dos se
+ * enciman, así que su unión es un solo arco.
+ */
+function edgeGapOf(details: CakeDetails): EdgeGap | null {
+  const gaps = [details.drizzle?.kind === 'scribble' ? SCRIBBLE_ARC : null, details.shells?.place === 'back' ? { from: -Math.PI, to: BACK_ARC.from } : null].filter(
+    (gap): gap is EdgeGap => gap !== null,
+  )
+  if (gaps.length === 0) return null
+  return { from: Math.min(...gaps.map((gap) => Math.min(gap.from, gap.to))), to: Math.max(...gaps.map((gap) => Math.max(gap.from, gap.to))) }
+}
+
+const inGap = (gap: EdgeGap, x: number, z: number) => {
+  const a = Math.atan2(x, z)
+  return a >= Math.min(gap.from, gap.to) && a <= Math.max(gap.from, gap.to)
+}
+
+/**
+ * La decoración del último piso con lo que cambian las fotos: sin los rosetones del arco del garabato y con las hileras de rosetones
+ * entre las franjas de fruta (`FruitDividers`), del mismo color que los del borde. Sin nada que cambiar, la misma decoración.
+ */
+export function sampleDecoration(decoration: TierDecoration, gap: EdgeGap | null, dividers: FruitDividers | undefined): TierDecoration {
+  const extra = dividers?.p ?? []
+  if (!gap && extra.length === 0) return decoration
+  const random = seededRandom(113)
+  const parts = decoration.parts.map((part) => {
+    if (part.shape !== 'rosette') return part
+    const kept = gap ? part.placements.filter((placement) => !inGap(gap, placement.p[0], placement.p[2])) : part.placements
+    const scale = dividers?.scale ?? 1
+    const added = extra.map(
+      (p): Placement => ({ p: [p[0], p[1] - 0.005, p[2]], dir: [0, 0, 1], roll: 0, s: [scale, scale, scale], color: 0, tint: (random() - 0.5) * 0.08 }),
+    )
+    return { ...part, placements: [...kept, ...added] }
+  })
+  return { ...decoration, parts }
+}
+
 // --- Todo junto ---
 
 export type SampleDetailsLayout = {
@@ -525,12 +752,14 @@ export type SampleDetailsLayout = {
   ring: FruitMesh | null
   band: FruitMesh | null
   shells: { placements: ShellPlacement[]; mesh: FruitMesh } | null
-  bits: { kind: 'crumbs' | 'flakes'; mesh: FruitMesh } | null
+  bits: { kind: SideBitsKind; mesh: FruitMesh } | null
   dust: FruitMesh | null
-  /** Las curvas del encaje son cerradas; los hilos de cada copo, abiertos. */
-  drizzle: { kind: 'lace' | 'threads'; color: ShapeColor; curves: Vec3[][]; closed: boolean } | null
+  /** Las curvas del encaje son cerradas; los hilos de cada copo y el garabato, abiertos. */
+  drizzle: { kind: 'lace' | 'threads' | 'scribble'; color: ShapeColor; curves: Vec3[][]; closed: boolean } | null
   /** Lo que la fruta deja libre por las conchas (`fruitLayout`). */
   avoid: { inset: number; areas: KeepOut[] }
+  /** El arco de la orilla sin rosetones (el del garabato o el de los huevos de atrás); `null` si no lo hay. Lo aplica `sampleDecoration`. */
+  edgeGap: EdgeGap | null
   triangles: number
 }
 
@@ -547,17 +776,21 @@ export function sampleDetailsLayout(shape: CakeShape, decoration?: TierDecoratio
   const { radius, height } = tier
   const cap = details.top ? { profile: topCapProfile(radius, height), color: details.top.color, glossy: details.top.glossy } : null
   const shellPlacements = details.shells ? shellLayout(tier, details.shells.place, details.shells.colors.length, details.shells.inset ?? 0) : []
-  const shellsAvoid = shellAvoid(tier, shellPlacements)
+  const shellsAvoid = shellAvoid(tier, shellPlacements, details.shells?.place)
   const ringInset = details.ring ? details.ring.width * radius * 0.3 : 0
   const avoid = { inset: Math.max(shellsAvoid.inset, ringInset), areas: shellsAvoid.areas }
   const shells = details.shells ? { placements: shellPlacements, mesh: shellsMesh(shellPlacements, details.shells.colors, details.dusting ?? null) } : null
   const ring = details.ring ? ringMesh(radius, height, details.ring.width, details.ring.color) : null
   const band = details.band ? bandMesh(radius, height, details.band.height, details.band.color) : null
   const bits = details.sideBits ? { kind: details.sideBits.kind, mesh: sideBitsMesh(tier, details.sideBits.kind, details.sideBits.color, avoid.inset) } : null
-  const dust = details.dusting && details.shells?.place !== 'top' ? dustMesh(tier, details.dusting) : null
-  const curves = details.drizzle ? (details.drizzle.kind === 'lace' ? laceCurves(tier, cap !== null) : threadCurves(tier, decoration)) : []
+  // El espolvoreado de la tapa solo donde la tapa se ve: con las conchas amontonadas o cubriéndola, cae solo en ellas.
+  const coveredTop = details.shells && (['top', 'back', 'full'] as const).some((place) => place === details.shells?.place)
+  const dust = details.dusting && !coveredTop ? dustMesh(tier, details.dusting) : null
+  const drizzleCurves = { lace: () => laceCurves(tier, cap !== null), threads: () => threadCurves(tier, decoration), scribble: () => scribbleCurves(tier, cap !== null) }
+  const curves = details.drizzle ? drizzleCurves[details.drizzle.kind]() : []
   const drizzle =
     details.drizzle && curves.length > 0 ? { kind: details.drizzle.kind, color: details.drizzle.color, curves, closed: details.drizzle.kind === 'lace' } : null
+  const edgeGap = edgeGapOf(details)
   const triangles = [ring, band, shells?.mesh ?? null, bits?.mesh ?? null, dust].reduce((sum, mesh) => sum + trianglesOf(mesh), 0)
-  return { cap, ring, band, shells, bits, dust, drizzle, avoid, triangles }
+  return { cap, ring, band, shells, bits, dust, drizzle, avoid, edgeGap, triangles }
 }

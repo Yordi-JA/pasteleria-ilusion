@@ -416,7 +416,21 @@ test('each piece is a small fruit-sized mesh that rests on y = 0, with a color a
     })
   }, URLS.fruit)
   expect(pieces.map((piece: { piece: string }) => piece.piece).sort()).toEqual(
-    ['appleFan', 'bananaSlice', 'grapeCluster', 'kiwiSlice', 'peachSlice', 'pearSlice', 'physalis', 'starfruitSlice', 'strawberryHalf', 'strawberryWhole'].sort(),
+    [
+      'appleFan',
+      'appleRoundGolden',
+      'appleRoundRed',
+      'bananaSlice',
+      'grapeCluster',
+      'kiwiSlice',
+      'peachSlice',
+      'pearSlice',
+      'physalis',
+      'pineappleChunk',
+      'starfruitSlice',
+      'strawberryHalf',
+      'strawberryWhole',
+    ].sort(),
   )
   for (const piece of pieces) {
     expect(piece.normals, piece.piece).toBe(piece.count)

@@ -278,6 +278,8 @@ class FruitLayout(models.TextChoices):
     MOUND = "mound", "Montón al centro"
     RING = "ring", "Anillo junto a la orilla"
     ROWS = "rows", "En filas"
+    DIAGONAL = "diagonal", "En filas diagonales que llenan la tapa"
+    STRIPES = "stripes", "En franjas de atrás hacia el frente, con rosetones entre ellas"
 
 
 class FruitKind(models.TextChoices):
@@ -292,6 +294,8 @@ class FruitKind(models.TextChoices):
     STARFRUIT = "starfruit", "Carambola"
     PHYSALIS = "physalis", "Physalis (uchuva)"
     BANANA = "banana", "Plátano"
+    PINEAPPLE = "pineapple", "Piña"
+    APPLE_SLICE = "apple_slice", "Manzana en rodajas"
 
 
 class SampleSideTexture(models.TextChoices):
@@ -307,6 +311,7 @@ class SampleDrizzle(models.TextChoices):
 
     LACE = "lace", "Encaje sobre la tapa"
     THREADS = "threads", "Hilos sobre el borde de arriba"
+    SCRIBBLE = "scribble", "Garabato en un lado de la tapa"
 
 
 class SampleShells(models.TextChoices):
@@ -315,6 +320,8 @@ class SampleShells(models.TextChoices):
     EDGE = "edge", "Alrededor del borde de arriba"
     TULIPS = "tulips", "Tulipanes cerrados alrededor del borde"
     TOP = "top", "Amontonadas en media tapa"
+    BACK = "back", "Grandes, en la mitad de atrás"
+    FULL = "full", "Cubriendo toda la tapa"
 
 
 class SampleSideBits(models.TextChoices):
@@ -322,6 +329,8 @@ class SampleSideBits(models.TextChoices):
 
     CRUMBS = "crumbs", "Migas de galleta (también en la tapa)"
     FLAKES = "flakes", "Virutas de chocolate"
+    SHAVINGS = "shavings", "Virutas de chocolate grandes y tupidas"
+    SEEDS = "seeds", "Semillas de la mermelada"
 
 
 # --- Clases base ---

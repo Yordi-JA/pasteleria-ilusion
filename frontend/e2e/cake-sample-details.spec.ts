@@ -448,3 +448,165 @@ test('a half-filled pair or an unknown detail from the API is dropped, not drawn
   expect(details.band).toBeNull()
   expect(details.edgeSize).toBe(1)
 })
+
+test('queso y zarzamora: big eggs on the back arc, the fruit moved away from them, the scribble on the left without rosettes and the seeds on the side', async ({ page }) => {
+  const result = await page.evaluate(
+    async ({ urls, tier }) => {
+      const { shellLayout, sampleDetailsLayout, sampleDecoration, SCRIBBLE_ARC } = await import(urls.details)
+      const { fruitLayout } = await import(urls.fruit)
+      const { tierDecoration } = await import(urls.decoration)
+      const shape = {
+        tiers: [tier],
+        festoons: false,
+        stand: false,
+        decoration: { kind: 'rosettes', main: '#f6eee3', accent: '#f6eee3' },
+        topping: { kind: 'fruit', layout: 'mound', fruits: ['apple', 'pear', 'pineapple', 'kiwi', 'strawberry'], unitsPerCm: 0.068, density: 3 },
+        details: {
+          shells: { place: 'back', colors: ['#f1e6cc'] },
+          drizzle: { kind: 'scribble', color: '#f6e4e4' },
+          sideBits: { kind: 'seeds', color: '#2a0b10' },
+        },
+      }
+      const top = tierDecoration(shape, 0)
+      const layout = sampleDetailsLayout(shape, top)
+      const fruit = fruitLayout(shape, top, layout.avoid)
+      const eggs = shellLayout(tier, 'back', 1)
+      const edited = sampleDecoration(top, layout.edgeGap, fruit.dividers)
+      const rosettes = (decoration: { parts: { shape: string; placements: { p: number[] }[] }[] }) =>
+        decoration.parts.find((part) => part.shape === 'rosette')?.placements ?? []
+      const angle = (p: number[]) => Math.atan2(p[0], p[2])
+      const seeds = layout.bits.mesh.positions as number[]
+      let seedRadius = [Infinity, 0]
+      for (let i = 0; i < seeds.length; i += 3) {
+        const r = Math.hypot(seeds[i], seeds[i + 2])
+        seedRadius = [Math.min(seedRadius[0], r), Math.max(seedRadius[1], r)]
+      }
+      return {
+        eggs: eggs.map((s: { p: number[]; width: number }) => ({ a: angle(s.p), r: Math.hypot(s.p[0], s.p[2]), width: s.width })),
+        areas: layout.avoid.areas.length,
+        clear: fruit.placements.every((piece: { p: number[]; reach: number }) =>
+          eggs.every((egg: { p: number[]; width: number }) => Math.hypot(piece.p[0] - egg.p[0], piece.p[2] - egg.p[2]) >= egg.width * 1.05 + piece.reach - 1e-6),
+        ),
+        fruit: fruit.placements.length,
+        meanX: fruit.placements.reduce((sum: number, piece: { p: number[] }) => sum + piece.p[0], 0) / fruit.placements.length,
+        gap: layout.edgeGap,
+        scribbleArc: SCRIBBLE_ARC,
+        before: rosettes(top).length,
+        after: rosettes(edited).map((placement) => angle(placement.p)),
+        scribble: layout.drizzle.curves.flat().map((p: number[]) => ({ a: angle(p), r: Math.hypot(p[0], p[2]) })),
+        closed: layout.drizzle.closed,
+        seedRadius,
+        dustOnTop: layout.dust !== null,
+      }
+    },
+    { urls: URLS, tier: TIER },
+  )
+  // Cuatro huevos grandes en el lado izquierdo y atrás, a media tapa; la fruta se aparta de cada uno y se corre al otro lado.
+  expect(result.eggs).toHaveLength(4)
+  expect(result.eggs.every((egg: { a: number; r: number; width: number }) => egg.a < 0 && egg.r > TIER.radius * 0.5 && egg.r < TIER.radius * 0.75 && egg.width > 0.15)).toBe(true)
+  expect(result.areas).toBe(4)
+  expect(result.fruit).toBeGreaterThan(10)
+  expect(result.clear).toBe(true)
+  expect(result.meanX).toBeGreaterThan(0.05)
+  // El garabato: abierto, sobre la tapa plana y dentro de su arco; sin rosetones de atrás al frente por la izquierda.
+  expect(result.closed).toBe(false)
+  expect(result.scribble.every((p: { a: number; r: number }) => p.r < TIER.radius - EDGE && p.a > result.scribbleArc.from - 0.3 && p.a < result.scribbleArc.to + 0.3)).toBe(true)
+  expect(result.gap.from).toBeCloseTo(-Math.PI, 6)
+  expect(result.after.length).toBeGreaterThan(4)
+  expect(result.after.length).toBeLessThan(result.before)
+  expect(result.after.every((a: number) => a < result.gap.from || a > result.gap.to)).toBe(true)
+  // Las semillas van pegadas al costado, apenas por fuera; la tapa no lleva espolvoreado.
+  expect(result.seedRadius[0]).toBeGreaterThan(TIER.radius - 0.02)
+  expect(result.seedRadius[1]).toBeLessThan(TIER.radius + 0.03)
+  expect(result.dustOnTop).toBe(false)
+})
+
+test('choco-pingüino: eggs and curls cover the whole top in layers, and the shavings are much denser than the flakes', async ({ page }) => {
+  const result = await page.evaluate(
+    async ({ urls, tier }) => {
+      const { shellLayout, sampleDetailsLayout, sideBitsMesh } = await import(urls.details)
+      const full = shellLayout(tier, 'full', 1)
+      const shape = {
+        tiers: [tier],
+        festoons: false,
+        stand: false,
+        details: { shells: { place: 'full', colors: ['#5e3a2a'] }, dusting: '#f4f0ea', sideBits: { kind: 'shavings', color: '#553222' } },
+      }
+      const layout = sampleDetailsLayout(shape)
+      // Cada punto de la tapa (hasta el 80 % del radio) tiene una pieza cerca.
+      let uncovered = 0
+      for (let x = -0.8; x <= 0.8; x += 0.1) {
+        for (let z = -0.8; z <= 0.8; z += 0.1) {
+          if (Math.hypot(x, z) > 0.8 * tier.radius) continue
+          if (!full.some((s: { p: number[]; width: number }) => Math.hypot(s.p[0] - x, s.p[2] - z) < s.width * 1.6)) uncovered++
+        }
+      }
+      return {
+        count: full.length,
+        curls: full.filter((s: { arc?: number }) => (s.arc ?? 1) < 1).length,
+        upsideDown: full.filter((s: { arc?: number; tilt: number }) => (s.arc ?? 1) === 1 && s.tilt > Math.PI / 2).length,
+        heights: [...new Set(full.map((s: { p: number[] }) => s.p[1].toFixed(3)))].length,
+        inside: full.every((s: { p: number[] }) => Math.hypot(s.p[0], s.p[2]) < tier.radius - 0.05),
+        uncovered,
+        dustOnTop: layout.dust !== null,
+        shavings: sideBitsMesh(tier, 'shavings', '#553222', 0).indices.length,
+        flakes: sideBitsMesh(tier, 'flakes', '#553222', 0).indices.length,
+      }
+    },
+    { urls: URLS, tier: TIER },
+  )
+  expect(result.count).toBeGreaterThanOrEqual(25)
+  expect(result.curls).toBeGreaterThan(5)
+  expect(result.upsideDown).toBe(result.count - result.curls)
+  expect(result.heights).toBe(3)
+  expect(result.inside).toBe(true)
+  expect(result.uncovered).toBe(0)
+  expect(result.dustOnTop).toBe(false)
+  expect(result.shavings).toBeGreaterThan(result.flakes * 2)
+})
+
+test('blueberry stripes and flan diagonal rows: flat pieces, one fruit per stripe in order with rosette lines between, and rows that reach the rosettes', async ({ page }) => {
+  const result = await page.evaluate(
+    async ({ urls, tier }) => {
+      const { fruitLayout } = await import(urls.fruit)
+      const { tierDecoration } = await import(urls.decoration)
+      const base = { tiers: [tier], festoons: false, stand: false, decoration: { kind: 'rosettes', main: '#f7f4ef', accent: '#f7f4ef', size: 1.2 } }
+      const stripes = { ...base, topping: { kind: 'fruit', layout: 'stripes', fruits: ['pineapple', 'kiwi', 'strawberry', 'peach'], unitsPerCm: 0.068, density: 2 } }
+      const diagonal = { ...base, topping: { kind: 'fruit', layout: 'diagonal', fruits: ['strawberry', 'peach', 'kiwi', 'apple_slice'], unitsPerCm: 0.068, density: 1.6 } }
+      const striped = fruitLayout(stripes, tierDecoration(stripes, 0))
+      const again = fruitLayout(stripes, tierDecoration(stripes, 0))
+      const rows = fruitLayout(diagonal, tierDecoration(diagonal, 0))
+      // Al marco de las franjas (giradas 0.35 sobre la tapa): la x de cada pieza a lo ancho.
+      const across = (p: number[]) => p[0] * Math.cos(0.35) - p[2] * Math.sin(0.35)
+      const meanAcross = (kind: string) => {
+        const pieces = striped.placements.filter((piece: { kind: string }) => piece.kind === kind)
+        return pieces.reduce((sum: number, piece: { p: number[] }) => sum + across(piece.p), 0) / pieces.length
+      }
+      return {
+        same: JSON.stringify(striped) === JSON.stringify(again),
+        order: ['pineapple', 'kiwi', 'strawberry', 'peach'].map(meanAcross),
+        dividers: striped.dividers.p.map((p: number[]) => ({ across: across(p), r: Math.hypot(p[0], p[2]) })),
+        dividerScale: striped.dividers.scale,
+        pieces: striped.placements.map((piece: { piece: string }) => piece.piece).concat(rows.placements.map((piece: { piece: string }) => piece.piece)),
+        rowKinds: [...new Set(rows.placements.map((piece: { kind: string }) => piece.kind))],
+        rowReach: Math.max(...rows.placements.map((piece: { p: number[] }) => Math.hypot(piece.p[0], piece.p[2]))),
+        rowDividers: rows.dividers ?? null,
+      }
+    },
+    { urls: URLS, tier: TIER },
+  )
+  expect(result.same).toBe(true)
+  // Cada franja, una fruta, de izquierda a derecha en el orden de la lista.
+  expect(result.order.every((x: number, i: number) => i === 0 || x > result.order[i - 1])).toBe(true)
+  // Tres hileras de rosetones entre las cuatro franjas, dentro de la tapa y un poco más chicos que los del borde.
+  const lines = [...new Set(result.dividers.map((d: { across: number }) => d.across.toFixed(1)))]
+  expect(lines.length).toBeGreaterThanOrEqual(3)
+  expect(result.dividers.every((d: { r: number }) => d.r < TIER.radius)).toBe(true)
+  expect(result.dividerScale).toBeLessThan(1.2)
+  // Solo piezas planas: ninguna fresa entera de pie, y la manzana en rodajas.
+  expect(result.pieces).not.toContain('strawberryWhole')
+  expect(result.pieces.some((piece: string) => piece.startsWith('appleRound'))).toBe(true)
+  expect(result.rowKinds.sort()).toEqual(['apple_slice', 'kiwi', 'peach', 'strawberry'])
+  expect(result.rowReach).toBeGreaterThan(TIER.radius * 0.5)
+  expect(result.rowDividers).toBeNull()
+})

@@ -17,7 +17,7 @@ import Fruit from './Fruit.tsx'
 import { fruitLayout, lidKeepOut } from './fruit.ts'
 import Lid from './Lid.tsx'
 import SampleDetails, { Board } from './SampleDetails.tsx'
-import { sampleDetailsLayout } from './sampleDetails.ts'
+import { sampleDecoration, sampleDetailsLayout } from './sampleDetails.ts'
 import { SIDE_TEXTURE_LOOKS, useSideTexture } from './sideTexture.ts'
 import { tierDecoration } from './decorationLayout.ts'
 import type { TierDecoration } from './decorationLayout.ts'
@@ -492,7 +492,10 @@ export default function CakeModel({ shape, motion, animateColors = false, animat
     const placed = shape.tiers.map((_, i) => tierDecoration(shape, i, scale))
     const top = placed[placed.length - 1]
     const sample = sampleDetailsLayout(shape, top)
-    return { densityScale: scale, decorations: placed, fruit: fruitLayout(shape, top, sample?.avoid), details: sample }
+    const fruit = fruitLayout(shape, top, sample?.avoid)
+    // Lo que cambian las fotos en el borde (solo las imágenes del catálogo): el arco sin rosetones y las hileras entre las franjas.
+    if (top) placed[placed.length - 1] = sampleDecoration(top, sample?.edgeGap ?? null, fruit?.dividers)
+    return { densityScale: scale, decorations: placed, fruit, details: sample }
   })
   const surface = useMemo(
     () => (shape.details ? { glossy: shape.details.sideGlossy === true, texture: shape.details.sideTexture ?? null } : undefined),
