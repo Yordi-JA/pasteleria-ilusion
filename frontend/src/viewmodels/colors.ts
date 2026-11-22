@@ -1,9 +1,7 @@
-import type { CoverageColorOption } from '../models/cakeDesign.ts'
 import { normalizeHex } from '../models/color.ts'
-import { hexToLab } from './decorationTones.ts'
 
 /**
- * Matemática de color del selector libre y del "parecido a". Sin React. Los colores son de comida (cobertura, decoración,
+ * Matemática de color del selector libre. Sin React. Los colores son de comida (cobertura, decoración,
  * tinta del mensaje), no de la interfaz.
  */
 
@@ -49,52 +47,4 @@ export function hexToHsl(hex: string, previous: Hsl = { h: 0, s: 0, l: 0 }): Hsl
   const s = delta / (1 - Math.abs(2 * l - 1))
   const h = max === r ? ((g - b) / delta + (g < b ? 6 : 0)) * 60 : max === g ? ((b - r) / delta + 2) * 60 : ((r - g) / delta + 4) * 60
   return { h, s: s * 100, l: l * 100 }
-}
-
-/** La distancia entre dos colores en OKLab (ΔE_OK): cuánto se parecen a la vista, no cuánto cambian sus canales RGB. */
-export function colorDistance(a: string, b: string): number {
-  const [x, y] = [hexToLab(a), hexToLab(b)]
-  return Math.hypot(x.l - y.l, x.a - y.a, x.b - y.b)
-}
-
-/**
- * Hasta qué distancia (ΔE_OK) un color de la lista se considera "parecido": más lejos no se da nombre, solo se muestran la muestra
- * y el código. Medido con la lista de la semilla: los 11 colores se nombran a sí mismos (0) y los colores vivos razonables sí
- * tienen nombre (#ff0000 a 0.09 de Rojo, #4dc707 a 0.16 de Verde, #8a2be2 a 0.17 de Azul fuerte, #0000ff a 0.22 de Azul fuerte),
- * mientras que el negro (0.57) y el #333333 (0.26) quedan sin nombre porque la lista no tiene colores oscuros.
- */
-export const MAX_NAME_DISTANCE = 0.25
-/** Croma (colorido) en OKLab por debajo del cual un color es gris, y por encima del cual uno de la lista no se parece a un gris. */
-const ACHROMATIC_CHROMA = 0.03
-const CHROMATIC_CHROMA = 0.05
-
-const chromaOf = (hex: string) => {
-  const { a, b } = hexToLab(hex)
-  return Math.hypot(a, b)
-}
-
-/**
- * El nombre del color de la lista de la pastelería más cercano a `hex` (el primero si dos empatan); `null` si la lista está
- * vacía, si el más cercano pasa de `MAX_NAME_DISTANCE` o si `hex` es un gris y el candidato tiene color (un gris no se parece a
- * un café, aunque sea lo más cercano). La lista ya no limita lo que se elige: es solo una tabla de nombres de referencia.
- */
-export function nearestColorName(hex: string, references: readonly CoverageColorOption[]): string | null {
-  const gray = chromaOf(hex) < ACHROMATIC_CHROMA
-  let best: { name: string; distance: number } | null = null
-  for (const reference of references) {
-    const color = normalizeHex(reference.previewColor)
-    if (!color || (gray && chromaOf(color) > CHROMATIC_CHROMA)) continue
-    const distance = colorDistance(hex, color)
-    if (!best || distance < best.distance) best = { name: reference.name, distance }
-  }
-  return best && best.distance <= MAX_NAME_DISTANCE ? best.name : null
-}
-
-/**
- * "parecido a rosa", o `null` si ningún color de la lista se parece. Nunca el código (tanda 1): el color se ve en su muestra
- * redonda y el código solo viaja guardado.
- */
-export function colorPhrase(hex: string, references: readonly CoverageColorOption[]): string | null {
-  const name = nearestColorName(hex, references)
-  return name ? `parecido a ${name.charAt(0).toLowerCase()}${name.slice(1)}` : null
 }

@@ -350,7 +350,7 @@ test('choco-pingüino skips the filling step and envinado asks to choose another
   await expect(page.getByText('No se combina con pastel envinado').first()).toBeVisible()
   await expect(page.getByText('Para usar Choco-pingüino, cambia el tipo de pastel a Tres leches o Seco.')).toBeVisible()
   // Lo demás se conserva: la cobertura lila sigue en "Tu pastel".
-  await expect(shown(page, 'Crema pastelera, parecido a lila, con peinado lateral')).toBeVisible()
+  await expect(shown(page, 'Crema pastelera, con peinado lateral')).toBeVisible()
 })
 
 test('the steps do not repeat their titles nor explain the obvious', async ({ page }) => {
@@ -398,6 +398,16 @@ test('the red velvet conflict sentence comes from the reason code', async ({ pag
   await page.getByRole('link', { name: 'Cambiar tipo de pastel' }).click()
   await page.getByRole('radio', { name: 'Tres leches' }).check()
   await expect(page.getByText('Tu pan Red velvet solo va en pastel seco.')).toBeVisible()
+})
+
+test('the breads with their own filling name it once, like the others: red velvet carries cream cheese frosting', async ({ page }) => {
+  await open(page)
+  await toBreadStep(page, 'Seco')
+  const step = page.getByTestId('tarjeta-paso')
+  await expect(step.getByText('Relleno de betún de queso crema', { exact: true })).toBeVisible()
+  await expect(step.getByText('Relleno de crema de chocolate sabor helado', { exact: true })).toBeVisible()
+  // Sin el texto repetido de antes (21 de noviembre).
+  await expect(step.getByText(/relleno de relleno|típico/i)).toHaveCount(0)
 })
 
 test('envinado also asks to change a fresa con yogurt filling and keeps the bread', async ({ page }) => {
@@ -673,7 +683,9 @@ test('the color of a design is automatic by default, shows the tones of the cove
   // Cualquier color, no solo los 11 de la lista: arranca en el tono principal de la cobertura y se cambia con las barras.
   const chosen = await pickColor(card, '#12ab9f')
   await proceed(page)
-  await expect(shown(page, 'Rosas, color parecido a turquesa')).toBeVisible()
+  // El color va en su muestra, sin "parecido a" (21 de noviembre).
+  await expect(shown(page, 'Rosas, color elegido')).toBeVisible()
+  await expect(page.getByText(/parecido a/)).toHaveCount(0)
   // Atrás: el color elegido sigue y se puede volver a automático.
   await page.getByRole('link', { name: 'Cambiar decoración' }).filter({ visible: true }).first().click()
   await expect(card.getByRole('radio', { name: 'Elegir un color' })).toBeChecked()

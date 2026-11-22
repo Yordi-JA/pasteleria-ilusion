@@ -77,13 +77,15 @@ test('"Tu pastel" and the review say whether the sides are combed', async ({ pag
   await proceed(page)
   await expect(stepTitle(page)).toHaveText('6. Decoración')
   const summary = page.getByRole('region', { name: 'Lo que elegiste' }).getByRole('listitem').filter({ hasText: 'Cobertura' })
-  await expect(summary).toContainText('Crema pastelera, parecido a rosa, sin peinado lateral')
+  await expect(summary).toContainText('Crema pastelera, sin peinado lateral')
+  await expect(summary).not.toContainText('parecido a')
   await proceed(page)
   await expect(stepTitle(page)).toHaveText('7. Mensaje y oblea')
   await proceed(page)
   await expect(stepTitle(page)).toHaveText('8. Revisión')
   const review = card(page).locator('li').filter({ hasText: 'Cobertura de crema pastelera' })
-  await expect(review).toContainText('Color parecido a rosa, sin peinado lateral')
+  await expect(review).toContainText('Sin peinado lateral')
+  await expect(review).not.toContainText('parecido a')
   // Con el peinado puesto (el de siempre), la revisión lo dice también.
   await review.getByRole('link', { name: 'Cambiar la cobertura' }).click()
   await expect(stepTitle(page)).toHaveText('5. Cobertura')
@@ -92,7 +94,7 @@ test('"Tu pastel" and the review say whether the sides are combed', async ({ pag
     await proceed(page)
     await expect(stepTitle(page)).toHaveText(next)
   }
-  await expect(card(page).locator('li').filter({ hasText: 'Cobertura de crema pastelera' })).toContainText('Color parecido a rosa, con peinado lateral')
+  await expect(card(page).locator('li').filter({ hasText: 'Cobertura de crema pastelera' })).toContainText('Con peinado lateral')
 })
 
 test('the cart line keeps the choice and the order asks for it; an older cart line without it is combed', async ({ page }) => {
@@ -103,7 +105,8 @@ test('the cart line keeps the choice and the order asks for it; an older cart li
   const cart = await page.evaluate(() => JSON.parse(localStorage.getItem('ilusion.cart.v1') ?? 'null'))
   const [line] = cart.items
   expect(line.design.sideComb).toBe(false)
-  expect(line.details).toContain('Cobertura: Crema pastelera, parecido a rosa, sin peinado lateral')
+  expect(line.details).toContain('Cobertura: Crema pastelera, sin peinado lateral')
+  expect(JSON.stringify(line.details)).not.toContain('parecido a')
   const requests = await page.evaluate(
     async ({ url, snapshot }) => {
       const { designRequest } = await import(url)

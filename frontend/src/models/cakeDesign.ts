@@ -93,7 +93,10 @@ export type FillingBaseOption = {
   flavors: FillingFlavorOption[]
 }
 
-/** Un nombre de referencia de la pastelería: no limita los colores que se eligen, solo da el "parecido a". */
+/**
+ * Un color de referencia de la pastelería: no limita los colores que se eligen. Da el color de partida de la cobertura y migra los
+ * borradores viejos; la interfaz ya no lo nombra ("parecido a", quitado el 21 de noviembre).
+ */
 export type CoverageColorOption = { slug: string; name: string; previewColor: string }
 
 /** Cómo se cobra una decoración (regla 6.1): incluida, precio fijo o por cotizar. */
@@ -614,7 +617,7 @@ export function parseCakeDesignOptions(data: unknown): CakeDesignOptions {
     cakeTypes: list(data.cake_types, parseCakeType, 'tipos de pastel'),
     breads: list(data.breads, parseBread, 'panes'),
     fillingBases: list(data.filling_bases, parseBase, 'bases de relleno'),
-    // La lista ya no limita ningún color: es la tabla de nombres del "parecido a". Vacía o dañada, el diseño sigue sin ella.
+    // La lista ya no limita ningún color: da el color de partida y migra los borradores viejos. Vacía o dañada, el diseño sigue sin ella.
     coverageColors: Array.isArray(data.coverage_colors) ? list(data.coverage_colors, parseCoverageColor, 'nombres de color') : [],
     decorations: list(data.decorations, parseDecoration, 'decoraciones'),
     limits: parseLimits(data.limits),

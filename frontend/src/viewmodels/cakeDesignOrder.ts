@@ -71,12 +71,12 @@ export function designSnapshot({ draft, design, options, metrics }: Omit<OrderIn
 
 /** La línea del carrito, sin las claves de las imágenes (esas las da el guardado en `IndexedDB`). */
 export function designLine(input: OrderInput): Omit<DesignItem, 'images'> | null {
-  const { draft, design, options, quote, imageIds } = input
+  const { draft, design, quote, imageIds } = input
   const { breakdown, stand } = quote
   if (!breakdown) return null
   const snapshot = designSnapshot(input)
   const confirmed = { ...draft, confirmed: [1, 2, 3, 4, 5, 6, 7] }
-  const details = summaryRows(confirmed, design, 0, options).map((row) => `${row.label}: ${row.value}`)
+  const details = summaryRows(confirmed, design, 0).map((row) => `${row.label}: ${row.value}`)
   const occasion = occasionLabel(draft.occasion)
   if (occasion) details.push(`Ocasión: ${occasion}`)
   return {

@@ -5,7 +5,8 @@ import { colorPicker, pickColor, swatchColor } from './support/color-picker.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 
 /**
- * El selector libre de color (cobertura, decoración y texto del mensaje), su "parecido a" y la migración de los borradores y del
+ * El selector libre de color (cobertura, decoración y texto del mensaje), que la interfaz no nombra (sin "parecido a" desde el 21
+ * de noviembre), y la migración de los borradores y del
  * carrito que guardaron un `slug` de la lista vieja. La API se simula (`support/cake-design.ts`). Corre en escritorio (1440 px)
  * salvo donde se dice.
  */
@@ -124,43 +125,6 @@ test('the automatic tones of the decoration work with any color: black, white, g
       expect(Math.max(...channels) - Math.min(...channels), `${gray} -> ${value}`).toBeLessThan(3)
     }
   }
-})
-
-test('"parecido a" is the closest color of the list by perception, not by RGB distance, and it is empty with an empty list', async ({ page }) => {
-  await page.goto('/legal')
-  const result = await page.evaluate(
-    async ({ urls, options }) => {
-      const { parseCakeDesignOptions } = await import(urls.options)
-      const { colorPhrase, nearestColorName } = await import(urls.colors)
-      const list = parseCakeDesignOptions(options).coverageColors
-      const rgb = (a: string, b: string) => Math.hypot(...[1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16) - parseInt(b.slice(i, i + 2), 16)))
-      const byRgb = (hex: string) => list.reduce((best: { name: string; previewColor: string }, item: { name: string; previewColor: string }) => (rgb(hex, item.previewColor) < rgb(hex, best.previewColor) ? item : best)).name
-      return {
-        exact: list.map((item: { name: string; previewColor: string }) => nearestColorName(item.previewColor, list) === item.name),
-        samples: ['#4dc707', '#12ab9f', '#808080', '#ffffff', '#d44c49'].map((hex) => nearestColorName(hex, list)),
-        gray: ['#000000', '#333333', '#808080', '#666666'].map((hex) => [hex, nearestColorName(hex, list), colorPhrase(hex, list)]),
-        vivid: ['#ff0000', '#4dc707', '#8a2be2', '#0000ff', '#ff7f00'].map((hex) => nearestColorName(hex, list)),
-        nearWhite: ['#ffffff', '#fefefe'].map((hex) => nearestColorName(hex, list)),
-        rgbWouldSay: byRgb('#4dc707'),
-        phrase: colorPhrase('#4dc707', list),
-        emptyList: nearestColorName('#4dc707', []),
-        emptyPhrase: colorPhrase('#4dc707', []),
-      }
-    },
-    { urls: MODELS, options: cakeDesignOptions },
-  )
-  expect(result.exact.every(Boolean)).toBe(true)
-  expect(result.samples).toEqual(['Verde', 'Turquesa', null, 'Blanco', 'Rojo'])
-  // Los grises oscuros o medios no se parecen a ningún color de la lista: solo la muestra, sin nombre ni código (tanda 1).
-  expect(result.gray).toEqual([['#000000', null, null], ['#333333', null, null], ['#808080', null, null], ['#666666', null, null]])
-  // Los colores vivos razonables conservan nombre, y un gris casi blanco sigue siendo "Blanco".
-  expect(result.vivid).toEqual(['Rojo', 'Verde', 'Azul fuerte', 'Azul fuerte', 'Naranja'])
-  expect(result.nearWhite).toEqual(['Blanco', 'Blanco'])
-  // Por RGB saldría Café: la distancia perceptual da Verde, que es lo que se ve.
-  expect(result.rgbWouldSay).toBe('Café')
-  expect(result.phrase).toBe('parecido a verde')
-  expect(result.emptyList).toBeNull()
-  expect(result.emptyPhrase).toBeNull()
 })
 
 test('an old draft with a list slug becomes its color code; a slug that is gone is dropped', async ({ page }) => {
@@ -322,7 +286,7 @@ test('with an empty list of names the picker starts neutral and "Continuar" asks
   await pickColor(card(page), '#12ab9f')
   await proceed(page)
   await expect(page.locator('#paso-titulo')).toHaveText('6. Decoración')
-  // Sin nombre parecido, "Tu pastel" dice la cobertura con su muestra, sin el código.
+  // "Tu pastel" dice la cobertura con su muestra, sin el código ni un nombre de color.
   await expect(page.getByText('Crema pastelera, con peinado lateral', { exact: true }).filter({ visible: true })).toBeVisible()
   await expect(page.getByText(/#[0-9A-F]{6}/i).filter({ visible: true })).toHaveCount(0)
   await expect(page.getByText(/parecido a/)).toHaveCount(0)
@@ -337,9 +301,9 @@ test('with an empty list, exactly #FFFFFF can be chosen even though the picker s
   await expect(page.locator('#paso-titulo')).toHaveText('6. Decoración')
 })
 
-// --- Los tres usos y el "parecido a" ---
+// --- Los tres usos, sin el "parecido a" ---
 
-test('the three uses share the picker; the review shows swatch and "parecido a" without the code, and the cart line keeps the codes but its details say only the phrase', async ({ page }) => {
+test('the three uses share the picker; the review shows the swatch without the code or a color name, and the cart line keeps the codes but its details name no color', async ({ page }) => {
   await open(page, 5, DRAFT_TO_STEP_5)
   // 5. Cobertura.
   const coverage = await pickColor(card(page), '#d44c49')
@@ -360,9 +324,11 @@ test('the three uses share the picker; the review shows swatch and "parecido a" 
   // 8. Revisión.
   await expect(page.locator('#paso-titulo')).toHaveText('8. Revisión')
   const breakdown = page.getByTestId('desglose')
-  await expect(breakdown).toContainText('Color parecido a rojo')
-  await expect(breakdown).toContainText('Color parecido a verde')
-  await expect(breakdown).toContainText('Color parecido a turquesa')
+  // Sin "parecido a" (21 de noviembre): cada color se ve en su muestra.
+  await expect(breakdown.locator('li').filter({ hasText: 'Cobertura de crema pastelera' })).toContainText('Con peinado lateral')
+  await expect(breakdown.locator('li').filter({ hasText: 'Decoración: Rosas' })).toContainText('Color elegido')
+  await expect(breakdown.locator('li').filter({ hasText: 'Mensaje: Feliz cumple' })).toContainText('Color elegido')
+  await expect(breakdown).not.toContainText('parecido a')
   await expect(breakdown).not.toContainText('#')
   const rowColors = await breakdown.evaluate((el) => {
     const swatches = [...el.querySelectorAll<HTMLElement>('li span[aria-hidden=true] > span')].map((swatch) => swatch.style.backgroundColor)
@@ -378,11 +344,12 @@ test('the three uses share the picker; the review shows swatch and "parecido a" 
   expect(line.design).toMatchObject({ coverageColor: coverage, decorationColor: decoration, message: { color: { mode: 'custom', value: ink } } })
   expect(line.details).toEqual(
     expect.arrayContaining([
-      'Cobertura: Crema pastelera, parecido a rojo, con peinado lateral',
-      expect.stringContaining('Rosas, color parecido a verde'),
-      expect.stringContaining('Mensaje: Feliz cumple, color parecido a turquesa'),
+      'Cobertura: Crema pastelera, con peinado lateral',
+      expect.stringContaining('Rosas, color elegido'),
+      expect.stringContaining('Mensaje: Feliz cumple, color elegido'),
     ]),
   )
+  expect(JSON.stringify(line.details)).not.toContain('parecido a')
   expect(JSON.stringify(line.details)).not.toMatch(/#[0-9a-f]{6}/i)
 })
 
@@ -400,15 +367,15 @@ test('a free color costs nothing extra: the price request carries no color and t
 
 // --- Borradores y carritos viejos ---
 
-test('an old draft with list slugs opens with the matching names in the review and is saved migrated', async ({ page }) => {
+test('an old draft with list slugs opens in the review and is saved migrated to their codes, without naming the colors', async ({ page }) => {
   await open(page, 8, {
     ...DRAFT_TO_STEP_8, coverageColor: 'rojo', decoration: 'flores', decorationColor: 'azulfuerte',
     messageEnabled: true, message: { text: 'Hola', color: { mode: 'list', value: 'lila' } },
   })
   const breakdown = page.getByTestId('desglose')
-  await expect(breakdown).toContainText('Color parecido a rojo')
-  await expect(breakdown).toContainText('Color parecido a azul fuerte')
-  await expect(breakdown).toContainText('Color parecido a lila')
+  await expect(breakdown.locator('li').filter({ hasText: 'Cobertura de crema pastelera' })).toContainText('Con peinado lateral')
+  await expect(breakdown.locator('li').filter({ hasText: 'Decoración' })).toContainText('Color elegido')
+  await expect(breakdown).not.toContainText('parecido a')
   await expect.poll(async () => (await draftOf(page)).coverageColor).toBe('#d44c48')
   const draft = await draftOf(page)
   expect(draft).toMatchObject({ decorationColor: '#4a70ba', message: { color: { mode: 'custom', value: '#ccbae4' } } })
