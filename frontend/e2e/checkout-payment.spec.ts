@@ -63,6 +63,8 @@ test('shows the order from ?pedido= with the breakdown of the API and the three 
   // El marco de la compra y el paso 3.
   await expect(page.getByRole('banner').getByRole('link', { name: 'Volver al carrito' })).toBeVisible()
   await expect(page.getByTestId('franja')).toContainText('Pagos procesados por Stripe y Mercado Pago')
+  // Sin "¿Dudas con tu pedido?" ni el WhatsApp en la franja (correcciones del 21 de noviembre).
+  await expect(page.getByTestId('franja')).not.toContainText('WhatsApp')
   await expect(page.getByRole('navigation', { name: 'Pasos de tu compra' }).locator('[aria-current="step"]')).toContainText('Pago')
   // La frase sale del porcentaje de la API, sin envío: la entrega a domicilio no existe (D66).
   await expect(page.getByText('Hoy pagas el 50% del pedido y el depósito de la base; el resto, al entregar.')).toBeVisible()
