@@ -36,7 +36,8 @@ test.describe('vitrina at 1440px', () => {
     await openShowcase(page)
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Vitrina')
     await expect(page).toHaveTitle('Vitrina · Pastelería Ilusión')
-    await expect(page.getByRole('navigation', { name: 'Ruta' })).toContainText('Inicio')
+    // Sin migas: la vitrina es una página de la barra (correcciones del 21 de noviembre).
+    await expect(page.getByRole('navigation', { name: 'Ruta' })).toHaveCount(0)
     await expect(main(page)).toContainText('Viernes 6 de noviembre. Lo que hay hoy en la pastelería para llevar.')
     await expect(page.getByRole('group', { name: 'Filtrar la vitrina' }).getByRole('radio', { name: 'Todo' })).toBeChecked()
     await expect(names(page)).toHaveText([

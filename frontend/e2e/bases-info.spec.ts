@@ -35,7 +35,8 @@ test.describe('bases at 1440px', () => {
     await openBases(page)
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Bases en préstamo')
     await expect(page).toHaveTitle('Bases en préstamo · Pastelería Ilusión')
-    await expect(header(page).getByRole('navigation', { name: 'Ruta' }).getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/')
+    // Sin migas: es una página de primer nivel, sin otra arriba (correcciones del 21 de noviembre).
+    await expect(page.getByRole('navigation', { name: 'Ruta' })).toHaveCount(0)
     await expect(header(page)).toContainText(LEAD)
 
     await expect(steps(page)).toHaveCount(3)
@@ -172,14 +173,13 @@ test.describe('bases at 1440px', () => {
     await expect(deposits(page)).toHaveCount(6)
   })
 
-  test('the keyboard reaches the breadcrumb and the order button, with a visible focus', async ({ page }) => {
+  test('the keyboard goes from the main content to the order button, with a visible focus', async ({ page }) => {
     await openBases(page)
     await expect(deposits(page)).toHaveCount(6)
-    const home = header(page).getByRole('link', { name: 'Inicio' })
-    await home.focus()
-    await expect(home).toHaveCSS('outline-style', 'solid')
+    // Sin migas, el recorrido empieza en el contenido: `main` recibe el foco al cambiar de ruta (`useRouteFocus`).
+    await page.locator('main').focus()
     const cta = region(page, '¿Tu pedido necesita base?').getByRole('link', { name: 'Realizar pedido' })
-    // Desde las migas, Tab recorre la página hasta el botón sin otras paradas: el contenido no tiene controles.
+    // Desde ahí, Tab recorre la página hasta el botón sin otras paradas: el contenido no tiene controles.
     await page.keyboard.press('Tab')
     await expect(cta).toBeFocused()
     await expect(cta).toHaveCSS('outline-style', 'solid')

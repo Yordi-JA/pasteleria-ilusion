@@ -1,6 +1,5 @@
 import { Cake } from '@phosphor-icons/react'
 import type { ReactNode } from 'react'
-import Breadcrumb from '../components/Breadcrumb.tsx'
 import ButtonLink from '../components/ButtonLink.tsx'
 import Card from '../components/Card.tsx'
 import LeadDays from '../components/LeadDays.tsx'
@@ -38,13 +37,16 @@ function Choice({ id, drawing, title, text, note, action, to }: ChoiceProps) {
   )
 }
 
-/** `/pedido`: elegir entre "Diseña tu pastel" y el envío de una foto de referencia. Sin pastel 3D (regla del proyecto). */
+/**
+ * `/pedido`: elegir entre "Diseña tu pastel" y el envío de una foto de referencia. Sin pastel 3D (regla del proyecto). Sin migas: es
+ * una página de la barra, que ya dice dónde estás (correcciones del 21 de noviembre).
+ */
 export default function OrderStart() {
   usePageTitle(TITLE)
   const { leadDays } = useOrderStart()
   return (
     <>
-      <PageHeader title={TITLE} before={<Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: TITLE }]} />}>
+      <PageHeader title={TITLE}>
         <p className="max-w-[620px] text-cuerpo text-mermelada-suave">Elige cómo quieres encargar tu pastel.</p>
       </PageHeader>
       <div className="mx-auto grid w-full max-w-[1200px] grid-cols-2 gap-8 px-6 pb-20 pt-14 max-[960px]:grid-cols-1 max-[600px]:px-4 max-[600px]:pb-12 max-[600px]:pt-8">

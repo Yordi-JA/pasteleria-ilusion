@@ -77,7 +77,7 @@ export default function ReferenceSent() {
 
   return (
     <>
-      <IllustratedHeader title={TITLE} titleId="enviada-titulo" drawing="toldo" crumbs={[]}>
+      <IllustratedHeader title={TITLE} titleId="enviada-titulo" drawing="toldo">
         <p className="max-w-[560px] text-cuerpo text-mermelada-suave">
           Te enviaremos la cotización a {sent.email ?? 'tu correo'} en máximo 1 hora. También la verás en tu cuenta.
         </p>
