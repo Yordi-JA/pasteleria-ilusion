@@ -40,7 +40,7 @@ def sample_of(slug):
 
 def test_the_new_options_are_the_ones_the_photos_need():
     assert {"pineapple", "apple_slice"} <= set(FruitKind.values)
-    assert {"stripes", "diagonal"} <= set(FruitLayout.values)
+    assert {"stripes", "diagonal", "fans"} <= set(FruitLayout.values)
     assert "scribble" in SampleDrizzle.values
     assert {"back", "full"} <= set(SampleShells.values)
     assert {"shavings", "seeds"} <= set(SampleSideBits.values)
@@ -71,7 +71,9 @@ def test_what_each_photo_shows_is_in_its_sample():
     assert (pinguino.shells, pinguino.side_bits, pinguino.side_texture, pinguino.fruit_layout) == ("full", "shavings", "spatula", "")
     assert pinguino.dusting_color
     queso = sample_of("tres-leches-con-queso-y-zarzamora")
-    assert (queso.shells, queso.drizzle, queso.side_bits, queso.fruit_layout) == ("back", "scribble", "seeds", "mound")
+    assert (queso.shells, queso.drizzle, queso.side_bits, queso.fruit_layout) == ("back", "scribble", "seeds", "fans")
+    # En el montón de abanicos mandan las primeras frutas de la lista: la manzana roja y la pera, como en la foto.
+    assert queso.fruits[:2] == ["apple", "pear"]
     flan = sample_of("tres-leches-con-flan-y-zarzamora")
     assert (flan.fruit_layout, flan.side_band_color != "", flan.top_glossy) == ("diagonal", True, True)
     assert "apple_slice" in flan.fruits

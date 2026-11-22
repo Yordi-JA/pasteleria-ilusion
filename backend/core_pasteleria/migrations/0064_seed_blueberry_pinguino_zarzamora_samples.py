@@ -82,15 +82,15 @@ SAMPLES = {
         },
     ),
     # Mermelada de zarzamora brillante con sus semillas en el costado y la tapa; crema blanca abajo; un garabato de hilos blancos en el
-    # lado izquierdo; huevos grandes de chocolate blanco en la mitad de atrás; fruta tupida del centro hacia la derecha (manzana roja,
-    # pera, piña, kiwi y fresa) y rosetones solo por el frente y la derecha, alrededor de la fruta.
+    # lado izquierdo; huevos grandes de chocolate blanco en la mitad de atrás; un montón de abanicos del centro hacia la derecha, donde
+    # mandan la manzana roja en láminas y la pera, con fresa, algo de kiwi y poca piña; rosetones solo por el frente y la derecha.
     "tres-leches-con-queso-y-zarzamora": (
         "rosetones",
         {
             "coverage_color": "#7D2434",
             "decoration_color": "#F6EEE3",
-            "fruit_layout": "mound",
-            "fruits": ["apple", "pear", "pineapple", "kiwi", "strawberry"],
+            "fruit_layout": "fans",
+            "fruits": ["apple", "pear", "strawberry", "kiwi", "pineapple"],
             "top_color": "#7A2438",
             "top_glossy": True,
             "side_glossy": True,
@@ -104,7 +104,7 @@ SAMPLES = {
             "shell_color": "#F1E6CC",
             "side_bits": "seeds",
             "side_bits_color": "#2A0B10",
-            "fruit_density": 3.0,
+            "fruit_density": 1.8,
         },
     ),
     # Mermelada de zarzamora casi negra y muy brillante en la tapa y el costado; rosetones blancos alrededor; fruta en filas diagonales

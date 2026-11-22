@@ -449,7 +449,7 @@ test('a half-filled pair or an unknown detail from the API is dropped, not drawn
   expect(details.edgeSize).toBe(1)
 })
 
-test('queso y zarzamora: big eggs on the back arc, the fruit moved away from them, the scribble on the left without rosettes and the seeds on the side', async ({ page }) => {
+test('queso y zarzamora: big eggs on the back arc, a heap of apple and pear fans moved away from them, the scribble on the left without rosettes and the seeds on the side', async ({ page }) => {
   const result = await page.evaluate(
     async ({ urls, tier }) => {
       const { shellLayout, sampleDetailsLayout, sampleDecoration, SCRIBBLE_ARC } = await import(urls.details)
@@ -460,7 +460,7 @@ test('queso y zarzamora: big eggs on the back arc, the fruit moved away from the
         festoons: false,
         stand: false,
         decoration: { kind: 'rosettes', main: '#f6eee3', accent: '#f6eee3' },
-        topping: { kind: 'fruit', layout: 'mound', fruits: ['apple', 'pear', 'pineapple', 'kiwi', 'strawberry'], unitsPerCm: 0.068, density: 3 },
+        topping: { kind: 'fruit', layout: 'fans', fruits: ['apple', 'pear', 'strawberry', 'kiwi', 'pineapple'], unitsPerCm: 0.068, density: 1.8 },
         details: {
           shells: { place: 'back', colors: ['#f1e6cc'] },
           drizzle: { kind: 'scribble', color: '#f6e4e4' },
@@ -488,6 +488,7 @@ test('queso y zarzamora: big eggs on the back arc, the fruit moved away from the
           eggs.every((egg: { p: number[]; width: number }) => Math.hypot(piece.p[0] - egg.p[0], piece.p[2] - egg.p[2]) >= egg.width * 1.05 + piece.reach - 1e-6),
         ),
         fruit: fruit.placements.length,
+        kinds: fruit.placements.reduce((counts: Record<string, number>, piece: { kind: string }) => ({ ...counts, [piece.kind]: (counts[piece.kind] ?? 0) + 1 }), {}),
         meanX: fruit.placements.reduce((sum: number, piece: { p: number[] }) => sum + piece.p[0], 0) / fruit.placements.length,
         gap: layout.edgeGap,
         scribbleArc: SCRIBBLE_ARC,
@@ -508,6 +509,10 @@ test('queso y zarzamora: big eggs on the back arc, the fruit moved away from the
   expect(result.fruit).toBeGreaterThan(10)
   expect(result.clear).toBe(true)
   expect(result.meanX).toBeGreaterThan(0.05)
+  // Mandan la manzana y la pera (más de la mitad de las piezas); la piña es poca.
+  expect(result.kinds.apple + result.kinds.pear).toBeGreaterThan(result.fruit / 2)
+  expect(result.kinds.apple).toBeGreaterThan(result.kinds.pineapple)
+  expect(result.kinds.pineapple).toBeLessThan(result.fruit / 4)
   // El garabato: abierto, sobre la tapa plana y dentro de su arco; sin rosetones de atrás al frente por la izquierda.
   expect(result.closed).toBe(false)
   expect(result.scribble.every((p: { a: number; r: number }) => p.r < TIER.radius - EDGE && p.a > result.scribbleArc.from - 0.3 && p.a < result.scribbleArc.to + 0.3)).toBe(true)

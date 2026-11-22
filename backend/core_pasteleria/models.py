@@ -280,6 +280,7 @@ class FruitLayout(models.TextChoices):
     ROWS = "rows", "En filas"
     DIAGONAL = "diagonal", "En filas diagonales que llenan la tapa"
     STRIPES = "stripes", "En franjas de atrás hacia el frente, con rosetones entre ellas"
+    FANS = "fans", "Montón de abanicos: las primeras frutas de la lista son las que más hay, paradas"
 
 
 class FruitKind(models.TextChoices):

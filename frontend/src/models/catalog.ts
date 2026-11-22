@@ -435,7 +435,7 @@ const FRUIT_KINDS: Record<FruitKind, true> = {
   pineapple: true,
   apple_slice: true,
 }
-const FRUIT_LAYOUTS: Record<FruitLayoutKind, true> = { mound: true, ring: true, rows: true, diagonal: true, stripes: true }
+const FRUIT_LAYOUTS: Record<FruitLayoutKind, true> = { mound: true, ring: true, rows: true, diagonal: true, stripes: true, fans: true }
 
 const isFruitKind = (value: unknown): value is FruitKind => typeof value === 'string' && Object.hasOwn(FRUIT_KINDS, value)
 

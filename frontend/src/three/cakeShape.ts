@@ -182,9 +182,10 @@ export type FruitKind = 'strawberry' | 'kiwi' | 'peach' | 'apple' | 'grape' | 's
 /**
  * Cómo se acomoda la fruta: `mound`, un montón al centro; `ring`, una vuelta junto a la orilla, por dentro del borde de duya;
  * `rows`, en filas de una fruta cada una; `diagonal`, esas filas giradas, en diagonal sobre toda la tapa (flan y zarzamora);
- * `stripes`, una franja de cada fruta de atrás hacia el frente, con una hilera de rosetones entre cada dos (blueberry).
+ * `stripes`, una franja de cada fruta de atrás hacia el frente, con una hilera de rosetones entre cada dos (blueberry); `fans`, un
+ * montón donde mandan las primeras frutas de la lista, en láminas paradas como abanicos (queso y zarzamora).
  */
-export type FruitLayoutKind = 'mound' | 'ring' | 'rows' | 'diagonal' | 'stripes'
+export type FruitLayoutKind = 'mound' | 'ring' | 'rows' | 'diagonal' | 'stripes' | 'fans'
 
 /**
  * Lo que va sobre la tapa del último piso además del mensaje y la oblea (tanda 4b): por ahora, fruta fresca. Solo para las

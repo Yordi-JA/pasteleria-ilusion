@@ -812,12 +812,13 @@ function place(context: Context, placement: FruitPlacement): boolean {
 }
 
 /** Reparte las frutas: la primera vuelta de la grande a la chica (las grandes abajo y al centro), luego en un orden al azar. */
-function kindSequence(fruits: readonly FruitKind[], random: () => number) {
+function kindSequence(fruits: readonly FruitKind[], random: () => number, weights?: readonly number[]) {
   let round = 0
   let queue: FruitKind[] = []
   return () => {
     if (queue.length === 0) {
-      queue = [...fruits]
+      // Con pesos (el montón de abanicos), desde la segunda vuelta cada fruta sale tantas veces como su peso.
+      queue = weights && round > 0 ? fruits.flatMap((kind, i) => Array.from({ length: weights[i] ?? 1 }, () => kind)) : [...fruits]
       if (round === 0) queue.sort((a, b) => pieceSize(KIND_PIECES[b][0]).radius - pieceSize(KIND_PIECES[a][0]).radius)
       else for (let i = queue.length - 1; i > 0; i--) {
         const j = Math.floor(random() * (i + 1))
@@ -853,14 +854,32 @@ function moundCenter(context: Context): [number, number] {
 }
 
 /**
+ * El montón de abanicos de la foto de queso y zarzamora: las primeras frutas de la lista mandan (salen `lead` veces más que las
+ * demás, en ese orden), sus piezas pueden ser más grandes en las capas de arriba (`share`) y van más paradas (`standing`), como las
+ * láminas de manzana roja y de pera de esa foto; las demás (fresa, kiwi, piña) llenan entre ellas.
+ */
+const FANS = { lead: [8, 2], share: 0.95, standing: 0.35, footprint: 0.42, spread: 0.9 }
+
+/**
+ * Lo que cambia el montón de abanicos; sin nada, el montón de siempre. `footprint` es la parte de su alcance que ocupan en el piso las
+ * piezas que mandan (una lámina parada se encima con la de junto, como en un abanico) y `spread`, cuánto pueden pasar las demás frutas
+ * de su parte del montón (en el de siempre, 1.4).
+ */
+type MoundOptions = { lead?: readonly number[]; share?: number; standing?: number; footprint?: number; spread?: number }
+
+/**
  * El montón: una capa de piezas casi planas en el centro y, encima, capas más chicas que se recargan hacia afuera; cada pieza de
  * arriba descansa sobre una plana de la capa de abajo.
  */
-function mound(context: Context, fruits: readonly FruitKind[]) {
+function mound(context: Context, fruits: readonly FruitKind[], options: MoundOptions = {}) {
   const { free, random, dense } = context
   const [cx, cz] = moundCenter(context)
   const { low, high } = denseParts(dense)
-  const next = kindSequence(fruits, random)
+  const weights = options.lead ? fruits.map((_, i) => options.lead?.[i] ?? 1) : undefined
+  const weightOf = (kind: FruitKind) => (weights ? weights[fruits.indexOf(kind)] : 1)
+  const totalWeight = weights ? weights.reduce((sum, weight) => sum + weight, 0) : fruits.length
+  const leading = (kind: FruitKind) => weightOf(kind) > 1
+  const next = kindSequence(fruits, random, weights)
   const share = lerp(MOUND_SHARE, DENSE.share, low)
   const packing = lerp(MOUND_PACKING, DENSE.packing, low) - DENSE_HIGH.packing * high
   const layers = Math.round(lerp(MOUND_LAYERS, DENSE.layers, low) + DENSE_HIGH.layers * high)
@@ -876,19 +895,27 @@ function mound(context: Context, fruits: readonly FruitKind[]) {
     let failures = 0
     // En el montón tupido ninguna fruta se adueña: una chica (el plátano, el physalis) no llena lo que no cupo de las grandes.
     const counts = new Map<FruitKind, number>()
-    const overused = (kind: FruitKind) => (counts.get(kind) ?? 0) > 2 + (1.4 * context.placements.length) / fruits.length
+    const spread = options.spread ?? 1.4
+    const overused = (kind: FruitKind) => (counts.get(kind) ?? 0) > 2 + (spread * weightOf(kind) * context.placements.length) / totalWeight
     while (failures < giveUp) {
       const kind = next()
-      if (dense > 0 && overused(kind)) continue
+      if (dense > 0 && overused(kind)) {
+        // En el montón de abanicos todas las frutas pueden quedar en su tope a la vez: saltarse una cuenta como falla, para que la
+        // capa termine. En el de siempre (`spread` de 1.4) eso no pasa y la cuenta sigue igual.
+        if (options.lead) failures++
+        continue
+      }
       let placed = false
       for (let attempt = 0; attempt < TRIES && !placed; attempt++) {
         // Un domo: abajo, las piezas se recargan hacia afuera más cuanto más lejos del centro; arriba, todas se paran más, como las
         // rebanadas de manzana de las fotos.
         const a = random() * Math.PI * 2
         const d = Math.sqrt(random())
-        const tilt = layer === 0 ? 0.05 + 0.2 * d : 0.4 + random() * 0.35 + DENSE.upright * low + DENSE_HIGH.upright * high
-        const piece = candidate(context, kind, tilt)
-        if (piece.reach > LARGEST_SHARE * Math.min(rx, rz)) continue
+        const lean = layer === 0 ? 0.05 + 0.2 * d : 0.4 + random() * 0.35 + DENSE.upright * low + DENSE_HIGH.upright * high
+        const tilt = options.standing && leading(kind) ? lean + options.standing : lean
+        const candidatePiece = candidate(context, kind, tilt)
+        const piece = options.footprint && leading(kind) ? { ...candidatePiece, reach: candidatePiece.reach * options.footprint } : candidatePiece
+        if (piece.reach > (options.share && leading(kind) ? options.share : LARGEST_SHARE) * Math.min(rx, rz)) continue
         // Dentro del montón la pieza completa, no solo su centro: el centro cae a un alcance de su orilla.
         const x = cx + Math.sin(a) * d * Math.max(0, rx - piece.reach)
         const z = cz + Math.cos(a) * d * Math.max(0, rz - piece.reach)
@@ -1131,7 +1158,7 @@ function stripes(context: Context, fruits: readonly FruitKind[], rosette: number
   return dividers
 }
 
-const SEEDS: Record<FruitLayoutKind, number> = { mound: 20261118, ring: 20261119, rows: 20261120, diagonal: 20261121, stripes: 20261122 }
+const SEEDS: Record<FruitLayoutKind, number> = { mound: 20261118, ring: 20261119, rows: 20261120, diagonal: 20261121, stripes: 20261122, fans: 20261123 }
 
 /**
  * La fruta del último piso de `shape`, en las coordenadas de ese piso; `null` sin fruta. `decoration` es la decoración ya colocada
@@ -1164,6 +1191,7 @@ export function fruitLayout(shape: CakeShape, decoration?: TierDecoration, avoid
   const rosette = decoration?.parts.find((part) => part.shape === 'rosette')?.placements[0]?.s[0] ?? 1
   const layouts: Record<FruitLayoutKind, () => FruitDividers | void> = {
     mound: () => mound(context, fruits),
+    fans: () => mound(context, fruits, FANS),
     ring: () => ring(context, fruits),
     rows: () => rows(context, fruits),
     diagonal: () => rows(context, fruits, DIAGONAL),
