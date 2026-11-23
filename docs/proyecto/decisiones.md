@@ -1817,6 +1817,22 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 - **Contexto:** El 21 y el 22 de noviembre el usuario siguió mandando correcciones de interfaz (D99 y D100). Con la regla anterior, esos días solo admitían arreglar fallas, y las correcciones cambian pantallas y funciones que ya existían. El usuario movió el congelamiento al 22.
 - **Consecuencias:** Cambia el hito de `docs/proyecto/plan-de-trabajo.md` (plan real, hitos, Gantt y registro de cambios), la regla de `AGENTS.md` y el estado de `README.md`. Las fechas de las etapas no cambian. Las migraciones `0063` a `0069` siguen sin desplegar (D100).
 
+### D102. Diagramas de la presentación aparte, sin nombres de código
+
+- **Fecha:** 22 de noviembre de 2026.
+- **Decisión:** Los diagramas de la presentación son versiones aparte, sin nombres de función ni de clase, en `docs/proyecto/presentacion/diagramas/`: contexto, capas, pagos, avisos del pedido, estados del pedido y estados de la base. Cada uno tiene su `.excalidraw`, su `.svg` y su `.png`. Los patrones (Factory Method, Adapter, Observer, MVVM, MVT) aparecen solo como etiqueta pequeña. Los diagramas técnicos de `docs/proyecto/diagramas/` y de `arquitectura.md` se quedan como están, porque documentan el código. Las dos series usan la paleta Fresa y mermelada (D35).
+- **Contexto:** La exposición es para un público que no programa y se arma en Canva, que pide imágenes PNG. D35 dejó los diagramas técnicos sin PNG y con los nombres del código.
+- **Alternativas descartadas:** Simplificar los diagramas técnicos en su lugar: perdería el detalle que respalda a `arquitectura.md`.
+- **Consecuencias:** Hay dos series que mantener. Si cambia la arquitectura, se actualiza primero la técnica y después la simplificada. El PNG de la serie simplificada es el que se sube a Canva. El guion y el anexo técnico están en `docs/proyecto/presentacion/`.
+
+### D103. Excepción al congelamiento: la imagen de cada línea del pedido sale del servidor
+
+- **Fecha:** 22 de noviembre de 2026.
+- **Decisión:** Es una excepción a D101, aprobada por el usuario como arreglo urgente antes de la exposición. Cada línea del pedido de la API (`OrderItemSerializer`) agrega dos campos de solo lectura, `image` y `product_slug`. Las líneas de catálogo y de vitrina (pastel entero, rebanada o postre) llevan la misma imagen que la tarjeta del catálogo, con la regla de `catalog_service`: la imagen del modelo solo donde va la foto del producto y nunca en una rebanada (D99). Los postres usan su imagen de modelo por `product_slug` (D97). Las líneas de diseño y de cotización no llevan imagen, y el frontend tampoco usa una imagen del servidor en un diseño aunque llegara (`orderLineThumbnail`). El frontend sigue prefiriendo la miniatura que guardó la pestaña que creó el pedido. Sin esa miniatura usa la imagen del servidor, siempre como nombre de archivo de `/fotos/`. El detalle del pedido (`/cuenta/pedidos/:id`) también lee la miniatura local, así que cambia lo que decía la tanda 4: el detalle ya no queda sin miniaturas.
+- **Contexto:** Al abrir el pedido desde el botón del correo, o en otra pestaña o dispositivo, todas las líneas mostraban el marcador "Foto". Las miniaturas solo vivían en el `sessionStorage` de la pestaña que hizo el pedido, y la API no mandaba ninguna imagen.
+- **Alternativas descartadas:** Mostrar en un diseño la imagen del pastel de origen ("Personalizar este pastel"): la cobertura y la decoración son libres, así que esa imagen puede no parecerse a lo que se pidió. Guardar en el servidor la captura del diseño: necesita una migración y una subida nueva después del congelamiento. Usar solo la miniatura local: desde el correo casi nunca existe.
+- **Consecuencias:** No hay migraciones. La imagen sale del catálogo actual, no de cuando se hizo el pedido, así que si la pastelería cambia la foto de un producto, los pedidos anteriores muestran la nueva. Un diseño abierto en otra pestaña muestra el marcador. Queda como trabajo a futuro guardar la captura del diseño en el servidor, para que un diseño también tenga imagen desde el correo.
+
 ## Decisiones abiertas
 
 | Tema | Detalle | Se resuelve |
@@ -1824,7 +1840,6 @@ Este registro guarda las decisiones del proyecto con su fecha, su contexto y lo 
 | API de distancias | Para la tarifa de envío; las reglas sugieren una API de rutas como Google Distance Matrix | Solo si sobra tiempo en la Etapa 4 (D61) |
 | Nombres finales de modelos y campos | Los de [`arquitectura.md`](arquitectura.md#entidades-previstas) son previstos | Etapa 2 |
 | Datos de la pastelería | Precio de cada diseño de decoración fijo (duya, rosas y chispas) y tamaño máximo de la imagen de "Otra decoración", repartidor propio o aplicación, vigencia de una cotización, políticas de cambios y cancelaciones, base dañada, aviso de privacidad y términos (la dirección y el WhatsApp ya están en el admin, D71) ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 14) | Cuando responda la pastelería |
-| Cancelación de apartados vencidos | Comando `cancel_expired_orders` (D63, ronda 2), cada 10 minutos con Heroku Scheduler (D26); falta programarlo | Con el despliegue |
 | Endurecimiento de la sesión y de las credenciales | Pendientes de D28: una sesión más corta en el admin, una CSP para el admin y Swagger UI (traen código en línea; la del sitio y la API ya está, D62) y programar `flushexpiredtokens` y `axes_reset_logs`. La caché compartida, `NUM_PROXIES` obligatorio y django-axes ya quedaron (D33 y D34); la llave de firma de JWT separada, el rechazo del refresh anterior a un cambio de contraseña y la caché propia de los throttles del acceso, en D62 | Con el despliegue |
 | Preguntas del catálogo para la pastelería | Unidad del pan para encargos de hoy, sabores y minis en vitrina, Mosaico con yogurt, vitrina frente a rebanadas, peso que cuenta para el envío gratis y base de 26 a 50 kg (D32) | Cuando responda la pastelería |
 | Envío gratis con 15 kg o más a más de 15 km | Pregunta para la pastelería ([`../reglas-de-negocio.md`](../reglas-de-negocio.md), sección 8) | Cuando responda la pastelería |

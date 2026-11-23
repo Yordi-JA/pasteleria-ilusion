@@ -159,6 +159,7 @@ El mockup (`mockup/fuente/*.dc.html`) son prototipos HTML de un lienzo de diseñ
 | [`docs/proyecto/pruebas.md`](docs/proyecto/pruebas.md) | Estrategia de pruebas |
 | [`docs/proyecto/decisiones.md`](docs/proyecto/decisiones.md) | Registro de decisiones |
 | [`docs/proyecto/referencias.md`](docs/proyecto/referencias.md) | Referencias |
+| [`docs/proyecto/presentacion/`](docs/proyecto/presentacion/) | Guion de la presentación, anexo técnico y diagramas simplificados |
 | [`docs/reglas-de-negocio.md`](docs/reglas-de-negocio.md) | Precios, límites, cálculos, estados y pendientes |
 | [`docs/libro-de-marca.md`](docs/libro-de-marca.md) | Color, tipografía, componentes, redacción y accesibilidad |
 | [`docs/mapa-de-vistas.md`](docs/mapa-de-vistas.md) | Cada pantalla con su ruta, archivo fuente y capturas |

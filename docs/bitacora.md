@@ -908,3 +908,18 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Se actualizaron las decisiones, las reglas de negocio (el relleno de Red velvet), el esquema del catálogo, el libro de marca, el mapa de vistas, `frontend/AGENTS.md` y `docs/proyecto/pruebas.md`.
 - Decisiones D100 y D101. Rama `feat/pasteles-blueberry-pinguino-zarzamora`, sin fusionar; las migraciones `0063` a `0069` no están en Heroku.
 - Documentación: el diagrama de contexto (`proyecto/diagramas/contexto.excalidraw` y su SVG) se puso al día con lo que hay en el sitio. Las vistas del personal en el sitio (D64) y la API de rutas para la entrega a domicilio (D66) entran como trabajo a futuro, en cajas punteadas. El personal trabaja solo en el admin de Django, el correo sale por Brevo (D70) y la tarea programada se llama `cancel_expired_orders` (D63). Se actualizaron el texto alternativo y las notas en `proyecto/arquitectura.md`.
+
+### Domingo 22 de noviembre (tarde): guion y anexo técnico de la presentación (D102)
+
+- Documentación, sin cambios de código. Nueva carpeta `proyecto/presentacion/` con `guion.md` (no técnico, para los tres expositores: 14 diapositivas y una demo de 4 minutos, unos 14:30 en total, con diapositivas de respaldo, rúbrica a diapositiva, plan B y fuentes en APA) y `anexo-tecnico.md` (por los temas del curso, con las rutas del código y lo que no se aplicó).
+- Seis diagramas simplificados en `proyecto/presentacion/diagramas/` (contexto, capas, pagos, avisos del pedido, estados del pedido y estados de la base), cada uno en `.excalidraw`, `.svg` y `.png`; el PNG es el que se sube a Canva. Los técnicos de `proyecto/diagramas/` se quedan como están.
+- En el diagrama de contexto técnico (`proyecto/diagramas/contexto.excalidraw` y su SVG) se desvió la flecha de "inicio de sesión con Google", que tachaba el rótulo "Plataforma Pastelería Ilusión".
+- El repositorio no tiene un video de respaldo de la demo; el guion lo deja como sugerencia grabarlo antes de exponer.
+- Decisión D102.
+
+### Domingo 22 de noviembre (noche): la imagen de cada línea del pedido sale del servidor (D103)
+
+- Excepción al congelamiento (D101), aprobada por el usuario. Al abrir el pedido desde el botón del correo, en otra pestaña o en otro dispositivo, el detalle (`/cuenta/pedidos/:id`), el pago y la confirmación mostraban el marcador "Foto" en todas las líneas: las miniaturas solo vivían en el `sessionStorage` de la pestaña que hizo el pedido y la API no mandaba ninguna imagen.
+- La API agrega `image` y `product_slug` a cada línea (`OrderItemSerializer`). Las de catálogo y vitrina llevan la imagen de la tarjeta del catálogo (`catalog_service.order_line_image`), y los postres su imagen de modelo por el slug (D97). Los diseños y las cotizaciones no llevan imagen: en "Personalizar este pastel" la cobertura y la decoración son libres, y la imagen del pastel de origen podía no parecerse a lo pedido. El frontend prefiere la miniatura local y, sin ella, usa la del servidor como archivo de `/fotos/`. El detalle ahora también lee la miniatura local. Sin migraciones y sin consultas nuevas (4 en el detalle y 5 en la lista).
+- Verificación en local, en la rama `fix/miniaturas-pedido` desde `origin/main`: `pytest -n auto`, 2387 pasaron; `npm run typecheck`, `npm run lint` y `npm run build` sin errores; Playwright, los 9 archivos del detalle, el pago, la confirmación, el apartado, la miniatura del diseño, "Mis pedidos", la cancelación y la cotización aceptada: 122 de 122. Pruebas nuevas: `test_order_line_images.py` y `order-line-images.spec.ts`; `cart-design-thumbnail.spec.ts` cambia una aserción porque el detalle ya muestra la miniatura local. No se verificó en Heroku ni en un teléfono real.
+- Decisión D103.
