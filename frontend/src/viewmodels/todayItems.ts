@@ -52,8 +52,8 @@ export type ShowcaseItemView =
   | (ShowcaseItemBase & { kind: 'sliced'; slicesHref: string; orderHref: string })
 
 /**
- * Con `modelImages` (la portada, D86), la partida muestra la imagen del modelo donde la hay (la de la API o la de un postre con
- * modelo, D95), en lugar de la foto. `/vitrina` conserva la foto.
+ * Con `modelImages` (la portada, D86, y `/vitrina`, D104), la partida muestra la imagen del modelo donde la hay (la de la API o
+ * la de un postre con modelo, D95), en lugar de la foto.
  */
 export type ShowcaseImages = { modelImages?: boolean }
 
@@ -133,15 +133,21 @@ export type SliceItemView = Addable & {
   productHref: string
 }
 
-export function toSliceItem(item: StockItem): SliceItemView {
+const SLICE_PLACEHOLDER = 'Foto de la rebanada'
+
+/** Con `modelImages` (`/rebanadas`, D104), la rebanada muestra la imagen del modelo de su pastel donde la hay, en lugar de la foto. */
+export function toSliceItem(item: StockItem, { modelImages = false }: ShowcaseImages = {}): SliceItemView {
+  const name = offeringLabel(item.productName, item.presentation)
   return {
     key: String(item.offeringId),
     name: item.productName,
     price: `${price(item.price)} la rebanada`,
     remaining: item.soldOut ? null : remainingLabel(item.stock),
     soldOut: item.soldOut,
-    photo: photoView(item.photo, offeringLabel(item.productName, item.presentation), 'Foto de la rebanada'),
-    // Una rebanada no tiene imagen del modelo: el carrito muestra su foto.
+    photo: modelImages
+      ? { ...catalogImageView({ slug: item.productSlug, name, category: item.category, photo: item.photo, modelImage: item.modelImage }), placeholder: SLICE_PLACEHOLDER }
+      : photoView(item.photo, name, SLICE_PLACEHOLDER),
+    // El carrito guarda la foto de la rebanada, no la imagen del modelo (D99, D103).
     offering: withCartImage(stockItemToCartOffering(item), { slug: item.productSlug, photo: item.photo, modelImage: null }),
     maxQuantity: item.stock,
     productHref: productHref(item.productSlug),

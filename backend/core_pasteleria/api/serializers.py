@@ -942,6 +942,16 @@ class TodayStockSerializer(serializers.Serializer):
     )
 
 
+class SliceItemSerializer(StockItemSerializer):
+    model_image = _model_image_field()
+
+
+class SlicesSerializer(TodayStockSerializer):
+    items = SliceItemSerializer(
+        many=True, help_text="Las rebanadas cargadas hoy, en el orden del catálogo, con la imagen del modelo de su pastel."
+    )
+
+
 class ShowcaseItemSerializer(StockItemSerializer):
     sliced = serializers.BooleanField(
         help_text=(

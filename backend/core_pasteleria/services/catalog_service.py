@@ -158,6 +158,13 @@ class ShowcaseItem(StockItem):
 
 
 @dataclass(frozen=True)
+class SliceItem(StockItem):
+    """Rebanada de hoy. `model_image` es la del pastel (D104); `None`: la partida usa `photo`."""
+
+    model_image: str | None
+
+
+@dataclass(frozen=True)
 class TodayStock:
     date: date
     items: tuple[StockItem, ...]
@@ -277,8 +284,9 @@ def _stock_item_fields(record: OfferingRecord) -> dict:
     }
 
 
-def _stock_item(record: OfferingRecord) -> StockItem:
-    return StockItem(**_stock_item_fields(record))
+def _slice_item(record: OfferingRecord) -> SliceItem:
+    """La rebanada con la imagen del modelo de su pastel, con la misma regla que el rebanado de la vitrina."""
+    return SliceItem(**_stock_item_fields(record), model_image=_catalog_model_image(record.product_sample_design))
 
 
 def _showcase_item(record: OfferingRecord) -> ShowcaseItem:
@@ -405,7 +413,7 @@ def get_smaller_alternatives(*, products=product_repo, today: date | None = None
 def get_slices(*, products=product_repo, today: date | None = None) -> TodayStock:
     """Rebanadas de hoy, con las agotadas."""
     on_date = today or bakery_today()
-    return TodayStock(date=on_date, items=tuple(_stock_item(item) for item in products.list_slices(on_date)))
+    return TodayStock(date=on_date, items=tuple(_slice_item(item) for item in products.list_slices(on_date)))
 
 
 def order_line_image(source: LineImageRecord | None, presentation: str) -> str | None:

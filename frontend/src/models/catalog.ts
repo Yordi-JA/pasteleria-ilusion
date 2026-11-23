@@ -7,9 +7,10 @@ import { isOfferingPresentation, offeringLabel } from './presentation.ts'
 import type { OfferingPresentation } from './presentation.ts'
 
 /**
- * Catálogo público de `/api/v1/` (D45): tipos del contrato (`ProductCardSerializer`, `TodayStockSerializer` en
- * `backend/core_pasteleria/api/serializers.py`), su validación y los adaptadores al carrito. Nada se guarda en
- * caché: las existencias cambian durante el día y cada pantalla pide lo vigente.
+ * Catálogo público de `/api/v1/` (D45): tipos del contrato (`ProductCardSerializer`, `ShowcaseSerializer` para la
+ * vitrina y `SlicesSerializer` para las rebanadas, en `backend/core_pasteleria/api/serializers.py`), su
+ * validación y los adaptadores al carrito. Nada se guarda en caché: las existencias cambian durante el día y
+ * cada pantalla pide lo vigente.
  */
 
 export type ProductCategory = 'cake' | 'dessert'
@@ -84,7 +85,7 @@ export type StockItem = {
    * rebanada (`stock`, las rebanadas que quedan) y la foto es la del producto. Siempre `false` en las rebanadas.
    */
   sliced: boolean
-  /** Solo en la vitrina: la imagen del modelo donde va la foto del producto (D86). Siempre `null` en las rebanadas. */
+  /** La imagen del modelo donde va la foto del producto (D86): la vitrina y, desde D104, las rebanadas. */
   modelImage: string | null
 }
 

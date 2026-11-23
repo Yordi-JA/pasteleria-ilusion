@@ -445,7 +445,7 @@ def load_stock(slug, presentation, quantity):
 
 
 def test_the_showcase_gives_the_model_image_where_the_product_photo_goes(api):
-    """La imagen del modelo toma el lugar de la foto del producto: el completo, el rebanado y lo que no tiene foto propia."""
+    """La imagen del modelo toma el lugar de la foto del producto: el completo, el rebanado y lo que no tiene foto propia; las rebanadas traen el mismo campo (D104)."""
     ProductOffering.objects.filter(product__slug="tres-leches-de-fresa", presentation="mini").update(photo="fresa-mini.webp")
     load_stock("tres-leches-de-durazno", "whole", 1)
     load_stock("tres-leches-de-fresa", "mini", 2)
@@ -459,4 +459,5 @@ def test_the_showcase_gives_the_model_image_where_the_product_photo_goes(api):
         ("tres-leches-de-zarzamora", "whole"): None,
     }
     slices = api.get(SLICES_URL).json()["items"]
-    assert "model_image" not in slices[0]
+    assert slices[0]["product_slug"] == "tres-leches-de-cajeta"
+    assert slices[0]["model_image"] == "tres-leches-de-cajeta-modelo.webp"

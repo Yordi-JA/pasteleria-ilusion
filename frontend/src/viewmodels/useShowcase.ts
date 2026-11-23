@@ -22,7 +22,7 @@ export function useShowcase() {
 
   const view = useMemo(() => {
     const all: StockItem[] = state.status === 'ready' ? state.data.items : []
-    return showcaseView(all, filter)
+    return showcaseView(all, filter, Infinity, { modelImages: true })
   }, [state, filter])
 
   const ready = state.status === 'ready'

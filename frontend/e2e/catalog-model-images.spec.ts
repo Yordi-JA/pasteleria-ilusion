@@ -8,8 +8,9 @@ import { mockStoreInfo } from './support/store-info.ts'
 /**
  * Las imágenes fijas del modelo (D86): la tarjeta del catálogo, los pasteles de la casa y la vitrina de la portada muestran la
  * imagen del modelo cuando la API la da (`model_image`); si no, la foto; sin ninguna, el hueco. Su texto alternativo dice que es
- * la ilustración del pastel, no una foto. La ficha, la página de la vitrina y las rebanadas conservan la foto real. Los postres con
- * modelo (D95) siguen la misma regla con la imagen de su `slug` (al final).
+ * la ilustración del pastel, no una foto. La página de la vitrina y la de las rebanadas la usan también (D104; la sección de rebanadas
+ * de la portada conserva la foto). La ficha conserva la foto real. Los postres con modelo (D95) siguen la misma regla con la imagen
+ * de su `slug` (al final).
  */
 
 // Archivos que existen en `public/fotos/`: una imagen que no carga cae al hueco, y la prueba no debe depender de eso.
@@ -94,17 +95,37 @@ test('la portada usa la imagen del modelo en los pasteles de la casa y en la vit
   await expect(page.getByRole('img', { name: /ilustración del pastel/ })).toHaveCount(2)
 })
 
-test('la página de la vitrina conserva la foto aunque la API dé la imagen del modelo', async ({ page }) => {
+test('la página de la vitrina usa la imagen del modelo; la partida sin modelo conserva su foto (D104)', async ({ page }) => {
   await mockCatalog(page, {
     showcase: [
       todayStock([
         { ...stockItem(1, 'tres-leches-de-durazno', 'Tres leches de durazno', 'cake', 'whole', '350.00', { photo: PHOTO, sliced: false }), model_image: MODEL },
+        { ...stockItem(3, 'tres-leches-de-durazno', 'Tres leches de durazno', 'cake', 'mini', '130.00', { photo: OTHER_PHOTO, sliced: false }), model_image: null },
       ]),
     ],
   })
   await page.goto('/vitrina')
-  await expectImage(page.getByRole('img', { name: 'Tres leches de durazno', exact: true }), PHOTO)
-  await expect(page.getByRole('img', { name: /ilustración del pastel/ })).toHaveCount(0)
+  await expectImage(page.getByRole('img', { name: 'Tres leches de durazno, ilustración del pastel', exact: true }), MODEL)
+  await expectImage(page.getByRole('img', { name: 'Mini de tres leches de durazno', exact: true }), OTHER_PHOTO)
+  await expect(page.locator(`img[src="/fotos/${PHOTO}"]`)).toHaveCount(0)
+})
+
+test('la página de las rebanadas usa la imagen del modelo; sin ella, la foto; la portada conserva la foto (D104)', async ({ page }) => {
+  const withModel = { ...stockItem(2, 'tres-leches-de-durazno', 'Tres leches de durazno', 'cake', 'slice', '35.00', { photo: PHOTO }), model_image: MODEL }
+  const withPhoto = { ...stockItem(91, 'tres-leches-con-flan-y-cajeta', 'Tres leches con flan y cajeta', 'cake', 'slice', '40.00', { photo: OTHER_PHOTO }), model_image: null }
+  const withNothing = { ...stockItem(93, 'tres-leches-de-cajeta', 'Tres leches de cajeta', 'cake', 'slice', '35.00'), model_image: null }
+  await mockCatalog(page, { slices: [todayStock([withModel, withPhoto, withNothing])] })
+  await page.goto('/rebanadas')
+
+  await expectImage(page.getByRole('img', { name: 'Rebanada de tres leches de durazno, ilustración del pastel', exact: true }), MODEL)
+  await expectImage(page.getByRole('img', { name: 'Rebanada de tres leches con flan y cajeta', exact: true }), OTHER_PHOTO)
+  await expect(page.getByRole('img', { name: 'Foto de la rebanada' })).toBeVisible()
+  await expect(page.locator(`img[src="/fotos/${PHOTO}"]`)).toHaveCount(0)
+
+  await page.goto('/')
+  const slices = page.getByRole('region', { name: 'Rebanadas de hoy', exact: true })
+  await expectImage(slices.getByRole('img', { name: 'Rebanada de tres leches de durazno', exact: true }), PHOTO)
+  await expect(slices.getByRole('img', { name: /ilustración/ })).toHaveCount(0)
 })
 
 test('la ficha conserva la foto real; sus relacionados usan la imagen del modelo', async ({ page }) => {
@@ -307,13 +328,18 @@ test.describe('los postres con modelo (D95)', () => {
     await expect(showcase.getByRole('img', { name: 'Foto del postre pendiente' })).toHaveCount(0)
   })
 
-  test('the showcase page keeps the dessert photo or its slot', async ({ page }) => {
+  test('the showcase page uses the dessert model; a dessert without a model keeps its slot (D104)', async ({ page }) => {
     await mockCatalog(page, {
-      showcase: [todayStock([stockItem(50, 'flan-napolitano', 'Flan napolitano', 'dessert', 'whole', '360.00', { stock: 2 })])],
+      showcase: [
+        todayStock([
+          stockItem(50, 'flan-napolitano', 'Flan napolitano', 'dessert', 'whole', '360.00', { stock: 2 }),
+          stockItem(99, 'postre-sin-modelo', 'Postre sin modelo', 'dessert', 'whole', '100.00', { stock: 2 }),
+        ]),
+      ],
     })
     await page.goto('/vitrina')
-    await expect(page.getByRole('img', { name: 'Foto del postre pendiente' })).toBeVisible()
-    await expect(page.getByRole('img', { name: /ilustración/ })).toHaveCount(0)
+    await expectImage(page.getByRole('img', { name: 'Flan napolitano, ilustración del postre', exact: true }), 'flan-napolitano-modelo.webp')
+    await expect(page.getByRole('img', { name: 'Foto del postre pendiente' })).toHaveCount(1)
   })
 })
 

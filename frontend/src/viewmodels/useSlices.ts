@@ -35,7 +35,7 @@ export function useSlices() {
   const items = useMemo<SlicePageItem[]>(() => {
     if (!stock) return []
     return availableFirst(stock.items).map((item) => {
-      const view = toSliceItem(item)
+      const view = toSliceItem(item, { modelImages: true })
       const stepMax = Math.max(view.maxQuantity ?? 1, 1)
       return { ...view, stepMax, quantity: Math.min(Math.max(quantities[view.key] ?? 1, 1), stepMax) }
     })

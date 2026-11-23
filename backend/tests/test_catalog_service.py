@@ -18,7 +18,7 @@ from django.db.models import Choices
 from core_pasteleria import models
 from core_pasteleria.api import views
 from core_pasteleria.repositories.memory import MemoryProductRepo
-from core_pasteleria.repositories.records import OfferingRecord, ProductRecord
+from core_pasteleria.repositories.records import OfferingRecord, ProductRecord, SampleDesignRecord
 from core_pasteleria.services import catalog_service
 
 TODAY = date(2026, 11, 6)
@@ -275,6 +275,37 @@ def test_the_slices_list_does_not_change_with_the_sliced_cake():
     slices = catalog_service.get_slices(products=repo(stock=rows), today=TODAY)
     assert [(i.product_slug, i.presentation) for i in slices.items] == [("fresa", "slice")]
     assert not hasattr(slices.items[0], "sliced")
+
+
+def _with_sample(record, *, model_image, shown):
+    """El producto con la muestra de su modelo en cada presentación, como lo arma `product_repo`."""
+    sample = SampleDesignRecord(
+        coverage_color="#ffffff", decoration_slug=None, decoration_color="", fruit_layout="", fruits=(),
+        side_comb=True, model_image=model_image, show_model_in_catalog=shown,
+    )
+    offerings = tuple(dataclasses.replace(o, product_sample_design=sample) for o in record.offerings)
+    return dataclasses.replace(record, offerings=offerings)
+
+
+@pytest.mark.parametrize(
+    ("model_image", "shown", "expected"),
+    [
+        ("fresa-modelo.webp", True, "fresa-modelo.webp"),
+        ("fresa-modelo.webp", False, None),
+        ("", True, None),
+    ],
+)
+def test_a_slice_carries_the_model_image_of_its_cake_only_when_the_catalog_shows_it(model_image, shown, expected):
+    records = [_with_sample(product(3, "fresa", photo="fresa.webp"), model_image=model_image, shown=shown)]
+    slice_id = next(o.id for o in records[0].offerings if o.presentation == "slice")
+    slices = catalog_service.get_slices(products=repo(records, stock={(slice_id, TODAY): 4}), today=TODAY)
+    assert [i.model_image for i in slices.items] == [expected]
+    assert [i.photo for i in slices.items] == ["fresa.webp"]
+
+
+def test_a_slice_without_a_sample_design_has_no_model_image():
+    slices = catalog_service.get_slices(products=repo(stock=stock(("fresa", "slice", 4))), today=TODAY)
+    assert [i.model_image for i in slices.items] == [None]
 
 
 def test_slices_carry_only_the_slices_and_the_date():

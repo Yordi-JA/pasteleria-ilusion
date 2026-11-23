@@ -135,7 +135,7 @@ export function useSlicesSection() {
   const { add, feedback } = useAddOne()
   const stock: TodayStock | null = state.status === 'ready' ? state.data : null
   // Hasta cuatro, primero las que quedan: una agotada solo entra si no hay cuatro disponibles.
-  const items = useMemo(() => (stock ? availableFirst(stock.items).slice(0, SLICES_LIMIT).map(toSliceItem) : []), [stock])
+  const items = useMemo(() => (stock ? availableFirst(stock.items).slice(0, SLICES_LIMIT).map((item) => toSliceItem(item)) : []), [stock])
   return {
     status: state.status,
     ...presence(state.status, items.length === 0, hadError, 'Hoy no hay rebanadas cargadas.'),

@@ -44,10 +44,10 @@ from .serializers import (
     ProductDetailSerializer,
     ShowcaseQuerySerializer,
     ShowcaseSerializer,
+    SlicesSerializer,
     StandInfoSerializer,
     StandLoanSerializer,
     StoreInfoSerializer,
-    TodayStockSerializer,
 )
 from .throttles import (
     CustomerImageIPThrottle,
@@ -446,13 +446,13 @@ class SliceListView(PublicCatalogView):
         summary="Rebanadas de hoy",
         description=(
             "Rebanadas cargadas hoy, en el orden del catálogo, con \"Quedan [n]\" en `stock` y "
-            "`sold_out: true` en las agotadas. `date` es la fecha de hoy en la pastelería."
+            "`sold_out: true` en las agotadas, y `model_image` (D104). `date` es la fecha de hoy en la pastelería."
         ),
-        responses={200: TodayStockSerializer},
+        responses={200: SlicesSerializer},
         tags=[CATALOG_TAG],
     )
     def get(self, request):
-        return Response(TodayStockSerializer(catalog_service.get_slices()).data)
+        return Response(SlicesSerializer(catalog_service.get_slices()).data)
 
 
 # --- Imágenes de clientes ---

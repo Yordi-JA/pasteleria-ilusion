@@ -17,7 +17,7 @@ from rest_framework.test import APIClient
 from rest_framework.throttling import AnonRateThrottle, ScopedRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from core_pasteleria.models import Inventory, Product, ProductOffering
+from core_pasteleria.models import Inventory, Product, ProductOffering, ProductSampleDesign
 
 TODAY = date(2026, 11, 6)
 # Mediodía en la Ciudad de México (UTC-6, sin horario de verano desde 2022).
@@ -52,8 +52,10 @@ STOCK_ITEM_FIELDS = {
     "offering_id", "product_slug", "product_name", "category", "presentation",
     "price", "photo", "stock", "sold_out",
 }
-# La vitrina agrega `sliced`: la partida es el rebanado (D60), y `model_image`, la imagen del modelo (D86). Las rebanadas no los llevan.
+# La vitrina agrega `sliced`: la partida es el rebanado (D60), y `model_image`, la imagen del modelo (D86). Las rebanadas llevan
+# solo `model_image` (D104).
 SHOWCASE_ITEM_FIELDS = STOCK_ITEM_FIELDS | {"sliced", "model_image"}
+SLICE_ITEM_FIELDS = STOCK_ITEM_FIELDS | {"model_image"}
 FIRST_FOUR_CAKES = ["tres-leches-de-durazno", "tres-leches-de-fresa", "tres-leches-de-zarzamora", "tres-leches-de-cajeta"]
 PRICE_REQUEST = {
     "kg": 15,
@@ -581,8 +583,16 @@ def test_slices_list_only_the_slices_loaded_today_with_their_sold_out_state(api)
         ("tres-leches-de-fresa", "slice", 6, False),
         ("tres-leches-de-cajeta", "slice", 0, True),
     ]
-    assert all(set(item) == STOCK_ITEM_FIELDS for item in body["items"])
+    assert all(set(item) == SLICE_ITEM_FIELDS for item in body["items"])
     assert body["items"][0]["price"] == "35.00"
+
+
+def test_slices_give_the_model_image_of_the_cake_while_the_catalog_shows_it(api):
+    load_stock("tres-leches-de-fresa", "slice", 6)
+    item = api.get(SLICES_URL).json()["items"][0]
+    assert item["model_image"] == "tres-leches-de-fresa-modelo.webp"
+    ProductSampleDesign.objects.filter(product__slug="tres-leches-de-fresa").update(show_model_in_catalog=False)
+    assert api.get(SLICES_URL).json()["items"][0]["model_image"] is None
 
 
 def test_slices_are_empty_without_slices_for_today(api):
@@ -729,10 +739,10 @@ def test_schema_marks_money_as_strings_and_only_the_pending_fields_as_nullable(s
     assert set(card["properties"]) == set(card["required"]) == CARD_FIELDS
     nullable = {name for name, prop in card["properties"].items() if prop.get("nullable") or "oneOf" in prop}
     assert nullable == {"cake_type", "bread", "filling_base", "photo", "model_image"}
-    stock_item = components["StockItem"]
-    assert set(stock_item["properties"]) == STOCK_ITEM_FIELDS
-    assert stock_item["properties"]["price"]["type"] == "string"
-    assert components["TodayStock"]["properties"]["date"]["format"] == "date"
+    slice_item = components["SliceItem"]
+    assert set(slice_item["properties"]) == set(slice_item["required"]) == SLICE_ITEM_FIELDS
+    assert slice_item["properties"]["price"]["type"] == "string"
+    assert components["Slices"]["properties"]["date"]["format"] == "date"
     showcase_item = components["ShowcaseItem"]
     assert set(showcase_item["properties"]) == set(showcase_item["required"]) == SHOWCASE_ITEM_FIELDS
     assert showcase_item["properties"]["sliced"]["type"] == "boolean"
@@ -744,7 +754,7 @@ def test_schema_points_each_today_endpoint_to_its_own_item(schema):
         return schema["components"]["schemas"][ref.rsplit("/", 1)[1]]["properties"]["items"]["items"]["$ref"]
 
     assert items_ref(SHOWCASE_URL).endswith("/ShowcaseItem")
-    assert items_ref(SLICES_URL).endswith("/StockItem")
+    assert items_ref(SLICES_URL).endswith("/SliceItem")
 
 
 # --- Campo "destacado en la portada" ---
