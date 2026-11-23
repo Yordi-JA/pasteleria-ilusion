@@ -28,7 +28,7 @@ from django.utils import timezone
 
 from ..models import Presentation, ProductCategory, SalesChannel
 from ..repositories import product_repo
-from ..repositories.records import OfferingRecord, ProductRecord, SampleDesignRecord
+from ..repositories.records import LineImageRecord, OfferingRecord, ProductRecord, SampleDesignRecord
 from .pricing_service import showcase_product_unavailable
 
 # La portada tiene un pastel grande y tres chicos (mockup `Main`, "Pasteles de la
@@ -406,3 +406,20 @@ def get_slices(*, products=product_repo, today: date | None = None) -> TodayStoc
     """Rebanadas de hoy, con las agotadas."""
     on_date = today or bakery_today()
     return TodayStock(date=on_date, items=tuple(_stock_item(item) for item in products.list_slices(on_date)))
+
+
+def order_line_image(source: LineImageRecord | None, presentation: str) -> str | None:
+    """La imagen de una línea del pedido (D103): la de la tarjeta del catálogo, la que guarda el carrito (D99).
+
+    La imagen del modelo (D86) si el catálogo la muestra y la línea lleva la foto del producto; si no, la foto de la
+    presentación o la del producto. Una rebanada lleva su foto: la imagen del modelo es la del pastel completo. `None`
+    sin presentación (un diseño, una cotización) o sin foto (PENDIENTE, o un postre: su imagen del modelo la pone el
+    frontend por `product_slug`, D97).
+    """
+    if source is None:
+        return None
+    shows_product_photo = presentation != Presentation.SLICE and source.photo == source.product_photo
+    model_image = _pending_if_blank(source.model_image) if source.show_model_in_catalog else None
+    if shows_product_photo and model_image:
+        return model_image
+    return _pending_if_blank(source.photo)

@@ -4,6 +4,7 @@
  * servidor cobra `pay_today`. La URL de regreso de Mercado Pago no confirma nada; el estado lo dice siempre el servidor.
  */
 import { ApiError } from './apiClient.ts'
+import { photoUrl } from './catalog.ts'
 import type { PaymentMethod } from './checkout.ts'
 import { PRICE_PATTERN } from './money.ts'
 import { parsePlacedOrder } from './orders.ts'
@@ -41,6 +42,13 @@ export type PaymentOrderItem = {
   design: { kg: number | null; tiers: number | null; sizeLabel: string | null; small: boolean } | null
   /** Solo en la línea `reference`: el sabor y la base de la solicitud aceptada (D70); `null` en las demás. */
   reference: ReferenceFlavor | null
+  /**
+   * D103: el archivo en `/fotos/` de la imagen de la tarjeta del catálogo que da el servidor; `null` en un diseño y en una
+   * referencia, sin ella o si no es un nombre de foto (`photoUrl`), nunca otra dirección.
+   */
+  image: string | null
+  /** El producto de la línea, con el que se toma la imagen del modelo de un postre (D97); `null` en un diseño y en una referencia. */
+  productSlug: string | null
 }
 
 /** El pedido de `GET orders/<id>/` con sus líneas y su fecha de creación. */
@@ -85,6 +93,17 @@ function count(value: unknown): number | null {
 }
 
 const ITEM_KINDS = new Set<unknown>(['order', 'showcase', 'design', 'reference'])
+// `max_length` y forma de `Product.slug`.
+const SLUG = /^[-a-zA-Z0-9_]+$/
+const MAX_SLUG_LENGTH = 80
+
+function photoFile(value: unknown): string | null {
+  return typeof value === 'string' && photoUrl(value) ? value : null
+}
+
+function productSlug(value: unknown): string | null {
+  return typeof value === 'string' && value.length <= MAX_SLUG_LENGTH && SLUG.test(value) ? value : null
+}
 
 function parseItem(data: unknown): PaymentOrderItem {
   if (!isRecord(data) || !ITEM_KINDS.has(data.kind)) throw new TypeError('Una línea del pedido no tiene la forma esperada.')
@@ -104,6 +123,8 @@ function parseItem(data: unknown): PaymentOrderItem {
     lineTotal: money(data.line_total, 'El importe de una línea'),
     design,
     reference: data.kind === 'reference' ? parseOptionalReferenceFlavor(data.reference) : null,
+    image: photoFile(data.image),
+    productSlug: productSlug(data.product_slug),
   }
 }
 

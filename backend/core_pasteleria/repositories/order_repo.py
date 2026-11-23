@@ -41,6 +41,7 @@ from . import reference_repo
 from .records import (
     CakeDesignRecord,
     CancellationTerms,
+    LineImageRecord,
     StandLoanRecord,
     NewCakeDesign,
     NewOrder,
@@ -160,6 +161,8 @@ def _orders():
         Prefetch(
             "items",
             queryset=OrderItem.objects.select_related(
+                # La imagen de la línea (D103): el producto de la presentación, con su muestra.
+                "offering__product__sample_design",
                 "design__bread",
                 "design__filling_base",
                 "design__first_flavor",
@@ -195,6 +198,25 @@ def _loan_record(cake: CakeDesign | ReferenceRequest) -> StandLoanRecord | None:
 
 def _slug(option) -> str | None:
     return option.slug if option is not None else None
+
+
+def _image_source(item: OrderItem) -> LineImageRecord | None:
+    """La foto y la muestra del modelo del producto de la presentación (D103), ya cargadas con `select_related`.
+
+    `None` en un diseño y en una cotización: un diseño no lleva imagen del servidor, porque su cobertura y su decoración
+    son libres y la del pastel de origen puede no parecerse a lo pedido.
+    """
+    if not item.offering_id:
+        return None
+    product = item.offering.product
+    sample = getattr(product, "sample_design", None)
+    return LineImageRecord(
+        product_slug=product.slug,
+        photo=item.offering.photo or product.photo,
+        product_photo=product.photo,
+        model_image=sample.model_image if sample else "",
+        show_model_in_catalog=sample.show_model_in_catalog if sample else False,
+    )
 
 
 def _design_record(design: CakeDesign) -> CakeDesignRecord:
@@ -284,6 +306,7 @@ def _order_record(order: Order) -> OrderRecord:
                 line_total=item.line_total,
                 design=_design_record(item.design) if item.design_id else None,
                 reference=reference_cake if item.kind == OrderLineKind.REFERENCE else None,
+                image_source=_image_source(item),
             )
             for item in order.items.all()
         ),

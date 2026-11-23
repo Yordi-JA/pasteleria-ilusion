@@ -140,7 +140,7 @@ function firstReturnBy(stands: OrderStand[]): string | null {
   return dates.length > 0 ? [...dates].sort()[0] : null
 }
 
-/** `thumbnails`: las miniaturas por línea del pedido recién creado (la confirmación); el detalle del pedido no las lleva. */
+/** `thumbnails`: las miniaturas por línea del pedido creado en esta pestaña; sin ellas, cada línea lleva la imagen del servidor (D103). */
 export function paidSummary(order: AccountOrder, thumbnails: (string | null)[] = []): PaidSummaryView {
   const returnBy = firstReturnBy(order.stands)
   return {

@@ -493,6 +493,19 @@ class ReferenceCakeRecord:
 
 
 @dataclass(frozen=True)
+class LineImageRecord:
+    """Con qué elige el catálogo la imagen del producto de una línea del pedido (D103), como en su tarjeta."""
+
+    product_slug: str
+    # La de la presentación o, si no tiene, la del producto. Vacía: PENDIENTE.
+    photo: str
+    product_photo: str
+    # La imagen del modelo (D86); vacía si no tiene muestra o aún no se genera.
+    model_image: str
+    show_model_in_catalog: bool
+
+
+@dataclass(frozen=True)
 class OrderItemRecord:
     kind: str
     offering_id: int | None
@@ -504,6 +517,8 @@ class OrderItemRecord:
     design: CakeDesignRecord | None
     # La línea `reference`: el pastel de su envío de referencia (D70).
     reference: ReferenceCakeRecord | None = None
+    # El producto de la presentación (D103); `None` en un diseño y en una cotización aceptada.
+    image_source: LineImageRecord | None = None
 
 
 @dataclass(frozen=True)

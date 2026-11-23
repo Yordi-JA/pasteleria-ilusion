@@ -4,6 +4,7 @@
  * aquí: todos vienen del servidor (`order.payment`); el porcentaje también.
  */
 import { ApiError } from '../models/apiClient.ts'
+import { photoUrl } from '../models/catalog.ts'
 import { bakeryMoment, bakeryToday, formatDateInSentence } from '../models/dates.ts'
 import { formatPrice } from '../models/money.ts'
 import type { OrderPayment } from '../models/orders.ts'
@@ -11,6 +12,7 @@ import { paymentErrorBody } from '../models/payments.ts'
 import type { PaymentMethod, PaymentOrder, PaymentOrderItem, PaymentState } from '../models/payments.ts'
 import { offeringLabel, PRESENTATION_LABELS } from '../models/presentation.ts'
 import { formatTime } from './deliverySchedule.ts'
+import { dessertModelImage } from './dessertSamples.ts'
 import { cakeBrief } from './referenceFlavorView.ts'
 
 /** Los estados de un pedido ya pagado (regla 12): de `received` en adelante. */
@@ -132,13 +134,31 @@ export function orderSummary(
   }
 }
 
+/** Lo que una línea del pedido necesita para su miniatura. */
+type ThumbnailLine = Pick<PaymentOrderItem, 'kind' | 'image' | 'productSlug'>
+
 /**
- * La miniatura que guardó el carrito para la línea `index` (`orderThumbnails` de `checkout.ts`): la del pastel diseñado o la
- * imagen de una línea del catálogo, solo si la lista es de estas líneas (el mismo largo). Una referencia nunca sale del carrito,
- * así que no lleva ninguna. Sin ella, `null` y se ve el hueco de la foto.
+ * La imagen que da el servidor para la línea (D103), en el orden de la tarjeta del catálogo (`cartImageFile`): la imagen del modelo
+ * de un postre por su `slug` (D97, el backend no la guarda) y, sin ella, la del servidor. Siempre una dirección de `/fotos/`.
  */
-export function orderLineThumbnail(thumbnails: (string | null)[], items: { kind: string }[], index: number): string | null {
-  return thumbnails.length === items.length && items[index].kind !== 'reference' ? (thumbnails[index] ?? null) : null
+function serverLineImage({ image, productSlug }: ThumbnailLine): string | null {
+  const file = (productSlug ? dessertModelImage(productSlug) : null) ?? image
+  return file ? photoUrl(file) : null
+}
+
+/**
+ * La miniatura de la línea `index`: primero la que guardó el carrito (`orderThumbnails` de `checkout.ts`), la captura del pastel
+ * diseñado o la imagen de una línea del catálogo, solo si la lista es de estas líneas (el mismo largo); si no, la imagen que da el
+ * servidor (D103), así el detalle que abre el correo, otra pestaña u otro dispositivo también la muestran. Un pastel diseñado solo
+ * lleva su captura: su cobertura y su decoración son libres, y la imagen de su pastel de origen puede no parecerse a lo pedido. Una
+ * referencia no lleva ninguna. Sin ellas, `null` y se ve el hueco de la foto.
+ */
+export function orderLineThumbnail(thumbnails: (string | null)[], items: ThumbnailLine[], index: number): string | null {
+  const item = items[index]
+  if (item.kind === 'reference') return null
+  const local = thumbnails.length === items.length ? (thumbnails[index] ?? null) : null
+  if (local || item.kind === 'design') return local
+  return serverLineImage(item)
 }
 
 /** "el lunes 16 de noviembre a las 3:30 pm", como la entrega. */

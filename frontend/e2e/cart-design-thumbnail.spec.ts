@@ -13,7 +13,8 @@ import { mockStoreInfo } from './support/store-info.ts'
  * La miniatura del pastel diseñado (tanda 4): al "Agregar al pedido" del paso 8, la vista previa se guarda como una imagen
  * chica en la línea del carrito, y el carrito, la entrega, el pago y la confirmación la muestran en lugar del hueco
  * "Foto del pastel". Si no se puede tomar (sin WebGL, con el lienzo que falla o sin espacio para guardarla), el pastel
- * entra igual con el hueco. Los pedidos ya hechos, en "Mis pedidos" y su detalle, siguen con el hueco.
+ * entra igual con el hueco. En la misma pestaña, el detalle del pedido también la muestra; en otra, cada línea lleva la imagen que
+ * da el servidor (D103, `order-line-images.spec.ts`).
  */
 
 test.use({ viewport: { width: 1440, height: 900 } })
@@ -234,7 +235,7 @@ test.describe('checkout', () => {
     await mockStoreInfo(page)
   })
 
-  test('the delivery summary, the payment summary and the confirmation show the picture; the order detail does not', async ({ page }) => {
+  test('the delivery summary, the payment summary, the confirmation and the order detail show the picture', async ({ page }) => {
     await signedIn(page)
     await mockCalendar(page)
     await mockOrders(page, [{ status: 201, body: placedOrder({ items: orderItems }) }])
@@ -269,7 +270,9 @@ test.describe('checkout', () => {
     await page.goto(`/cuenta/pedidos/${ORDER_ID}`)
     const products = page.getByRole('region', { name: 'Productos' })
     await expect(products.getByText('Pastel de Diseña tu pastel')).toBeVisible()
-    await expect(thumbnailIn(products)).toHaveCount(0)
+    // D103: en la pestaña que hizo el pedido, el detalle también muestra la captura del pastel diseñado.
+    await expect(thumbnailIn(products)).toHaveCount(1)
+    await expect(thumbnailIn(products)).toHaveAttribute('src', TINY_WEBP)
   })
 })
 

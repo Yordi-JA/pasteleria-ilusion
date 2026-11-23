@@ -31,7 +31,7 @@ from ..models import (
     StandLoanStatus,
     WaferShape,
 )
-from ..services import design_layout, pricing_service, warranty_service
+from ..services import catalog_service, design_layout, pricing_service, warranty_service
 from ..services.design_layout import MessageLayout, WaferLayout
 from ..services.text_rules import has_forbidden_name_characters
 from ..services.orders import note_service, schedule_service
@@ -1402,6 +1402,25 @@ class OrderItemSerializer(serializers.Serializer):
     reference = ReferenceCakeSerializer(
         allow_null=True, help_text="En la línea `reference`: el pastel de su envío de referencia (D70); si no, `null`."
     )
+    image = serializers.SerializerMethodField(
+        help_text=(
+            "D103: el archivo en `/fotos/` de la imagen de la tarjeta del catálogo (la del modelo o la foto). Sale del "
+            "catálogo de hoy, no de cuando se hizo el pedido. `null` en un diseño (su cobertura y su decoración son "
+            "libres: solo vale la captura que guardó la pestaña que hizo el pedido), en una cotización y sin foto."
+        )
+    )
+    product_slug = serializers.SerializerMethodField(
+        help_text=(
+            "El producto de la presentación; `null` en un diseño y en una cotización. Con él, el frontend pone la "
+            "imagen del modelo de un postre (D97)."
+        )
+    )
+
+    def get_image(self, item) -> str | None:
+        return catalog_service.order_line_image(item.image_source, item.presentation)
+
+    def get_product_slug(self, item) -> str | None:
+        return item.image_source.product_slug if item.image_source else None
 
 
 class OrderPaymentSerializer(serializers.Serializer):
