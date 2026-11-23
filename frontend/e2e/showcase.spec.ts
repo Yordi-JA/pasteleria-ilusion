@@ -40,6 +40,9 @@ test.describe('vitrina at 1440px', () => {
     await expect(page.getByRole('navigation', { name: 'Ruta' })).toHaveCount(0)
     await expect(main(page)).toContainText('Viernes 6 de noviembre. Lo que hay hoy en la pastelería para llevar.')
     await expect(page.getByRole('group', { name: 'Filtrar la vitrina' }).getByRole('radio', { name: 'Todo' })).toBeChecked()
+    // La barra segmentada: el elegido, lleno de `mermelada`; los demás, sin fondo propio dentro de la barra.
+    await expect(chip(page, 'Todo')).toHaveCSS('background-color', 'rgb(94, 25, 33)')
+    await expect(chip(page, 'Pasteles')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
     await expect(names(page)).toHaveText([
       'Tres leches de durazno',
       'Tres leches con queso y zarzamora',

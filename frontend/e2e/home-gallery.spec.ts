@@ -21,15 +21,15 @@ const PHOTOS = 46
 test.describe('Hechos en la casa, with motion', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
-  test('is a fresa field between the vitrina and the slices, with its own guirnaldas and the exact title', async ({ page }) => {
+  test('is the last nata field after the vitrina, with its own guirnalda and the exact title', async ({ page }) => {
     await openHome(page)
     await expect(gallery(page)).toBeVisible()
     await expect(page.getByRole('heading', { level: 2, name: 'Hechos en la casa', exact: true })).toBeVisible()
     const floors = await page.locator('main > *').evaluateAll((els) =>
       els.map((el) => (el.classList.contains('duya') ? 'duya' : el.getAttribute('data-campo'))),
     )
-    expect(floors).toEqual(['fresa', 'duya', 'nata', 'duya', 'mermelada', 'duya', 'fresa', 'duya', 'nata'])
-    await expect(gallery(page)).toHaveCSS('background-color', 'rgb(249, 193, 193)')
+    expect(floors).toEqual(['fresa', 'duya', 'nata', 'duya', 'fresa', 'duya', 'nata'])
+    await expect(gallery(page)).toHaveCSS('background-color', 'rgb(255, 244, 244)')
     // El título basta: sin subtítulo de relleno ni texto en el control de pausa.
     expect((await gallery(page).innerText()).trim()).toBe('Hechos en la casa')
   })

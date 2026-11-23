@@ -10,7 +10,9 @@ Los estados (cargando, error, vacío, agotado) no son rutas propias: son la mism
 | --- | --- | --- | --- | --- |
 | Portada | `/` | `Main.dc.html` | [ver](../mockup/capturas/escritorio/001-Main.jpg) | [ver](../mockup/capturas/movil/002-Movil.jpg) |
 
-Nota (D86): en la portada, los destacados y la sección de la vitrina muestran, en los pasteles con foto, la imagen dibujada desde el modelo 3D en lugar de la foto. La sección "Rebanadas de hoy" de la portada conserva la foto (D104).
+Nota (D86): en la portada, los destacados y la sección de la vitrina muestran, en los pasteles con foto, la imagen dibujada desde el modelo 3D en lugar de la foto. La sección "Rebanadas de hoy" de la portada conservaba la foto (D104); D105 la quitó.
+
+Nota (D105): la portada ya no tiene la sección "Rebanadas de hoy"; `/rebanadas` y su enlace del menú se quedan. Los campos de color son `fresa` (hero), `nata` (pasteles de la casa), `fresa` (vitrina), `nata` ("Hechos en la casa") y el pie oscuro, con una guirnalda en cada cambio de color y ninguna entre dos campos del mismo color. Una sección sin datos no aparece. Los filtros de la vitrina (Todo, Pasteles y Postres) son la barra segmentada, como en `/vitrina`. Las capturas 001 y 002 del mockup no cambian: se apartan de ellas.
 
 Nota (D89): el pastel del hero es de dos pisos, con crema peinada y rosas (la captura muestra tres pisos). En escritorio, la barra empieza sin su logo: al hacer scroll, el logo grande del hero se encoge y viaja a su lugar en la barra mientras los enlaces se recorren a la derecha (D90); los pisos del pastel se quedan juntos. Con "reducir movimiento" la barra muestra su logo sin fundido cuando el grande pasa bajo ella; hasta 600 px, el logo siempre se ve.
 
@@ -126,6 +128,8 @@ Nota sobre la ficha (D95 y D100). `/pasteles/:slug` muestra el modelo 3D que gir
 Nota sobre las migas y la franja (D99 y D100). Catálogo, Vitrina, Rebanadas, Bases, Realizar pedido, la ficha y "Diseña tu pastel" no llevan migas de pan; se quedan en "Envía tu referencia", el detalle del pedido y las pantallas de error de la ficha. `/pedido/entrega` ya no lleva la franja con el WhatsApp, y `/pedido/pago` solo el aviso de Stripe y Mercado Pago, que se oculta en teléfonos. Las capturas 003, 004, 018, 019, 021 y 022 no lo muestran así. El catálogo y la portada muestran las imágenes del modelo de los postres y de los pasteles con foto; "Hechos en la casa" es una sección de la portada que el mockup no trae.
 
 Nota sobre Vitrina y Rebanadas (D104). `/vitrina` y `/rebanadas` muestran la imagen del modelo (la de los pasteles y la de los postres con modelo) en lugar de la foto real, como la sección de vitrina de la portada; sin imagen del modelo se ve la foto, y sin foto, el hueco. Cambia lo que decía la nota de D86. Las capturas 034 a 037 no cambian, porque el diseño y la disposición son los mismos.
+
+Nota sobre Vitrina (D105). Los filtros de `/vitrina` (Todo, Pasteles y Postres) son la barra segmentada de `max-w-[360px]`, no chips sueltos. Las capturas 034 y 035 no cambian: se apartan de ellas en ese control.
 
 Nota sobre los pasos 5 a 8 (D57, en `feat/disena-colores-libres`). El mockup muestra la lista de los 11 colores de la cobertura. El sitio no la usa para elegir: en el paso 5 (cobertura), en el paso 6 (decoración, "Elegir un color") y en el paso 7 (texto del mensaje, "Elegir un color") el cliente elige con el selector libre (`frontend/src/components/ColorPicker.tsx`). La lista queda en el admin como nombres de referencia para el "parecido a" de la revisión (paso 8) y del carrito.
 

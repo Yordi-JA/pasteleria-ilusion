@@ -1,13 +1,11 @@
 import { useMemo, useState } from 'react'
-import { featuredOffering, getFeaturedProducts, getShowcase, getSlices, isPriced, PENDING_PRICE, toCartOffering } from '../models/catalog.ts'
-import type { ProductCard, StockItem, TodayStock } from '../models/catalog.ts'
-import { formatTodayDate } from '../models/dates.ts'
+import { featuredOffering, getFeaturedProducts, getShowcase, isPriced, PENDING_PRICE, toCartOffering } from '../models/catalog.ts'
+import type { ProductCard, StockItem } from '../models/catalog.ts'
 import { formatPrice } from '../models/money.ts'
 import { offeringLabel, PRESENTATION_LABELS } from '../models/presentation.ts'
-import { availableFirst, showcaseView, toSliceItem } from './todayItems.ts'
+import { showcaseView } from './todayItems.ts'
 import type { ShowcaseFilter } from './todayItems.ts'
 import { useAddOne } from './useAddToCart.ts'
-import { useClosingField } from './useClosingField.ts'
 import type { AddFeedback, Addable } from './useAddToCart.ts'
 import { catalogImageView, withCartImage } from './productPhoto.ts'
 import type { PhotoView } from './productPhoto.ts'
@@ -18,10 +16,7 @@ import { useStoreDetails } from './useStoreInfo.ts'
 /** Lo que la portada muestra de la vitrina: la maqueta tiene dos filas de cuatro. */
 export const SHOWCASE_LIMIT = 8
 
-/** Rebanadas en la portada: una fila de cuatro, en escritorio y en móvil (decisión del usuario, D47). */
-export const SLICES_LIMIT = 4
-
-/** Lo común a las tres secciones de datos. */
+/** Lo común a las dos secciones de datos. */
 export type SectionBase = {
   status: RemoteData<unknown>['status']
   /**
@@ -128,45 +123,20 @@ export function useShowcaseSection() {
   }
 }
 
-// --- Rebanadas de hoy ---
-
-export function useSlicesSection() {
-  const { state, retry, hadError } = useRemoteData(getSlices, 'No se pudieron cargar las rebanadas de hoy.')
-  const { add, feedback } = useAddOne()
-  const stock: TodayStock | null = state.status === 'ready' ? state.data : null
-  // Hasta cuatro, primero las que quedan: una agotada solo entra si no hay cuatro disponibles.
-  const items = useMemo(() => (stock ? availableFirst(stock.items).slice(0, SLICES_LIMIT).map((item) => toSliceItem(item)) : []), [stock])
-  return {
-    status: state.status,
-    ...presence(state.status, items.length === 0, hadError, 'Hoy no hay rebanadas cargadas.'),
-    retry,
-    feedback,
-    add,
-    items,
-    /** "Viernes 6 de noviembre", la fecha de la pastelería que manda la API; `null` si no llegó. */
-    date: stock ? formatTodayDate(stock.date) : null,
-  }
-}
-
 // --- Portada ---
 
 /**
- * Las tres secciones de datos de la portada, cada una con su carga, su reintento y su aviso, y los campos de color
- * que dependen de cuáles aparecen. `afterHero` es el campo del que cuelgan los 21 px de la guirnalda del hero; es
- * `fresa` cuando no hay otra sección entre el hero y las fotos: no lleva borde. Sin rebanadas, "Hechos en la casa"
- * (`fresa`, que siempre está) es el último campo y la guirnalda del marco cuelga de él, directo sobre el pie: un campo
- * `nata` de cierre ahí sería una franja vacía entre las fotos y el pie. La vitrina (`mermelada`) nunca toca el pie,
- * porque las fotos siempre van entre las dos.
+ * Las dos secciones de datos de la portada, cada una con su carga, su reintento y su aviso, y el campo de color que depende de
+ * cuáles aparecen. `afterHero` es el campo del que cuelgan los 21 px de la guirnalda del hero: `nata` con pasteles de la casa,
+ * `fresa` si la vitrina sigue al hero (mismo color, sin borde) y `nata` si solo quedan las fotos de "Hechos en la casa", que
+ * siempre están. Esas fotos cierran la página y la guirnalda del marco cuelga de ellas, en `nata`.
  */
 export function useHome() {
   const featured = useFeaturedSection()
   const showcase = useShowcaseSection()
-  const slices = useSlicesSection()
-  const afterHero: 'nata' | 'mermelada' | 'fresa' = featured.visible ? 'nata' : showcase.visible ? 'mermelada' : 'fresa'
-  useClosingField(slices.visible ? 'nata' : 'fresa')
-  return { featured, showcase, slices, afterHero }
+  const afterHero: 'nata' | 'fresa' = !featured.visible && showcase.visible ? 'fresa' : 'nata'
+  return { featured, showcase, afterHero }
 }
 
 export type FeaturedSection = ReturnType<typeof useFeaturedSection>
 export type ShowcaseSection = ReturnType<typeof useShowcaseSection>
-export type SlicesSection = ReturnType<typeof useSlicesSection>

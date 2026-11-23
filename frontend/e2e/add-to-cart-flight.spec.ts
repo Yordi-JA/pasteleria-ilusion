@@ -23,7 +23,7 @@ const counter = (page: Page) => page.getByRole('banner').getByTestId('contador-c
 const cartLink = (page: Page) => page.getByRole('banner').getByRole('link', { name: /^Carrito/ })
 const region = (page: Page, name: string) => page.getByRole('region', { name, exact: true })
 const featured = (page: Page) => region(page, 'Pasteles de la casa')
-const slices = (page: Page) => region(page, 'Rebanadas de hoy')
+const showcase = (page: Page) => region(page, 'Vitrina')
 const notice = (section: Locator) => section.getByTestId('aviso-carrito')
 const addTo = (section: Locator, name: string) => section.getByRole('button', { name: `Agregar al pedido: ${name}`, exact: true })
 
@@ -182,17 +182,20 @@ test.describe('catalog product', () => {
 
   test('when nothing is added there is no pearl', async ({ page }) => {
     await openHome(page)
-    const slice = addTo(slices(page), 'Rebanada de tres leches con flan y cajeta')
-    await slice.click()
+    // Hoy quedan 2 de este pastel en la vitrina: el tercer clic no agrega nada.
+    const cake = addTo(showcase(page), 'Tres leches de durazno')
+    await cake.click()
     await expect(pearls(page)).toHaveCount(1)
     await landAll(page)
     await expect(pearls(page)).toHaveCount(0)
     await expect(counter(page)).toHaveText('1')
-    // Solo quedaba 1: el segundo clic no agrega nada.
-    await slice.click()
-    await expect(notice(slices(page))).toContainText('Ya tienes el único que queda')
+    await cake.click()
+    await landAll(page)
+    await expect(counter(page)).toHaveText('2')
+    await cake.click()
+    await expect(notice(showcase(page))).toContainText('Ya tienes los 2 que quedan')
     await expect(pearls(page)).toHaveCount(0)
-    await expect(counter(page)).toHaveText('1')
+    await expect(counter(page)).toHaveText('2')
   })
 
   test('leaving the page mid-flight leaves the real count in the header', async ({ page }) => {

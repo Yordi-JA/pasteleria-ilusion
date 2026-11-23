@@ -15,7 +15,7 @@ import { mockStoreInfo } from './support/store-info.ts'
 const REVEAL = '[data-aparicion]'
 const CASCADE = '[data-cascada]'
 
-const slicesRegion = (page: Page) => page.getByRole('region', { name: 'Rebanadas de hoy', exact: true })
+const vitrinaRegion = (page: Page) => page.getByRole('region', { name: 'Vitrina', exact: true })
 const cakesRegion = (page: Page) => page.getByRole('region', { name: 'Pasteles', exact: true })
 const dessertsRegion = (page: Page) => page.getByRole('region', { name: 'Postres y gelatinas', exact: true })
 /** Los hijos de una cuadrícula en cascada: cada uno sube por su cuenta. */
@@ -110,12 +110,12 @@ test.describe('with reduced motion', () => {
 
   test('home: content below the fold is visible at once, without a reveal state or transform', async ({ page }) => {
     await openHome(page)
-    const card = slicesRegion(page).getByRole('listitem').first()
+    const card = vitrinaRegion(page).getByRole('listitem').first()
     await expect(card).toBeAttached()
     // Sin bajar: debajo del pliegue también está a la vista, sin estado de aparición.
     await expect(page.locator(REVEAL)).toHaveCount(0)
     expect(await styleNow(card)).toEqual({ opacity: '1', transform: 'none' })
-    expect(await styleNow(slicesRegion(page).getByRole('heading', { level: 2 }))).toEqual({ opacity: '1', transform: 'none' })
+    expect(await styleNow(vitrinaRegion(page).getByRole('heading', { level: 2 }))).toEqual({ opacity: '1', transform: 'none' })
   })
 
   test('catalog: cards below the fold are visible at once, with no cascade state', async ({ page }) => {
@@ -144,7 +144,7 @@ test.describe('without reduced motion', () => {
 
   test('home: a section below the fold starts hidden and appears after scrolling to it', async ({ page }) => {
     await openHome(page)
-    const header = slicesRegion(page).locator(REVEAL).first()
+    const header = vitrinaRegion(page).locator(REVEAL).first()
     await expect(header).toHaveAttribute('data-aparicion', 'oculta')
     expect(await styleNow(header)).toEqual({ opacity: '0', transform: 'matrix(1, 0, 0, 1, 0, 8)' })
 
@@ -274,7 +274,7 @@ test.describe('without reduced motion', () => {
     await mockCakeDesignOptions(page)
     await mockProducts(page)
     await openHome(page)
-    await expect(slicesRegion(page).getByRole('listitem').first()).toBeAttached()
+    await expect(vitrinaRegion(page).getByRole('listitem').first()).toBeAttached()
     await scrollThrough(page)
     await expect.poll(() => invisibleInMain(page)).toEqual([])
     await expect(page.locator('[data-aparicion="oculta"]')).toHaveCount(0)
@@ -290,19 +290,19 @@ test.describe('without reduced motion', () => {
     // Un IntersectionObserver que nunca llama: la red de seguridad muestra el contenido sin esperar al scroll.
     await silenceObserver(page)
     await openHome(page)
-    const header = slicesRegion(page).locator(REVEAL).first()
+    const header = vitrinaRegion(page).locator(REVEAL).first()
     await expect(header).toHaveCSS('opacity', '1', { timeout: 3000 })
-    const card = cascadeItems(slicesRegion(page)).first()
+    const card = cascadeItems(vitrinaRegion(page)).first()
     await expect(card).toHaveCSS('opacity', '1', { timeout: 3000 })
     await expect(page.locator(CASCADE)).toHaveCount(0)
   })
 
   test('keyboard focus inside hidden content shows it', async ({ page }) => {
     await openHome(page)
-    const header = slicesRegion(page).locator(REVEAL).first()
+    const header = vitrinaRegion(page).locator(REVEAL).first()
     await expect(header).toHaveAttribute('data-aparicion', 'oculta')
     // Mueve el foco por código sin desplazar la página: el contenido con el foco nunca queda invisible.
-    await slicesRegion(page).getByRole('heading', { level: 2 }).evaluate((heading: HTMLElement) => heading.focus({ preventScroll: true }))
+    await vitrinaRegion(page).getByRole('heading', { level: 2 }).evaluate((heading: HTMLElement) => heading.focus({ preventScroll: true }))
     await expect(header).toHaveAttribute('data-aparicion', 'visible')
   })
 
@@ -376,26 +376,6 @@ test.describe('without reduced motion', () => {
     }
   })
 })
-
-// Hasta 960 px las rebanadas de la portada son una fila que se desliza de lado: ahí no hay cascada, porque las tarjetas fuera
-// del borde no entran a la ventana hasta deslizar y, 20 px abajo, desbordarían el contenedor en vertical.
-for (const width of [390, 800]) {
-  test.describe(`home slices as a side scroller at ${width}px`, () => {
-    test.use({ viewport: { width, height: 844 }, reducedMotion: 'no-preference' })
-
-    test('the cards render as they are and the row never overflows vertically', async ({ page }) => {
-      await openHome(page)
-      const scroller = slicesRegion(page).getByRole('region', { name: 'Tarjetas de las rebanadas de hoy' })
-      await expect(scroller.getByRole('article').first()).toBeAttached()
-      await scroller.scrollIntoViewIfNeeded()
-      await page.waitForTimeout(600)
-      expect(await scroller.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true)
-      await expect(scroller.locator(CASCADE)).toHaveCount(0)
-      expect(await scroller.evaluate((element) => element.scrollHeight <= element.clientHeight)).toBe(true)
-      for (const card of await scroller.locator('[data-escalonada] > *').all()) expect(await styleNow(card)).toEqual({ opacity: '1', transform: 'none' })
-    })
-  })
-}
 
 test.describe('card hover on a device with a mouse', () => {
   test.use({ viewport: { width: 1440, height: 900 }, reducedMotion: 'no-preference' })

@@ -8,11 +8,11 @@ import { Field, sectionColumn } from './sectionLayout.tsx'
 
 /**
  * Una foto al alto común de la banda, sin marco ni inclinación: la foto real con el radio de las tarjetas. La caja guarda
- * la proporción del archivo, así nada se recorta; `fresa-claro` es el hueco mientras la foto llega.
+ * la proporción del archivo, así nada se recorta; `harina` es el hueco mientras la foto llega.
  */
 function Photo({ photo, decorative }: { photo: GalleryPhoto; decorative: boolean }) {
   return (
-    <li style={{ aspectRatio: `${photo.width} / ${photo.height}` }} className="h-[var(--foto-alto)] shrink-0 overflow-hidden rounded-md bg-fresa-claro">
+    <li style={{ aspectRatio: `${photo.width} / ${photo.height}` }} className="h-[var(--foto-alto)] shrink-0 overflow-hidden rounded-md bg-harina">
       <img
         src={photo.src}
         alt={decorative ? '' : photo.alt}
@@ -43,10 +43,10 @@ const bandSize = '[--foto-alto:300px] max-[600px]:[--foto-alto:200px] py-3'
 const bandFocus = `${focusRing} focus-visible:outline-offset-[-6px]`
 
 /** El control de pausa: solo el ícono, del tamaño de los íconos de la barra (44 px), con su nombre para lectores de pantalla. */
-const pauseControl = `ml-auto inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-md text-mermelada hover:bg-fresa-claro motion-safe:transition-colors ${focusRing}`
+const pauseControl = `ml-auto inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-md text-mermelada hover:bg-harina motion-safe:transition-colors ${focusRing}`
 
 /**
- * "Hechos en la casa", sobre `fresa` (la portada alterna nata, mermelada, fresa y nata): una banda de fotos de pasteles
+ * "Hechos en la casa", sobre `nata` (la portada alterna fresa, nata, fresa y nata): una banda de fotos de pasteles
  * que se desliza sola en bucle, todas al mismo alto y sobre una misma línea (`viewmodels/homeGallery.ts`). La copia que cierra
  * el bucle va oculta a los lectores de pantalla. La pausan el mouse encima, el foco en la banda y el control junto al título
  * (WCAG 2.2.2); con "reducir movimiento" es una fila quieta que se recorre.
@@ -57,7 +57,7 @@ const pauseControl = `ml-auto inline-flex h-11 w-11 shrink-0 cursor-pointer item
 export default function GallerySection() {
   const gallery = useHomeGallery()
   return (
-    <Field field="fresa" labelledBy="galeria-titulo" className="bg-fresa pb-[68px] max-[600px]:pb-11">
+    <Field field="nata" labelledBy="galeria-titulo" className="bg-nata pb-[68px] max-[600px]:pb-11">
       <div className={`${sectionColumn} pb-5 pt-20 max-[600px]:pt-14`}>
         <Reveal className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <h2 id="galeria-titulo" className="font-display text-titulo-1">

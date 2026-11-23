@@ -139,7 +139,7 @@ export default function Showcase() {
         <Lead showcase={showcase} />
       </IllustratedHeader>
       <div className={`${column} pb-20 pt-12 max-[600px]:pb-14 max-[600px]:pt-10`}>
-        {showcase.filters.length > 0 && <FilterChips legend="Filtrar la vitrina" name="filtro-vitrina" options={showcase.filters} onChange={showcase.setFilter} className="mb-8" />}
+        {showcase.filters.length > 0 && <FilterChips legend="Filtrar la vitrina" name="filtro-vitrina" options={showcase.filters} onChange={showcase.setFilter} segmented className="mb-8 w-full max-w-[360px]" />}
         {/*
           Siempre montado y en el flujo: una región viva oculta no se anuncia (D43). Queda fijo bajo la barra al bajar,
           así el aviso se ve aunque se agregue desde la última repisa; flota sobre las tarjetas y lleva su sombra.

@@ -5,11 +5,9 @@ import {
   mockCatalog,
   ok,
   serverError,
-  shortenCatalogTimeout,
   SHOWCASE_PATH,
+  shortenCatalogTimeout,
   showcaseItems,
-  SLICES_PATH,
-  sliceItems,
   stockItem,
   todayStock,
 } from './support/catalog.ts'
@@ -29,6 +27,7 @@ const region = (page: Page, name: string) => page.getByRole('region', { name, ex
 const hero = (page: Page) => region(page, 'Pastelería Ilusión')
 const featured = (page: Page) => region(page, 'Pasteles de la casa')
 const showcase = (page: Page) => region(page, 'Vitrina')
+/** La portada ya no lleva las rebanadas de hoy (D105): viven en `/rebanadas`. */
 const slices = (page: Page) => region(page, 'Rebanadas de hoy')
 const cartLink = (page: Page) => page.getByRole('banner').getByRole('link', { name: /^Carrito/ })
 const notice = (section: Locator) => section.getByTestId('aviso-carrito')
@@ -55,9 +54,12 @@ const floors = (page: Page) =>
     }),
   )
 
-/** El color del campo del que cuelga la guirnalda del marco, la que va justo antes del pie. */
-const closingGarland = (page: Page) =>
-  page.locator('.duya:has(+ footer)').evaluate((el) => getComputedStyle(el).getPropertyValue('--c').trim())
+/** La guirnalda del marco, la que va justo antes del pie, cuelga justo debajo de la galería "Hechos en la casa". */
+const expectClosingGarlandBelowGallery = async (page: Page) => {
+  const galleryBottom = await region(page, 'Hechos en la casa').evaluate((el) => el.getBoundingClientRect().bottom)
+  const garlandTop = await page.locator('.duya:has(+ footer)').evaluate((el) => el.getBoundingClientRect().top)
+  expect(garlandTop).toBeCloseTo(galleryBottom, 0)
+}
 
 /** Los nombres (h3) de las tarjetas, para comparar con `toHaveText`, que espera a que lleguen los datos. */
 const articleNames = (list: Locator) => list.getByRole('article').getByRole('heading', { level: 3 })
@@ -84,32 +86,31 @@ test.describe('portada with data', () => {
     await expect(page.locator('main')).not.toContainText(/3D|proyecto|escolar|escuela/i)
   })
 
-  test('the three data sections follow the mockup order with their copy', async ({ page }) => {
+  test('the sections follow the order of the page with their copy, and there is no Rebanadas de hoy section', async ({ page }) => {
     await openHome(page)
-    await expect(page.locator('main').getByRole('heading', { level: 2 })).toHaveText(['Pasteles de la casa', 'Vitrina', 'Hechos en la casa', 'Rebanadas de hoy'])
+    await expect(page.locator('main').getByRole('heading', { level: 2 })).toHaveText(['Pasteles de la casa', 'Vitrina', 'Hechos en la casa'])
+    await expect(slices(page)).toHaveCount(0)
     await expect(featured(page)).toContainText('Combinaciones de la casa. Pídelas así o cambia lo que quieras al realizar tu pedido.')
     await expect(showcase(page)).toContainText('Pasteles y postres listos para llevar.')
-    await expect(slices(page)).toContainText('Viernes 6 de noviembre, hasta agotar existencias.')
-    await expect(slices(page).locator('img[src*="ilusion-simbolo"]')).toHaveCount(1)
   })
 
-  test('color floors: fresa, nata, mermelada, fresa, nata, with a guirnalda of the field above on each change', async ({ page }) => {
+  test('color floors: fresa, nata, fresa, nata, with a guirnalda of the field above on each change', async ({ page }) => {
     await openHome(page)
     await expect(showcase(page)).toBeVisible()
     expect(await floors(page)).toEqual([
       'field:fresa',
       `duya:#f9c1c1:${NATA}`,
       'field:nata',
-      `duya:#fff4f4:${MERMELADA}`,
-      'field:mermelada',
-      `duya:#5e1921:${FRESA}`,
+      `duya:#fff4f4:${FRESA}`,
       'field:fresa',
       `duya:#f9c1c1:${NATA}`,
       'field:nata',
     ])
-    // La guirnalda del marco cuelga de nata: el último campo de la portada es nata.
-    await expect(slices(page)).toHaveCSS('background-color', 'rgb(255, 244, 244)')
-    expect(await closingGarland(page)).toBe('#fff4f4')
+    // La vitrina va sobre `fresa` y "Hechos en la casa" cierra sobre `nata`: la guirnalda del marco cuelga de nata, sin franja en medio.
+    await expect(showcase(page)).toHaveAttribute('data-campo', 'fresa')
+    await expect(showcase(page)).toHaveCSS('background-color', FRESA)
+    await expect(region(page, 'Hechos en la casa')).toHaveCSS('background-color', NATA)
+    await expectClosingGarlandBelowGallery(page)
   })
 
   test('Pasteles de la casa: one large card and three in a list, with the API prices and the catalog link', async ({ page }) => {
@@ -213,19 +214,6 @@ test.describe('portada with data', () => {
     await expect(fresa.getByRole('link', { name: 'Encargarlo completo: Tres leches de fresa' })).toHaveAttribute('href', '/pasteles/tres-leches-de-fresa')
   })
 
-  test('Rebanadas with a single flavor: a wide card beside "¿Lo quieres completo?", no empty columns', async ({ page }) => {
-    await openHome(page, { slices: [todayStock([sliceItems[0]])] })
-    const section = slices(page)
-    const slice = section.getByRole('article')
-    await expect(slice).toHaveCount(1)
-    await expect(slice).toContainText('Tres leches de durazno')
-    await expect(slice.getByRole('button', { name: 'Agregar al pedido: Rebanada de tres leches de durazno' })).toBeVisible()
-    expect((await slice.boundingBox())!.width).toBeGreaterThan(600)
-    const whole = section.getByRole('complementary', { name: '¿Lo quieres completo?' })
-    await expect(whole.getByRole('link', { name: 'Encargarlo completo: Tres leches de durazno' })).toHaveAttribute('href', '/pasteles/tres-leches-de-durazno')
-    await expect(section.getByRole('region', { name: 'Tarjetas de las rebanadas de hoy' })).toHaveCount(0)
-  })
-
   test('a chip with nothing today says so and keeps the other chips', async ({ page }) => {
     const cakesOnly = showcaseItems.filter((item) => item.category === 'cake')
     await openHome(page, { showcase: [todayStock(cakesOnly)] })
@@ -237,19 +225,6 @@ test.describe('portada with data', () => {
     await expect(section.getByRole('listitem')).toHaveCount(5)
   })
 
-  test('Rebanadas: the date, the price per slice, what is left and the sold-out slice last', async ({ page }) => {
-    await openHome(page)
-    const cards = slices(page).getByRole('article')
-    await expect(articleNames(slices(page))).toHaveText(['Tres leches de durazno', 'Tres leches con flan y cajeta', 'Posible', 'Imposible'])
-    await expect(cards.nth(0)).toContainText('$35 la rebanada')
-    await expect(cards.nth(0)).toContainText('Quedan 2')
-    await expect(cards.nth(1)).toContainText('$40 la rebanada')
-    await expect(cards.nth(1)).toContainText('Queda 1')
-    await expect(cards.nth(2)).toContainText('Quedan 5')
-    await expect(cards.nth(3)).toContainText('Agotada por hoy')
-    await expect(cards.nth(3).getByRole('button', { name: 'Agotada' })).toBeDisabled()
-    await expect(cards.nth(0).getByRole('img', { name: 'Foto de la rebanada pendiente' })).toBeVisible()
-  })
 })
 
 test.describe('adding to the order', () => {
@@ -261,8 +236,7 @@ test.describe('adding to the order', () => {
     await addTo(featured(page), 'Imposible').click()
     await addTo(featured(page), 'Vaso de gelatina de mosaico').click()
     await addTo(showcase(page), 'Mini de tres leches de durazno').click()
-    await addTo(slices(page), 'Rebanada de tres leches de durazno').click()
-    await expect(cartLink(page)).toHaveAccessibleName('Carrito, 5 productos')
+    await expect(cartLink(page)).toHaveAccessibleName('Carrito, 4 productos')
     const line = (offeringId: number, name: string, presentation: string, unitPrice: string, slug: string, fulfillment: string) => ({
       offeringId,
       name,
@@ -275,13 +249,12 @@ test.describe('adding to the order', () => {
     })
     expect(await stored(page)).toEqual({
       items: [
-        // Pasteles de la casa da encargos; la vitrina y las rebanadas, líneas de la vitrina de hoy.
+        // Pasteles de la casa da encargos; la vitrina, líneas de la vitrina de hoy.
         line(1, 'Tres leches de durazno', 'whole', '350.00', 'tres-leches-de-durazno', 'order'),
         // El Imposible tiene modelo (D95): el carrito guarda la imagen de su tarjeta (correcciones del 21 de noviembre).
         { ...line(21, 'Imposible', 'whole', '350.00', 'imposible', 'order'), image: 'imposible-modelo.webp' },
         line(30, 'Vaso de gelatina de mosaico', 'cup', '45.50', 'gelatina-de-mosaico', 'order'),
         line(3, 'Mini de tres leches de durazno', 'mini', '130.00', 'tres-leches-de-durazno', 'showcase'),
-        line(2, 'Rebanada de tres leches de durazno', 'slice', '35.00', 'tres-leches-de-durazno', 'showcase'),
       ],
     })
   })
@@ -300,31 +273,25 @@ test.describe('adding to the order', () => {
     await expect(notice(featured(page))).toContainText('Tienes 3 en tu pedido.')
   })
 
-  test('what is left today caps the slices and the vitrina', async ({ page }) => {
+  test('what is left today caps the vitrina', async ({ page }) => {
     await openHome(page)
-    const slice = addTo(slices(page), 'Rebanada de tres leches con flan y cajeta')
-    await slice.click()
-    await slice.click()
-    await expect(cartLink(page)).toHaveAccessibleName('Carrito, 1 producto')
-    await expect(notice(slices(page))).toContainText('Ya tienes el único que queda')
     const cake = addTo(showcase(page), 'Tres leches de durazno')
     await cake.click()
     await cake.click()
     await cake.click()
-    await expect(cartLink(page)).toHaveAccessibleName('Carrito, 3 productos')
+    await expect(cartLink(page)).toHaveAccessibleName('Carrito, 2 productos')
     await expect(notice(showcase(page))).toContainText('Ya tienes los 2 que quedan')
   })
 
   test('each section has its own notice, between its heading and its cards', async ({ page }) => {
     await openHome(page)
-    await expect(page.locator('main').getByTestId('aviso-carrito')).toHaveCount(3)
+    await expect(page.locator('main').getByTestId('aviso-carrito')).toHaveCount(2)
     await addTo(showcase(page), 'Choco-pingüino').click()
     const vitrina = notice(showcase(page))
     await expect(vitrina).toHaveAttribute('role', 'status')
     await expect(vitrina).toContainText('Agregado al pedido')
     await expect(vitrina).toContainText('Choco-pingüino. Tienes 1 en tu pedido.')
     await expect(notice(featured(page))).toBeEmpty()
-    await expect(notice(slices(page))).toBeEmpty()
     const heading = (await showcase(page).getByRole('heading', { level: 2 }).boundingBox())!
     const box = (await vitrina.boundingBox())!
     const firstCard = (await showcase(page).getByRole('listitem').first().boundingBox())!
@@ -336,10 +303,32 @@ test.describe('adding to the order', () => {
 test.describe('hidden sections and states', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
-  test('nothing loaded in the vitrina today hides it with its guirnaldas, and the photos keep the nata fields apart', async ({ page }) => {
+  test('nothing loaded in the vitrina today hides it with its guirnaldas; the house cakes and the photos, both nata, have none between them', async ({ page }) => {
     await openHome(page, { showcase: [todayStock([])] })
-    await expect(slices(page).getByRole('article').first()).toBeVisible()
+    await expect(featured(page).getByRole('article').first()).toBeVisible()
     await expect(showcase(page)).toHaveCount(0)
+    expect(await floors(page)).toEqual(['field:fresa', `duya:#f9c1c1:${NATA}`, 'field:nata', 'field:nata'])
+    await expectClosingGarlandBelowGallery(page)
+  })
+
+  test('no featured products hides Pasteles de la casa: the hero and the vitrina, both fresa, have no guirnalda between them', async ({ page }) => {
+    await openHome(page, { featured: [ok([])] })
+    await expect(showcase(page).getByRole('listitem').first()).toBeVisible()
+    await expect(featured(page)).toHaveCount(0)
+    expect(await floors(page)).toEqual(['field:fresa', 'field:fresa', `duya:#f9c1c1:${NATA}`, 'field:nata'])
+  })
+
+  test('with nothing at all the hero meets the photos with a guirnalda and they close the page on nata', async ({ page }) => {
+    await openHome(page, { featured: [ok([])], showcase: [todayStock([])] })
+    await expect(page.locator('main [aria-busy="true"]')).toHaveCount(0)
+    expect(await floors(page)).toEqual(['field:fresa', `duya:#f9c1c1:${NATA}`, 'field:nata'])
+    await expectClosingGarlandBelowGallery(page)
+  })
+
+  test('a vitrina with an error keeps its field: the floors are the same as with data', async ({ page }) => {
+    await openHome(page, { showcase: [serverError] })
+    await expect(featured(page).getByRole('article').first()).toBeVisible()
+    await expect(showcase(page).getByRole('alert')).toContainText('No se pudo cargar la vitrina')
     expect(await floors(page)).toEqual([
       'field:fresa',
       `duya:#f9c1c1:${NATA}`,
@@ -349,77 +338,14 @@ test.describe('hidden sections and states', () => {
       `duya:#f9c1c1:${NATA}`,
       'field:nata',
     ])
+    await expectClosingGarlandBelowGallery(page)
   })
 
-  test('no slices today hides the section, and the photos close the page with no nata strip before the footer', async ({ page }) => {
-    await openHome(page, { slices: [todayStock([])] })
-    await expect(showcase(page).getByRole('listitem').first()).toBeVisible()
-    await expect(slices(page)).toHaveCount(0)
-    // Las fotos (`fresa`) son el último campo: la guirnalda del marco cuelga de ellas, sin una franja `nata` en medio.
-    expect(await floors(page)).toEqual([
-      'field:fresa',
-      `duya:#f9c1c1:${NATA}`,
-      'field:nata',
-      `duya:#fff4f4:${MERMELADA}`,
-      'field:mermelada',
-      `duya:#5e1921:${FRESA}`,
-      'field:fresa',
-    ])
-    expect(await closingGarland(page)).toBe('#f9c1c1')
-    const galleryBottom = await region(page, 'Hechos en la casa').evaluate((el) => el.getBoundingClientRect().bottom)
-    const garlandTop = await page.locator('.duya:has(+ footer)').evaluate((el) => el.getBoundingClientRect().top)
-    expect(garlandTop).toBeCloseTo(galleryBottom, 0)
-  })
-
-  test('slices that fail and come back empty keep their nata field, so the closing guirnalda stays nata', async ({ page }) => {
-    let failing = true
-    await mockStoreInfo(page, fullStoreInfo)
-    await mockCatalog(page)
-    await page.route(
-      (url) => url.pathname === SLICES_PATH,
-      async (route) => {
-        const { status, body } = failing ? serverError : { status: 200, body: { date: '2026-11-06', items: [] } }
-        await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
-      },
-    )
-    await page.goto('/')
-    const retry = slices(page).getByRole('button', { name: 'Volver a intentar' })
-    await expect(retry).toBeVisible()
-    expect(await closingGarland(page)).toBe('#fff4f4')
-    failing = false
-    await retry.click()
-    // Vacía después de un error, la sección sigue con su frase (D47): el campo de cierre sigue siendo nata.
-    await expect(slices(page)).toContainText('Hoy no hay rebanadas cargadas.')
-    expect(await closingGarland(page)).toBe('#fff4f4')
-  })
-
-  test('no featured products hides Pasteles de la casa and the guirnalda falls on the vitrina', async ({ page }) => {
-    await openHome(page, { featured: [ok([])] })
-    await expect(showcase(page).getByRole('listitem').first()).toBeVisible()
-    await expect(featured(page)).toHaveCount(0)
-    expect(await floors(page)).toEqual([
-      'field:fresa',
-      `duya:#f9c1c1:${MERMELADA}`,
-      'field:mermelada',
-      `duya:#5e1921:${FRESA}`,
-      'field:fresa',
-      `duya:#f9c1c1:${NATA}`,
-      'field:nata',
-    ])
-  })
-
-  test('with nothing at all the hero meets the photos and they close the page on fresa', async ({ page }) => {
-    await openHome(page, { featured: [ok([])], showcase: [todayStock([])], slices: [todayStock([])] })
-    await expect(page.locator('main [aria-busy="true"]')).toHaveCount(0)
-    expect(await floors(page)).toEqual(['field:fresa', 'field:fresa'])
-    expect(await closingGarland(page)).toBe('#f9c1c1')
-  })
-
-  test('with only the house cakes, the photos follow them and close the page on fresa', async ({ page }) => {
-    await openHome(page, { showcase: [todayStock([])], slices: [todayStock([])] })
-    await expect(page.locator('main [aria-busy="true"]')).toHaveCount(0)
-    expect(await floors(page)).toEqual(['field:fresa', `duya:#f9c1c1:${NATA}`, 'field:nata', `duya:#fff4f4:${FRESA}`, 'field:fresa'])
-    expect(await closingGarland(page)).toBe('#f9c1c1')
+  test('a request that hangs ends in the error state when the timeout runs out', async ({ page }) => {
+    await shortenCatalogTimeout(page, 300)
+    await openHome(page, { showcase: ['hang'] })
+    await expect(showcase(page).getByRole('alert')).toContainText('No se pudo cargar la vitrina', { timeout: 3_000 })
+    await expect(showcase(page).locator('[aria-busy="true"]')).toHaveCount(0)
   })
 
   test('everything sold out in the vitrina shows the sold-out copy with its two exits', async ({ page }) => {
@@ -462,7 +388,6 @@ test.describe('hidden sections and states', () => {
     await expect(alert).toContainText('No se pudo cargar la vitrina')
     await expect(alert).toContainText('Vuelve a intentarlo en un momento.')
     await expect(featured(page).getByRole('article')).toHaveCount(4)
-    await expect(slices(page).getByRole('article')).toHaveCount(4)
     // El encabezado y la salida a la vitrina siguen.
     await expect(section.getByRole('heading', { level: 2, name: 'Vitrina' })).toBeVisible()
     await expect(section.getByRole('link', { name: 'Ver toda la vitrina' })).toBeVisible()
@@ -499,7 +424,7 @@ test.describe('hidden sections and states', () => {
     const heading = section.getByRole('heading', { level: 2 })
     await expect(heading).toBeFocused()
     await expect(heading).toHaveCSS('outline-style', 'solid')
-    await expect(heading).toHaveCSS('outline-color', 'rgb(255, 251, 251)')
+    await expect(heading).toHaveCSS('outline-color', MERMELADA)
     await expect(section.getByRole('radio')).toHaveCount(0)
   })
 
@@ -509,18 +434,16 @@ test.describe('hidden sections and states', () => {
   })
 
   test('a malformed response is an error, not an empty section', async ({ page }) => {
-    await openHome(page, { slices: [ok({ fecha: 'hoy' })], featured: [ok({ productos: [] })] })
-    await expect(slices(page).getByRole('alert')).toContainText('No se pudieron cargar las rebanadas de hoy')
+    await openHome(page, { featured: [ok({ productos: [] })] })
     await expect(featured(page).getByRole('alert')).toContainText('No se pudieron cargar los pasteles de la casa')
     await expect(showcase(page).getByRole('listitem')).toHaveCount(8)
   })
 
   test('while loading: each section keeps its header, shows a busy skeleton and says what is loading', async ({ page }) => {
-    await openHome(page, { featured: ['hang'], showcase: ['hang'], slices: ['hang'] })
+    await openHome(page, { featured: ['hang'], showcase: ['hang'] })
     for (const [section, label] of [
       [featured(page), 'Cargando los pasteles de la casa…'],
       [showcase(page), 'Cargando la vitrina…'],
-      [slices(page), 'Cargando las rebanadas de hoy…'],
     ] as const) {
       await expect(section.getByRole('heading', { level: 2 })).toBeVisible()
       await expect(section.locator('[aria-busy="true"]')).toHaveCount(1)
@@ -531,15 +454,8 @@ test.describe('hidden sections and states', () => {
     for (const block of await page.locator('main [data-esqueleto]').all()) {
       await expect(block).toHaveAttribute('aria-hidden', 'true')
     }
-    // Sobre la vitrina `mermelada` el esqueleto es liso, en `mermelada-suave`.
-    await expect(showcase(page).locator('[data-esqueleto]').first()).toHaveCSS('background-color', 'rgb(102, 66, 67)')
-  })
-
-  test('a request that hangs ends in the error state when the timeout runs out', async ({ page }) => {
-    await shortenCatalogTimeout(page, 300)
-    await openHome(page, { slices: ['hang'] })
-    await expect(slices(page).getByRole('alert')).toContainText('No se pudieron cargar las rebanadas de hoy', { timeout: 3_000 })
-    await expect(slices(page).locator('[aria-busy="true"]')).toHaveCount(0)
+    // Sobre la vitrina `fresa` el esqueleto es de `fresa-claro`, como en los demás campos `fresa`.
+    await expect(showcase(page).locator('[data-esqueleto]').first()).toHaveCSS('background-color', 'rgb(255, 223, 223)')
   })
 
   test('with a photo the card shows a real image with its alt text', async ({ page }) => {
@@ -567,22 +483,6 @@ test.describe('hidden sections and states', () => {
     await expect(large.locator('img')).toHaveCount(0)
   })
 
-  test('Rebanadas shows at most four, the available ones first, and links to all of them', async ({ page }) => {
-    const more = [
-      ...sliceItems,
-      { ...sliceItems[0], offering_id: 94, product_slug: 'flan', product_name: 'Flan napolitano', stock: 2 },
-      { ...sliceItems[0], offering_id: 95, product_slug: 'tarta', product_name: 'Tarta de frutas', stock: 1 },
-    ]
-    await openHome(page, { slices: [todayStock(more)] })
-    await expect(articleNames(slices(page))).toHaveText([
-      'Tres leches de durazno',
-      'Tres leches con flan y cajeta',
-      'Posible',
-      'Flan napolitano',
-    ])
-    await expect(slices(page)).not.toContainText('Agotada por hoy')
-    await expect(slices(page).getByRole('link', { name: 'Ver todas las rebanadas' })).toHaveAttribute('href', '/rebanadas')
-  })
 })
 
 // Correcciones del 21 de noviembre: en una laptop (1366-1536 × 720-800) el hero quedaba bajo y se cortaba abajo. En una pantalla
@@ -626,9 +526,9 @@ test.describe('hero on a short desktop screen', () => {
 test.describe('mobile at 390px', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
-  test('no horizontal overflow, the wordmark hides and the slices scroll inside their row', async ({ page }) => {
+  test('no horizontal overflow, the wordmark hides and the vitrina filters fill the width', async ({ page }) => {
     await openHome(page)
-    await expect(slices(page).getByRole('article').first()).toBeVisible()
+    await expect(showcase(page).getByRole('article').first()).toBeVisible()
     const overflow = await page.locator('html').evaluate((el) => el.scrollWidth - el.clientWidth)
     expect(overflow).toBeLessThanOrEqual(0)
     // En móvil el h1 sigue para el lector, sin el logotipo grande (el mockup lo oculta).
@@ -639,14 +539,10 @@ test.describe('mobile at 390px', () => {
     const tops = await showcase(page).getByRole('listitem').evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)))
     expect(tops[0]).toBe(tops[1])
     expect(tops[2]).toBeGreaterThan(tops[1])
-    // Las rebanadas se desplazan de lado dentro de su fila, sin mover la página.
-    const row = slices(page).getByRole('region', { name: 'Tarjetas de las rebanadas de hoy' })
-    expect(await row.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true)
-    // La fila se puede enfocar y mover con el teclado, y muestra el foco.
-    await row.focus()
-    await expect(row).toHaveCSS('outline-style', 'solid')
-    await page.keyboard.press('ArrowRight')
-    await expect.poll(() => row.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0)
+    // Los filtros de la vitrina son la barra segmentada, de todo el ancho de la columna en móvil.
+    const group = showcase(page).getByRole('group', { name: 'Filtrar la vitrina' })
+    const bar = (await group.boundingBox())!
+    expect(bar.width).toBeGreaterThan(390 - 2 * 16 - 1)
     // Todo lo que se toca mide al menos 44 px.
     for (const control of await page.locator('main').getByRole('button').all()) {
       if (await control.isVisible()) expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44)
@@ -657,7 +553,7 @@ test.describe('mobile at 390px', () => {
 test.describe('keyboard', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
-  test('Tab goes through the hero actions; arrows move between the chips; focus is visible on the mermelada field', async ({ page }) => {
+  test('Tab goes through the hero actions; arrows move between the chips; focus is visible on the segmented bar', async ({ page }) => {
     await openHome(page)
     await expect(showcase(page).getByRole('listitem').first()).toBeVisible()
     await page.locator('main#contenido').focus()
@@ -673,15 +569,14 @@ test.describe('keyboard', () => {
     await page.keyboard.press('ArrowRight')
     await expect(showcase(page).getByRole('radio', { name: 'Pasteles' })).toBeChecked()
     await expect(showcase(page).getByRole('listitem')).toHaveCount(5)
+    // Barra segmentada sobre `fresa`: el elegido se llena de `mermelada` con texto `betun`; el foco va por fuera, en `mermelada`.
     const chosen = chip(showcase(page), 'Pasteles')
+    await expect(chosen).toHaveCSS('background-color', MERMELADA)
+    await expect(chosen).toHaveCSS('color', 'rgb(255, 251, 251)')
     await expect(chosen).toHaveCSS('outline-style', 'solid')
-    await expect(chosen).toHaveCSS('outline-color', 'rgb(255, 251, 251)')
-    // Elegido sobre `mermelada`: fondo `fresa-claro`, borde de 2 px `betun` y texto `mermelada`; sin elegir, el campo.
-    await expect(chosen).toHaveCSS('background-color', 'rgb(255, 223, 223)')
-    await expect(chosen).toHaveCSS('border-top-width', '2px')
-    await expect(chosen).toHaveCSS('color', 'rgb(94, 25, 33)')
-    await expect(chip(showcase(page), 'Todo')).toHaveCSS('background-color', 'rgb(94, 25, 33)')
-    await expect(chip(showcase(page), 'Todo')).toHaveCSS('color', 'rgb(255, 251, 251)')
+    await expect(chosen).toHaveCSS('outline-color', MERMELADA)
+    await expect(chip(showcase(page), 'Todo')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+    await expect(chip(showcase(page), 'Todo')).toHaveCSS('color', MERMELADA)
 
     // El siguiente Tab sale del grupo de chips y llega al primer botón de la vitrina.
     await page.keyboard.press('Tab')

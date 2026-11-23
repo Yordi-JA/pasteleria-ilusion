@@ -1,16 +1,16 @@
 import { expect, test } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
 import { mockCakeDesignOptions } from './support/cake-design.ts'
-import { featuredProducts, mockCatalog, ok, sliceItems, stockItem, todayStock } from './support/catalog.ts'
+import { featuredProducts, mockCatalog, ok, stockItem, todayStock } from './support/catalog.ts'
 import { cupCards, durazno, mockProductDetails, mockProducts, moldGelatinCard, posibleCard, productCards, tartaCard } from './support/products.ts'
 import { mockStoreInfo } from './support/store-info.ts'
 
 /**
  * Las imágenes fijas del modelo (D86): la tarjeta del catálogo, los pasteles de la casa y la vitrina de la portada muestran la
  * imagen del modelo cuando la API la da (`model_image`); si no, la foto; sin ninguna, el hueco. Su texto alternativo dice que es
- * la ilustración del pastel, no una foto. La página de la vitrina y la de las rebanadas la usan también (D104; la sección de rebanadas
- * de la portada conserva la foto). La ficha conserva la foto real. Los postres con modelo (D95) siguen la misma regla con la imagen
- * de su `slug` (al final).
+ * la ilustración del pastel, no una foto. La página de la vitrina y la de las rebanadas la usan también (D104); la portada ya no
+ * lleva rebanadas (D105). La ficha conserva la foto real. Los postres con modelo (D95) siguen la misma regla con la imagen de su
+ * `slug` (al final).
  */
 
 // Archivos que existen en `public/fotos/`: una imagen que no carga cae al hueco, y la prueba no debe depender de eso.
@@ -68,9 +68,8 @@ test('una imagen del modelo que no carga cae al hueco, nunca a un ícono roto', 
   await expect(card(page, 'Tres leches de durazno').getByRole('img', { name: 'Foto del pastel pendiente' })).toBeVisible()
 })
 
-test('la portada usa la imagen del modelo en los pasteles de la casa y en la vitrina, y la foto en las rebanadas', async ({ page }) => {
+test('la portada usa la imagen del modelo en los pasteles de la casa y en la vitrina, y la portada ya no tiene rebanadas', async ({ page }) => {
   const [first, ...featured] = featuredProducts
-  const slice = { ...sliceItems[0], photo: OTHER_PHOTO }
   await mockCatalog(page, {
     featured: [ok([{ ...first, photo: PHOTO, model_image: MODEL }, ...featured.map((entry) => ({ ...entry, model_image: null }))])],
     showcase: [
@@ -79,7 +78,6 @@ test('la portada usa la imagen del modelo en los pasteles de la casa y en la vit
         { ...stockItem(3, 'tres-leches-de-durazno', 'Tres leches de durazno', 'cake', 'mini', '130.00', { photo: OTHER_PHOTO, sliced: false }), model_image: null },
       ]),
     ],
-    slices: [todayStock([slice])],
   })
   await page.goto('/')
 
@@ -90,8 +88,7 @@ test('la portada usa la imagen del modelo en los pasteles de la casa y en la vit
   await expectImage(showcase.getByRole('img', { name: 'Tres leches de durazno, ilustración del pastel', exact: true }), MODEL)
   await expectImage(showcase.getByRole('img', { name: 'Mini de tres leches de durazno', exact: true }), OTHER_PHOTO)
 
-  const slices = page.getByRole('region', { name: 'Rebanadas de hoy', exact: true })
-  await expectImage(slices.getByRole('img', { name: 'Rebanada de tres leches de durazno', exact: true }), OTHER_PHOTO)
+  await expect(page.getByRole('region', { name: 'Rebanadas de hoy', exact: true })).toHaveCount(0)
   await expect(page.getByRole('img', { name: /ilustración del pastel/ })).toHaveCount(2)
 })
 
@@ -110,7 +107,7 @@ test('la página de la vitrina usa la imagen del modelo; la partida sin modelo c
   await expect(page.locator(`img[src="/fotos/${PHOTO}"]`)).toHaveCount(0)
 })
 
-test('la página de las rebanadas usa la imagen del modelo; sin ella, la foto; la portada conserva la foto (D104)', async ({ page }) => {
+test('la página de las rebanadas usa la imagen del modelo; sin ella, la foto (D104)', async ({ page }) => {
   const withModel = { ...stockItem(2, 'tres-leches-de-durazno', 'Tres leches de durazno', 'cake', 'slice', '35.00', { photo: PHOTO }), model_image: MODEL }
   const withPhoto = { ...stockItem(91, 'tres-leches-con-flan-y-cajeta', 'Tres leches con flan y cajeta', 'cake', 'slice', '40.00', { photo: OTHER_PHOTO }), model_image: null }
   const withNothing = { ...stockItem(93, 'tres-leches-de-cajeta', 'Tres leches de cajeta', 'cake', 'slice', '35.00'), model_image: null }
@@ -121,11 +118,6 @@ test('la página de las rebanadas usa la imagen del modelo; sin ella, la foto; l
   await expectImage(page.getByRole('img', { name: 'Rebanada de tres leches con flan y cajeta', exact: true }), OTHER_PHOTO)
   await expect(page.getByRole('img', { name: 'Foto de la rebanada' })).toBeVisible()
   await expect(page.locator(`img[src="/fotos/${PHOTO}"]`)).toHaveCount(0)
-
-  await page.goto('/')
-  const slices = page.getByRole('region', { name: 'Rebanadas de hoy', exact: true })
-  await expectImage(slices.getByRole('img', { name: 'Rebanada de tres leches de durazno', exact: true }), PHOTO)
-  await expect(slices.getByRole('img', { name: /ilustración/ })).toHaveCount(0)
 })
 
 test('la ficha conserva la foto real; sus relacionados usan la imagen del modelo', async ({ page }) => {
