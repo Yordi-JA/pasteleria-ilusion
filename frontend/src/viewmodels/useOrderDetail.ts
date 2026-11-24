@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams } from 'react-router'
 import type { AccountOrder } from '../models/accountOrders.ts'
 import { orderThumbnails } from '../models/checkout.ts'
-import { deliveryText, orderDates, paidSummary, paymentText, pearlStep, standViews, timelineSteps } from './orderView.ts'
+import { cancelledMoney, deliveryText, orderDates, paidSummary, paymentText, pearlStep, standViews, timelineSteps } from './orderView.ts'
 import { parseOrderId, useAccountOrder } from './useAccountOrder.ts'
 import { useNoteDownload } from './useNoteDownload.ts'
 import { useOrderCancellation } from './useOrderCancellation.ts'
@@ -24,6 +24,8 @@ export function useOrderDetail() {
   const order = cancelled ?? (load.status === 'ready' ? load.order : null)
   const cancel = useOrderCancellation({ orderId, order, reload: retry, onCancelled: setCancelled })
 
+  const money = order ? cancelledMoney(order, cancel.quote) : null
+
   return {
     orderId,
     load,
@@ -42,8 +44,8 @@ export function useOrderDetail() {
           summary: paidSummary(order, orderThumbnails(order.id)),
           delivery: deliveryText(order),
           pickup: order.fulfillment === 'pickup',
-          payment: paymentText(order),
-          stands: standViews(order),
+          payment: paymentText(order, money),
+          stands: standViews(order, money),
           noteAvailable: order.noteAvailable,
         }
       : null,

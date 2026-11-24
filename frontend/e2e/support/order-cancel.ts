@@ -45,14 +45,22 @@ export function alreadyCancelled(overrides: Record<string, unknown> = {}) {
   return cancellationPreview({ status: 'cancelled', cancellable: false, reason: 'already_cancelled', message: 'Este pedido ya está cancelado.', ...overrides })
 }
 
-/** Responde `GET` con `preview` y `POST` con `post` (por omisión, 500). Devuelve las peticiones de cada método. */
-export async function mockCancellation(page: Page, id: number, { preview, post }: { preview: Reply; post?: Reply }) {
+/**
+ * Responde `GET` con `preview` y `POST` con `post` (por omisión, 500). Como el servidor real, un `POST` que cancela
+ * deja el pedido cancelado: los `GET` siguientes responden `afterPost` (por omisión, un pedido cancelado sin montos).
+ * El `quote` del `POST` real es el de ANTES de cancelar (D106): el estado anterior y `cancellable: true`.
+ * Devuelve las peticiones de cada método.
+ */
+export async function mockCancellation(page: Page, id: number, { preview, post, afterPost }: { preview: Reply; post?: Reply; afterPost?: Reply }) {
   const gets: Request[] = []
   const posts: Request[] = []
+  let cancelled = false
   await page.route(`**/api/v1/orders/${id}/cancel/`, async (route) => {
     const request = route.request()
-    const reply = request.method() === 'GET' ? preview : (post ?? { status: 500 })
-    ;(request.method() === 'GET' ? gets : posts).push(request)
+    const isGet = request.method() === 'GET'
+    const reply = isGet ? (cancelled ? (afterPost ?? { status: 200, body: alreadyCancelled() }) : preview) : (post ?? { status: 500 })
+    ;(isGet ? gets : posts).push(request)
+    if (!isGet && reply.status === 200) cancelled = true
     await route.fulfill({ status: reply.status, contentType: 'application/json', body: JSON.stringify(reply.body ?? {}) })
   })
   return { gets, posts }

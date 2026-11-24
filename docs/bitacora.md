@@ -946,3 +946,11 @@ Durante el 26 y el 29 de octubre, sin hora registrada, también se hicieron: voc
 - Pruebas cambiadas: `e2e/home.spec.ts`, `home-gallery.spec.ts`, `animations.spec.ts`, `add-to-cart-flight.spec.ts`, `catalog-model-images.spec.ts` y `showcase.spec.ts`.
 - Se actualizaron las decisiones (D105 y notas en D47, D77, D86, D95, D97 y D104), el mapa de vistas, el libro de marca, `frontend/AGENTS.md` y el `README.md`.
 - Decisión D105.
+
+### Lunes 23 de noviembre (noche): un pedido cancelado que se cobró dice la verdad (D106)
+
+- Excepción al congelamiento (D101) autorizada por el usuario. La verificación en vivo con el pedido de prueba #105 (tarjeta de prueba de Stripe, $600 de anticipo y $90 de depósito, cancelado desde la cuenta) mostró que el detalle decía "El pedido se canceló sin pagarse. No se te cobró nada.", "por pagar" en el resumen y "Depósito por pagar" en la base, mientras el aviso decía bien "La devolución de $90 está pendiente".
+- Ahora el detalle de un pedido cancelado que se cobró dice lo pagado, con qué y cuándo, lo que retiene la pastelería y lo que devuelve; el resumen dice "pagado" y la base, "Depósito por devolver". Los montos salen de `GET orders/<id>/cancel/`, que el detalle también pide cuando el pedido está cancelado (la `cancellation` del `POST` se descarta: el servidor la arma antes de cambiar el estado). Un pedido cancelado ya no muestra "Resto, el día de la entrega". Un pedido cancelado sin pagar no cambia.
+- El aviso "La devolución de $90 está pendiente" sí aparece en móvil (390 px); la captura lo cortó. Es de la sesión: tras recargar ya no sale, y "Pago" lleva la misma información.
+- Archivos: `frontend/src/viewmodels/orderView.ts`, `useOrderCancellation.ts` y `useOrderDetail.ts`; `frontend/src/models/accountOrders.ts` (`CancellationPreview.orderId`, obligatorio); la prueba nueva `frontend/e2e/order-cancelled-paid.spec.ts`, y `e2e/order-cancel.spec.ts` y `e2e/support/order-cancel.ts`, cuyos mocks del `POST` ahora devuelven la cotización previa, como el servidor.
+- Decisión D106.

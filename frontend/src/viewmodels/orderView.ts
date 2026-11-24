@@ -4,7 +4,7 @@
  * Ningún monto se calcula aquí: todos vienen del servidor. La API solo da la fecha del pago (`paid_with.paid_at`) y la
  * del estado actual (`status_changed_at`); los pasos intermedios dicen que ya pasaron, sin fecha.
  */
-import type { AccountOrder, AccountOrderItem, OrderStand } from '../models/accountOrders.ts'
+import type { AccountOrder, AccountOrderItem, CancellationPreview, OrderStand } from '../models/accountOrders.ts'
 import { bakeryMoment, formatDateInSentence } from '../models/dates.ts'
 import { formatPrice } from '../models/money.ts'
 import type { OrderPayment } from '../models/orders.ts'
@@ -35,6 +35,22 @@ export function pearlStep(status: string): number | null {
 /** Si el pedido ya está pagado (regla 12): de `received` en adelante. */
 export function isPaid(status: string): boolean {
   return pearlStep(status) !== null
+}
+
+/**
+ * Si un pedido cancelado sí se cobró (D106): el servidor guarda el pago aunque el pedido se cancele, y `paidWith` solo
+ * existe si hubo un cobro. Un pedido cancelado sin pagar (vencido o cancelado antes de pagar) no lo tiene.
+ */
+export function wasChargedBeforeCancelling(order: AccountOrder): boolean {
+  return order.status === 'cancelled' && order.paidWith !== null
+}
+
+/**
+ * Lo pagado, retenido y devuelto de un pedido cancelado (D106), tal como lo da `GET orders/<id>/cancel/`. Una vista previa
+ * que todavía es la de otro estado (la de antes de cancelar) no sirve: `null` hasta que llegue la del pedido cancelado.
+ */
+export function cancelledMoney(order: AccountOrder, quote: CancellationPreview | null): CancellationPreview | null {
+  return wasChargedBeforeCancelling(order) && quote?.status === 'cancelled' && quote.orderId === order.id ? quote : null
 }
 
 /** En curso: todavía no se entrega ni se canceló. */
@@ -113,7 +129,7 @@ export function orderBrief(order: AccountOrder): string {
 export type SummaryRow = { label: string; amount: string }
 
 /** El desglose del pedido (libro de marca, "Pago y entrega"), "pagado" o "por pagar" según el estado. */
-function summaryRows(payment: OrderPayment | null, paid: boolean): SummaryRow[] {
+function summaryRows(payment: OrderPayment | null, paid: boolean, cancelled: boolean): SummaryRow[] {
   if (!payment) return []
   const suffix = paid ? ' pagado' : ' por pagar'
   let advance = `Anticipo${suffix} (${payment.advancePercent}%)`
@@ -122,7 +138,8 @@ function summaryRows(payment: OrderPayment | null, paid: boolean): SummaryRow[] 
   const rows: SummaryRow[] = [{ label: advance, amount: price(payment.advance) }]
   if (!isZero(payment.baseDeposit)) rows.push({ label: `Depósito de la base${suffix}`, amount: price(payment.baseDeposit) })
   if (!isZero(payment.deliveryFee)) rows.push({ label: `Envío${suffix}`, amount: price(payment.deliveryFee) })
-  if (!isZero(payment.payOnDelivery)) rows.push({ label: 'Resto, el día de la entrega', amount: price(payment.payOnDelivery) })
+  // Un pedido cancelado ya no tiene día de entrega, pagado o no: no hay resto que cobrar (D106).
+  if (!cancelled && !isZero(payment.payOnDelivery)) rows.push({ label: 'Resto, el día de la entrega', amount: price(payment.payOnDelivery) })
   return rows
 }
 
@@ -142,11 +159,12 @@ function firstReturnBy(stands: OrderStand[]): string | null {
 
 /** `thumbnails`: las miniaturas por línea del pedido creado en esta pestaña; sin ellas, cada línea lleva la imagen del servidor (D103). */
 export function paidSummary(order: AccountOrder, thumbnails: (string | null)[] = []): PaidSummaryView {
-  const returnBy = firstReturnBy(order.stands)
+  // Un pedido cancelado que se cobró ya no tiene base que regresar: no promete devolverla (D106).
+  const returnBy = wasChargedBeforeCancelling(order) ? null : firstReturnBy(order.stands)
   return {
     items: order.items.map((item, index) => ({ ...itemView(item, index), thumbnail: orderLineThumbnail(thumbnails, order.items, index) })),
     total: `${price(order.subtotal)} MXN`,
-    rows: summaryRows(order.payment, isPaid(order.status)),
+    rows: summaryRows(order.payment, isPaid(order.status) || wasChargedBeforeCancelling(order), order.status === 'cancelled'),
     depositNote: returnBy ? `Te lo devolvemos si regresas la base antes del ${dateOf(returnBy)} con tu nota.` : null,
   }
 }
@@ -194,9 +212,20 @@ export function deliveryText(order: AccountOrder): string {
   return `${order.fulfillment === 'delivery' ? 'Entrega a domicilio' : 'Recoger en la pastelería'} ${whenText(order)}`
 }
 
-/** "Anticipo del 50% con Tarjeta (Stripe), el viernes 13 de noviembre. Resta $2,087.50 para el día de la entrega." */
-export function paymentText(order: AccountOrder): string {
+/**
+ * "Anticipo del 50% con Tarjeta (Stripe), el viernes 13 de noviembre. Resta $2,087.50 para el día de la entrega." Un
+ * pedido cancelado que se cobró dice lo pagado, lo retenido y lo devuelto con los montos de `money` (D106).
+ */
+export function paymentText(order: AccountOrder, money: CancellationPreview | null = null): string {
   const { payment, paidWith } = order
+  if (order.status === 'cancelled' && paidWith) {
+    const day = dayOf(paidWith.paidAt)
+    const paid = `${money ? `Pagaste ${price(money.paid)} con` : 'Pagaste con'} ${paidWith.methodLabel}${day ? `, el ${day}` : ''}, y el pedido se canceló.`
+    if (!money) return `${paid} La devolución, si hay algo que devolver, la hace la pastelería.`
+    return isZero(money.refund)
+      ? `${paid} La pastelería retiene ${price(money.retained)} y no queda nada por devolver.`
+      : `${paid} La pastelería retiene ${price(money.retained)} y te devolvemos ${price(money.refund)}. La devolución la hace la pastelería.`
+  }
   if (order.status === 'cancelled') return 'El pedido se canceló sin pagarse. No se te cobró nada.'
   if (order.status === 'awaiting_quote' || !payment) return 'Espera su cotización: todavía no hay nada que pagar.'
   if (!paidWith || !isPaid(order.status)) return 'Falta tu pago.'
@@ -208,18 +237,27 @@ export function paymentText(order: AccountOrder): string {
 
 export type StandView = { key: string; title: string; status: string; sentence: string }
 
-export function standViews(order: AccountOrder): StandView[] {
+/** El estado de la base de un pedido cancelado que se cobró: su depósito se devuelve, salvo que no quede nada (D106). */
+function cancelledDepositStatus(money: CancellationPreview | null): string {
+  if (!money) return 'Depósito pagado'
+  return isZero(money.refund) ? 'Depósito retenido' : 'Depósito por devolver'
+}
+
+export function standViews(order: AccountOrder, money: CancellationPreview | null = null): StandView[] {
+  const charged = wasChargedBeforeCancelling(order)
   return order.stands.map((stand, index) => {
     const deposit = price(stand.deposit)
     const returned = stand.status === 'returned'
     const day = returned ? dayOf(stand.returnedAt) : null
-    const sentence = returned
+    const sentence = charged
+      ? `Depósito de ${deposit}. El pedido se canceló: ya no hay base que regresar.`
+      : returned
       ? `${day ? `La regresaste el ${day}. ` : ''}Te devolvimos el depósito de ${deposit}.`
       : `Depósito de ${deposit}. Regresa la base antes del ${dateOf(stand.returnBy)} (${stand.returnDays} días) con tu nota y te devolvemos el importe.`
     return {
       key: `base-${index}`,
       title: `Base para ${stand.kg} kg`,
-      status: stand.statusLabel ?? (isPaid(order.status) ? 'Depósito retenido' : 'Depósito por pagar'),
+      status: stand.statusLabel ?? (charged ? cancelledDepositStatus(money) : isPaid(order.status) ? 'Depósito retenido' : 'Depósito por pagar'),
       sentence,
     }
   })

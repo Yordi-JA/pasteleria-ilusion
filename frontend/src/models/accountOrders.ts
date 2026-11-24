@@ -174,6 +174,8 @@ export type CancelReason = 'not_cancellable' | 'already_cancelled' | (string & {
  * texto; el navegador no calcula nada.
  */
 export type CancellationPreview = {
+  /** El pedido al que pertenece la cotización. */
+  orderId: number
   /** El estado del pedido que vio la vista previa: `POST` lo devuelve como `expected_status`. */
   status: string
   cancellable: boolean
@@ -196,7 +198,9 @@ export function parseCancellationPreview(data: unknown): CancellationPreview {
   if (!isRecord(data) || typeof data.status !== 'string' || typeof data.cancellable !== 'boolean' || typeof data.retention_percent !== 'number') {
     throw new TypeError('La vista previa de la cancelación no tiene la forma esperada.')
   }
+  if (typeof data.order_id !== 'number' || !Number.isInteger(data.order_id)) throw new TypeError('La vista previa de la cancelación no trae el pedido.')
   return {
+    orderId: data.order_id,
     status: data.status,
     cancellable: data.cancellable,
     reason: text(data.reason),

@@ -33,9 +33,9 @@ async function openDialog(page: Page) {
 
 test('cancels an unpaid order: nothing is charged', async ({ page }) => {
   await mockOrderDetail(page, 57, { status: 200, body: accountOrder({ id: 57, status: 'awaiting_payment' }) })
-  const { posts } = await mockCancellation(page, 57, {
+  const { gets, posts } = await mockCancellation(page, 57, {
     preview: { status: 200, body: cancellationPreview() },
-    post: { status: 200, body: { order: cancelledOrder(), cancellation: alreadyCancelled() } },
+    post: { status: 200, body: { order: cancelledOrder(), cancellation: cancellationPreview() } },
   })
   const { dialog } = await openDialog(page)
   await expect(dialog).toContainText('No se cobra nada')
@@ -48,13 +48,17 @@ test('cancels an unpaid order: nothing is charged', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Cancelar pedido' })).toHaveCount(0)
   await expect(page.getByRole('main')).toContainText('Cancelado')
   await expect(page.getByRole('main')).not.toContainText('devolución')
+  // El `quote` del POST es el de antes de cancelar: la página pide el real y no vuelve a ofrecer cancelar.
+  await expect.poll(() => gets.length).toBe(2)
+  await expect(page.getByRole('button', { name: 'Cancelar pedido' })).toHaveCount(0)
 })
 
 test('cancels a paid order: says what the bakery keeps and what is returned, with the amounts from the API', async ({ page }) => {
   await mockOrderDetail(page, 57)
-  const { posts } = await mockCancellation(page, 57, {
+  const { gets, posts } = await mockCancellation(page, 57, {
     preview: { status: 200, body: paidCancellationPreview() },
-    post: { status: 200, body: { order: cancelledOrder(), cancellation: alreadyCancelled({ paid: '870.00', retained: '800.00', refund: '70.00' }) } },
+    post: { status: 200, body: { order: cancelledOrder(), cancellation: paidCancellationPreview() } },
+    afterPost: { status: 200, body: alreadyCancelled({ paid: '870.00', retained: '800.00', refund: '70.00' }) },
   })
   const { dialog } = await openDialog(page)
   await expect(dialog).toContainText('La pastelería retiene $800 (el 50% del pedido) y te devolvemos $70.')
@@ -66,7 +70,9 @@ test('cancels a paid order: says what the bakery keeps and what is returned, wit
   expect(posts).toHaveLength(1)
   const status = page.getByRole('status').filter({ hasText: 'Pedido cancelado' })
   await expect(status).toContainText('La devolución de $70 está pendiente')
+  await expect.poll(() => gets.length).toBe(2)
   await expect(page.getByRole('button', { name: 'Cancelar pedido' })).toHaveCount(0)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
 })
 
 test('a paid order with nothing to return says so', async ({ page }) => {
@@ -81,7 +87,7 @@ test('in preparation and paid it can still be cancelled: the bakery keeps 50%', 
   await mockOrderDetail(page, 57, { status: 200, body: accountOrder({ id: 57, status: 'in_preparation' }) })
   const { posts } = await mockCancellation(page, 57, {
     preview: { status: 200, body: paidCancellationPreview({ status: 'in_preparation' }) },
-    post: { status: 200, body: { order: cancelledOrder(), cancellation: alreadyCancelled({ paid: '870.00', retained: '800.00', refund: '70.00' }) } },
+    post: { status: 200, body: { order: cancelledOrder(), cancellation: paidCancellationPreview({ status: 'in_preparation' }) } },
   })
   const { dialog } = await openDialog(page)
   await expect(dialog).toContainText('La pastelería retiene $800 (el 50% del pedido) y te devolvemos $70.')
@@ -131,7 +137,7 @@ test('the POST sends the status the preview showed', async ({ page }) => {
   await mockOrderDetail(page, 57, { status: 200, body: accountOrder({ id: 57, status: 'in_preparation' }) })
   const { posts } = await mockCancellation(page, 57, {
     preview: { status: 200, body: paidCancellationPreview({ status: 'in_preparation' }) },
-    post: { status: 200, body: { order: cancelledOrder(), cancellation: alreadyCancelled() } },
+    post: { status: 200, body: { order: cancelledOrder(), cancellation: paidCancellationPreview({ status: 'in_preparation' }) } },
   })
   const { dialog } = await openDialog(page)
   await dialog.getByRole('button', { name: CONFIRM }).click()
@@ -195,11 +201,13 @@ test('the confirm button is disabled while the request is in flight, and Escape 
     release = resolve
   })
   let posts = 0
+  let cancelled = false
   await page.route(CANCEL_URL, async (route) => {
-    if (route.request().method() === 'GET') return route.fulfill(json(paidCancellationPreview()))
+    if (route.request().method() === 'GET') return route.fulfill(json(cancelled ? alreadyCancelled() : paidCancellationPreview()))
     posts += 1
     await gate
-    await route.fulfill(json({ order: cancelledOrder(), cancellation: alreadyCancelled() }))
+    cancelled = true
+    await route.fulfill(json({ order: cancelledOrder(), cancellation: paidCancellationPreview() }))
   })
   const { dialog } = await openDialog(page)
   await dialog.getByRole('button', { name: CONFIRM }).click()

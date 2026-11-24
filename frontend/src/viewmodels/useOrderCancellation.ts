@@ -15,7 +15,7 @@ type Options = {
 
 /**
  * View-model de "Cancelar pedido" en el detalle (D70): pide la vista previa (`GET orders/<id>/cancel/`) de todo pedido
- * que no esté cancelado (uno entregado responde `not_cancellable` con su frase), controla el diálogo de confirmación y envía `POST`. Un 409 cierra el diálogo, muestra su texto
+ * (uno cancelado trae lo pagado, retenido y devuelto, D106; uno entregado responde `not_cancellable` con su frase), controla el diálogo de confirmación y envía `POST`. Un 409 cierra el diálogo, muestra su texto
  * y vuelve a pedir el pedido; un 429, un 5xx o la falta de red dejan el diálogo abierto con el error.
  */
 export function useOrderCancellation({ orderId, order, reload, onCancelled }: Options) {
@@ -26,8 +26,9 @@ export function useOrderCancellation({ orderId, order, reload, onCancelled }: Op
   const [conflict, setConflict] = useState<string | null>(null)
   const [doneText, setDoneText] = useState<string | null>(null)
   const status = order?.status ?? null
-  // Se cancela en cualquier estado antes de la entrega (D70, segunda ronda); entregado, la vista previa trae el motivo en texto.
-  const watching = orderId !== null && status !== null && status !== 'cancelled'
+  // Se cancela en cualquier estado antes de la entrega (D70, segunda ronda); entregado, la vista previa trae el motivo en
+  // texto. Uno cancelado también la pide: trae lo pagado, retenido y devuelto que el detalle dice (D106).
+  const watching = orderId !== null && status !== null
 
   useEffect(() => {
     if (!watching || orderId === null) return
@@ -50,6 +51,8 @@ export function useOrderCancellation({ orderId, order, reload, onCancelled }: Op
     try {
       const result = await cancelOrder(orderId, preview.status)
       setDoneText(cancelledNoticeText(preview))
+      // El `quote` del `POST` se arma antes de cancelar (sigue diciendo "se puede cancelar"): se descarta y, al cambiar
+      // el estado a `cancelled`, el efecto pide el `GET` real con lo pagado, retenido y devuelto (D106).
       setPreview(null)
       setOpen(false)
       onCancelled(result.order)
@@ -70,6 +73,8 @@ export function useOrderCancellation({ orderId, order, reload, onCancelled }: Op
   }
 
   return {
+    /** La vista previa más reciente: la del pedido cancelado trae lo pagado, retenido y devuelto (D106). */
+    quote: preview,
     cancellable: preview?.cancellable === true,
     reasonText: preview ? cancelReasonText(preview) : null,
     dialogText: preview ? cancelDialogText(preview) : null,
